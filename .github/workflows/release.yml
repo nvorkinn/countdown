@@ -38,7 +38,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           # Every workspace member: the root project is virtual, so it isn't built.
-          for package in countdown-credentials countdown-epd countdown-core countdown-server countdown-client; do
+          for package in countdown-credentials countdown-epd countdown-core countdown-server countdown-client countdown-orchestrator; do
             (cd countdown && uv version --frozen --package "$package" "$version")
           done
       - name: Install lgpio build dependencies

@@ -13,6 +13,7 @@ dependencies = [
     "countdown-core",
     "countdown-server",
     "countdown-client",
+    "countdown-orchestrator",
 ]
 
 [tool.uv]
@@ -24,6 +25,7 @@ countdown-epd = { workspace = true }
 countdown-core = { workspace = true }
 countdown-server = { workspace = true }
 countdown-client = { workspace = true }
+countdown-orchestrator = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -42,7 +44,8 @@ members = [
     "epd",
     "core",
     "server",
-    "client"
+    "client",
+    "orchestrator"
 ]
 
 [tool.coverage.run]
@@ -51,7 +54,8 @@ source = [
     "credentials/src",
     "core/src",
     "server/src",
-    "client/src"
+    "client/src",
+    "orchestrator/src"
 ]
 
 [tool.coverage.report]
@@ -66,7 +70,8 @@ src = [
     "epd/src",
     "core/src",
     "server/src",
-    "client/src"
+    "client/src",
+    "orchestrator/src"
 ]
 # The vendored Waveshare driver.
 extend-exclude = ["epd/src/countdown_epd/epdconfig.py", "epd/src/countdown_epd/epd7in5_V2.py"]

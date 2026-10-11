@@ -175,9 +175,16 @@ class Registrar[R: Registration](ABC):
 class RendererRegistrar(Registrar[RendererRegistration]):
     """Whatever draws the frames. It waits in the broker's pool until a screen arrives to match it with,
     polling /api/config (as the broker asks: /register is rate-limited), which carries the device_id
-    once it's matched."""
+    once it's matched.
+
+    A renderer the orchestrator started for a screen is given that screen's claim token. Sent with the
+    registration, it matches the renderer to its screen at once, with no waiting in the pool."""
 
     role = "renderer"
+
+    def __init__(self, broker_url: str, claim_token: str | None = None, **kwargs):
+        self.claim_token = claim_token or None
+        super().__init__(broker_url, **kwargs)
 
     @override
     def _cached(self) -> RendererRegistration | None:
@@ -187,7 +194,10 @@ class RendererRegistrar(Registrar[RendererRegistration]):
 
     @override
     def _register_body(self) -> dict[str, object]:
-        return {"role": self.role, "secret": self._device_secret}
+        body: dict[str, object] = {"role": self.role, "secret": self._device_secret}
+        if self.claim_token:
+            body["claim_token"] = self.claim_token
+        return body
 
     @override
     def _registered(self, response: requests.Response) -> RendererRegistration:
