@@ -15,7 +15,6 @@ downloads/
 eggs/
 .eggs/
 lib/
-!standalone/src/countdown_standalone/lib/
 lib64/
 parts/
 sdist/

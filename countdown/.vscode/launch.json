@@ -2,25 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: uv run main.py --verbose",
+            "name": "Python Debugger: countdown-server",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "args": [
-                "--verbose"
-            ],
-            "cwd": "${workspaceFolder}",
-            "python": "${command:python.interpreterPath}",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Clear Waveshare ePaper Screen",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/dev/clear_pi.py",
-            "env": {
-                "PI_HOST": "nikolai@countdown.local"
-            },
+            "module": "countdown_server.main",
             "cwd": "${workspaceFolder}",
             "python": "${command:python.interpreterPath}",
             "console": "integratedTerminal"

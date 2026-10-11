@@ -1,6 +1,5 @@
-"""The key that keeps the device credentials file encrypted at rest. On a Pi, systemd hands it to the service
-as a credential (LoadCredential=, see countdown.service), so it never lives next to the file; a container gets
-it as a Docker secret. Anywhere else (a dev machine) one is made in the user's config directory, so the file is
+"""The key that keeps the device credentials file encrypted at rest. Under systemd it can be handed to the service
+as a credential (LoadCredential=), so it never lives next to the file; a container gets it as a Docker secret. Anywhere else (a dev machine) one is made in the user's config directory, so the file is
 never written unencrypted."""
 
 import os

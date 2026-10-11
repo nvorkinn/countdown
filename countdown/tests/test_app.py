@@ -13,7 +13,7 @@ from countdown_core.config_server.models import AppConfig
 from countdown_core.core import app
 from countdown_core.core.display_loop import safe_fetch
 from countdown_credentials.registration import RendererRegistrar, RendererRegistration
-from countdown_standalone import main as standalone_main
+from countdown_server.server_target import ServerTarget
 
 
 def test_safe_fetch_returns_func_result_on_success():
@@ -38,25 +38,20 @@ def test_safe_fetch_returns_fallback_on_validation_error():
 
 
 def test_the_console_script_entry_point_actually_runs_the_app(monkeypatch):
-    """The `countdown-standalone` script just calls main() without awaiting it, so main() must
+    """The `countdown-server` script just calls main() without awaiting it, so main() must
     run the app itself. Every other test drives run() directly and wouldn't notice."""
     ran = []
 
-    async def fake_run(make_target, standalone):
-        ran.append((make_target, standalone))
+    async def fake_run(make_target):
+        ran.append(make_target)
 
     monkeypatch.setattr(app, "run", fake_run)
     # Keep the test run's own logging set-up as it is.
     monkeypatch.setattr(app, "configure_logging", lambda: None)
-    panel = object()
-    monkeypatch.setattr(standalone_main, "target_from_env", lambda: panel)
-    (entry_point,) = entry_points(group="console_scripts", name="countdown-standalone")
+    (entry_point,) = entry_points(group="console_scripts", name="countdown-server")
 
     assert entry_point.load()() is None
-    [(make_target, standalone)] = ran
-    assert standalone is True  # the Pi is its own screen
-    # The panel's target, not countdown_core's preview-only default.
-    assert make_target(None) is panel
+    assert ran == [ServerTarget]
 
 
 @pytest.mark.parametrize(
@@ -203,9 +198,9 @@ def booted(monkeypatch):
     monkeypatch.setattr(app.signal, "signal", fake_signal)
     seen["handlers"] = {}
 
-    def boot(standalone=True, stop_while_registering=False):
+    def boot(stop_while_registering=False):
         seen["stop_while_registering"] = stop_while_registering
-        asyncio.run(app.run(make_target, standalone=standalone))
+        asyncio.run(app.run(make_target))
         return seen
 
     boot.seen = seen  # for a boot that's stopped part-way, which returns nothing
@@ -246,12 +241,10 @@ def test_stopping_once_there_is_a_display_puts_the_panel_to_sleep(booted):
     assert seen["order"][-1] == "panel asleep"
 
 
-@pytest.mark.parametrize("standalone", [True, False])
-def test_run_registers_as_a_standalone_or_split_renderer(booted, standalone):
-    registrar = booted(standalone=standalone)["registrar"]
+def test_run_registers_as_a_renderer_with_the_broker_url(booted):
+    registrar = booted()["registrar"]
 
     assert registrar.broker_url == "https://broker.example.com"
-    assert registrar.standalone is standalone
 
 
 def test_run_shares_the_one_registration_between_the_target_the_broker_and_the_registry(booted):
@@ -271,31 +264,3 @@ def test_run_hands_the_publisher_it_started_to_the_registry_with_one_device_stat
     assert registry.status is seen["publisher"].device_status
     assert registry.status.display is seen["display"]
     assert registry.status.last_broker_sync is not None
-
-
-def test_a_standalone_device_hands_its_secret_to_fluent_bit_once_registered(booted, tmp_path, monkeypatch):
-    env_file = tmp_path / "fluent-bit-env"
-    monkeypatch.setenv("FLUENT_BIT_ENV_FILE", str(env_file))
-
-    booted(standalone=True)
-
-    assert env_file.read_text().startswith("FLUENT_BIT_TOKEN=shh\n")
-
-
-def test_a_renderer_for_a_separate_screen_leaves_fluent_bit_to_its_host(booted, tmp_path, monkeypatch):
-    env_file = tmp_path / "fluent-bit-env"
-    monkeypatch.setenv("FLUENT_BIT_ENV_FILE", str(env_file))
-
-    booted(standalone=False)
-
-    assert not env_file.exists()
-
-
-def test_fluent_bit_is_only_handed_the_secret_after_registering(booted, tmp_path, monkeypatch):
-    env_file = tmp_path / "fluent-bit-env"
-    monkeypatch.setenv("FLUENT_BIT_ENV_FILE", str(env_file))
-
-    with pytest.raises(SystemExit):
-        booted(stop_while_registering=True)
-
-    assert not env_file.exists()

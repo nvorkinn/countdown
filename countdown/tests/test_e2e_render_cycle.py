@@ -14,11 +14,13 @@ from types import SimpleNamespace
 import pytest
 import responses
 from config_factory import make_config
+from fake_target import FakeTarget
 from PIL import Image
 
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.config_server.models import AppConfig
 from countdown_core.core import display_loop
+from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
 from countdown_core.display_composers.base_composer import BaseComposer
 from countdown_core.display_composers.glow_composer import GlowComposer
@@ -145,8 +147,7 @@ def _build_loop(config: AppConfig, monkeypatch, pairing_code: str | None = None)
     asyncio.run(broker.initialise())
     # Via get_pairing_code_panel, to seed the broker's cache like fetch_app_config() does.
     pairing_code_panel = broker.get_pairing_code_panel(AppConfig.model_validate(_app_config_json(pairing_code)))
-    monkeypatch.setattr(Image.Image, "show", lambda self, *a, **kw: None)
-    return DisplayLoop(broker, config, pairing_code_panel)
+    return DisplayLoop(broker, config, pairing_code_panel, DisplayController(FakeTarget()))
 
 
 def _spy_on_display_screen(loop: DisplayLoop, monkeypatch) -> list[dict]:

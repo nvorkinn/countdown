@@ -75,9 +75,9 @@ def test_paint_raises_when_the_broker_rejects_the_frame(target, broker):
         target.paint(_frame())
 
 
-def test_run_starts_the_app_as_a_split_renderer_with_the_server_target(mocker):
+def test_run_starts_the_app_with_the_server_target(mocker):
     app_main = mocker.patch.object(server_main, "main")
 
     server_main.run()
 
-    app_main.assert_called_once_with(ServerTarget, standalone=False)
+    app_main.assert_called_once_with(ServerTarget)

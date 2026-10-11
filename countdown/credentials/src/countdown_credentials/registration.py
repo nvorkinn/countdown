@@ -173,15 +173,11 @@ class Registrar[R: Registration](ABC):
 
 
 class RendererRegistrar(Registrar[RendererRegistration]):
-    """Whatever draws the frames. Standalone, a Pi that is its own screen, it becomes a device at once.
-    Split, it waits in the broker's pool until a screen arrives to match it with, polling /api/config
-    (as the broker asks: /register is rate-limited), which carries the device_id once it's matched."""
+    """Whatever draws the frames. It waits in the broker's pool until a screen arrives to match it with,
+    polling /api/config (as the broker asks: /register is rate-limited), which carries the device_id
+    once it's matched."""
 
     role = "renderer"
-
-    def __init__(self, broker_url: str, standalone: bool, **kwargs):
-        self.standalone = standalone
-        super().__init__(broker_url, **kwargs)
 
     @override
     def _cached(self) -> RendererRegistration | None:
@@ -191,10 +187,7 @@ class RendererRegistrar(Registrar[RendererRegistration]):
 
     @override
     def _register_body(self) -> dict[str, object]:
-        body: dict[str, object] = {"role": self.role, "secret": self._device_secret}
-        if self.standalone:
-            body["standalone"] = True
-        return body
+        return {"role": self.role, "secret": self._device_secret}
 
     @override
     def _registered(self, response: requests.Response) -> RendererRegistration:

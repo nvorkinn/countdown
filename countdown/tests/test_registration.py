@@ -45,8 +45,8 @@ def _stored() -> dict:
     return json.loads(credentials_key().decrypt(CREDENTIALS_FILE.read_bytes()))
 
 
-def _renderer(sleeps: Sleeps, standalone: bool = True) -> RendererRegistrar:
-    return RendererRegistrar(BROKER_URL, standalone=standalone, sleep=sleeps)
+def _renderer(sleeps: Sleeps) -> RendererRegistrar:
+    return RendererRegistrar(BROKER_URL, sleep=sleeps)
 
 
 def _display(sleeps: Sleeps) -> DisplayRegistrar:
@@ -145,7 +145,7 @@ def _decrypted(cipher: Fernet) -> dict:
 def test_with_a_key_the_file_is_encrypted_at_rest(sleeps):
     cipher = Fernet(Fernet.generate_key())
 
-    registrar = RendererRegistrar(BROKER_URL, standalone=True, sleep=sleeps, cipher=cipher)
+    registrar = RendererRegistrar(BROKER_URL, sleep=sleeps, cipher=cipher)
 
     assert registrar._device_secret.encode() not in CREDENTIALS_FILE.read_bytes()
     assert _decrypted(cipher) == {"device_secret": registrar._device_secret}
@@ -154,20 +154,20 @@ def test_with_a_key_the_file_is_encrypted_at_rest(sleeps):
 
 def test_an_encrypted_file_is_read_back_with_the_same_key(sleeps):
     cipher = Fernet(Fernet.generate_key())
-    first = RendererRegistrar(BROKER_URL, standalone=True, sleep=sleeps, cipher=cipher)
+    first = RendererRegistrar(BROKER_URL, sleep=sleeps, cipher=cipher)
     first._matched("device-123")
 
-    registration = _register(RendererRegistrar(BROKER_URL, standalone=True, sleep=sleeps, cipher=cipher))
+    registration = _register(RendererRegistrar(BROKER_URL, sleep=sleeps, cipher=cipher))
 
     assert registration == RendererRegistration(BROKER_URL, first._device_secret, "device-123")
 
 
 def test_an_encrypted_file_with_the_wrong_key_is_an_error_not_a_new_identity(sleeps):
-    RendererRegistrar(BROKER_URL, standalone=True, sleep=sleeps, cipher=Fernet(Fernet.generate_key()))
+    RendererRegistrar(BROKER_URL, sleep=sleeps, cipher=Fernet(Fernet.generate_key()))
     before = CREDENTIALS_FILE.read_bytes()
 
     with pytest.raises(RuntimeError, match="wasn't encrypted with this device's credentials key"):
-        RendererRegistrar(BROKER_URL, standalone=True, sleep=sleeps, cipher=Fernet(Fernet.generate_key()))
+        RendererRegistrar(BROKER_URL, sleep=sleeps, cipher=Fernet(Fernet.generate_key()))
 
     assert CREDENTIALS_FILE.read_bytes() == before
 
@@ -196,7 +196,7 @@ def test_without_a_key_one_is_made_for_the_user_and_kept(isolated_cwd, sleeps):
 def test_a_trailing_slash_on_the_broker_url_is_dropped(sleeps):
     _seed(device_id="a", device_secret="b")
 
-    assert _register(RendererRegistrar(f"{BROKER_URL}/", standalone=True, sleep=sleeps)).broker_url == BROKER_URL
+    assert _register(RendererRegistrar(f"{BROKER_URL}/", sleep=sleeps)).broker_url == BROKER_URL
 
 
 # --- Renderer -----------------------------------------------------------------------
@@ -213,24 +213,16 @@ def test_a_registered_renderer_doesnt_call_the_broker(broker, sleeps):
 
 
 @pytest.mark.parametrize("status", [200, 201])
-def test_a_standalone_renderer_registers_and_keeps_its_device_id(broker, sleeps, status):
+def test_a_renderer_registers_and_keeps_its_device_id(broker, sleeps, status):
     broker.post(REGISTER_URL, status=status, json={"device_id": "device-123"})
 
-    registration = _register(_renderer(sleeps, standalone=True))
+    registration = _register(_renderer(sleeps))
 
     assert registration.device_id == "device-123"
-    assert _bodies(broker) == [{"role": "renderer", "secret": registration.device_secret, "standalone": True}]
+    assert _bodies(broker) == [{"role": "renderer", "secret": registration.device_secret}]
     assert broker.calls[0].request.req_kwargs["timeout"] == REQUEST_TIMEOUT_S
     assert _stored() == {"device_secret": registration.device_secret, "device_id": "device-123"}
     assert sleeps == []
-
-
-def test_a_split_renderer_registers_without_the_standalone_flag(broker, sleeps):
-    broker.post(REGISTER_URL, status=201, json={"device_id": "device-123"})
-
-    registration = _register(_renderer(sleeps, standalone=False))
-
-    assert _bodies(broker) == [{"role": "renderer", "secret": registration.device_secret}]
 
 
 def test_a_renderer_waiting_to_be_matched_polls_the_config_until_it_has_a_device_id(broker, sleeps):
@@ -239,7 +231,7 @@ def test_a_renderer_waiting_to_be_matched_polls_the_config_until_it_has_a_device
     broker.get(CONFIG_URL, status=202, headers={"Retry-After": "15"})
     broker.get(CONFIG_URL, status=200, json={"device_id": "device-123", "interval": 60})
 
-    registration = _register(_renderer(sleeps, standalone=False))
+    registration = _register(_renderer(sleeps))
 
     assert _urls(broker) == [REGISTER_URL, CONFIG_URL, CONFIG_URL, CONFIG_URL]  # /register only once
     assert _bodies(broker, CONFIG_URL) == [{"role": "renderer"}] * 3
@@ -253,7 +245,7 @@ def test_a_renderer_dropped_from_the_pool_registers_again_with_the_same_secret(b
     broker.get(CONFIG_URL, status=401)
     broker.post(REGISTER_URL, status=201, json={"device_id": "device-123"})
 
-    registration = _register(_renderer(sleeps, standalone=False))
+    registration = _register(_renderer(sleeps))
 
     assert _urls(broker) == [REGISTER_URL, CONFIG_URL, REGISTER_URL]
     assert [body["secret"] for body in _bodies(broker)] == [registration.device_secret] * 2
@@ -266,7 +258,7 @@ def test_a_renderer_keeps_waiting_through_network_errors(broker, sleeps, caplog)
     broker.get(CONFIG_URL, status=200, json={"device_id": "device-123"})
 
     with caplog.at_level(logging.WARNING):
-        registration = _register(_renderer(sleeps, standalone=False))
+        registration = _register(_renderer(sleeps))
 
     assert "Couldn't reach the broker: no route to host" in caplog.text
     assert sleeps == [DEFAULT_RETRY_S]
@@ -279,7 +271,7 @@ def test_a_renderer_warns_about_an_unexpected_status_while_waiting(broker, sleep
     broker.get(CONFIG_URL, status=200, json={"device_id": "device-123"})
 
     with caplog.at_level(logging.WARNING):
-        _register(_renderer(sleeps, standalone=False))
+        _register(_renderer(sleeps))
 
     assert f"Unexpected 500 from {CONFIG_URL}" in caplog.text
     assert sleeps == [DEFAULT_RETRY_S]

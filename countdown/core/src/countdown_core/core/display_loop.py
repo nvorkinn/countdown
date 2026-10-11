@@ -39,14 +39,14 @@ class DisplayLoop:
         broker: BrokerClient,
         config: AppConfig,
         pairing_code_panel: PairingCodePanel,
-        display: DisplayController | None = None,
+        display: DisplayController,
         api_reg: ApiRegistry | None = None,
     ):
         self.broker = broker
         self.config = config
         self.pairing_code_panel = pairing_code_panel
         self.interval = config.interval
-        self.display = display if display is not None else DisplayController()
+        self.display = display
         # Without a registry of its own, one whose publisher reports nowhere.
         self.api_reg = api_reg if api_reg is not None else ApiRegistry(broker.registration, OtlpPublisher(API_NAMES))
         self._setup_shown: list[str] | None = None

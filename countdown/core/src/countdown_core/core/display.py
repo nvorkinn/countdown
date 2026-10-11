@@ -5,7 +5,7 @@ from PIL import Image, ImageChops
 
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.panel import Panel
-from countdown_core.core.targets import DisplayTarget, target_from_env
+from countdown_core.core.targets import DisplayTarget
 from countdown_core.display_composers import DEFAULT_COMPOSER, choose_composer
 from countdown_core.display_composers.abstract_display_composer import AbstractDisplayComposer
 from countdown_core.system_screens.empty_panel import EmptyPanel
@@ -22,8 +22,8 @@ FULL_REFRESH_INTERVAL_S = 600
 
 
 class DisplayController:
-    def __init__(self, target: DisplayTarget | None = None):
-        self.target = target if target is not None else target_from_env()
+    def __init__(self, target: DisplayTarget):
+        self.target = target
         # What's on the screen right now, or None if that isn't known (nothing painted
         # yet, or the last paint failed).
         self._shown: Image.Image | None = None

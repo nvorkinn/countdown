@@ -1,5 +1,4 @@
 local-only/
 .idea/
 .DS_Store
-secrets.zip
 .auth_broker_device
