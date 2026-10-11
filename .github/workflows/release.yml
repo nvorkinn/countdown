@@ -85,13 +85,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ env.SERVER_IMAGE }}:${{ github.ref_name }}
 
-  build-firmware:
-    needs: verify-tag
-    uses: ./.github/workflows/firmware.yml
-
   release:
     # The image too, so a GitHub release is only created once everything it ships exists.
-    needs: [build-python, build-server-image, build-firmware]
+    needs: [build-python, build-server-image]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -101,10 +97,6 @@ jobs:
         with:
           name: countdown-wheel
           path: countdown/dist
-      - uses: actions/download-artifact@v4
-        with:
-          name: firmware
-          path: firmware
       - name: Bundle encrypted secrets
         run: zip -r secrets.zip secrets
       - name: Create GitHub release and upload assets
@@ -114,7 +106,6 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             countdown/dist/*.whl \
             countdown/packaging/systemd/countdown.service \
-            firmware/*.bin \
             secrets.zip \
             install.sh \
             --title "$GITHUB_REF_NAME" --generate-notes --prerelease

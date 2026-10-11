@@ -37,9 +37,6 @@ jobs:
             python:
               - 'countdown/**'
               - '.github/workflows/codeql.yml'
-            cpp:
-              - 'countdown-esp/**'
-              - '.github/workflows/codeql.yml'
 
       # Pull requests: only what changed. Push to main, the weekly schedule
       # and manual runs: everything, so main always has a complete baseline.
@@ -52,7 +49,7 @@ jobs:
           if [ "$EVENT" = "pull_request" ]; then
             echo "languages=$CHANGED" >> "$GITHUB_OUTPUT"
           else
-            echo 'languages=["actions","python","cpp"]' >> "$GITHUB_OUTPUT"
+            echo 'languages=["actions","python"]' >> "$GITHUB_OUTPUT"
           fi
 
   analyze:

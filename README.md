@@ -13,13 +13,11 @@ repo:
   a Pi: the systemd journal goes to VictoriaLogs (`logs.nikolaivorkinn.com`) and host metrics to
   `metrics.nikolaivorkinn.com`, both with a bearer token in the `Authorization` header. The token is the device's own secret, so
   Fluent Bit only runs once countdown has registered with the broker (see [Logs and metrics](#logs-and-metrics)).
-- [`countdown-esp/`](countdown-esp/) -- ESP32 firmware for the countdown
-  (PlatformIO, Arduino, C++).
 - Root -- `install.sh`, which provisions a Pi with countdown and Fluent Bit, and `secrets/`, the
   encrypted config it hands them.
 
-Everything is released together: one tag builds the countdown wheel, the
-firmware and the secrets bundle, and `install.sh` installs exactly that tag.
+The countdown wheel and secrets bundle are released together: one tag builds
+both, and `install.sh` installs exactly that tag.
 
 Uses the [`gh` CLI](https://cli.github.com) (bootstrapped automatically if
 missing) to resolve releases and download assets, since it handles
@@ -97,9 +95,8 @@ builds everything and creates the GitHub release. The tag is the version of
 the app -- it's stamped into the wheels at build time, so the
 `version` in `countdown/pyproject.toml` is just a placeholder and doesn't need bumping.
 
-Each app also has its own CI workflow that only runs when files under its
-folder change (`.github/workflows/countdown-ci.yml`,
-`.github/workflows/firmware.yml`).
+The countdown CI workflow only runs when files under its folder change
+(`.github/workflows/countdown-ci.yml`).
 
 ## Device name
 

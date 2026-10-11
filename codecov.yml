@@ -1,5 +1,5 @@
-# Each app's CI only runs when its own files change, so carry the other app's
-# last upload forward instead of reporting it as missing.
+# Countdown CI only runs when its own files change, so carry its last upload
+# forward instead of reporting it as missing.
 flag_management:
   default_rules:
     carryforward: true
@@ -7,10 +7,6 @@ flag_management:
     - name: countdown
       paths:
         - countdown/
-    - name: countdown-esp
-      paths:
-        - countdown-esp/
-
 coverage:
   status:
     project:
