@@ -111,12 +111,12 @@ any `DEVICE_NAME` already there; countdown copies it into Fluent Bit's env once 
 It isn't the `device_id` the auth broker gives a renderer when it registers.
 
 countdown sends it to the broker as the `X-Device-Name` header and as the `host.name` on its OTLP metrics, and
-Fluent Bit labels every log line and metric with it as `device_name`.
+Fluent Bit labels every log line with it as `host` and every metric as `device_name`.
 Don't put `DEVICE_NAME` in the encrypted secrets -- they're shared by every
 Pi, and `install.sh` overwrites it anyway.
 
 Re-running with a different name changes it, and the logs and metrics then show up under the new
-`device_name`, so `install.sh` warns when that happens. Re-run with the same name to keep it.
+`host` / `device_name`, so `install.sh` warns when that happens. Re-run with the same name to keep it.
 
 ## Logs and metrics
 
@@ -128,6 +128,20 @@ the device secret countdown registers with the broker (`.auth_broker_device`), s
 This is only for a standalone Pi (`countdown-standalone`). A renderer for a separate screen (`countdown-server`, in
 Docker) does none of it: its host already runs a Fluent Bit, which the renderer just sends its OTLP metrics to at
 `127.0.0.1:4318`, so there's no token and no systemd involved.
+
+Every log line leaves with the same fields (shared with auth-broker's Docker logs), and VictoriaLogs streams are
+`service,host`:
+
+| Field | From |
+|---|---|
+| `service` | `_SYSTEMD_UNIT` without `.service` (`countdown`); the `SYSLOG_IDENTIFIER` for lines with no unit (`kernel`, `sudo`), else `unknown` |
+| `host` | `DEVICE_NAME` |
+| `level` | journald `PRIORITY`: 0-2 `critical`, 3 `error`, 4 `warn`, 5-6 `info`, 7 `debug` (`info` if missing) |
+| `_msg` | `MESSAGE` |
+
+`SYSLOG_IDENTIFIER`, `_PID` and `_COMM` are kept; the other journald fields are dropped. Changing these stream
+fields starts new VictoriaLogs streams, so logs from before the change stay under the old
+`device_name,_SYSTEMD_UNIT` streams.
 
 Fluent Bit mustn't send before the broker has accepted that secret, so it's started by systemd only then:
 

@@ -35,9 +35,42 @@ pipeline:
       interval_sec: 60
 
   filters:
+    # Every log line leaves with the same fields as the rest of the fleet (auth-broker's too): service, host,
+    # level and _msg. host is added here because ${DEVICE_NAME} is only expanded in the config, not in Lua.
     - name: modify
       match: journal
-      add: device_name ${DEVICE_NAME}
+      add: host ${DEVICE_NAME}
+
+    # Builds the standard record from the raw journald fields and drops the rest of them (_BOOT_ID, _MACHINE_ID,
+    # _CAP_EFFECTIVE, ...). Kept for debugging: SYSLOG_IDENTIFIER, _PID and _COMM.
+    - name: lua
+      match: journal
+      call: standardise
+      code: |
+        local levels = {
+          ["0"] = "critical", ["1"] = "critical", ["2"] = "critical", ["3"] = "error",
+          ["4"] = "warn", ["5"] = "info", ["6"] = "info", ["7"] = "debug",
+        }
+        function standardise(tag, timestamp, record)
+          local unit = record["_SYSTEMD_UNIT"]
+          local service = unit and unit:gsub("%.service$", "")
+          -- Kernel lines and login sessions have no service unit (or a .scope one), so name them by their program.
+          if not service or service == "" or service:match("%.scope$") then
+            service = record["SYSLOG_IDENTIFIER"]
+          end
+          if not service or service == "" then
+            service = "unknown"
+          end
+          return 2, timestamp, {
+            service = service,
+            host = record["host"],
+            level = levels[tostring(record["PRIORITY"])] or "info",
+            _msg = record["MESSAGE"],
+            SYSLOG_IDENTIFIER = record["SYSLOG_IDENTIFIER"],
+            _PID = record["_PID"],
+            _COMM = record["_COMM"],
+          }
+        end
 
   outputs:
     - name: http
@@ -45,7 +78,7 @@ pipeline:
       host: logs.nikolaivorkinn.com
       port: 443
       tls: on
-      uri: /insert/jsonline?_stream_fields=device_name,_SYSTEMD_UNIT&_msg_field=MESSAGE&_time_field=date
+      uri: /insert/jsonline?_stream_fields=service,host&_msg_field=_msg&_time_field=date
       format: json_lines
       json_date_key: date
       json_date_format: iso8601
