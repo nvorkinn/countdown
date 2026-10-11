@@ -7,6 +7,7 @@ import io
 
 import pytest
 import responses
+from fake_target import FakeTarget
 from PIL import Image
 
 # `countdown_core` must be imported before any display.* module, or it's a circular import.
@@ -35,7 +36,7 @@ from countdown_core.weather.models import Weather
 from countdown_core.weather.weather_client import WeatherClient
 from countdown_core.weather.weather_panel import WeatherPanel
 
-_CONTROLLER = DisplayController()
+_CONTROLLER = DisplayController(FakeTarget())
 EVERYTHING = frozenset(ClientClasses)
 NO_GLOWMARKT = EVERYTHING - {ClientClasses.GLOWMARKT}
 
@@ -59,13 +60,6 @@ class _FrozenDatetime(dt.datetime):
 @pytest.fixture(autouse=True)
 def _freeze_time(monkeypatch):
     monkeypatch.setattr(countdown_core.glow.energy_panel, "datetime", _FrozenDatetime)
-
-
-@pytest.fixture(autouse=True)
-def _suppress_image_show(monkeypatch):
-    """DisplayController falls back to img.show() off real hardware -- without
-    this every test run would pop up an image viewer window."""
-    monkeypatch.setattr(Image.Image, "show", lambda self, *a, **kw: None)
 
 
 BUS_STOP = SingleStopPoint(

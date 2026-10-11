@@ -1,9 +1,0 @@
-[Unit]
-Description=Check for pi-dashboard updates hourly 02:00-06:00, then every three hours
-
-[Timer]
-OnCalendar=*-*-* 02..06:00:00
-OnCalendar=*-*-* 00/3:00:00
-
-[Install]
-WantedBy=timers.target

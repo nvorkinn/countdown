@@ -11,7 +11,6 @@ dependencies = [
     "countdown-credentials",
     "countdown-epd",
     "countdown-core",
-    "countdown-standalone",
     "countdown-server",
     "countdown-client",
 ]
@@ -23,7 +22,6 @@ package = false
 countdown-credentials = { workspace = true }
 countdown-epd = { workspace = true }
 countdown-core = { workspace = true }
-countdown-standalone = { workspace = true }
 countdown-server = { workspace = true }
 countdown-client = { workspace = true }
 
@@ -43,7 +41,6 @@ members = [
     "credentials",
     "epd",
     "core",
-    "standalone",
     "server",
     "client"
 ]
@@ -53,7 +50,6 @@ members = [
 source = [
     "credentials/src",
     "core/src",
-    "standalone/src",
     "server/src",
     "client/src"
 ]
@@ -69,7 +65,6 @@ src = [
     "credentials/src",
     "epd/src",
     "core/src",
-    "standalone/src",
     "server/src",
     "client/src"
 ]
@@ -81,10 +76,9 @@ force-exclude = true
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "TID251"]
 
-# countdown-core must stay free of the e-paper hardware: the apps depend on it, never the other
+# countdown-core must stay free of the e-paper hardware and the apps: they depend on it, never the other
 # way round. The ban only applies inside core/ (see per-file-ignores).
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"countdown_standalone".msg = "countdown-core can't depend on countdown-standalone; pass what it needs in from there"
 "countdown_server".msg = "countdown-core can't depend on countdown-server; pass what it needs in from there"
 "countdown_epd".msg = "countdown-core can't depend on the e-paper driver; it belongs to countdown-epd"
 

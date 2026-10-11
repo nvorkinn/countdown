@@ -10,7 +10,6 @@ members = [
     "countdown-credentials",
     "countdown-epd",
     "countdown-server",
-    "countdown-standalone",
 ]
 
 [[package]]
@@ -178,7 +177,6 @@ dependencies = [
     { name = "countdown-credentials" },
     { name = "countdown-epd" },
     { name = "countdown-server" },
-    { name = "countdown-standalone" },
 ]
 
 [package.dev-dependencies]
@@ -199,7 +197,6 @@ requires-dist = [
     { name = "countdown-credentials", editable = "credentials" },
     { name = "countdown-epd", editable = "epd" },
     { name = "countdown-server", editable = "server" },
-    { name = "countdown-standalone", editable = "standalone" },
 ]
 
 [package.metadata.requires-dev]
@@ -307,21 +304,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "countdown-core", editable = "core" }]
-
-[[package]]
-name = "countdown-standalone"
-version = "0.4.2"
-source = { editable = "standalone" }
-dependencies = [
-    { name = "countdown-core" },
-    { name = "countdown-epd" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "countdown-core", editable = "core" },
-    { name = "countdown-epd", editable = "epd" },
-]
 
 [[package]]
 name = "coverage"

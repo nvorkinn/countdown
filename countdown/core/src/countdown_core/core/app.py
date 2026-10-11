@@ -17,7 +17,6 @@ from countdown_core.core.targets import DisplayTarget
 from countdown_core.home_assistant.device_status import DeviceStatus
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_credentials.log_shipping import enable_log_shipping
 from countdown_credentials.registration import RendererRegistrar, RendererRegistration
 
 logger = logging.getLogger(__name__)
@@ -30,13 +29,12 @@ MAX_RETRY_S = 300
 MakeTarget = Callable[[RendererRegistration], DisplayTarget]
 
 
-def main(make_target: MakeTarget, standalone: bool) -> None:
-    """Called by the console scripts (countdown_standalone, countdown_server), each passing the
-    `make_target` that knows its screens, and whether the device is its own screen (standalone)
-    or renders for a separate one. Must stay sync: the generated wrapper never awaits, so an
-    `async def` here would exit 1 without running anything."""
+def main(make_target: MakeTarget) -> None:
+    """Called by the console script (countdown_server), passing the `make_target` that knows where
+    its frames go. Must stay sync: the generated wrapper never awaits, so an `async def` here would
+    exit 1 without running anything."""
     configure_logging()
-    asyncio.run(run(make_target, standalone))
+    asyncio.run(run(make_target))
 
 
 def configure_logging() -> None:
@@ -64,7 +62,7 @@ async def wait_for_config(
             delay = min(delay * 2, MAX_RETRY_S)
 
 
-async def run(make_target: MakeTarget, standalone: bool) -> None:
+async def run(make_target: MakeTarget) -> None:
     display: DisplayController | None = None
 
     # Set up first, so a stop request works through the (possibly long) waits to register and for a
@@ -72,7 +70,7 @@ async def run(make_target: MakeTarget, standalone: bool) -> None:
     def handle_shutdown(_signum, _frame):
         logger.info("Shutting down gracefully...")
         if display is not None:
-            # Sleep the e-paper to prevent burn-in.
+            # Lets the target release whatever it holds.
             display.shutdown()
         sys.exit(0)
 
@@ -86,14 +84,10 @@ async def run(make_target: MakeTarget, standalone: bool) -> None:
     publisher.start()
 
     # No default: crash loudly rather than silently talk to some baked-in URL.
-    registrar = RendererRegistrar(os.environ["BROKER_URL"], standalone=standalone)
-    # Nothing else happens until the device is registered, standalone or split alike: without it
-    # there's no config to render, and nowhere a split renderer's frames could go.
+    registrar = RendererRegistrar(os.environ["BROKER_URL"])
+    # Nothing else happens until the renderer is registered: without it there's no config to
+    # render, and nowhere its frames could go.
     registration = await registrar.register()
-    if standalone:
-        # Only now: Fluent Bit's bearer token is the device secret, which the broker rejects until it's registered.
-        # A renderer for a separate screen (countdown-server) has the host's own Fluent Bit to report to instead.
-        enable_log_shipping(registration.device_secret)
 
     display = DisplayController(make_target(registration))
     status.display = display

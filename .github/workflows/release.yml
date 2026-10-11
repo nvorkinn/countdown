@@ -38,14 +38,14 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           # Every workspace member: the root project is virtual, so it isn't built.
-          for package in countdown-credentials countdown-epd countdown-core countdown-standalone countdown-server countdown-client; do
+          for package in countdown-credentials countdown-epd countdown-core countdown-server countdown-client; do
             (cd countdown && uv version --frozen --package "$package" "$version")
           done
       - name: Install lgpio build dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends swig liblgpio-dev
       - name: Build countdown wheels
         working-directory: countdown
-        # Every workspace member: the three apps (countdown-standalone, -server, -client) and the
+        # Every workspace member: the two apps (countdown-server, -client) and the
         # libraries they depend on (countdown-core, -credentials, -epd), none of which is on an index.
         run: |
           uv sync --frozen
@@ -97,17 +97,12 @@ jobs:
         with:
           name: countdown-wheel
           path: countdown/dist
-      - name: Bundle encrypted secrets
-        run: zip -r secrets.zip secrets
       - name: Create GitHub release and upload assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
             countdown/dist/*.whl \
-            countdown/packaging/systemd/countdown.service \
-            secrets.zip \
-            install.sh \
             --title "$GITHUB_REF_NAME" --generate-notes --prerelease
 
   deploy-renderers:
