@@ -18,6 +18,22 @@ x-renderer: &renderer
     BROKER_URL: https://auth.nikolaivorkinn.com
 
 services:
+  # Starts a renderer for every screen the broker says needs one (see ../../orchestrator/README.md), so the
+  # list below is only the renderers made by hand. It needs the Docker socket, which is root on this host.
+  # Its renderers aren't compose services: they carry no compose labels, so this file's deploy never
+  # removes them or their volumes. They're brought to each release's image by the orchestrator itself.
+  orchestrator:
+    image: ghcr.io/nvorkinn/countdown-orchestrator:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      BROKER_URL: https://auth.nikolaivorkinn.com
+      ORCHESTRATOR_TOKEN: ${ORCHESTRATOR_TOKEN:?the orchestrator's token on the broker}
+      RENDERER_IMAGE: ghcr.io/nvorkinn/countdown-server:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+      MAX_RENDERERS: ${MAX_RENDERERS:-20}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
   nikolai:
     <<: *renderer
     environment:

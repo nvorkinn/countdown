@@ -12,6 +12,9 @@ SLUG_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]{1,31}")
 class Status(StrEnum):
     PENDING = "pending"
     PROVISIONED = "provisioned"
+    # The screen has been gone for a day (the broker decides when): the renderer is stopped, not deleted, so it
+    # is the same device when the screen comes back. The broker then lists the assignment as pending again.
+    SUSPENDED = "suspended"
     FAILED = "failed"
     DELETING = "deleting"
     # Only ever reported, never listed: the assignment and its renderer are gone.

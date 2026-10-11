@@ -5,9 +5,10 @@ import responses
 from countdown_orchestrator.broker import OrchestratorBroker
 from countdown_orchestrator.models import Assignment, Status, valid_slug
 from countdown_orchestrator.reconcile import reconcile
-from countdown_orchestrator.runtime import MANAGED_LABEL, SLUG_LABEL, DockerRuntime, Renderer
+from countdown_orchestrator.runtime import IMAGE_LABEL, MANAGED_LABEL, SLUG_LABEL, DockerRuntime, Renderer
 
 BROKER_URL = "https://broker.example.com"
+IMAGE = "ghcr.io/x/countdown-server:1"
 LIST_URL = f"{BROKER_URL}/api/orchestrator/assignments"
 
 
@@ -32,6 +33,7 @@ class FakeRuntime:
         self.existing = {r.slug: r for r in renderers}
         self.ensured: list[str] = []
         self.removed: list[str] = []
+        self.stopped: list[str] = []
 
     def renderers(self):
         return dict(self.existing)
@@ -39,6 +41,9 @@ class FakeRuntime:
     def ensure(self, assignment):
         self.ensured.append(assignment.slug)
         self.existing[assignment.slug] = Renderer(assignment.slug, True)
+
+    def stop(self, slug):
+        self.stopped.append(slug)
 
     def remove(self, slug):
         self.removed.append(slug)
@@ -228,9 +233,13 @@ def test_a_report_is_posted_for_the_assignment():
 class FakeContainer:
     def __init__(self, status="running", slug="lisa"):
         self.status = status
-        self.labels = {SLUG_LABEL: slug}
+        self.labels = {SLUG_LABEL: slug, IMAGE_LABEL: IMAGE}
         self.started = False
+        self.stopped = False
         self.removed: dict | None = None
+
+    def stop(self):
+        self.stopped = True
 
     def start(self):
         self.started = True
@@ -278,7 +287,7 @@ class FakeDocker:
 
 
 def _runtime(client) -> DockerRuntime:
-    return DockerRuntime("ghcr.io/x/countdown-server:1", BROKER_URL, client=client)
+    return DockerRuntime(IMAGE, BROKER_URL, client=client)
 
 
 def test_a_new_renderer_is_a_container_shaped_like_the_compose_services():
@@ -287,11 +296,11 @@ def test_a_new_renderer_is_a_container_shaped_like_the_compose_services():
     _runtime(client).ensure(_assignment())
 
     ((args, kwargs),) = client.run_calls
-    assert args == ("ghcr.io/x/countdown-server:1",)
+    assert args == (IMAGE,)
     assert kwargs["name"] == "renderer-lisa"
     assert kwargs["network_mode"] == "host"
     assert kwargs["restart_policy"] == {"Name": "unless-stopped"}
-    assert kwargs["labels"] == {MANAGED_LABEL: "1", SLUG_LABEL: "lisa"}
+    assert kwargs["labels"] == {MANAGED_LABEL: "1", SLUG_LABEL: "lisa", IMAGE_LABEL: IMAGE}
     assert kwargs["environment"] == {"BROKER_URL": BROKER_URL, "DEVICE_NAME": "lisa", "CLAIM_TOKEN": "token-lisa"}
     assert set(kwargs["volumes"]) == {"renderer-lisa-data", "renderer-lisa-key"}
 
@@ -334,3 +343,88 @@ def test_removing_a_renderer_that_is_already_gone_is_fine():
     client.volumes.get = lambda name: (_ for _ in ()).throw(docker.errors.NotFound(name))
 
     _runtime(client).remove("lisa")
+
+
+def test_an_outdated_renderer_is_replaced_but_keeps_its_volumes():
+    client = FakeDocker(FakeContainer("running"))
+    client.container.labels[IMAGE_LABEL] = "ghcr.io/x/countdown-server:0"
+
+    _runtime(client).ensure(_assignment())
+
+    assert client.container.removed == {"force": True}  # no v=True, and no volume is touched
+    assert client.volumes.removed == []
+    assert len(client.run_calls) == 1
+
+
+def test_a_renderer_made_from_another_image_is_not_up_to_date():
+    client = FakeDocker(FakeContainer("running"))
+    client.container.labels[IMAGE_LABEL] = "ghcr.io/x/countdown-server:0"
+
+    assert _runtime(client).renderers() == {"lisa": Renderer("lisa", running=True, up_to_date=False)}
+
+
+def test_stopping_a_renderer_keeps_it():
+    client = FakeDocker(FakeContainer("running"))
+
+    _runtime(client).stop("lisa")
+
+    assert client.container.stopped
+    assert client.container.removed is None
+    assert client.volumes.removed == []
+
+
+def test_stopping_a_renderer_that_doesnt_exist_is_fine():
+    _runtime(FakeDocker()).stop("lisa")
+
+
+# --- Suspending, resuming and upgrading ---------------------------------------------
+
+
+def test_a_suspended_assignment_stops_its_running_renderer():
+    broker = FakeBroker(_assignment(status=Status.SUSPENDED))
+    runtime = FakeRuntime(Renderer("lisa", True))
+
+    reconcile(broker, runtime)
+
+    assert runtime.stopped == ["lisa"]
+    assert runtime.removed == []
+    assert broker.reports == []
+
+
+@pytest.mark.parametrize("existing", [[], [Renderer("lisa", False)]])
+def test_a_suspended_assignment_with_nothing_running_does_nothing(existing):
+    broker, runtime = FakeBroker(_assignment(status=Status.SUSPENDED)), FakeRuntime(*existing)
+
+    reconcile(broker, runtime)
+
+    assert runtime.stopped == runtime.ensured == []
+
+
+def test_a_screen_that_returns_gets_its_stopped_renderer_back():
+    broker = FakeBroker(_assignment(status=Status.PENDING))
+    runtime = FakeRuntime(Renderer("lisa", False))
+
+    reconcile(broker, runtime)
+
+    assert runtime.ensured == ["lisa"]
+    assert runtime.removed == []
+    assert broker.reports == [("lisa", Status.PROVISIONED, "")]
+
+
+def test_a_running_renderer_on_an_old_image_is_ensured_again():
+    broker = FakeBroker(_assignment(status=Status.PROVISIONED))
+    runtime = FakeRuntime(Renderer("lisa", True, up_to_date=False))
+
+    reconcile(broker, runtime)
+
+    assert runtime.ensured == ["lisa"]
+    assert broker.reports == []
+
+
+def test_suspended_renderers_dont_count_against_capacity():
+    broker = FakeBroker(_assignment("new"), _assignment("asleep", status=Status.SUSPENDED, id_="2"))
+    runtime = FakeRuntime(Renderer("asleep", False))
+
+    reconcile(broker, runtime, max_renderers=1)
+
+    assert runtime.ensured == ["new"]

@@ -9,12 +9,15 @@ from countdown_orchestrator.models import Assignment
 # On every container the orchestrator makes, so it only ever touches (and lists) its own.
 MANAGED_LABEL = "countdown.managed"
 SLUG_LABEL = "countdown.slug"
+# The image a renderer was made from, so a release's deploy can bring it up to date.
+IMAGE_LABEL = "countdown.image"
 
 
 @dataclass(frozen=True)
 class Renderer:
     slug: str
     running: bool
+    up_to_date: bool = True
 
 
 class Runtime(Protocol):
@@ -23,7 +26,12 @@ class Runtime(Protocol):
         ...
 
     def ensure(self, assignment: Assignment) -> None:
-        """Makes the renderer if it doesn't exist and starts it if it isn't running. Safe to repeat."""
+        """Makes the renderer if it doesn't exist, from the current image (replacing the container, never its
+        volumes, if it is from an older one), and starts it if it isn't running. Safe to repeat."""
+        ...
+
+    def stop(self, slug: str) -> None:
+        """Stops the renderer, keeping its container and volumes so it can be started again."""
         ...
 
     def remove(self, slug: str) -> None:
@@ -61,7 +69,11 @@ class DockerRuntime:
     def renderers(self) -> dict[str, Renderer]:
         containers = self.client.containers.list(all=True, filters={"label": f"{MANAGED_LABEL}=1"})
         return {
-            slug: Renderer(slug, container.status == "running")
+            slug: Renderer(
+                slug,
+                running=container.status == "running",
+                up_to_date=container.labels.get(IMAGE_LABEL) == self.image,
+            )
             for container in containers
             if (slug := container.labels.get(SLUG_LABEL))
         }
@@ -73,28 +85,43 @@ class DockerRuntime:
         try:
             container = self.client.containers.get(name)
         except docker.errors.NotFound:
-            self.client.containers.run(
-                self.image,
-                name=name,
-                detach=True,
-                network_mode="host",
-                restart_policy={"Name": "unless-stopped"},
-                mem_limit=self.mem_limit,
-                nano_cpus=self.nano_cpus,
-                labels={MANAGED_LABEL: "1", SLUG_LABEL: assignment.slug},
-                environment={
-                    "BROKER_URL": self.broker_url,
-                    "DEVICE_NAME": assignment.slug,
-                    "CLAIM_TOKEN": assignment.claim_token,
-                },
-                volumes={
-                    f"{name}-data": {"bind": "/data", "mode": "rw"},
-                    f"{name}-key": {"bind": "/keys", "mode": "rw"},
-                },
-            )
+            self._run(assignment)
             return
-        if container.status != "running":
+        if container.labels.get(IMAGE_LABEL) != self.image:
+            # Only the container: the volumes are the renderer's identity, so it stays the same device.
+            container.remove(force=True)
+            self._run(assignment)
+        elif container.status != "running":
             container.start()
+
+    def _run(self, assignment: Assignment) -> None:
+        name = self.container_name(assignment.slug)
+        self.client.containers.run(
+            self.image,
+            name=name,
+            detach=True,
+            network_mode="host",
+            restart_policy={"Name": "unless-stopped"},
+            mem_limit=self.mem_limit,
+            nano_cpus=self.nano_cpus,
+            labels={MANAGED_LABEL: "1", SLUG_LABEL: assignment.slug, IMAGE_LABEL: self.image},
+            environment={
+                "BROKER_URL": self.broker_url,
+                "DEVICE_NAME": assignment.slug,
+                "CLAIM_TOKEN": assignment.claim_token,
+            },
+            volumes={
+                f"{name}-data": {"bind": "/data", "mode": "rw"},
+                f"{name}-key": {"bind": "/keys", "mode": "rw"},
+            },
+        )
+
+    def stop(self, slug: str) -> None:
+        import docker
+
+        with contextlib.suppress(docker.errors.NotFound):
+            # Stopped by Docker, `unless-stopped` keeps it down across a reboot of the host too.
+            self.client.containers.get(self.container_name(slug)).stop()
 
     def remove(self, slug: str) -> None:
         import docker

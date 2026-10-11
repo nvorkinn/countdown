@@ -46,18 +46,30 @@ def _reconcile_one(
         return
 
     current = existing.get(assignment.slug)
-    if current is not None and current.running:
+    current = existing.get(assignment.slug)
+    if assignment.status == Status.SUSPENDED:
+        # Kept, stopped: ensure() starts it again when the broker lists the assignment as pending.
+        if current is not None and current.running:
+            runtime.stop(assignment.slug)
+            existing[assignment.slug] = Renderer(assignment.slug, running=False, up_to_date=current.up_to_date)
+            logger.info("Suspended renderer %s", assignment.slug)
+        return
+
+    if current is not None and current.running and current.up_to_date:
         if assignment.status != Status.PROVISIONED:
             broker.report(assignment, Status.PROVISIONED)
         return
 
-    if current is None and max_renderers is not None and len(existing) >= max_renderers:
-        logger.warning("At capacity (%d renderers); %s stays pending", max_renderers, assignment.slug)
+    running = sum(r.running for r in existing.values())
+    starting = current is None or not current.running
+    if starting and max_renderers is not None and running >= max_renderers:
+        logger.warning("At capacity (%d renderers running); %s stays pending", max_renderers, assignment.slug)
         return
 
     runtime.ensure(assignment)
     existing[assignment.slug] = Renderer(assignment.slug, running=True)
-    broker.report(assignment, Status.PROVISIONED)
+    if assignment.status != Status.PROVISIONED:
+        broker.report(assignment, Status.PROVISIONED)
     logger.info("Provisioned renderer %s", assignment.slug)
 
 

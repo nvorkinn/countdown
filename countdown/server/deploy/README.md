@@ -21,7 +21,12 @@ docker build -f server/Dockerfile -t countdown-server:dev .
 
 ## Adding a screen
 
-The renderers are the services in `docker-compose.yml`, and a release deploys them (below).
+Most renderers aren't listed here: the **orchestrator** (the first service in `docker-compose.yml`, see
+`../../orchestrator/README.md`) starts one for every screen that's been set up on the config page, and stops it
+after a day without the screen. Only list one below by hand for a renderer that should exist regardless. Slugs
+are unique across the broker, so a hand-listed `DEVICE_NAME` mustn't be one a user could also pick.
+
+The renderers listed here are services in `docker-compose.yml`, and a release deploys them (below).
 
 1. Copy the `nikolai` service and its two volumes in `docker-compose.yml`, renaming all three and setting
    `DEVICE_NAME` (it labels the device on the broker).
@@ -66,6 +71,7 @@ Set up once, in the repo's Settings:
 - An environment `deploy-renderers`, with yourself as a required reviewer (without one, it deploys unasked).
 - Secrets `DEPLOY_USER`, `DEPLOY_HOST`, `ORACLE_SSH_TOKEN` (the private key) and `DEPLOY_SSH_KNOWN_HOSTS`. They're
   the same values as auth-broker's. The user must be able to use Docker (be in the `docker` group).
+- Secret `ORCHESTRATOR_TOKEN`: the orchestrator's credential on the broker, which the deploy hands to it.
 
 ## Day to day
 

@@ -1,0 +1,3 @@
+# The image only needs the built wheels, not the rest of countdown/ (its .venv especially).
+*
+!dist/*.whl

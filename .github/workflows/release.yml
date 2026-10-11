@@ -7,6 +7,7 @@ on:
 
 env:
   SERVER_IMAGE: ghcr.io/nvorkinn/countdown-server
+  ORCHESTRATOR_IMAGE: ghcr.io/nvorkinn/countdown-orchestrator
 
 # Jobs that need more (packages, releases) ask for it themselves.
 permissions:
@@ -85,9 +86,38 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ env.SERVER_IMAGE }}:${{ github.ref_name }}
 
+  build-orchestrator-image:
+    # countdown-orchestrator's image (countdown/orchestrator/Dockerfile), run beside the renderers by
+    # countdown/server/deploy/. Only ever pinned to a version, so there's no :latest to move.
+    needs: build-python
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          name: countdown-wheel
+          path: countdown/dist
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: countdown
+          file: countdown/orchestrator/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.ORCHESTRATOR_IMAGE }}:${{ github.ref_name }}
+
   release:
     # The image too, so a GitHub release is only created once everything it ships exists.
-    needs: [build-python, build-server-image]
+    needs: [build-python, build-server-image, build-orchestrator-image]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -131,4 +161,6 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n' > ~/.ssh/config
       - name: Deploy the renderers
+        env:
+          ORCHESTRATOR_TOKEN: ${{ secrets.ORCHESTRATOR_TOKEN }}
         run: bash countdown/server/deploy/deploy.sh "$GITHUB_REF_NAME"
