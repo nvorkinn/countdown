@@ -46,7 +46,6 @@ def _reconcile_one(
         return
 
     current = existing.get(assignment.slug)
-    current = existing.get(assignment.slug)
     if assignment.status == Status.SUSPENDED:
         # Kept, stopped: ensure() starts it again when the broker lists the assignment as pending.
         if current is not None and current.running:
