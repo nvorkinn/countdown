@@ -54,7 +54,7 @@ def _reconcile_one(
             logger.info("Suspended renderer %s", assignment.slug)
         return
 
-    if current is not None and current.running and current.up_to_date:
+    if current and current.running and current.up_to_date:
         if assignment.status != Status.PROVISIONED:
             broker.report(assignment, Status.PROVISIONED)
         return
