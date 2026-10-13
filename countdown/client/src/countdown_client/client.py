@@ -46,7 +46,7 @@ class Client:
                     case 304:
                         pass  # Nothing has changed since last poll
                     case 401:
-                        break  # The broker doesn't know the secret (dropped from the pool, or unlinked)
+                        break  # The broker doesn't know the secret (unlinked)
                     case 404:
                         pass  # Matched, but nothing rendered yet
                     case _:

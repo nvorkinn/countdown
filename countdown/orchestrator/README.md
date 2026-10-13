@@ -9,7 +9,7 @@ broker. The flow only ever goes one way:
    metrics. The broker stores an *assignment* for the screen: `pending`, with a one-time claim token.
 3. The orchestrator sees it, starts a `countdown-server` container with `DEVICE_NAME=<slug>` and
    `CLAIM_TOKEN=<token>`, and reports `provisioned`.
-4. The renderer registers with the token, which matches it to its screen at once (no waiting in the pool).
+4. The renderer claims its screen with the token (`POST /api/renderers/claim`), which matches it at once.
 
 The unit is an *assignment* (a screen's renderer), not a container, so one renderer serving several screens
 later only changes where `reconcile()` places an assignment.
@@ -71,7 +71,10 @@ device's name in logs and metrics, and it names the container and its volumes, s
 **The claim token** is random, single-use, and kept only until it's used: the orchestrator needs it back to
 start the container, so it can't be stored hashed. The broker clears it when the renderer claims it.
 
-**Registering with a token**: `POST /api/devices/register` with `{"role": "renderer", "secret": …, "claim_token": …}`
-matches the renderer to the assignment's screen and answers 201 `{"device_id": …}`. After that the renderer's
-own secret is its identity (kept in its volume; it doesn't register again, even when started after a
-suspension or an upgrade). Reject an unknown or spent token with 4xx; the renderer logs it and retries slowly.
+**Claiming with a token**: `POST /api/renderers/claim` with `{"secret": …, "claim_token": …}` matches the renderer
+to the assignment's screen. It answers 201 `{"device_id": …}` on the first claim, and 200 `{"device_id": …}` for a
+repeat with the same secret (a restart may call it again; the token is then ignored). 400 means a bad secret
+(at least 16 characters) or a missing `claim_token`, 403 an unknown or spent token, 409 a secret already
+registered as a screen. The route isn't throttled. The renderer logs a rejection and retries slowly. After a
+claim the renderer's own secret is its identity (kept in its volume). A renderer can't register without a claim
+token, and there's no pool to wait in.

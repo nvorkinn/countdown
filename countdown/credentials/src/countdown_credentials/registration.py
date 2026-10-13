@@ -68,6 +68,7 @@ class Registrar[R: Registration](ABC):
     is saved before it's ever sent, so retrying a registration never makes a second identity."""
 
     role: str
+    path = "/api/devices/register"
 
     def __init__(
         self,
@@ -97,7 +98,7 @@ class Registrar[R: Registration](ABC):
                 # In a thread, so a slow broker doesn't hold up the rest of the event loop.
                 response = await asyncio.to_thread(
                     self._session.post,
-                    f"{self.broker_url}/api/devices/register",
+                    f"{self.broker_url}{self.path}",
                     json=self._register_body(),
                     timeout=REQUEST_TIMEOUT_S,
                 )
@@ -109,16 +110,14 @@ class Registrar[R: Registration](ABC):
                 case 200 | 201:
                     return self._registered(response)
                 case 202:
-                    if (registration := await self._on_waiting()) is not None:
-                        return registration
-                    continue
+                    return self._accepted()
                 case 429 | 503:
                     delay = _retry_after(response)
                 case 409:
                     logger.warning("The secret is registered with the other role; registering a new one")
                     self._new_secret()
                     continue
-                case 400:
+                case 400 | 403:
                     logger.error("The broker rejected the registration: %s", response.text)
                     delay = DEFAULT_RETRY_S
                 case _:
@@ -138,9 +137,9 @@ class Registrar[R: Registration](ABC):
     def _registered(self, response: requests.Response) -> R:
         """The registration, from /register's 200 or 201."""
 
-    @abstractmethod
-    async def _on_waiting(self) -> R | None:
-        """After /register's 202: the registration, or None if it must be sent again."""
+    def _accepted(self) -> R:
+        """The registration, from a 202 (only a display's /register answers that)."""
+        raise NotImplementedError
 
     def _auth(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
         return _bearer(request, self._device_secret)
@@ -173,17 +172,17 @@ class Registrar[R: Registration](ABC):
 
 
 class RendererRegistrar(Registrar[RendererRegistration]):
-    """Whatever draws the frames. It waits in the broker's pool until a screen arrives to match it with,
-    polling /api/config (as the broker asks: /register is rate-limited), which carries the device_id
-    once it's matched.
-
-    A renderer the orchestrator started for a screen is given that screen's claim token. Sent with the
-    registration, it matches the renderer to its screen at once, with no waiting in the pool."""
+    """Whatever draws the frames. The orchestrator starts it for one screen and gives it that screen's
+    claim token, which it sends with its secret to POST /api/renderers/claim. The broker answers 201 with
+    the device_id on the first claim, and 200 on a repeat with the same secret (the token is then ignored)."""
 
     role = "renderer"
+    path = "/api/renderers/claim"
 
-    def __init__(self, broker_url: str, claim_token: str | None = None, **kwargs):
-        self.claim_token = claim_token or None
+    def __init__(self, broker_url: str, claim_token: str, **kwargs):
+        if not claim_token:
+            raise ValueError("A renderer can only register with a claim token")
+        self.claim_token = claim_token
         super().__init__(broker_url, **kwargs)
 
     @override
@@ -194,44 +193,13 @@ class RendererRegistrar(Registrar[RendererRegistration]):
 
     @override
     def _register_body(self) -> dict[str, object]:
-        body: dict[str, object] = {"role": self.role, "secret": self._device_secret}
-        if self.claim_token:
-            body["claim_token"] = self.claim_token
-        return body
+        return {"secret": self._device_secret, "claim_token": self.claim_token}
 
     @override
     def _registered(self, response: requests.Response) -> RendererRegistration:
-        return self._matched(response.json()["device_id"])
+        return self._claimed(response.json()["device_id"])
 
-    @override
-    async def _on_waiting(self) -> RendererRegistration | None:
-        logger.info("Waiting for a screen to be matched with")
-        while True:
-            try:
-                response = await asyncio.to_thread(
-                    self._session.get,
-                    f"{self.broker_url}/api/config",
-                    json={"role": self.role},
-                    timeout=REQUEST_TIMEOUT_S,
-                )
-            except requests.RequestException as e:
-                logger.warning("Couldn't reach the broker: %s", e)
-                await self._sleep(DEFAULT_RETRY_S)
-                continue
-            match response.status_code:
-                case 200:
-                    return self._matched(response.json()["device_id"])
-                case 202:
-                    delay = _retry_after(response)
-                case 401:
-                    logger.warning("Dropped from the broker's pool (unmatched for too long); registering again")
-                    return None
-                case _:
-                    logger.warning("Unexpected %s from %s", response.status_code, response.url)
-                    delay = DEFAULT_RETRY_S
-            await self._sleep(delay)
-
-    def _matched(self, device_id: str) -> RendererRegistration:
+    def _claimed(self, device_id: str) -> RendererRegistration:
         self._device_id = device_id
         self._save()
         logger.info("Registered as device %s", device_id)
@@ -254,5 +222,5 @@ class DisplayRegistrar(Registrar[Registration]):
         return Registration(self.broker_url, self._device_secret)
 
     @override
-    async def _on_waiting(self) -> Registration:
+    def _accepted(self) -> Registration:
         return Registration(self.broker_url, self._device_secret)
