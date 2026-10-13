@@ -127,13 +127,17 @@ jobs:
         with:
           name: countdown-wheel
           path: countdown/dist
-      - name: Create GitHub release and upload assets
+      - name: Create GitHub release or update its assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            countdown/dist/*.whl \
-            --title "$GITHUB_REF_NAME" --generate-notes --prerelease
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" countdown/dist/*.whl --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              countdown/dist/*.whl \
+              --title "$GITHUB_REF_NAME" --generate-notes --prerelease
+          fi
 
   deploy-renderers:
     # Brings up the renderers listed in countdown/server/deploy/docker-compose.yml, pinned to this release's image.
