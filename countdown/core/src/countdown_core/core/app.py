@@ -84,8 +84,8 @@ async def run(make_target: MakeTarget) -> None:
     publisher.start()
 
     # No default: crash loudly rather than silently talk to some baked-in URL.
-    # CLAIM_TOKEN is set only by the orchestrator, for a renderer made for one particular screen.
-    registrar = RendererRegistrar(os.environ["BROKER_URL"], claim_token=os.environ.get("CLAIM_TOKEN"))
+    # CLAIM_TOKEN is set by the orchestrator, for the renderer made for one particular screen.
+    registrar = RendererRegistrar(os.environ["BROKER_URL"], claim_token=os.environ["CLAIM_TOKEN"])
     # Nothing else happens until the renderer is registered: without it there's no config to
     # render, and nowhere its frames could go.
     registration = await registrar.register()

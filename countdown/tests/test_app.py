@@ -155,6 +155,7 @@ REGISTRATION = RendererRegistration("https://broker.example.com", "shh", "device
 def booted(monkeypatch):
     """Runs app.run() with the registration and everything after it faked, recording what it did."""
     monkeypatch.setenv("BROKER_URL", "https://broker.example.com")
+    monkeypatch.setenv("CLAIM_TOKEN", "claim-me")
     seen = {"order": []}
 
     class FakeLoop:
