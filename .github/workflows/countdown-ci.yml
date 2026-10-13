@@ -79,6 +79,31 @@ jobs:
       if: always()
       run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
 
+  orchestrator-image:
+    # The orchestrator's image (countdown/orchestrator/Dockerfile), so a broken one shows up here rather than
+    # at release time. Built for amd64 only; the release builds arm64 too.
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+
+    - name: Build wheels
+      run: uv build --wheel --all-packages
+
+    - name: Build image
+      run: docker build -f orchestrator/Dockerfile -t countdown-orchestrator:ci .
+
+    - name: Smoke-test the image
+      # Without its settings it must start and say which one is missing.
+      run: |
+        out="$(docker run --rm countdown-orchestrator:ci 2>&1 || true)"
+        echo "$out"
+        grep -q "BROKER_URL" <<< "$out"
+
   server-image:
     # The image renderers run (countdown/server/Dockerfile), so a broken one shows up here rather than
     # at release time. Built for amd64 only; the release builds arm64 too.

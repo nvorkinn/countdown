@@ -225,6 +225,25 @@ def test_a_renderer_registers_and_keeps_its_device_id(broker, sleeps, status):
     assert sleeps == []
 
 
+def test_a_renderer_with_a_claim_token_sends_it_to_be_matched_at_once(broker, sleeps):
+    broker.post(REGISTER_URL, status=201, json={"device_id": "device-123"})
+    renderer = RendererRegistrar(BROKER_URL, claim_token="claim-me", sleep=sleeps)
+
+    registration = _register(renderer)
+
+    assert _bodies(broker) == [{"role": "renderer", "secret": registration.device_secret, "claim_token": "claim-me"}]
+    assert registration.device_id == "device-123"
+    assert sleeps == []
+
+
+def test_an_empty_claim_token_is_not_sent(broker, sleeps):
+    broker.post(REGISTER_URL, status=201, json={"device_id": "device-123"})
+
+    _register(RendererRegistrar(BROKER_URL, claim_token="", sleep=sleeps))
+
+    assert "claim_token" not in _bodies(broker)[0]
+
+
 def test_a_renderer_waiting_to_be_matched_polls_the_config_until_it_has_a_device_id(broker, sleeps):
     broker.post(REGISTER_URL, status=202, headers={"Retry-After": "30"})
     broker.get(CONFIG_URL, status=202, headers={"Retry-After": "30"})

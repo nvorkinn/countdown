@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Run by release.yml's deploy-renderers job, on the runner, against the host's Docker daemon (DOCKER_HOST=ssh://...),
-# so nothing is installed on the host. Pins the renderers to the release's image, pulls it, and brings up every
-# renderer in docker-compose.yml: new ones are created, changed ones recreated, and ones no longer in the file are
-# torn down and deleted, volumes too. Those hold a renderer's identity and its key, so adding one back registers
-# a new device. Run by hand it does the same to whatever daemon your docker talks to.
+# so nothing is installed on the host. Pins the orchestrator and renderer image to the release, then updates the
+# orchestrator; it brings assigned renderers to the new image. Run by hand it does the same to whatever daemon
+# your docker talks to.
 # Usage: deploy.sh <tag>
 set -euo pipefail
 
@@ -15,14 +14,18 @@ docker compose pull
 docker compose up -d --remove-orphans --wait --wait-timeout 120
 docker compose ps
 
-# --remove-orphans took their containers; this takes their volumes. The project's own volumes only (compose's
-# label), and never when the file declares none, so a broken file can't delete every identity.
+# --remove-orphans took any removed services' containers; remove volumes no longer declared too. Only this
+# project's volumes (compose's label). If none are declared, skip cleanup to preserve data rather than risk
+# deleting every identity.
 project="$(docker compose config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])')"
 declared="$(docker compose config --volumes)"
-[ -n "$declared" ] || { echo "No volumes declared in docker-compose.yml; not deleting any" >&2; exit 1; }
-for volume in $(docker volume ls -q --filter "label=com.docker.compose.project=$project"); do
-  if ! grep -qxF "${volume#"${project}_"}" <<< "$declared"; then
-    echo "Deleting the volume of a removed renderer: $volume"
-    docker volume rm "$volume"
-  fi
-done
+if [ -n "$declared" ]; then
+  for volume in $(docker volume ls -q --filter "label=com.docker.compose.project=$project"); do
+    if ! grep -qxF "${volume#"${project}_"}" <<< "$declared"; then
+      echo "Deleting the volume of a removed service: $volume"
+      docker volume rm "$volume"
+    fi
+  done
+else
+  echo "No named volumes declared; skipping volume cleanup to preserve data" >&2
+fi
