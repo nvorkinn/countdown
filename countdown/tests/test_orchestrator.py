@@ -193,6 +193,14 @@ def test_nothing_new_is_started_at_capacity():
     assert broker.reports == []
 
 
+def test_zero_capacity_does_not_limit_renderer_count():
+    broker, runtime = FakeBroker(_assignment()), FakeRuntime()
+
+    reconcile(broker, runtime, max_renderers=0)
+
+    assert runtime.ensured == ["lisa"]
+
+
 def test_capacity_doesnt_stop_an_existing_renderer_being_restarted():
     broker = FakeBroker(_assignment("old", status=Status.PROVISIONED))
     runtime = FakeRuntime(Renderer("old", False))

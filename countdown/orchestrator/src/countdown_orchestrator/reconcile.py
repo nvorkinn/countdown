@@ -61,7 +61,7 @@ def _reconcile_one(
 
     running = sum(r.running for r in existing.values())
     starting = current is None or not current.running
-    if starting and max_renderers is not None and running >= max_renderers:
+    if starting and max_renderers and running >= max_renderers:
         logger.warning("At capacity (%d renderers running); %s stays pending", max_renderers, assignment.slug)
         return
 

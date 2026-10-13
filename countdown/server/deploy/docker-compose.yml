@@ -1,27 +1,10 @@
-# The renderers for screens that only show frames (countdown-client, or the ESP32): one service per screen,
-# each drawing its device's dashboard and handing the frames to the broker. This file is the list of them.
-# A release deploys it to the host (deploy.sh, run by release.yml); see README.md.
-
-# Fixed, so the volumes (each renderer's identity) keep their names wherever this file lives.
+# The orchestrator starts one renderer for each screen assignment. This file deploys the orchestrator to the
+# renderers' host (deploy.sh, run by release.yml); see README.md.
 name: countdown-renderers
 
-x-renderer: &renderer
-  # deploy.sh pins this to the release being deployed, in .env. Without one (running this by hand), :latest is
-  # the newest promoted release, so what the Pis run.
-  image: ghcr.io/nvorkinn/countdown-server:${COUNTDOWN_SERVER_VERSION:-latest}
-  pull_policy: always
-  restart: unless-stopped
-  # The host's own Fluent Bit listens for the renderer's OTLP metrics on 127.0.0.1:4318, which only the host's
-  # network namespace reaches. Nothing here publishes ports, so sharing it exposes nothing.
-  network_mode: host
-  environment: &renderer-environment
-    BROKER_URL: https://auth.nikolaivorkinn.com
-
 services:
-  # Starts a renderer for every screen the broker says needs one (see ../../orchestrator/README.md), so the
-  # list below is only the renderers made by hand. It needs the Docker socket, which is root on this host.
-  # Its renderers aren't compose services: they carry no compose labels, so this file's deploy never
-  # removes them or their volumes. They're brought to each release's image by the orchestrator itself.
+  # Starts renderers for assignments (see ../../orchestrator/README.md). Its renderer containers are not
+  # Compose services; they carry no Compose labels and are upgraded by the orchestrator on each release.
   orchestrator:
     image: ghcr.io/nvorkinn/countdown-orchestrator:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
     pull_policy: always
@@ -33,20 +16,3 @@ services:
       MAX_RENDERERS: ${MAX_RENDERERS:-20}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-
-  nikolai:
-    <<: *renderer
-    environment:
-      <<: *renderer-environment
-      # Labels the device on the broker; lowercase letters, digits, _ and -.
-      DEVICE_NAME: nikolai
-    volumes:
-      # The renderer's identity: lose it and it registers as a new device.
-      - nikolai:/data
-      # The key that encrypts that identity, made on first start. Its own volume, so a copy of /data isn't
-      # a copy of the identity. Lose it and the identity can't be read: see README.md.
-      - nikolai-key:/keys
-
-volumes:
-  nikolai:
-  nikolai-key:

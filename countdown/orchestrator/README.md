@@ -23,7 +23,7 @@ later only changes where `reconcile()` places an assignment.
 | `BROKER_URL` | required; also handed to the renderers |
 | `ORCHESTRATOR_TOKEN` | required; its own bearer credential, not a device secret |
 | `RENDERER_IMAGE` | required; e.g. `ghcr.io/nvorkinn/countdown-server:<release>` |
-| `MAX_RENDERERS` | optional capacity, of renderers *running*; assignments beyond it stay `pending` |
+| `MAX_RENDERERS` | optional capacity, of renderers *running*; assignments beyond it stay `pending`; `0` means unlimited |
 | `RENDERER_MEM_LIMIT` | default `256m` |
 | `POLL_INTERVAL_S` | default 10 |
 

@@ -21,22 +21,10 @@ docker build -f server/Dockerfile -t countdown-server:dev .
 
 ## Adding a screen
 
-Most renderers aren't listed here: the **orchestrator** (the first service in `docker-compose.yml`, see
-`../../orchestrator/README.md`) starts one for every screen that's been set up on the config page, and stops it
-after a day without the screen. Only list one below by hand for a renderer that should exist regardless. Slugs
-are unique across the broker, so a hand-listed `DEVICE_NAME` mustn't be one a user could also pick.
-
-The renderers listed here are services in `docker-compose.yml`, and a release deploys them (below).
-
-1. Copy the `nikolai` service and its two volumes in `docker-compose.yml`, renaming all three and setting
-   `DEVICE_NAME` (it labels the device on the broker).
-2. Merge it and cut a release. The deploy creates the renderer, and updates the others.
-3. Set up the screen (`countdown-client` or the ESP32). The renderer and the screen each wait in
-   the broker's pool until the other arrives, then become one device; `flask devices pending` on
-   the broker shows who's waiting. The renderer then draws the pairing code for the screen.
-
-To remove one, delete its service. The next deploy stops and deletes it, **with its volumes**: the identity and
-its key. Adding it back registers a new device.
+Set up the screen (`countdown-client` or the ESP32), then choose a renderer slug on the config page. The
+orchestrator starts its renderer, and stops it after a day without the screen. To remove one, delete its
+assignment through the config page; the orchestrator removes the renderer **with its volumes** (identity and
+key).
 
 Each renderer's identity, `.auth_broker_device`, lives in its volume (`/data`). Keep the volume
 and the renderer stays the same device across restarts and upgrades; remove it and the renderer
@@ -62,8 +50,8 @@ needs no token. Without a Fluent Bit listening there it logs a warning each minu
 
 `release.yml`'s `deploy-renderers` job runs once a release's assets are uploaded. It waits for approval of the
 `deploy-renderers` environment, then runs `deploy.sh <tag>` on the runner against the host's Docker daemon over
-ssh (`DOCKER_HOST=ssh://...`), so the host needs nothing installed but Docker. That pins every renderer to the
-release's image, pulls it, and brings up the renderers that are new or changed. The release is still a
+ssh (`DOCKER_HOST=ssh://...`), so the host needs nothing installed but Docker. That pins the orchestrator and
+renderer image to the release, then the orchestrator updates assigned renderers. The release is still a
 pre-release then, so renderers can be ahead of the Pis until it's promoted.
 
 Set up once, in the repo's Settings:
@@ -76,8 +64,12 @@ Set up once, in the repo's Settings:
 ## Day to day
 
 ```sh
-docker logs -f countdown-renderers-<name>-1   # what a renderer is doing, on the host
-docker ps --filter label=com.docker.compose.project=countdown-renderers
+docker logs -f renderer-<slug>                 # what a renderer is doing, on the host
+docker ps --filter label=countdown.managed=1
 ```
+
+The first deploy removes the former `nikolai` Compose service. If the Compose file declares no named volumes,
+`deploy.sh` skips volume cleanup to preserve existing data; any old `countdown-renderers_nikolai*` volumes can
+be removed manually after confirming they are no longer needed.
 
 To hold back or roll back, re-run an older release's `deploy-renderers` job from the Actions tab.
