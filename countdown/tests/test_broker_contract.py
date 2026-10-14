@@ -34,7 +34,7 @@ NOT_SENT_BY_THE_BROKER = {
 def test_the_spec_describes_the_config_endpoint():
     spec = yaml.safe_load(SPEC.read_text())
     operation = spec["paths"]["/api/config"]["get"]
-    assert operation["security"] == [{"deviceSecret": []}]
+    assert operation["security"] == [{"deviceSecret": ["renderer"]}]
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/ConfigResponse"
     }
