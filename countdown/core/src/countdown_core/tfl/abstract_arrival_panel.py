@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
+from countdown_core.spotify.spotify_panel import truncate_to_fit
 from countdown_core.tfl.models import ArrivalUnion
 from countdown_core.utils.utils import UBUNTU_BOLD, UBUNTU_CONDENSED, UBUNTU_MEDIUM
 
@@ -55,7 +56,11 @@ class AbstractArrivalPanel(Panel, ABC):
         middle = ROW_HEIGHT // 2
         d.rectangle((0, 0, BADGE_WIDTH - 1, ROW_HEIGHT - 1), fill="black")
         d.text((BADGE_WIDTH / 2, middle), route, "white", font=AbstractArrivalPanel._route_font(route), anchor="mm")
-        d.text((BADGE_WIDTH + DESTINATION_GAP, middle), destination, "black", font=UBUNTU_BOLD, anchor="lm")
+        # Cut short rather than run into the time, on a stop narrowed to fit (a portrait screen).
+        destination_x = BADGE_WIDTH + DESTINATION_GAP
+        room = img.size[0] - destination_x - UBUNTU_MEDIUM.getlength(eta) - DESTINATION_GAP
+        destination = truncate_to_fit(destination, UBUNTU_BOLD, room)
+        d.text((destination_x, middle), destination, "black", font=UBUNTU_BOLD, anchor="lm")
         d.text((img.size[0], middle), eta, "black", font=UBUNTU_MEDIUM, anchor="rm")
         return img
 
