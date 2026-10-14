@@ -121,14 +121,73 @@ What the client accepts is the compatibility policy: the broker may **add** fiel
 ones it doesn't know), but a value outside what the contract lists (a third screen orientation, say) is invalid, the
 config is rejected, and the renderer keeps the one it has. A test pins each half.
 
-## Running locally
+## Running it in development
+
+In production the orchestrator makes the renderer, inside a container, with a one-time claim token, so there's
+nothing to attach a debugger to. In development you start it yourself, as a plain process, and run the
+screen beside it: the renderer from PyCharm (debug), the screen from VS Code.
+
+A screen that's already set up (WiFi, account, config) keeps all of that if you **take over its existing renderer**
+rather than make a new one. That's the quick way:
 
 ```bash
-BROKER_URL=https://auth.nikolaivorkinn.com uv run countdown-server
+DOCKER_HOST=ssh://user@host uv run python dev/adopt_renderer.py <slug>   # copies its identity and key, writes dev/.env
 ```
 
-It registers as a renderer and waits for a screen to be matched with it.
-`LOG_LEVEL` (e.g. `DEBUG`) overrides the default `INFO`.
+Then, on the host, stop the orchestrator (it restarts a stopped renderer within seconds) and the renderer
+(`docker stop <orchestrator> renderer-<slug>`), so two never run as one device, and start yours. Nothing changes on
+the broker and no tokens are needed. When you're done, start both again. The screen needs nothing at all.
+
+On a **local broker** there is nothing to take over, so seed one: it writes a paired screen, its config and a
+provisioned renderer straight into the broker's SQLite (stop the broker, and run its migrations first by starting
+it once; it only knows the schema as of alembic revision 0009):
+
+```bash
+uv run python dev/seed_broker.py /path/to/broker.db --owner <your user id> --slug dev --weather London --stops <naptan>
+```
+
+It writes identities for both processes, `dev/.env`, and prints nothing secret (the secrets live only in the
+encrypted identity files, beside their keys). The seeded renderer and screen are already paired, so start them and they just work; the broker must speak
+the contract in `api/` (a broker newer or older than the submodule's pin can reject the screen or the config).
+`--replace` re-seeds a slug.
+
+All three scripts (`adopt_renderer.py`, `seed_broker.py` and `dev_env.py`) also write a **PyCharm run configuration**,
+"countdown-server (<slug>)", to `.idea/runConfigurations/` (git-ignored): module `countdown_server.main`,
+working directory `countdown/dev/renderer`, and the environment inline. Pick the project's uv interpreter once in it
+(`countdown/.venv`) and press Debug. If your PyCharm project isn't this checkout (a worktree, say), run the script
+with `--idea-dir /path/to/project/.idea`; `--no-pycharm` skips it. It's regenerated each run, so the variables stay
+current.
+
+To make a **new** renderer instead (a screen with none yet, or a local broker):
+
+1. **Use a broker with no orchestrator watching it** (a local auth-broker, or stop the orchestrator on the host
+   for now). Otherwise it starts a container for the assignment within 10 seconds and claims the screen before
+   you do. A screen that a renderer has already claimed has no claim token left, so take that renderer over (above).
+2. On the broker's config page, set up a screen and pick a slug for its renderer.
+3. Write the environment both processes use (the claim token, the slug and `BROKER_URL`) to `dev/.env`, which is
+   git-ignored:
+
+   ```bash
+   BROKER_URL=http://localhost:5000 ORCHESTRATOR_TOKEN=<its token> uv run python dev/dev_env.py <slug>
+   ```
+
+Then:
+
+4. **Renderer, in PyCharm.** Run the generated configuration, or make a Python one by hand with module `countdown_server.main`, working directory
+   `countdown/dev/renderer`, the project's uv interpreter and `countdown/dev/.env` under "Paths to .env files".
+   Run it with Debug. It claims the screen the first time, and keeps its identity in
+   `dev/renderer/.auth_broker_device`, so later runs reuse it (the stale `CLAIM_TOKEN` is ignored).
+5. **Screen, in VS Code.** Open `countdown/` and run "Python Debugger: countdown-client (screen)". It
+   needs the e-paper hardware, so run it on the Pi (VS Code Remote-SSH), with `dev/.env` made there with only
+   `BROKER_URL` in it. The screen and renderer need different working directories (`dev/screen`, `dev/renderer`):
+   a secret registered as one role is refused as the other.
+
+The VS Code "Python Debugger: countdown-server" configuration runs the renderer the same way, if you'd rather
+debug it there. `LOG_LEVEL` in `dev/.env` is `DEBUG`; the default is `INFO`. Without a Fluent Bit on
+`127.0.0.1:4318` the renderer logs a metrics warning each minute, which is expected.
+
+To start over with a new renderer, delete `dev/renderer/.auth_broker_device` and its assignment, and make a new one:
+the claim token is single-use.
 
 ## Visual Regression Testing
 

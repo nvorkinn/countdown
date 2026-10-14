@@ -166,6 +166,8 @@ core/src/countdown_core/fonts/MaterialSymbols*.ttf
 # auth-broker device credentials (device_id + device_secret), generated on first
 # boot -- see core/src/countdown_core/config_server/broker_client.py
 .auth_broker_device
+# The renderer's credentials key, copied by dev/adopt_renderer.py
+dev/*/.config/
 
 # Spyder project settings
 .spyderproject
