@@ -13,6 +13,7 @@ from PIL import Image
 # `countdown_core` must be imported before any display.* module, or it's a circular import.
 import countdown_core  # noqa: F401, I001
 import countdown_core.glow.energy_panel
+from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.display import DisplayController
 from countdown_core.core.panel import Panel
@@ -21,6 +22,7 @@ from countdown_core.glow.glow_client import GlowClient
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
+from countdown_core.rendering.screen import DEFAULT_CANVAS
 from countdown_core.spotify.models import Queue
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.spotify.spotify_panel import SpotifyPanel
@@ -40,11 +42,12 @@ EVERYTHING = frozenset(ClientClasses)
 NO_GLOWMARKT = EVERYTHING - {ClientClasses.GLOWMARKT}
 
 
-@pytest.fixture(autouse=True)
-def _full_layout():
-    """_CONTROLLER is shared, so each test starts from the full layout (a test that wants
-    another sets it) rather than whichever one the previous test left behind."""
-    _CONTROLLER.use_layout(EVERYTHING)
+LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
+
+
+def _draw(panels: dict[str, Panel], available: frozenset[ClientClasses] = EVERYTHING) -> Image.Image:
+    """The screen as it's drawn on an 800x480 landscape screen able to show `available`."""
+    return _CONTROLLER.display_screen(panels, LANDSCAPE, available)
 
 
 _FROZEN_NOW = dt.datetime(2026, 1, 15, 12, 0, 0)
@@ -189,7 +192,7 @@ def _panels(
     spotify: Panel = SPOTIFY_NOT_CONFIGURED,
     notices: Panel = NOTICES,
 ) -> dict[str, Panel]:
-    """What ApiRegistry.update_all() hands DisplayController.display_screen(): a panel
+    """What ApiRegistry.update_all() hands the layout: a panel
     for every API, a MessagePanel where one has nothing to show."""
     return {
         ClientClasses.TFL.api_name: arrivals,
@@ -201,33 +204,30 @@ def _panels(
 
 
 def test_screen_with_no_stops_configured(snapshot):
-    img = _CONTROLLER.display_screen(_panels(TflClient.message_panel("Needs configuring")))
+    img = _draw(_panels(TflClient.message_panel("Needs configuring")))
     snapshot.assert_matches("screen_no_stops", img)
 
 
 def test_screen_with_single_bus_stop(snapshot):
-    img = _CONTROLLER.display_screen(_panels(_bus_only_arrivals()))
+    img = _draw(_panels(_bus_only_arrivals()))
     snapshot.assert_matches("screen_single_bus_stop", img)
 
 
 def test_screen_with_mixed_bus_and_tube(snapshot):
-    img = _CONTROLLER.display_screen(_panels(_bus_and_tube_arrivals()))
+    img = _draw(_panels(_bus_and_tube_arrivals()))
     snapshot.assert_matches("screen_mixed_bus_and_tube", img)
 
 
 def test_screen_without_weather_data_yet(snapshot):
     """The weather has never been fetched successfully: its area says so."""
-    img = _CONTROLLER.display_screen(
-        _panels(_bus_only_arrivals(), weather=WeatherClient.message_panel("Could not connect"))
-    )
+    img = _draw(_panels(_bus_only_arrivals(), weather=WeatherClient.message_panel("Could not connect")))
     snapshot.assert_matches("screen_no_weather", img)
 
 
 def test_screen_without_energy_panel(snapshot):
     """Glowmarkt not set up (the common case for a gifted device): no energy column, and
     the notices and Spotify take the full width instead."""
-    _CONTROLLER.use_layout(NO_GLOWMARKT)
-    img = _CONTROLLER.display_screen(_panels(_bus_only_arrivals(), energy=GlowClient.message_panel("Not configured")))
+    img = _draw(_panels(_bus_only_arrivals(), energy=GlowClient.message_panel("Not configured")), NO_GLOWMARKT)
     snapshot.assert_matches("screen_no_energy", img)
 
 
@@ -235,44 +235,36 @@ def test_screen_without_energy_panel(snapshot):
 def test_screen_without_energy_panel_playing_spotify(snapshot):
     """Spotify at the full width it gets without the energy column."""
     responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    _CONTROLLER.use_layout(NO_GLOWMARKT)
-    img = _CONTROLLER.display_screen(
+    img = _draw(
         _panels(
             _bus_only_arrivals(),
             energy=GlowClient.message_panel("Not configured"),
             spotify=SpotifyPanel(SPOTIFY_QUEUE),
-        )
+        ),
+        NO_GLOWMARKT,
     )
     snapshot.assert_matches("screen_no_energy_spotify_playing", img)
 
 
 def test_screen_with_no_notices(snapshot):
-    img = _CONTROLLER.display_screen(
-        _panels(_bus_only_arrivals(), notices=NoticeBoardClient.message_panel("All clear"))
-    )
+    img = _draw(_panels(_bus_only_arrivals(), notices=NoticeBoardClient.message_panel("All clear")))
     snapshot.assert_matches("screen_no_notices", img)
 
 
 def test_screen_without_spotify(snapshot):
-    """GlowComposer: the notices under the arrivals, the energy chart under the weather."""
-    _CONTROLLER.use_layout(EVERYTHING - {ClientClasses.SPOTIFY})
-    img = _CONTROLLER.display_screen(_panels(_bus_and_tube_arrivals()))
+    """GlowLayout: the notices under the arrivals, the energy chart under the weather."""
+    img = _draw(_panels(_bus_and_tube_arrivals()), EVERYTHING - {ClientClasses.SPOTIFY})
     snapshot.assert_matches("screen_no_spotify", img)
 
 
 def test_screen_with_four_stops_and_neither_spotify_nor_energy(snapshot):
-    """BaseComposer: four stops in a 2x2 grid beside the weather, the notices below."""
-    _CONTROLLER.use_layout(EVERYTHING - {ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT})
-    img = _CONTROLLER.display_screen(_panels(_four_stop_arrivals()))
+    """BaseLayout: four stops in a 2x2 grid beside the weather, the notices below."""
+    img = _draw(_panels(_four_stop_arrivals()), EVERYTHING - {ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT})
     snapshot.assert_matches("screen_four_stops", img)
 
 
 def test_empty_screen_stays_clear_of_the_screen_edges():
-    img = (
-        EmptyPanel()
-        .render(countdown_core.core.display.TOTAL_WIDTH, countdown_core.core.display.TOTAL_HEIGHT)
-        .convert("L")
-    )
+    img = EmptyPanel().render(*DEFAULT_CANVAS.size).convert("L")
     width, height = img.size
 
     for edge in [(0, 0, 40, height), (width - 40, 0, width, height)]:
@@ -282,8 +274,8 @@ def test_empty_screen_stays_clear_of_the_screen_edges():
 def test_screen_with_no_panels_at_all_says_there_is_nothing_to_show(snapshot):
     """First cycle after boot, a paired device nobody's set up yet, or every API failing:
     a message saying so, not a blank white screen that looks broken (or a crash)."""
-    img = _CONTROLLER.display_screen({})
-    assert img.size == (countdown_core.core.display.TOTAL_WIDTH, countdown_core.core.display.TOTAL_HEIGHT)
+    img = _draw({})
+    assert img.size == DEFAULT_CANVAS.size
     # Text-only and large: CI renders it ~1% differently from macOS.
     snapshot.assert_matches("screen_nothing_to_show", img, threshold=0.02)
 
@@ -291,7 +283,7 @@ def test_screen_with_no_panels_at_all_says_there_is_nothing_to_show(snapshot):
 @responses.activate
 def test_screen_with_spotify_playing(snapshot):
     responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    img = _CONTROLLER.display_screen(_panels(_bus_only_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE)))
+    img = _draw(_panels(_bus_only_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE)))
     snapshot.assert_matches("screen_spotify_playing", img)
 
 
@@ -299,7 +291,7 @@ def test_screen_with_spotify_playing(snapshot):
 def test_screen_with_spotify_playing_the_last_queued_track(snapshot):
     """Nothing up next: that line is left out rather than drawn empty."""
     responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    img = _CONTROLLER.display_screen(_panels(_bus_only_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE_LAST_TRACK)))
+    img = _draw(_panels(_bus_only_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE_LAST_TRACK)))
     snapshot.assert_matches("screen_spotify_last_track", img)
 
 
@@ -314,19 +306,13 @@ def test_weather_panel_rainy_night(snapshot):
 
 
 def test_pairing_code_screen(snapshot):
-    img = PairingCodePanel("C4FFEZ", "7218485b654f", has_changed=True).render(
-        countdown_core.core.display.TOTAL_WIDTH, countdown_core.core.display.TOTAL_HEIGHT
-    )
+    img = PairingCodePanel("C4FFEZ", "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size)
     snapshot.assert_matches("screen_pairing_code", img, threshold=0.02)
 
 
 @pytest.mark.parametrize("code", ["C4FFEZ", "ABCDEFGH", "ABCDEFGHJKLM"])
 def test_pairing_code_stays_on_the_screen_whatever_its_length(code):
-    img = (
-        PairingCodePanel(code, "7218485b654f", has_changed=True)
-        .render(countdown_core.core.display.TOTAL_WIDTH, countdown_core.core.display.TOTAL_HEIGHT)
-        .convert("L")
-    )
+    img = PairingCodePanel(code, "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size).convert("L")
     width, height = img.size
 
     for edge in [(0, 0, 30, height), (width - 30, 0, width, height)]:
@@ -334,8 +320,6 @@ def test_pairing_code_stays_on_the_screen_whatever_its_length(code):
 
 
 def test_pairing_screen_without_a_code_draws_no_boxes():
-    img = PairingCodePanel(None, "7218485b654f", has_changed=True).render(
-        countdown_core.core.display.TOTAL_WIDTH, countdown_core.core.display.TOTAL_HEIGHT
-    )
+    img = PairingCodePanel(None, "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size)
 
     assert img.convert("L").crop((0, 232, 800, 342)).getextrema() == (255, 255)

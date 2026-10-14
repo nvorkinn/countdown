@@ -50,19 +50,23 @@ has its own refresh interval. A failing source keeps its last notices for a
 while (at least an hour) before they're dropped. Notices are ranked by severity, and planned works only fill rows left
 over.
 
-**Layout** (`display_composers/`). Which APIs are available decides the layout:
-Glowmarkt is on only when the config has both its credentials, and Spotify when
-it's enabled. There's one composer for each combination of the two. Every layout
-puts the arrivals top-left with the weather beside them. The layout also sets
-how many stops are on screen at once (four with neither Spotify nor Glowmarkt,
-otherwise two), and the TfL client pages through the rest.
+**Layout** (`rendering/`). For every frame, `DisplayController` asks `LAYOUTS` (a `LayoutRegistry`) for a
+layout, and keeps nothing about the answer. Layouts are registered by the canvas they draw
+on: the screen in the config, as it's hung, so 800x480 landscape or 480x800 portrait. A
+canvas with no layouts yet gets the 800x480 ones. Several layouts can share a canvas (the
+config will choose one by its `layout_id`; until it can, the canvas's first is used), and
+each has a variant for every combination of the APIs available: Glowmarkt is on only when
+the config has both its credentials, and Spotify when it's enabled. The only layout so far,
+`classic`, puts the arrivals top-left with the weather beside them. The layout also sets
+how many stops are on screen at once (four with neither Spotify nor Glowmarkt, otherwise
+two), so it's picked before the clients are polled, and the TfL client pages through the rest.
 
 **Painting** (`core/display.py`, `core/targets.py`). `DisplayController`
 only paints when the picture changes. If only the arrivals changed, it does a
 quick partial refresh of their box. Otherwise, or once 10 minutes have passed
 since the last full refresh (partial refreshes leave ghosting), it does a full
 refresh. If every API only has a message to show, a "Nothing to show yet" screen
-replaces the dashboard. Frames go to a display target: `ServerTarget` hands each one to the broker for
+replaces the dashboard (`rendering.render`). Frames go to a display target: `ServerTarget` hands each one to the broker for
 the screen to fetch. If the target can't take a frame, the app carries on, and a
 whole-screen picture it couldn't paint (pairing code, checklist) is retried
 every cycle until it can.

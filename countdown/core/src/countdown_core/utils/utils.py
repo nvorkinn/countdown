@@ -4,8 +4,6 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-TOTAL_WIDTH = 800
-TOTAL_HEIGHT = 480
 GAP = 5  # between panels, and between them and the screen's edge
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent

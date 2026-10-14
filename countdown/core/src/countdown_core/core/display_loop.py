@@ -51,7 +51,7 @@ class DisplayLoop:
     async def run(self) -> None:
         started = time.monotonic()
         await self.api_reg.on_config_update(self.config)
-        self._apply_layout()
+        self._fit_stops_to_layout()
         first_cycle_done = False
         while True:
             try:
@@ -60,11 +60,11 @@ class DisplayLoop:
                     # Only repaint when the code changes: it's a full e-paper refresh, and an
                     # unpaired device can sit here for days.
                     if self.pairing_code_panel.has_changed:
-                        self.display.display_pairing_screen(self.pairing_code_panel)
+                        self.display.display_pairing_screen(self.pairing_code_panel, self.config.screen)
                 else:
                     self.api_reg.status.stage = "running"
                     panels = await self.api_reg.update_all()
-                    self.display.display_screen(panels)
+                    self.display.display_screen(panels, self.config.screen, self.api_reg.available())
                 self.display.repaint_pending()
             except requests.exceptions.RequestException as e:
                 logger.exception(f"Network error encountered: {e}")
@@ -100,10 +100,9 @@ class DisplayLoop:
         self.config = fetched
         self.interval = fetched.interval
         await self.api_reg.on_config_update(fetched)
-        self._apply_layout()
+        self._fit_stops_to_layout()
 
-    def _apply_layout(self) -> None:
-        """The config decides the layout (from which APIs are available), and the layout
-        decides how many stops are on screen at once."""
-        layout = self.display.use_layout(self.api_reg.available())
-        self.api_reg.show_stops(layout.stops_shown)
+    def _fit_stops_to_layout(self) -> None:
+        """The config decides the layout, and the layout decides how many stops are on screen
+        at once. Call after every on_config_update(), since that may have rebuilt the TfL client."""
+        self.api_reg.show_stops(self.display.stops_shown(self.config.screen, self.api_reg.available()))
