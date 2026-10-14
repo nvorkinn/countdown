@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from countdown_core.config_server import wire
+from countdown_core.config_server.broker_client import _device_name_header
 from countdown_core.config_server.models import AppConfig
 
 CONTRACT_DIR = Path(__file__).resolve().parents[1] / "core" / "contract"
@@ -50,6 +51,20 @@ def test_the_spec_describes_the_config_endpoint():
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/ConfigResponse"
     }
+
+
+def test_the_headers_the_client_sends_are_the_ones_the_spec_declares(monkeypatch):
+    """Authorization isn't a header parameter (the spec declares it as a security scheme); the rest are."""
+    monkeypatch.setenv("DEVICE_NAME", "camilla")
+    spec = json.loads((CONTRACT_DIR / "broker-openapi.json").read_text())
+    declared = {
+        p["name"]: p["required"] for p in spec["paths"]["/api/config"]["get"]["parameters"] if p["in"] == "header"
+    }
+
+    sent = set(_device_name_header())
+
+    assert sent <= declared.keys(), "the client sends a header the spec doesn't declare"
+    assert {name for name, required in declared.items() if required} <= sent, "a required header isn't sent"
 
 
 def _fields(model) -> set[str]:
