@@ -12,8 +12,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Our packages only ever come from these wheels, never an index: anyone could publish a
-# package there under one of their names.
-COPY dist/countdown_server-*.whl dist/countdown_core-*.whl dist/countdown_credentials-*.whl /tmp/wheels/
+# package there under one of their names. That includes countdown-api, which isn't on PyPI at all.
+COPY dist/countdown_server-*.whl dist/countdown_core-*.whl dist/countdown_credentials-*.whl dist/countdown_api-*.whl /tmp/wheels/
 RUN pip install --no-cache-dir --root-user-action=ignore --disable-pip-version-check /tmp/wheels/*.whl \
     && rm -rf /tmp/wheels
 

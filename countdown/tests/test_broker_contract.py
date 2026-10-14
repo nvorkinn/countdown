@@ -1,24 +1,21 @@
 """The broker's config API against what the app reads of it.
 
-config_server/broker_api/ is the client that core/contract/fetch.py unpacks from the latest release of the
-countdown API (https://github.com/nvorkinn/countdown-api), built there from the contract that auth-broker
-implements. Nothing here talks to a broker: these fail when the contract, the client built from it, or AppConfig
-stop agreeing, so a change on either side can't go unnoticed."""
+countdown_api (https://github.com/nvorkinn/countdown-api) is the client built from the contract that auth-broker
+implements, and the package carries the contract itself. Nothing here talks to a broker: these fail when the
+contract, the client built from it, or AppConfig stop agreeing, so a change on either side can't go unnoticed."""
 
-from pathlib import Path
+from importlib.resources import files
 
 import pytest
 import responses
 import yaml
+from countdown_api import models as wire
 
-from countdown_core.config_server.broker_api import models as wire
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.config_server.models import AppConfig
 from countdown_credentials.registration import RendererRegistration
 
-COUNTDOWN = Path(__file__).resolve().parents[1]
-CONTRACT_DIR = COUNTDOWN / "core" / "contract"
-SPEC = CONTRACT_DIR / "openapi.yaml"
+SPEC = files("countdown_api") / "openapi.yaml"
 
 # Sent by the broker but not used by the renderer: its device_id comes from registration, and the screen's
 # shape is the display's business.

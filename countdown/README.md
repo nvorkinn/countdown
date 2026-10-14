@@ -91,33 +91,38 @@ This directory is a uv workspace:
 ## The API contract
 
 The API between the renderer and [auth-broker](https://github.com/nvorkinn/auth-broker) is defined in neither
-repository but in [countdown-api](https://github.com/nvorkinn/countdown-api), as an OpenAPI file. That repository
-runs [openapi-codegen](https://github.com/nvorkinn/openapi-codegen) on it and publishes the result with each release,
-at addresses that never change:
+repository but in [countdown-api](https://github.com/nvorkinn/countdown-api): an OpenAPI file, and the Python package
+that [openapi-codegen](https://github.com/nvorkinn/openapi-codegen) generates from it (the Pydantic models, a
+`requests` client for this side, Flask views for the broker's). It isn't on PyPI; its **latest page**,
+https://nvorkinn.github.io/countdown-api/, is a package index, and its `constraints.txt` says which version is the
+latest.
 
-    https://github.com/nvorkinn/countdown-api/releases/latest/download/countdown_api.tar.gz   (models, client, views)
-    https://github.com/nvorkinn/countdown-api/releases/latest/download/openapi.yaml           (the contract)
-    https://github.com/nvorkinn/countdown-api/releases/latest/download/SHA256SUMS
+Here it is an ordinary dependency:
 
-Here that becomes:
-
-- `config_server/broker_api/` is the client: the Pydantic models and a `requests` client (not the Flask views, which
-  are the broker's). `core/contract/fetch.py` downloads the archive, checks it against the release's `SHA256SUMS`
-  and unpacks it there, next to the contract itself as `core/contract/openapi.yaml`. Neither is committed. Run it
-  after cloning and whenever the contract changes (it needs only Python):
+- `core/pyproject.toml` depends on `countdown-api[client]` (the `client` extra adds `requests`), with no version.
+  `pyproject.toml` here declares the page as an `explicit` index for that package only, so nothing else is looked
+  up there and a same-named package on PyPI can't win.
+- `uv.lock` records the version and the wheel's hash. To move to the latest release:
 
   ```bash
-  python3 core/contract/fetch.py        # from countdown/
+  uv lock --upgrade-package countdown-api
   ```
 
-  CI and the release workflow run it before they test or build, so a contract this code no longer fits fails the
-  build. `COUNTDOWN_API_BASE=<URL or directory>` takes the three files from somewhere else, to try a countdown-api
-  change before it is released.
-- `BrokerClient.get_config` calls the client, through the device's session, so the path, the method, the headers and
-  the shape of the response all come from the contract.
-- `AppConfig` is what the app actually reads of the response. `tests/test_broker_contract.py` fails if the
-  contract, the client or `AppConfig` stop agreeing: a new field the broker sends fails the tests until `AppConfig`
-  reads it (or it's listed as unused), so the two can't quietly diverge.
+  CI and the release workflow set `UV_CONSTRAINT` to the page's `constraints.txt`, but their uv commands run with
+  `--frozen`, which installs exactly what `uv.lock` records and ignores constraints. So the lockfile decides which
+  version is built and tested, and moves only when it is upgraded as above.
+- `BrokerClient.get_config` calls `countdown_api.clients.ApiConfigClient`, through the device's session, so the
+  path, the method, the headers and the shape of the response all come from the contract.
+- `AppConfig` is what the app actually reads of the response. `tests/test_broker_contract.py` fails if the contract
+  (the package carries `countdown_api/openapi.yaml`), the client or `AppConfig` stop agreeing: a new field the
+  broker sends fails the tests until `AppConfig` reads it (or it's listed as unused), so the two can't quietly
+  diverge.
+- The server image only installs the wheels in `dist/` (our packages never come from an index), so CI and the
+  release workflow add the `countdown-api` wheel the lock pins to `dist/` before building it
+  (`uvx pip download --require-hashes`, checked against the lock's hash).
+
+openapi-codegen is still a dev dependency, installed from a **release** of its repository: `pyproject.toml` points
+at the release's wheel and `uv.lock` records the wheel's hash.
 
 What the generated client accepts is the compatibility policy: the broker may **add** fields (the client ignores
 ones it doesn't know), but a value outside what the contract lists (a third screen orientation, say) is invalid, the

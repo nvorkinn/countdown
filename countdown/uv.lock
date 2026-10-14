@@ -173,6 +173,7 @@ name = "countdown"
 version = "0.4.2"
 source = { virtual = "." }
 dependencies = [
+    { name = "countdown-api" },
     { name = "countdown-client" },
     { name = "countdown-core" },
     { name = "countdown-credentials" },
@@ -183,6 +184,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "openapi-codegen" },
     { name = "pyinstrument" },
     { name = "pyproject-runner" },
     { name = "pytest" },
@@ -195,6 +197,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "countdown-api", index = "https://nvorkinn.github.io/countdown-api/simple/" },
     { name = "countdown-client", editable = "client" },
     { name = "countdown-core", editable = "core" },
     { name = "countdown-credentials", editable = "credentials" },
@@ -205,6 +208,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "openapi-codegen", url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v0.2.0/openapi_codegen-0.2.0-py3-none-any.whl" },
     { name = "pyinstrument", specifier = ">=5.1.3" },
     { name = "pyproject-runner", specifier = ">=0.3.0" },
     { name = "pytest", specifier = ">=8.4.2" },
@@ -213,6 +217,22 @@ dev = [
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "responses", specifier = ">=0.26.3" },
     { name = "ruff", specifier = ">=0.16.8" },
+]
+
+[[package]]
+name = "countdown-api"
+version = "1.3.0"
+source = { registry = "https://nvorkinn.github.io/countdown-api/simple/" }
+dependencies = [
+    { name = "pydantic" },
+]
+wheels = [
+    { url = "https://github.com/nvorkinn/countdown-api/releases/download/v1.3.0/countdown_api-1.3.0-py3-none-any.whl", hash = "sha256:0ce6219461996d252546558844b62c8c96e2120e60e8d528ed6ee7cd55fef0ce" },
+]
+
+[package.optional-dependencies]
+client = [
+    { name = "requests" },
 ]
 
 [[package]]
@@ -239,6 +259,7 @@ name = "countdown-core"
 version = "0.4.2"
 source = { editable = "core" }
 dependencies = [
+    { name = "countdown-api", extra = ["client"] },
     { name = "countdown-credentials" },
     { name = "np" },
     { name = "numpy" },
@@ -255,6 +276,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "countdown-api", extras = ["client"], index = "https://nvorkinn.github.io/countdown-api/simple/" },
     { name = "countdown-credentials", editable = "credentials" },
     { name = "np", specifier = ">=1.0.2" },
     { name = "numpy", specifier = ">=2.5.3" },
@@ -614,6 +636,26 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/6c/b0/ff5658a58199b7bcaad87bf260eef6713d9d42cca4e028f935b4fc5fbac6/numpy-2.5.3-cp315-cp315t-win_amd64.whl", hash = "sha256:1aad64d99730d013cfc6debafed22783b4fc5a7f4b8bc744d2d8cf7dcc880551", size = 12884918, upload-time = "2026-09-06T16:27:40.965Z" },
     { url = "https://files.pythonhosted.org/packages/fb/0b/b12a2df5d1b774bd9007a6fdff9381145b6223d37f11afc9c37ab0efd9a1/numpy-2.5.3-cp315-cp315t-win_arm64.whl", hash = "sha256:befa1ae5bd6030b3f512b43ff3fa5290bbed6b84411a44244b14adf835f5b89d", size = 10850807, upload-time = "2026-09-06T16:27:43.868Z" },
 ]
+
+[[package]]
+name = "openapi-codegen"
+version = "0.2.0"
+source = { url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v0.2.0/openapi_codegen-0.2.0-py3-none-any.whl" }
+wheels = [
+    { url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v0.2.0/openapi_codegen-0.2.0-py3-none-any.whl", hash = "sha256:ccf70707e24940dee7c9c7df11fe81850fe0b511db59fbaf473be9facb5996ba" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "flask", marker = "extra == 'test'" },
+    { name = "pydantic", marker = "extra == 'test'" },
+    { name = "pytest", marker = "extra == 'test'" },
+    { name = "pyyaml", marker = "extra == 'test'" },
+    { name = "pyyaml", marker = "extra == 'yaml'" },
+    { name = "requests", marker = "extra == 'test'" },
+    { name = "ruff", marker = "extra == 'test'", specifier = "==0.16.10" },
+]
+provides-extras = ["yaml", "test"]
 
 [[package]]
 name = "opentelemetry-api"

@@ -2,8 +2,3 @@ local-only/
 .idea/
 .DS_Store
 .auth_broker_device
-
-# Generated from the countdown API contract by countdown/core/contract/generate.py
-countdown/core/contract/openapi.yaml
-countdown/core/src/countdown_core/config_server/broker_api/
-countdown/core/contract/.download/
