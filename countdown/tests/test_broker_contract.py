@@ -1,7 +1,7 @@
 """The broker's config API against what the app reads of it.
 
-countdown_api (https://github.com/nvorkinn/countdown-api) is the client built from the contract that auth-broker
-implements, and the package carries the contract itself. Nothing here talks to a broker: these fail when the
+countdown_api (https://github.com/nvorkinn/countdown-api) provides the client and contract that auth-broker
+implements. Nothing here talks to a broker: these fail when the
 contract, the client built from it, or AppConfig stop agreeing, so a change on either side can't go unnoticed."""
 
 from importlib.resources import files

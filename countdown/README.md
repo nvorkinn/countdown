@@ -91,9 +91,8 @@ This directory is a uv workspace:
 ## The API contract
 
 The API between the renderer and [auth-broker](https://github.com/nvorkinn/auth-broker) is defined in neither
-repository but in [countdown-api](https://github.com/nvorkinn/countdown-api): an OpenAPI file, and the Python package
-that [openapi-codegen](https://github.com/nvorkinn/openapi-codegen) generates from it (the Pydantic models, a
-`requests` client for this side, Flask views for the broker's). It isn't on PyPI; its **latest page**,
+repository but in [countdown-api](https://github.com/nvorkinn/countdown-api): an OpenAPI file and a Python package
+with Pydantic models, a `requests` client for this side, and Flask views for the broker's. It isn't on PyPI; its **latest page**,
 https://nvorkinn.github.io/countdown-api/, is a package index, and its `constraints.txt` says which version is the
 latest.
 
@@ -121,10 +120,7 @@ Here it is an ordinary dependency:
   release workflow add the `countdown-api` wheel the lock pins to `dist/` before building it
   (`uvx pip download --require-hashes`, checked against the lock's hash).
 
-openapi-codegen is still a dev dependency, installed from a **release** of its repository: `pyproject.toml` points
-at the release's wheel and `uv.lock` records the wheel's hash.
-
-What the generated client accepts is the compatibility policy: the broker may **add** fields (the client ignores
+What the client accepts is the compatibility policy: the broker may **add** fields (the client ignores
 ones it doesn't know), but a value outside what the contract lists (a third screen orientation, say) is invalid, the
 config is rejected, and the renderer keeps the one it has. A test pins each half.
 
