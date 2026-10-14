@@ -242,3 +242,7 @@ tests/images/_failures/
 
 # pyinstrument profiler output
 profile.html
+
+# Downloaded by `uv run sync_api.py`, not checked in.
+/countdown-api/src/
+/countdown-api/VERSION

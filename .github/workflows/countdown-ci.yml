@@ -30,6 +30,9 @@ jobs:
     - name: Set up uv
       uses: astral-sh/setup-uv@v5
 
+    - name: Download the latest countdown-api source
+      run: uv run countdown-api/sync_api.py
+
     - name: Run Ruff
       run: uv run --frozen --only-group dev ruff check --output-format=github .
 
@@ -45,6 +48,9 @@ jobs:
 
     - name: Set up uv
       uses: astral-sh/setup-uv@v5
+
+    - name: Download the latest countdown-api source
+      run: uv run countdown-api/sync_api.py
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -93,6 +99,9 @@ jobs:
     - name: Set up uv
       uses: astral-sh/setup-uv@v5
 
+    - name: Download the latest countdown-api source
+      run: uv run countdown-api/sync_api.py
+
     - name: Build wheels
       run: uv build --wheel --all-packages
 
@@ -117,6 +126,9 @@ jobs:
 
     - name: Set up uv
       uses: astral-sh/setup-uv@v5
+
+    - name: Download the latest countdown-api source
+      run: uv run countdown-api/sync_api.py
 
     - name: Build wheels
       run: uv build --wheel --all-packages

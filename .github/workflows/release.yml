@@ -35,6 +35,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+      - name: Download the latest countdown-api source
+        working-directory: countdown
+        run: uv run countdown-api/sync_api.py
       - name: Stamp version
         run: |
           version="${GITHUB_REF_NAME#v}"

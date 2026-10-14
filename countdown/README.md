@@ -96,7 +96,7 @@ with Pydantic models, a `requests` client for this side, and Flask views for the
 https://nvorkinn.github.io/countdown-api/, is a package index, and its `constraints.txt` says which version is the
 latest.
 
-Here it is a workspace member, `countdown-api/`, whose `src/` is a copy of the latest release's source (committed,
+Here it is a workspace member, `countdown-api/`, whose `src/` is a copy of the latest release's source (downloaded, not committed,
 since the package isn't on PyPI):
 
 - `core/pyproject.toml` depends on `countdown-api[client]` (the `client` extra adds `requests`), with no version;
@@ -109,7 +109,8 @@ since the package isn't on PyPI):
 
   It reads the version and the GitHub Releases link from https://nvorkinn.github.io/countdown-api/latest.json,
   downloads the release's wheel, checks it against the checksum there, and replaces `src/countdown_api/` with its
-  contents (the version is recorded in `countdown-api/VERSION`). Then run `uv lock` and commit.
+  contents (the version is recorded in `countdown-api/VERSION`). Both are git-ignored: CI and the release workflow run it
+  before building, and so must you after a fresh clone.
 - `BrokerClient.get_config` calls `countdown_api.clients.ApiConfigClient`, through the device's session, so the
   path, the method, the headers and the shape of the response all come from the contract.
 - `AppConfig` is what the app actually reads of the response. `tests/test_broker_contract.py` fails if the contract
