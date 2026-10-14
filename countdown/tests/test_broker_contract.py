@@ -101,7 +101,6 @@ def _full_response() -> wire.ConfigResponse:
         spotify=wire.Spotify(enabled=True),
         glowmarkt=wire.Glowmarkt(username="someone@example.com", password="hunter2"),
         pairing_code="ABC123",
-        setup_missing=["a postcode"],
     )
 
 

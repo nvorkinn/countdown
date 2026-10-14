@@ -25,7 +25,6 @@ def _app_config(pairing_code: str | None) -> AppConfig:
         spotify={"enabled": False},
         glowmarkt={"username": None, "password": None},
         pairing_code=pairing_code,
-        setup_missing=[],
     )
 
 
