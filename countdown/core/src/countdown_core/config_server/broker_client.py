@@ -1,6 +1,6 @@
 import requests
+from countdown_api.clients import ApiConfigClient, ApiError
 
-from countdown_core.config_server.broker_api.clients import ApiConfigClient, ApiError
 from countdown_core.config_server.models import AppConfig
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
@@ -27,8 +27,8 @@ class BrokerClient(AbstractClient):
         self.device_id = registration.device_id
         self.base_url = registration.broker_url
         self.session.auth = registration.auth
-        # broker_api/ is generated from the broker's OpenAPI document (core/contract/); the session brings the
-        # device's secret (session.auth) and the retries.
+        # countdown_api is the countdown API contract's client (https://github.com/nvorkinn/countdown-api); the
+        # session brings the device's secret (session.auth) and the retries.
         self._config_api = ApiConfigClient(self.base_url, self.session, timeout=DEFAULT_TIMEOUT)
 
     def _initialise(self) -> None:

@@ -1,29 +1,21 @@
 """The broker's config API against what the app reads of it.
 
-core/contract/broker-openapi.json is a copy of auth-broker's openapi.json, and config_server/broker_api/ is
-generated from it by openapi-codegen (a dev dependency, installed from a release). Nothing here talks to a
-broker: these fail when the copy, the generated code, or AppConfig stop agreeing, so a change on either side
-can't go unnoticed."""
+countdown_api (https://github.com/nvorkinn/countdown-api) is the client built from the contract that auth-broker
+implements, and the package carries the contract itself. Nothing here talks to a broker: these fail when the
+contract, the client built from it, or AppConfig stop agreeing, so a change on either side can't go unnoticed."""
 
-import json
-import subprocess
-import sys
-from pathlib import Path
+from importlib.resources import files
 
 import pytest
 import responses
+import yaml
+from countdown_api import models as wire
 
-from countdown_core.config_server.broker_api import models as wire
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.config_server.models import AppConfig
 from countdown_credentials.registration import RendererRegistration
 
-COUNTDOWN = Path(__file__).resolve().parents[1]
-CONTRACT_DIR = COUNTDOWN / "core" / "contract"
-SPEC = CONTRACT_DIR / "broker-openapi.json"
-GENERATED = COUNTDOWN / "core" / "src" / "countdown_core" / "config_server" / "broker_api"
-# What generates it; keep in step with the README ("The broker's API contract").
-GENERATE = [sys.executable, "-m", "openapi_codegen", str(SPEC), "--out", str(GENERATED), "--only", "clients"]
+SPEC = files("countdown_api") / "openapi.yaml"
 
 # Sent by the broker but not used by the renderer: its device_id comes from registration, and the screen's
 # shape is the display's business.
@@ -38,16 +30,8 @@ NOT_SENT_BY_THE_BROKER = {
 }
 
 
-def test_the_generated_client_is_current():
-    """After copying in a new broker-openapi.json, regenerate: `uv run openapi-codegen core/contract/broker-openapi.json
-    --out core/src/countdown_core/config_server/broker_api --only clients` (from countdown/)."""
-    checked = subprocess.run([*GENERATE, "--check"], capture_output=True, text=True)
-
-    assert checked.returncode == 0, f"broker_api/ is out of date; regenerate it.\n{checked.stderr}"
-
-
 def test_the_spec_describes_the_config_endpoint():
-    spec = json.loads((CONTRACT_DIR / "broker-openapi.json").read_text())
+    spec = yaml.safe_load(SPEC.read_text())
     operation = spec["paths"]["/api/config"]["get"]
     assert operation["security"] == [{"deviceSecret": []}]
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
@@ -62,7 +46,7 @@ def test_the_headers_the_client_really_sends_are_the_ones_the_spec_declares(isol
     from config_factory import broker_payload
 
     monkeypatch.setenv("DEVICE_NAME", "camilla")
-    spec = json.loads(SPEC.read_text())
+    spec = yaml.safe_load(SPEC.read_text())
     declared = {
         p["name"]: p["required"] for p in spec["paths"]["/api/config"]["get"]["parameters"] if p["in"] == "header"
     }

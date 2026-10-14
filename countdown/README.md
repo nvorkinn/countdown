@@ -88,33 +88,41 @@ This directory is a uv workspace:
 
 `uv sync` installs them all, editable, for development and the tests.
 
-## The broker's API contract
+## The API contract
 
-The config the renderer polls from [auth-broker](https://github.com/nvorkinn/auth-broker) is defined there, in
-pydantic (`broker/contract.py`), and published as `openapi.json`. Three things here follow it:
+The API between the renderer and [auth-broker](https://github.com/nvorkinn/auth-broker) is defined in neither
+repository but in [countdown-api](https://github.com/nvorkinn/countdown-api): an OpenAPI file, and the Python package
+that [openapi-codegen](https://github.com/nvorkinn/openapi-codegen) generates from it (the Pydantic models, a
+`requests` client for this side, Flask views for the broker's). It isn't on PyPI; its **latest page**,
+https://nvorkinn.github.io/countdown-api/, is a package index, and its `constraints.txt` says which version is the
+latest.
 
-- `core/contract/broker-openapi.json` is a copy of that file.
-- `config_server/broker_api/` is the client for it, generated from the copy by
-  [openapi-codegen](https://github.com/nvorkinn/openapi-codegen) (`--only clients`: the Pydantic models and a
-  `requests` client, no Flask). Don't edit it. `BrokerClient.get_config` calls it, through the device's session,
-  so the path, the method, the headers and the shape of the response all come from the contract.
-- `AppConfig` is what the app actually reads of the response.
+Here it is an ordinary dependency:
 
-openapi-codegen is a dev dependency, installed from a **release** of its repository: `pyproject.toml` points at the
-release's wheel and `uv.lock` records the wheel's hash, so a build fails if that file ever changes. To move to a
-newer release, change the URL in `[tool.uv.sources]` and run `uv lock --upgrade-package openapi-codegen`.
+- `core/pyproject.toml` depends on `countdown-api[client]` (the `client` extra adds `requests`), with no version.
+  `pyproject.toml` here declares the page as an `explicit` index for that package only, so nothing else is looked
+  up there and a same-named package on PyPI can't win.
+- `uv.lock` records the version and the wheel's hash. To move to the latest release:
 
-`tests/test_broker_contract.py` fails if the copy, the generated client or `AppConfig` stop agreeing. To pick up a
-change to the broker's API:
+  ```bash
+  uv lock --upgrade-package countdown-api
+  ```
 
-```bash
-cp ../auth-broker/openapi.json core/contract/broker-openapi.json
-uv run openapi-codegen core/contract/broker-openapi.json --out core/src/countdown_core/config_server/broker_api --only clients
-uv run pytest tests/test_broker_contract.py tests/test_broker_client.py
-```
+  CI and the release workflow set `UV_CONSTRAINT` to the page's `constraints.txt`, but their uv commands run with
+  `--frozen`, which installs exactly what `uv.lock` records and ignores constraints. So the lockfile decides which
+  version is built and tested, and moves only when it is upgraded as above.
+- `BrokerClient.get_config` calls `countdown_api.clients.ApiConfigClient`, through the device's session, so the
+  path, the method, the headers and the shape of the response all come from the contract.
+- `AppConfig` is what the app actually reads of the response. `tests/test_broker_contract.py` fails if the contract
+  (the package carries `countdown_api/openapi.yaml`), the client or `AppConfig` stop agreeing: a new field the
+  broker sends fails the tests until `AppConfig` reads it (or it's listed as unused), so the two can't quietly
+  diverge.
+- The server image only installs the wheels in `dist/` (our packages never come from an index), so CI and the
+  release workflow add the `countdown-api` wheel the lock pins to `dist/` before building it
+  (`uvx pip download --require-hashes`, checked against the lock's hash).
 
-A new field the broker sends fails the tests until `AppConfig` reads it (or it's listed as unused), so the two
-can't quietly diverge.
+openapi-codegen is still a dev dependency, installed from a **release** of its repository: `pyproject.toml` points
+at the release's wheel and `uv.lock` records the wheel's hash.
 
 What the generated client accepts is the compatibility policy: the broker may **add** fields (the client ignores
 ones it doesn't know), but a value outside what the contract lists (a third screen orientation, say) is invalid, the
