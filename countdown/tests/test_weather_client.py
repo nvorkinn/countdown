@@ -5,23 +5,20 @@ import pytest
 import requests
 import responses
 from test_utils import REGISTRATION
+from weather_factory import forecast_json
 
 from countdown_api.models import Weather as WeatherSection
 from countdown_core.notices.location import is_postcode
 from countdown_core.weather import weather_client
-from countdown_core.weather.models import Weather
+from countdown_core.weather.models import Upcoming, Weather
 from countdown_core.weather.weather_client import FORECAST_URL, GEOCODING_URL, WeatherClient
 
 GEOCODING_JSON = {"results": [{"name": "London", "latitude": 51.5, "longitude": -0.12, "country": "United Kingdom"}]}
-FORECAST_JSON = {
-    "current": {"time": "2026-01-15T12:00", "temperature_2m": 14.2, "weather_code": 2, "is_day": 1},
-    "daily": {
-        "time": ["2026-01-15"],
-        "temperature_2m_max": [18.4],
-        "temperature_2m_min": [9.1],
-        "precipitation_probability_max": [40],
-    },
-}
+FORECAST_JSON = forecast_json()
+
+
+def _forecast_at(time: str) -> dict:
+    return {**FORECAST_JSON, "current": {**FORECAST_JSON["current"], "time": time}}
 
 
 def make_client(location: str = "London") -> WeatherClient:
@@ -36,12 +33,42 @@ def test_update_geocodes_then_fetches_forecast():
     panel = asyncio.run(make_client().update())
 
     assert panel.weather == Weather(
-        temperature=14.2, weather_code=2, is_day=True, high=18.4, low=9.1, precipitation_probability=40
+        temperature=14.2,
+        weather_code=2,
+        is_day=True,
+        high=18.4,
+        low=9.1,
+        precipitation_probability=40,
+        temperature_units="°C",
+        humidity=72,
+        humidity_units="%",
+        wind_speed=13.4,
+        wind_speed_units="km/h",
+        wind_direction=225,
+        sunrise=dt.time(7, 58),
+        sunset=dt.time(16, 22),
+        upcoming_weather_code=(Upcoming.TONIGHT, 61),
     )
     geocode_request, forecast_request = (call.request for call in responses.calls)
     assert "name=London" in geocode_request.url
     assert "latitude=51.5" in forecast_request.url
     assert "longitude=-0.12" in forecast_request.url
+
+
+@pytest.mark.parametrize(
+    ("time", "upcoming"),
+    [
+        ("2026-01-15T08:30", (Upcoming.THIS_AFTERNOON, 3)),  # today at 15:00
+        ("2026-01-15T12:00", (Upcoming.TONIGHT, 61)),  # today at 21:00
+        ("2026-01-15T18:00", (Upcoming.TOMORROW, 73)),  # tomorrow's daily code
+        ("2026-01-15T23:45", (Upcoming.TOMORROW, 73)),
+    ],
+)
+@responses.activate
+def test_the_outlook_is_for_the_next_part_of_the_day(time, upcoming):
+    responses.add(responses.GET, FORECAST_URL, json=_forecast_at(time))
+
+    assert asyncio.run(make_client(location="").update()).weather.upcoming_weather_code == upcoming
 
 
 @responses.activate

@@ -5,7 +5,7 @@ from countdown_api.models import Weather as WeatherSection
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
 from countdown_core.notices.location import is_postcode, postcode_coordinates
-from countdown_core.weather.models import ForecastResponse, GeocodingResponse, Weather
+from countdown_core.weather.models import ForecastResponse, GeocodingResponse, Upcoming, Weather
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_credentials.registration import Registration
 
@@ -77,10 +77,11 @@ class WeatherClient(AbstractClient):
             params={
                 "latitude": latitude,
                 "longitude": longitude,
-                "current": "temperature_2m,weather_code,is_day",
-                "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                "current": "temperature_2m,weather_code,is_day,relative_humidity_2m,wind_speed_10m,wind_direction_10m",
+                "hourly": "weather_code",
+                "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset",
                 "timezone": "auto",  # so "today" is the location's today, not UTC's
-                "forecast_days": 1,
+                "forecast_days": 2,  # tomorrow too, for the outlook after dark
             },
             timeout=DEFAULT_TIMEOUT,
         )
@@ -93,4 +94,29 @@ class WeatherClient(AbstractClient):
             high=forecast.daily.temperature_max[0],
             low=forecast.daily.temperature_min[0],
             precipitation_probability=forecast.daily.precipitation_probability_max[0],
+            temperature_units=forecast.current_units.temperature,
+            humidity=forecast.current.humidity,
+            humidity_units=forecast.current_units.humidity,
+            wind_speed=forecast.current.wind_speed,
+            wind_speed_units=forecast.current_units.wind_speed,
+            wind_direction=forecast.current.wind_direction,
+            sunrise=forecast.daily.sunrise[0].time(),
+            sunset=forecast.daily.sunset[0].time(),
+            upcoming_weather_code=_upcoming(forecast),
         )
+
+
+# When each part of the day starts, and the hour whose weather stands for it.
+AFTERNOON = (12, 15)
+NIGHT = (18, 21)
+
+
+def _upcoming(forecast: ForecastResponse) -> tuple[Upcoming, int]:
+    """The weather in the next part of the day: this afternoon in the morning, tonight in the
+    afternoon, and tomorrow once it's evening."""
+    now = forecast.current.time
+    for part, (starts, hour) in ((Upcoming.THIS_AFTERNOON, AFTERNOON), (Upcoming.TONIGHT, NIGHT)):
+        if now.hour < starts:
+            at = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+            return part, forecast.hourly.weather_code[forecast.hourly.time.index(at)]
+    return Upcoming.TOMORROW, forecast.daily.weather_code[1]

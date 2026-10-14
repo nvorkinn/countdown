@@ -322,10 +322,10 @@ def test_a_vertical_screen_with_nothing_to_show_says_so_upright(clock):
     assert target.sizes == [(800, 480)]
 
 
-def test_a_vertical_screen_keeps_the_landscape_dashboard_until_a_portrait_layout_exists(clock):
+def test_a_vertical_screen_gets_the_portrait_dashboard_upright_and_the_panel_its_own_landscape_picture(clock):
     target = Recording()
 
     img = DisplayController(target).display_screen(frame(), VERTICAL, frozenset(ClientClasses))
 
-    assert img.size == (800, 480)
+    assert img.size == (480, 800)
     assert target.sizes == [(800, 480)]

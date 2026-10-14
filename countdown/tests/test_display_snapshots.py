@@ -9,6 +9,7 @@ import pytest
 import responses
 from fake_target import FakeTarget
 from PIL import Image
+from weather_factory import make_weather
 
 # `countdown_core` must be imported before any display.* module, or it's a circular import.
 import countdown_core  # noqa: F401, I001
@@ -33,7 +34,6 @@ from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
 from countdown_core.tfl.tfl_client import TflClient
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
-from countdown_core.weather.models import Weather
 from countdown_core.weather.weather_client import WeatherClient
 from countdown_core.weather.weather_panel import WeatherPanel
 
@@ -112,9 +112,7 @@ ENERGY = EnergyPanel(
 )
 
 
-WEATHER = WeatherPanel(
-    Weather(temperature=14.2, weather_code=3, is_day=True, high=18.4, low=9.1, precipitation_probability=40)
-)
+WEATHER = WeatherPanel(make_weather())
 
 ALBUM_ART_URL = "https://example.com/album.jpg"
 
@@ -299,7 +297,7 @@ def test_weather_panel_rainy_night(snapshot):
     """A different code and the night variant, at the shorter height the panel gets
     while a Spotify track is playing."""
     panel = WeatherPanel(
-        Weather(temperature=8.6, weather_code=63, is_day=False, high=11, low=6, precipitation_probability=85)
+        make_weather(temperature=8.6, weather_code=63, is_day=False, high=11, low=6, precipitation_probability=85)
     )
     # Small and mostly text, so macOS/Linux anti-aliasing differences weigh more (CI: 0.0059).
     snapshot.assert_matches("weather_rainy_night", panel.render(528, 170), threshold=0.01)
@@ -352,3 +350,35 @@ def test_empty_screen_stays_clear_of_a_vertical_screens_edges():
 
     for edge in [(0, 0, 10, 800), (470, 0, 480, 800)]:
         assert img.crop(edge).getextrema() == (255, 255)
+
+
+VERTICAL = Screen(orientation="vertical", width=800, height=480)
+
+
+def _draw_portrait(panels: dict[str, Panel], available: frozenset[ClientClasses] = EVERYTHING) -> Image.Image:
+    img = _CONTROLLER.display_screen(panels, VERTICAL, available)
+    assert img.size == PORTRAIT
+    return img
+
+
+@responses.activate
+def test_portrait_screen_playing_spotify(snapshot):
+    """Top to bottom: the weather in full, two stops side by side, the notices, Spotify."""
+    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
+    img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE)))
+    snapshot.assert_matches("screen_portrait_spotify", img)
+
+
+def test_portrait_screen_without_spotify(snapshot):
+    """Spotify's room goes to the stops (more departures each) and the notices."""
+    img = _draw_portrait(_panels(_bus_and_tube_arrivals()), EVERYTHING - {ClientClasses.SPOTIFY})
+    snapshot.assert_matches("screen_portrait_no_spotify", img)
+
+
+def test_portrait_screen_with_no_stops_and_no_weather_yet(snapshot):
+    """Messages take their slots' full width."""
+    panels = _panels(
+        TflClient.message_panel("Needs configuring"), weather=WeatherClient.message_panel("Could not connect")
+    )
+    img = _draw_portrait(panels, EVERYTHING - {ClientClasses.SPOTIFY})
+    snapshot.assert_matches("screen_portrait_messages", img)
