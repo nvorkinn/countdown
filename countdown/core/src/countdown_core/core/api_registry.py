@@ -3,12 +3,12 @@ import logging
 from datetime import timedelta
 from enum import Enum
 
-from countdown_core.config_server.models import ApiConfig, AppConfig
+from countdown_api.models import ConfigResponse, Glowmarkt, Spotify
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
 from countdown_core.core.panel import Panel
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
-from countdown_core.notices.notice_board_client import NoticeBoardClient
+from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.tfl.tfl_client import TflClient
 from countdown_core.weather.weather_client import WeatherClient
@@ -32,13 +32,34 @@ class ClientClasses(Enum):
 API_NAMES = [member.api_name for member in ClientClasses]
 
 
+def section_for(name: str, config: ConfigResponse) -> object:
+    """What the API `name` is configured with: its section of the broker's config. The notice board's also
+    carries the `tfl` section, as its TfL disruptions are about the arrivals' stops (so the broker needn't send
+    them twice)."""
+    if name == ClientClasses.NOTICE_BOARD.api_name:
+        return NoticeBoardSettings(postcode=config.notice_board.postcode, tfl=config.tfl)
+    return getattr(config, name)
+
+
+def is_enabled(section: object) -> bool:
+    """Whether the broker's config switches the API on. Only Spotify has a switch; Glowmarkt is on when both
+    credentials are there (a cleared field can arrive as "" or whitespace as well as null); the rest are always on."""
+    match section:
+        case Spotify():
+            return section.enabled
+        case Glowmarkt():
+            return all((value or "").strip() for value in (section.username, section.password))
+        case _:
+            return True
+
+
 class FailedClient(AbstractClient):
     """Stands in for a client whose constructor raised, so the failure shows as an error status
     (and in HA) instead of the client silently being missing. Rebuilt when its config changes."""
 
     poll_interval = timedelta(hours=1)
 
-    def __init__(self, registration: Registration, config: ApiConfig, error: Exception):
+    def __init__(self, registration: Registration, config: object, error: Exception):
         super().__init__(registration, config)
         self.error = error
         self.status = ClientStatus.ERROR
@@ -61,17 +82,17 @@ class ApiRegistry:
         self.pub.clients = self.clients
         self.status = publisher.device_status
 
-    async def on_config_update(self, config: AppConfig) -> None:
+    async def on_config_update(self, config: ConfigResponse) -> None:
         """Brings the clients in line with `config`, rebuilding only those whose
         needs_refresh() says so. Failures are logged, not raised, so one broken API
         doesn't take the others down."""
         to_initialise: dict[str, AbstractClient] = {}
         for member in ClientClasses:
             name, clazz = member.value
-            client_config: ApiConfig = getattr(config, name)
+            client_config = section_for(name, config)
             current = self.clients.get(name)
 
-            if not client_config.enabled:
+            if not is_enabled(client_config):
                 # No client at all, so one switched back on later is built fresh.
                 self._drop(name)
             elif current is None or current.needs_refresh(client_config):

@@ -7,7 +7,8 @@ import responses
 from config_factory import make_config
 from test_utils import REGISTRATION
 
-from countdown_core.config_server.models import NoticeBoardConfig, TflConfig
+from countdown_api.models import Tfl
+from countdown_core.core.api_registry import section_for
 from countdown_core.notices.calendar import (
     BANK_HOLIDAYS_URL,
     BankHolidaySource,
@@ -17,7 +18,7 @@ from countdown_core.notices.floods import FLOODS_URL, FloodWarningsSource
 from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.met_office import MetOfficeWarningsSource, parse_warnings, region_for
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
-from countdown_core.notices.notice_board_client import NoticeBoardClient
+from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.tfl import TFL_URL, TflLineStatusSource, TflRoadSource, TflStationSource
 from countdown_core.system_screens.message_panel import MessagePanel
@@ -146,7 +147,7 @@ def test_floods_maps_severity_levels_and_skips_ones_no_longer_in_force(api):
 
 # --- TfL -------------------------------------------------------------------------
 
-TFL = TflConfig(app_key="key", stop_ids=["940GZZLUKNG", "490000077E"])
+TFL = Tfl(app_key="key", stop_ids=["940GZZLUKNG", "490000077E"])
 
 
 def _stop(naptan_id: str, stop_type: str, lines: list[str], **extra) -> dict:
@@ -225,7 +226,7 @@ def test_line_status_only_shows_the_statuses_worth_a_notice(api):
     ]
     api.add(responses.GET, f"{TFL_URL}/Line/12/Status", json=lines)
 
-    source = TflLineStatusSource(requests.Session(), TflConfig(stop_ids=["940GZZLUKNG"]))
+    source = TflLineStatusSource(requests.Session(), Tfl(app_key="", stop_ids=["940GZZLUKNG"]))
 
     assert source.fetch(NOW) == [
         Notice("Bus 12", Severity.SEVERE, "Suspended"),
@@ -264,7 +265,7 @@ def test_line_status_shows_a_reason_once_for_routes_sharing_it(api):
     ]
     api.add(responses.GET, f"{TFL_URL}/Line/1/Status", json=lines)
 
-    notices = TflLineStatusSource(requests.Session(), TflConfig(stop_ids=["940GZZLUKNG"])).fetch(NOW)
+    notices = TflLineStatusSource(requests.Session(), Tfl(app_key="", stop_ids=["940GZZLUKNG"])).fetch(NOW)
 
     # One notice for all three routes: the most severe status, the latest end.
     assert notices == [
@@ -310,7 +311,7 @@ def test_line_status_headline_is_the_first_sentence_without_the_line_name(api, r
     ]
     api.add(responses.GET, f"{TFL_URL}/Line/x/Status", json=lines)
 
-    [notice] = TflLineStatusSource(requests.Session(), TflConfig(stop_ids=["940GZZLUKNG"])).fetch(NOW)
+    [notice] = TflLineStatusSource(requests.Session(), Tfl(app_key="", stop_ids=["940GZZLUKNG"])).fetch(NOW)
 
     assert (notice.source, notice.text) == (line, headline)
 
@@ -478,8 +479,12 @@ def clock(monkeypatch):
     return Clock
 
 
+def board_settings(postcode: str | None = None, stop_ids: list[str] | None = None) -> NoticeBoardSettings:
+    return NoticeBoardSettings(postcode=postcode, tfl=Tfl(app_key="", stop_ids=stop_ids or []))
+
+
 def board_with(*sources: NoticeSource) -> NoticeBoardClient:
-    client = NoticeBoardClient(REGISTRATION, NoticeBoardConfig(tfl=TflConfig(stop_ids=["940GZZLUKNG"])))
+    client = NoticeBoardClient(REGISTRATION, board_settings(stop_ids=["940GZZLUKNG"]))
     client.sources = list(sources)
     return client
 
@@ -553,7 +558,7 @@ def test_board_errors_rather_than_claiming_all_clear_when_no_source_answered(clo
 
 
 def test_board_with_nothing_configured_still_has_bank_holidays_and_the_clocks():
-    client = NoticeBoardClient(REGISTRATION, NoticeBoardConfig(postcode=None))
+    client = NoticeBoardClient(REGISTRATION, board_settings(postcode=None))
 
     assert not client.is_disabled()
     assert [type(s) for s in client.sources] == [ClockChangeSource, BankHolidaySource]
@@ -563,7 +568,7 @@ def test_board_with_nothing_configured_still_has_bank_holidays_and_the_clocks():
 def test_board_adds_local_sources_once_the_postcode_is_found(api, clock):
     result = SOUTHWARK.model_dump()
     api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", json={"result": result})
-    client = NoticeBoardClient(REGISTRATION, NoticeBoardConfig(postcode="SE17 3LL"))
+    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
     client._refresh = lambda source, now: None  # only the lookup is under test here
 
     with pytest.raises(RuntimeError):  # sources added, but none has answered yet
@@ -580,7 +585,7 @@ def test_board_adds_local_sources_once_the_postcode_is_found(api, clock):
 
 def test_board_logs_that_it_resolved_postcode(api, clock, caplog):
     api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", json={"result": SOUTHWARK.model_dump()})
-    client = NoticeBoardClient(REGISTRATION, NoticeBoardConfig(postcode="SE17 3LL"))
+    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
     client._refresh = lambda source, now: None
 
     with caplog.at_level("INFO", logger="countdown_core.notices.notice_board_client"), pytest.raises(RuntimeError):
@@ -597,7 +602,7 @@ def test_board_with_an_unknown_postcode_says_so(api, clock, caplog):
     api.add(responses.GET, BANK_HOLIDAYS_URL, json=BANK_HOLIDAYS)
 
     with caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"):
-        panel = update(NoticeBoardClient(REGISTRATION, NoticeBoardConfig(postcode="ZZ1 1ZZ")))
+        panel = update(NoticeBoardClient(REGISTRATION, board_settings(postcode="ZZ1 1ZZ")))
 
     assert panel.message == "Unknown postcode"
     # Where the board is stays out of the logs.
@@ -606,7 +611,7 @@ def test_board_with_an_unknown_postcode_says_so(api, clock, caplog):
 
 def test_board_retries_a_postcode_lookup_that_failed(api, clock, caplog):
     api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", status=503)
-    client = NoticeBoardClient(REGISTRATION, NoticeBoardConfig(postcode="SE17 3LL"))
+    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
     client.session = requests.Session()  # no retries, so the 503 comes straight back
 
     with (
@@ -626,15 +631,30 @@ def test_board_retries_a_postcode_lookup_that_failed(api, clock, caplog):
 def test_notice_board_gets_the_tfl_stops_and_the_brokers_postcode():
     config = make_config(tfl={"stop_ids": ["940GZZLUKNG"]}, notice_board={"postcode": "SE17 3LL"})
 
-    assert config.notice_board.tfl.stop_ids == ["940GZZLUKNG"]
-    assert config.notice_board.postcode == "SE17 3LL"
+    settings = section_for("notice_board", config)
+
+    assert settings.tfl.stop_ids == ["940GZZLUKNG"]
+    assert settings.postcode == "SE17 3LL"
 
 
-def test_notice_board_config_is_optional_from_the_broker():
-    config = make_config(tfl={"stop_ids": ["940GZZLUKNG"]})
+def test_notice_board_has_no_postcode_unless_the_broker_sends_one():
+    settings = section_for("notice_board", make_config(tfl={"stop_ids": ["940GZZLUKNG"]}))
 
-    assert config.notice_board.postcode is None
-    assert config.notice_board.tfl.stop_ids == ["940GZZLUKNG"]
+    assert settings.postcode is None
+    assert settings.tfl.stop_ids == ["940GZZLUKNG"]
+
+
+def test_a_change_to_either_the_postcode_or_the_stops_changes_the_notice_boards_settings():
+    """AbstractClient.needs_refresh compares them, so the board is rebuilt for either."""
+
+    def settings_for(stop_id: str, postcode: str) -> NoticeBoardSettings:
+        return section_for(
+            "notice_board", make_config(tfl={"stop_ids": [stop_id]}, notice_board={"postcode": postcode})
+        )
+
+    assert settings_for("a", "SE17 3LL") == settings_for("a", "SE17 3LL")
+    assert settings_for("a", "SE17 3LL") != settings_for("b", "SE17 3LL")
+    assert settings_for("a", "SE17 3LL") != settings_for("a", "E1 6AN")
 
 
 # --- Panel -----------------------------------------------------------------------

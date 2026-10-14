@@ -6,10 +6,8 @@ from datetime import UTC, datetime
 import pydantic
 import requests
 
+from countdown_api.models import ConfigResponse
 from countdown_core.config_server.broker_client import BrokerClient
-from countdown_core.config_server.models import (
-    AppConfig,
-)
 from countdown_core.core.api_registry import API_NAMES, ApiRegistry
 from countdown_core.core.display import DisplayController
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
@@ -36,7 +34,7 @@ class DisplayLoop:
     def __init__(
         self,
         broker: BrokerClient,
-        config: AppConfig,
+        config: ConfigResponse,
         pairing_code_panel: PairingCodePanel,
         display: DisplayController,
         api_reg: ApiRegistry | None = None,

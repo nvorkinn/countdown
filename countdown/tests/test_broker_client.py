@@ -3,11 +3,11 @@ import asyncio
 import pytest
 import requests
 import responses
-from config_factory import broker_payload
+from config_factory import broker_payload, make_config
 from pydantic import ValidationError
 
+from countdown_api.models import ConfigResponse
 from countdown_core.config_server.broker_client import BrokerClient
-from countdown_core.config_server.models import AppConfig
 from countdown_core.core import app
 from countdown_credentials import device_name
 from countdown_credentials.registration import RendererRegistration
@@ -17,15 +17,8 @@ CONFIG_URL = f"{BROKER_URL}/api/config"
 DEFAULT_TIMEOUT = 10
 
 
-def _app_config(pairing_code: str | None) -> AppConfig:
-    return AppConfig(
-        interval=15,
-        tfl={"app_key": "", "stop_ids": []},
-        weather={"api_key": "", "location": ""},
-        spotify={"enabled": False},
-        glowmarkt={"username": None, "password": None},
-        pairing_code=pairing_code,
-    )
+def _app_config(pairing_code: str | None) -> ConfigResponse:
+    return make_config(pairing_code=pairing_code)
 
 
 def _initialised_client(device_id: str = "device-123", device_secret: str = "shh") -> BrokerClient:
@@ -172,6 +165,28 @@ def test_get_config_rejects_a_value_the_contract_does_not_list(isolated_cwd):
     responses.add(responses.GET, CONFIG_URL, json=payload)
 
     with pytest.raises(ValidationError):
+        client.get_config()
+
+
+@responses.activate
+@pytest.mark.parametrize("interval", [0, -1])
+def test_get_config_rejects_an_interval_that_is_not_positive(isolated_cwd, interval):
+    client = _initialised_client()
+    responses.add(responses.GET, CONFIG_URL, json=broker_payload(interval=interval))
+
+    with pytest.raises(ValidationError, match="interval"):
+        client.get_config()
+
+
+@responses.activate
+def test_get_config_rejects_a_response_missing_a_section(isolated_cwd):
+    """Rather than reading it as an empty config, which would blank the screen: the caller keeps the one it has."""
+    client = _initialised_client()
+    payload = broker_payload()
+    del payload["tfl"]
+    responses.add(responses.GET, CONFIG_URL, json=payload)
+
+    with pytest.raises(ValidationError, match="tfl"):
         client.get_config()
 
 

@@ -17,8 +17,8 @@ from config_factory import broker_payload, make_config
 from fake_target import FakeTarget
 from PIL import Image
 
+from countdown_api.models import ConfigResponse
 from countdown_core.config_server.broker_client import BrokerClient
-from countdown_core.config_server.models import AppConfig
 from countdown_core.core import display_loop
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
@@ -125,7 +125,7 @@ def _mock_tfl_and_glowmarkt(stop_json_by_id: dict, arrivals_json_by_id: dict) ->
     _mock_glowmarkt()
 
 
-def _make_config() -> AppConfig:
+def _make_config() -> ConfigResponse:
     # Without credentials Glowmarkt is off. Passed in, not set afterwards: they're
     # checked when the config is validated.
     config = make_config(glowmarkt={"username": "dummy@example.com", "password": "dummy-password"})
@@ -133,11 +133,11 @@ def _make_config() -> AppConfig:
     return config
 
 
-def _build_loop(config: AppConfig, monkeypatch, pairing_code: str | None = None) -> DisplayLoop:
+def _build_loop(config: ConfigResponse, monkeypatch, pairing_code: str | None = None) -> DisplayLoop:
     broker = BrokerClient(RendererRegistration(TEST_BROKER_URL, "test-secret", "test-device"))
     asyncio.run(broker.initialise())
     # Via get_pairing_code_panel, to seed the broker's cache like fetch_app_config() does.
-    pairing_code_panel = broker.get_pairing_code_panel(AppConfig.model_validate(_app_config_json(pairing_code)))
+    pairing_code_panel = broker.get_pairing_code_panel(ConfigResponse.model_validate(_app_config_json(pairing_code)))
     return DisplayLoop(broker, config, pairing_code_panel, DisplayController(FakeTarget()))
 
 

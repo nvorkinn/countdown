@@ -4,7 +4,7 @@ from typing import TypeVar
 
 from pydantic import TypeAdapter
 
-from countdown_core.config_server.models import TflConfig
+from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
@@ -51,7 +51,7 @@ T = TypeVar("T", BusArrival, TubeArrival)
 class TflClient(AbstractClient):
     panel_title = "Arrivals"
 
-    def __init__(self, registration: Registration, config: TflConfig):
+    def __init__(self, registration: Registration, config: Tfl):
         """Never touches the network: stops are resolved in _initialise()."""
         super().__init__(registration, config)
         self.stops: list[SingleStopPoint | MetroStopPoint] = []

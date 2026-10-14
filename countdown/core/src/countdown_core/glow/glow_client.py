@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from pydantic import TypeAdapter
 
-from countdown_core.config_server.models import GlowmarktConfig
+from countdown_api.models import Glowmarkt
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.glow.models import Entity, Readings
@@ -32,7 +32,7 @@ class GlowClient(AbstractClient):
     resource_id = None
     token = None
 
-    def __init__(self, registration: Registration, config: GlowmarktConfig):
+    def __init__(self, registration: Registration, config: Glowmarkt):
         super().__init__(registration, config)
         self.page_index = 0
         self.username = config.username
