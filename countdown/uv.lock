@@ -173,6 +173,7 @@ name = "countdown"
 version = "0.4.2"
 source = { virtual = "." }
 dependencies = [
+    { name = "countdown-api" },
     { name = "countdown-client" },
     { name = "countdown-core" },
     { name = "countdown-credentials" },
@@ -188,12 +189,14 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "pyyaml" },
     { name = "responses" },
     { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "countdown-api", index = "https://nvorkinn.github.io/countdown-api/simple/" },
     { name = "countdown-client", editable = "client" },
     { name = "countdown-core", editable = "core" },
     { name = "countdown-credentials", editable = "credentials" },
@@ -209,8 +212,25 @@ dev = [
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "responses", specifier = ">=0.26.3" },
     { name = "ruff", specifier = ">=0.16.8" },
+]
+
+[[package]]
+name = "countdown-api"
+version = "1.3.0"
+source = { registry = "https://nvorkinn.github.io/countdown-api/simple/" }
+dependencies = [
+    { name = "pydantic" },
+]
+wheels = [
+    { url = "https://github.com/nvorkinn/countdown-api/releases/download/v1.3.0/countdown_api-1.3.0-py3-none-any.whl", hash = "sha256:0ce6219461996d252546558844b62c8c96e2120e60e8d528ed6ee7cd55fef0ce" },
+]
+
+[package.optional-dependencies]
+client = [
+    { name = "requests" },
 ]
 
 [[package]]
@@ -237,6 +257,7 @@ name = "countdown-core"
 version = "0.4.2"
 source = { editable = "core" }
 dependencies = [
+    { name = "countdown-api", extra = ["client"] },
     { name = "countdown-credentials" },
     { name = "np" },
     { name = "numpy" },
@@ -253,6 +274,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "countdown-api", extras = ["client"], index = "https://nvorkinn.github.io/countdown-api/simple/" },
     { name = "countdown-credentials", editable = "credentials" },
     { name = "np", specifier = ">=1.0.2" },
     { name = "numpy", specifier = ">=2.5.3" },

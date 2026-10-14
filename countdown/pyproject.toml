@@ -8,6 +8,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 # The workspace's own packages, so `uv sync` installs them all (editable) for the tests.
 dependencies = [
+    "countdown-api",
     "countdown-credentials",
     "countdown-epd",
     "countdown-core",
@@ -19,6 +20,11 @@ dependencies = [
 [tool.uv]
 package = false
 
+[[tool.uv.index]]
+name = "countdown-api"
+url = "https://nvorkinn.github.io/countdown-api/simple/"
+explicit = true
+
 [tool.uv.sources]
 countdown-credentials = { workspace = true }
 countdown-epd = { workspace = true }
@@ -26,6 +32,7 @@ countdown-core = { workspace = true }
 countdown-server = { workspace = true }
 countdown-client = { workspace = true }
 countdown-orchestrator = { workspace = true }
+countdown-api = { index = "countdown-api" }
 
 [dependency-groups]
 dev = [
@@ -34,6 +41,7 @@ dev = [
     "pytest>=8.4.2",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.15.1",
+    "pyyaml>=6.0.2",
     "responses>=0.26.3",
     "ruff>=0.16.8",
 ]
@@ -57,9 +65,6 @@ source = [
     "client/src",
     "orchestrator/src"
 ]
-# The vendored broker API client (core/contract); it isn't edited here. Ruff skips it for the same reason.
-omit = ["*/config_server/broker_api/*"]
-
 [tool.coverage.report]
 skip_empty = true
 
@@ -75,11 +80,10 @@ src = [
     "client/src",
     "orchestrator/src"
 ]
-# The vendored Waveshare driver, and the vendored broker API client (core/contract).
+# The vendored Waveshare driver.
 extend-exclude = [
     "epd/src/countdown_epd/epdconfig.py",
     "epd/src/countdown_epd/epd7in5_V2.py",
-    "core/src/countdown_core/config_server/broker_api",
 ]
 # Even when a file is named on the command line, as pre-commit does with every changed file.
 force-exclude = true
@@ -97,4 +101,3 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "TID251"]
 "!core/**" = ["TID251"]
 
 [tool.pyproject-runner.tasks]
-
