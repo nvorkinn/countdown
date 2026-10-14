@@ -11,6 +11,9 @@ MANAGED_LABEL = "countdown.managed"
 SLUG_LABEL = "countdown.slug"
 # The image a renderer was made from, so a release's deploy can bring it up to date.
 IMAGE_LABEL = "countdown.image"
+# What a renderer is given as its claim token once the screen is claimed and the broker has cleared the real one. It
+# still refuses to start without some value, but then ignores it: its identity is in its volumes.
+CLAIMED = "already-claimed"
 
 
 @dataclass(frozen=True)
@@ -108,7 +111,7 @@ class DockerRuntime:
             environment={
                 "BROKER_URL": self.broker_url,
                 "DEVICE_NAME": assignment.slug,
-                "CLAIM_TOKEN": assignment.claim_token,
+                "CLAIM_TOKEN": assignment.claim_token or CLAIMED,
             },
             volumes={
                 f"{name}-data": {"bind": "/data", "mode": "rw"},
