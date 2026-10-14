@@ -14,7 +14,6 @@ from countdown_core.core.api_registry import API_NAMES, ApiRegistry
 from countdown_core.core.display import DisplayController
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_core.system_screens.setup_panel import SetupPanel
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +30,8 @@ def safe_fetch(func, fallback):
 
 
 class DisplayLoop:
-    """The refresh loop: each cycle shows the pairing screen, the setup checklist or the
-    dashboard, then re-reads the config from the broker."""
+    """The refresh loop: each cycle shows the pairing screen or the dashboard, then
+    re-reads the config from the broker."""
 
     def __init__(
         self,
@@ -49,7 +48,6 @@ class DisplayLoop:
         self.display = display
         # Without a registry of its own, one whose publisher reports nowhere.
         self.api_reg = api_reg if api_reg is not None else ApiRegistry(broker.registration, OtlpPublisher(API_NAMES))
-        self._setup_shown: list[str] | None = None
         self._published_stage: str | None = None
 
     async def run(self) -> None:
@@ -61,19 +59,12 @@ class DisplayLoop:
             try:
                 if self.pairing_code_panel.pairing_code:
                     self.api_reg.status.stage = "pairing"
-                    self._setup_shown = None
                     # Only repaint when the code changes: it's a full e-paper refresh, and an
                     # unpaired device can sit here for days.
                     if self.pairing_code_panel.has_changed:
                         self.display.display_pairing_screen(self.pairing_code_panel)
-                elif self.config.setup_missing:
-                    self.api_reg.status.stage = "setup"
-                    if self.config.setup_missing != self._setup_shown:
-                        self.display.display_setup_screen(SetupPanel(self.config.setup_missing))
-                        self._setup_shown = list(self.config.setup_missing)
                 else:
                     self.api_reg.status.stage = "running"
-                    self._setup_shown = None
                     panels = await self.api_reg.update_all()
                     self.display.display_screen(panels)
                 self.display.repaint_pending()

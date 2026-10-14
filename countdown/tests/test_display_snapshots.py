@@ -26,7 +26,6 @@ from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_core.system_screens.setup_panel import SetupPanel
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
@@ -202,7 +201,7 @@ def _panels(
 
 
 def test_screen_with_no_stops_configured(snapshot):
-    img = _CONTROLLER.display_screen(_panels(TflClient.message_panel("No stops set")))
+    img = _CONTROLLER.display_screen(_panels(TflClient.message_panel("Needs configuring")))
     snapshot.assert_matches("screen_no_stops", img)
 
 
@@ -277,31 +276,6 @@ def test_empty_screen_stays_clear_of_the_screen_edges():
     width, height = img.size
 
     for edge in [(0, 0, 40, height), (width - 40, 0, width, height)]:
-        assert img.crop(edge).getextrema() == (255, 255)
-
-
-def test_setup_checklist_screen(snapshot):
-    img = SetupPanel(["a weather location", "a bus or tube stop"]).render(
-        countdown_core.core.display.TOTAL_WIDTH, countdown_core.core.display.TOTAL_HEIGHT
-    )
-    snapshot.assert_matches("screen_setup_checklist", img, threshold=0.02)
-
-
-@pytest.mark.parametrize("missing", [["a weather location"], ["a weather location", "a bus or tube stop"], ["x"] * 4])
-def test_setup_checklist_stays_on_the_screen(missing):
-    img = (
-        SetupPanel(missing)
-        .render(countdown_core.core.display.TOTAL_WIDTH, countdown_core.core.display.TOTAL_HEIGHT)
-        .convert("L")
-    )
-    width, height = img.size
-
-    for edge in [
-        (0, 0, 20, height),
-        (width - 20, 0, width, height),
-        (0, 0, width, 10),
-        (0, height - 10, width, height),
-    ]:
         assert img.crop(edge).getextrema() == (255, 255)
 
 

@@ -11,7 +11,6 @@ from countdown_core.display_composers.abstract_display_composer import AbstractD
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_core.system_screens.setup_panel import SetupPanel
 from countdown_core.utils.utils import TOTAL_HEIGHT, TOTAL_WIDTH
 
 logger = logging.getLogger(__name__)
@@ -28,7 +27,7 @@ class DisplayController:
         # yet, or the last paint failed).
         self._shown: Image.Image | None = None
         self._last_full_refresh = 0.0
-        # A whole-screen picture (pairing code, checklist) the screen couldn't take yet.
+        # A whole-screen picture (the pairing code) the screen couldn't take yet.
         self._pending: Image.Image | None = None
         self._composer = DEFAULT_COMPOSER
 
@@ -112,12 +111,6 @@ class DisplayController:
             logger.warning(
                 f"No display to show the pairing code on -- it is {panel.pairing_code} (device {panel.device_id})"
             )
-        return img
-
-    def display_setup_screen(self, panel: SetupPanel) -> Image.Image:
-        img = panel.render(TOTAL_WIDTH, TOTAL_HEIGHT)
-        if not self._paint_whole_screen(img):
-            logger.warning(f"No display to show the setup checklist on -- still needed: {', '.join(panel.missing)}")
         return img
 
     def shutdown(self) -> None:

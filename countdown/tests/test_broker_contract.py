@@ -18,8 +18,9 @@ from countdown_credentials.registration import RendererRegistration
 SPEC = files("countdown_api") / "openapi.yaml"
 
 # Sent by the broker but not used by the renderer: its device_id comes from registration, and the screen's
-# shape is the display's business.
-UNUSED_BY_THE_APP = {"device_id", "screen"}
+# shape is the display's business. setup_missing is still in the contract, but panels now say for themselves
+# that they need configuring.
+UNUSED_BY_THE_APP = {"device_id", "screen", "setup_missing"}
 # In the app's config but not sent by the broker, by design. See models.py for each.
 NOT_SENT_BY_THE_BROKER = {
     "tfl": {"enabled"},
@@ -109,7 +110,6 @@ def test_the_app_reads_a_full_response_as_sent():
 
     assert config.interval == 30
     assert config.pairing_code == "ABC123"
-    assert config.setup_missing == ["a postcode"]
     assert (config.weather.api_key, config.weather.location) == ("weather-key", "London")
     assert config.notice_board.postcode == "SW1A 1AA"
     assert (config.tfl.app_key, config.tfl.stop_ids) == ("tfl-key", ["940GZZLUKNG", "490000077E"])

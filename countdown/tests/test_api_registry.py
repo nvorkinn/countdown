@@ -248,7 +248,7 @@ def test_a_client_that_raises_during_update_is_logged_with_its_traceback(caplog)
 
 
 def test_update_all_replaces_the_last_panel_when_a_client_has_nothing_to_show():
-    """A client's own message (nothing playing, no location set) is a real answer, unlike an error."""
+    """A client's own message (nothing playing, no stops set) is a real answer, unlike an error."""
     nothing_playing = SpotifyClient.message_panel("Nothing playing on:")
     spotify = FakeClient("now playing", nothing_playing)
     registry = registry_with(spotify=spotify)

@@ -250,7 +250,7 @@ def test_update_raises_when_no_stops_arrivals_could_be_fetched(monkeypatch):
 def test_update_says_so_when_no_stops_are_configured():
     client = TflClient(REGISTRATION, make_config([]))
 
-    assert asyncio.run(client.update()).message == "No stops set"
+    assert asyncio.run(client.update()).message == "Needs configuring"
 
 
 def test_update_passes_a_timeout(monkeypatch):
