@@ -8,6 +8,8 @@ on:
 env:
   SERVER_IMAGE: ghcr.io/nvorkinn/countdown-server
   ORCHESTRATOR_IMAGE: ghcr.io/nvorkinn/countdown-orchestrator
+  # Pins countdown-api's dependencies to the versions it was generated against.
+  UV_CONSTRAINT: https://nvorkinn.github.io/countdown-api/constraints.txt
 
 # Jobs that need more (packages, releases) ask for it themselves.
 permissions:

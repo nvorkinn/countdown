@@ -8,6 +8,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 # The workspace's own packages, so `uv sync` installs them all (editable) for the tests.
 dependencies = [
+    "countdown-api",
     "countdown-credentials",
     "countdown-epd",
     "countdown-core",
@@ -19,6 +20,11 @@ dependencies = [
 [tool.uv]
 package = false
 
+[[tool.uv.index]]
+name = "countdown-api"
+url = "https://nvorkinn.github.io/countdown-api/simple/"
+explicit = true
+
 [tool.uv.sources]
 countdown-credentials = { workspace = true }
 countdown-epd = { workspace = true }
@@ -26,6 +32,7 @@ countdown-core = { workspace = true }
 countdown-server = { workspace = true }
 countdown-client = { workspace = true }
 countdown-orchestrator = { workspace = true }
+countdown-api = { index = "countdown-api" }
 openapi-codegen = { url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v0.2.0/openapi_codegen-0.2.0-py3-none-any.whl" }
 
 [dependency-groups]

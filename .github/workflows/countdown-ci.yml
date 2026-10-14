@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Pins countdown-api's dependencies to the versions it was generated against.
+  UV_CONSTRAINT: https://nvorkinn.github.io/countdown-api/constraints.txt
+
 defaults:
   run:
     working-directory: countdown
