@@ -10,12 +10,11 @@ from PIL import Image
 
 # countdown has to be imported before display.display, or it's a circular import.
 import countdown_core.core.api_registry  # noqa: F401
+from countdown_api.models import Screen
 from countdown_core.core import display as display_module
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.display import FULL_REFRESH_INTERVAL_S, DisplayController
 from countdown_core.core.panel import Panel
-from countdown_core.rendering import LAYOUTS, render
-from countdown_core.rendering.screen import DEFAULT_CANVAS
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
 FULL = None  # a full refresh is a paint with no region
@@ -40,12 +39,12 @@ def frame(arrivals: str = "black", weather: str = "gray", arrivals_width: int = 
     }
 
 
+LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
+
+
 def show(controller: DisplayController, panels: dict) -> Image.Image:
-    """Draws `panels` the way the loop does (in the full layout), shows the frame and returns its picture."""
-    layout = LAYOUTS.select(DEFAULT_CANVAS, None, frozenset(ClientClasses))
-    drawn = render(layout, panels, DEFAULT_CANVAS)
-    controller.show(drawn)
-    return drawn.image
+    """Shows `panels` on an 800x480 landscape screen, in the layout with room for everything."""
+    return controller.display_screen(panels, LANDSCAPE, frozenset(ClientClasses))
 
 
 def _pairing_panel() -> PairingCodePanel:
@@ -181,7 +180,7 @@ def test_the_pairing_screen_replaces_the_picture_so_the_next_frame_is_repainted_
     target = FakeTarget()
     controller = DisplayController(target)
     show(controller, frame())
-    controller.display_pairing_screen(_pairing_panel(), DEFAULT_CANVAS)
+    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
     target.paints.clear()
 
     show(controller, frame())  # identical to what was shown before the pairing screen
@@ -209,7 +208,7 @@ def test_the_pairing_screen_is_one_full_paint_and_resets_what_is_remembered(cloc
     show(controller, frame())
     target.paints.clear()
 
-    controller.display_pairing_screen(_pairing_panel(), DEFAULT_CANVAS)
+    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
     assert target.paints == [FULL]
 
     target.paints.clear()
@@ -221,7 +220,7 @@ def test_the_pairing_code_goes_to_the_log_when_there_is_no_screen_to_show_it(cap
     caplog.set_level(logging.INFO)
     controller = DisplayController(FakeTarget(accepts=False))
 
-    controller.display_pairing_screen(_pairing_panel(), DEFAULT_CANVAS)
+    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
 
     assert "ABC123" in caplog.text
 
@@ -230,7 +229,7 @@ def test_the_pairing_code_is_not_logged_when_the_screen_shows_it(caplog):
     caplog.set_level(logging.INFO)
     controller = DisplayController(FakeTarget())
 
-    controller.display_pairing_screen(_pairing_panel(), DEFAULT_CANVAS)
+    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
 
     assert "ABC123" not in caplog.text
 
@@ -238,7 +237,7 @@ def test_the_pairing_code_is_not_logged_when_the_screen_shows_it(caplog):
 def test_a_whole_screen_that_found_no_screen_is_painted_once_one_appears():
     target = FakeTarget(accepts=False)
     controller = DisplayController(target)
-    controller.display_pairing_screen(_pairing_panel(), DEFAULT_CANVAS)
+    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
 
     target.accepts = True
     controller.repaint_pending()
@@ -251,7 +250,7 @@ def test_a_whole_screen_that_found_no_screen_is_painted_once_one_appears():
 def test_the_dashboard_supersedes_a_screen_still_waiting_for_a_screen(clock):
     target = FakeTarget(accepts=False)
     controller = DisplayController(target)
-    controller.display_pairing_screen(_pairing_panel(), DEFAULT_CANVAS)
+    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
 
     target.accepts = True
     show(controller, frame())
@@ -266,7 +265,7 @@ def test_a_whole_screen_paint_that_failed_midway_is_retried():
     controller = DisplayController(target)
     target.fail = True
     with pytest.raises(RuntimeError):
-        controller.display_pairing_screen(_pairing_panel(), DEFAULT_CANVAS)
+        controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
 
     target.fail = False
     controller.repaint_pending()

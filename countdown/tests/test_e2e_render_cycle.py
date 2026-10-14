@@ -19,6 +19,7 @@ from PIL import Image
 
 from countdown_api.models import ConfigResponse
 from countdown_core.config_server.broker_client import BrokerClient
+from countdown_core.core import display as display_module
 from countdown_core.core import display_loop
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
@@ -144,7 +145,7 @@ def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]
     """Records the panels dict of every frame drawn (and its layout, in `layouts`). The frame
     is still drawn and shown for real, so the whole render path is exercised too."""
     seen: list[dict] = []
-    original = display_loop.render
+    original = display_module.render
 
     def spy(layout, panels, canvas):
         seen.append(dict(panels))
@@ -152,7 +153,7 @@ def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]
             layouts.append(type(layout))
         return original(layout, panels, canvas)
 
-    monkeypatch.setattr(display_loop, "render", spy)
+    monkeypatch.setattr(display_module, "render", spy)
     return seen
 
 
@@ -366,7 +367,7 @@ def test_run_shows_pairing_screen_and_skips_normal_display_while_unpaired(isolat
     monkeypatch.setattr(
         loop.display,
         "display_pairing_screen",
-        lambda panel, canvas: pairing_screens.append((panel.pairing_code, panel.device_id)),
+        lambda panel, screen: pairing_screens.append((panel.pairing_code, panel.device_id)),
     )
 
     _run_cycles(loop, monkeypatch)
@@ -389,7 +390,7 @@ def test_run_only_repaints_pairing_screen_when_code_changes(isolated_cwd, monkey
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
     screens_shown = []
     monkeypatch.setattr(
-        loop.display, "display_pairing_screen", lambda panel, canvas: screens_shown.append(panel.pairing_code)
+        loop.display, "display_pairing_screen", lambda panel, screen: screens_shown.append(panel.pairing_code)
     )
 
     # cycle 1: pairing_code_panel seeded by _build_loop, has_changed=True -> repaint
@@ -460,7 +461,7 @@ def test_the_first_cycle_reports_how_long_startup_took_once(isolated_cwd, monkey
         json=_app_config_json(pairing_code="ABC123"),
     )
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel, canvas: None)
+    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel, screen: None)
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
@@ -504,7 +505,7 @@ def test_run_asks_for_an_early_publish_only_when_the_stage_changes(isolated_cwd,
 def test_run_forces_a_publish_when_pairing_completes(isolated_cwd, monkeypatch):
     _mock_config(pairing_code=None)
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel, canvas: None)
+    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel, screen: None)
     published = _record_publishes(loop, monkeypatch)
 
     _run_cycles(loop, monkeypatch, cycles=2)

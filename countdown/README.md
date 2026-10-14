@@ -50,7 +50,7 @@ has its own refresh interval. A failing source keeps its last notices for a
 while (at least an hour) before they're dropped. Notices are ranked by severity, and planned works only fill rows left
 over.
 
-**Layout** (`rendering/`). Every cycle the loop asks `LAYOUTS` (a `LayoutRegistry`) for a
+**Layout** (`rendering/`). For every frame, `DisplayController` asks `LAYOUTS` (a `LayoutRegistry`) for a
 layout, and keeps nothing about the answer. Layouts are registered by the canvas they draw
 on: the screen in the config, as it's hung, so 800x480 landscape or 480x800 portrait. A
 canvas with no layouts yet gets the 800x480 ones. Several layouts can share a canvas (the

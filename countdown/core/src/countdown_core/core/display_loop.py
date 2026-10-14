@@ -11,8 +11,6 @@ from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core.api_registry import API_NAMES, ApiRegistry
 from countdown_core.core.display import DisplayController
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
-from countdown_core.rendering import LAYOUTS, render
-from countdown_core.rendering.screen import Canvas, canvas_for
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
 logger = logging.getLogger(__name__)
@@ -53,6 +51,7 @@ class DisplayLoop:
     async def run(self) -> None:
         started = time.monotonic()
         await self.api_reg.on_config_update(self.config)
+        self._fit_stops_to_layout()
         first_cycle_done = False
         while True:
             try:
@@ -61,10 +60,11 @@ class DisplayLoop:
                     # Only repaint when the code changes: it's a full e-paper refresh, and an
                     # unpaired device can sit here for days.
                     if self.pairing_code_panel.has_changed:
-                        self.display.display_pairing_screen(self.pairing_code_panel, self._canvas())
+                        self.display.display_pairing_screen(self.pairing_code_panel, self.config.screen)
                 else:
                     self.api_reg.status.stage = "running"
-                    await self._render_dashboard()
+                    panels = await self.api_reg.update_all()
+                    self.display.display_screen(panels, self.config.screen, self.api_reg.available())
                 self.display.repaint_pending()
             except requests.exceptions.RequestException as e:
                 logger.exception(f"Network error encountered: {e}")
@@ -100,19 +100,9 @@ class DisplayLoop:
         self.config = fetched
         self.interval = fetched.interval
         await self.api_reg.on_config_update(fetched)
+        self._fit_stops_to_layout()
 
-    async def _render_dashboard(self) -> None:
-        """One frame, one way: the config and what the device can show pick a layout, which
-        decides how many stops to fetch and then draws what was fetched. Nothing about the
-        choice is kept, so a config change shows on the very next frame."""
-        # No layout choice in the config yet (the contract has no field for it): the canvas's first.
-        canvas = self._canvas()
-        layout = LAYOUTS.select(canvas, None, self.api_reg.available())
-        self.api_reg.show_stops(layout.stops_shown)
-        panels = await self.api_reg.update_all()
-        logger.debug(f"Drawing {type(layout).__name__} on {canvas}")
-        self.display.show(render(layout, panels, canvas))
-
-    def _canvas(self) -> Canvas:
-        """What this cycle's frame is drawn on, from the screen in the config."""
-        return LAYOUTS.drawable(canvas_for(self.config.screen))
+    def _fit_stops_to_layout(self) -> None:
+        """The config decides the layout, and the layout decides how many stops are on screen
+        at once. Call after every on_config_update(), since that may have rebuilt the TfL client."""
+        self.api_reg.show_stops(self.display.stops_shown(self.config.screen, self.api_reg.available()))

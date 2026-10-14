@@ -13,6 +13,7 @@ from PIL import Image
 # `countdown_core` must be imported before any display.* module, or it's a circular import.
 import countdown_core  # noqa: F401, I001
 import countdown_core.glow.energy_panel
+from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.display import DisplayController
 from countdown_core.core.panel import Panel
@@ -21,7 +22,6 @@ from countdown_core.glow.glow_client import GlowClient
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
-from countdown_core.rendering import LAYOUTS, render
 from countdown_core.rendering.screen import DEFAULT_CANVAS
 from countdown_core.spotify.models import Queue
 from countdown_core.spotify.spotify_client import SpotifyClient
@@ -42,13 +42,12 @@ EVERYTHING = frozenset(ClientClasses)
 NO_GLOWMARKT = EVERYTHING - {ClientClasses.GLOWMARKT}
 
 
+LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
+
+
 def _draw(panels: dict[str, Panel], available: frozenset[ClientClasses] = EVERYTHING) -> Image.Image:
-    """The screen as the loop draws it on an 800x480 landscape screen able to show `available`,
-    shown through the controller too."""
-    layout = LAYOUTS.select(DEFAULT_CANVAS, None, available)
-    frame = render(layout, panels, DEFAULT_CANVAS)
-    _CONTROLLER.show(frame)
-    return frame.image
+    """The screen as it's drawn on an 800x480 landscape screen able to show `available`."""
+    return _CONTROLLER.display_screen(panels, LANDSCAPE, available)
 
 
 _FROZEN_NOW = dt.datetime(2026, 1, 15, 12, 0, 0)
