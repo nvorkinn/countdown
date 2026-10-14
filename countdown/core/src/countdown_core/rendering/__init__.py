@@ -10,6 +10,7 @@ from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.panel import Panel
 from countdown_core.rendering.layout import Box, Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC
+from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import Canvas, canvas_for, native_size
 from countdown_core.system_screens.empty_panel import EmptyPanel
@@ -17,7 +18,7 @@ from countdown_core.system_screens.message_panel import MessagePanel
 
 logger = logging.getLogger(__name__)
 
-LAYOUTS = LayoutRegistry(CLASSIC)
+LAYOUTS = LayoutRegistry(CLASSIC + CLASSIC_PORTRAIT)
 
 
 def layout_for(screen: Screen, available: frozenset[ClientClasses]) -> tuple[Layout, Canvas]:

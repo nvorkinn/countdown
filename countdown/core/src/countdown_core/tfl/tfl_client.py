@@ -1,6 +1,4 @@
 import logging
-from collections.abc import Callable
-from typing import TypeVar
 
 from pydantic import TypeAdapter
 
@@ -11,12 +9,10 @@ from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.tfl.models import (
     ArrivalUnion,
-    BusArrival,
     MetroStopPoint,
     SingleStopPoint,
     StopPoint,
     StopPointUnion,
-    TubeArrival,
 )
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
 from countdown_credentials.registration import Registration
@@ -32,20 +28,6 @@ def _find_stop_child(stop: StopPoint, naptan_id: str) -> SingleStopPoint | Metro
         if grandchild is not None:
             return grandchild
     return None
-
-
-def _unique_list_by_route(arrivals: list[T], key_builder: Callable[[T], str]):
-    seen = set()
-    unique_list = []
-    for arrival in arrivals:
-        key = key_builder(arrival)
-        if key not in seen:
-            seen.add(key)
-            unique_list.append(arrival)
-    return unique_list
-
-
-T = TypeVar("T", BusArrival, TubeArrival)
 
 
 class TflClient(AbstractClient):
@@ -120,13 +102,11 @@ class TflClient(AbstractClient):
                 response.raise_for_status()
                 json = response.json()
                 arrivals = TypeAdapter(list[ArrivalUnion]).validate_python(json)
-                sortd = sorted(arrivals, key=lambda x: x.time_to_station)
+                # The panels group them by route, keeping the later ones for the styles that show them.
                 if isinstance(stop, SingleStopPoint):
-                    unique = _unique_list_by_route(sortd, lambda a: a.line)
-                    stop_and_arrivals.append(BusArrivalPanel(stop, unique))
+                    stop_and_arrivals.append(BusArrivalPanel(stop, arrivals, self.config.style))
                 elif isinstance(stop, MetroStopPoint):
-                    unique = _unique_list_by_route(sortd, lambda a: f"{a.line}-{a.towards}")
-                    stop_and_arrivals.append(TubeArrivalPanel(stop, unique))
+                    stop_and_arrivals.append(TubeArrivalPanel(stop, arrivals, self.config.style))
             except Exception as e:
                 logger.exception(f"Error fetching arrivals for stop {stop.naptan_id}: {e}")
         if not stop_and_arrivals:

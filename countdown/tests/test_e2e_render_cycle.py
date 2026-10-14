@@ -16,8 +16,9 @@ import responses
 from config_factory import broker_payload, make_config
 from fake_target import FakeTarget
 from PIL import Image
+from weather_factory import forecast_json
 
-from countdown_api.models import ConfigResponse
+from countdown_api.models import ConfigResponse, Screen
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core import display as display_module
 from countdown_core.core import display_loop
@@ -184,14 +185,11 @@ def _mock_forecast() -> None:
     responses.add(
         responses.GET,
         FORECAST_URL,
-        json={
-            "current": {"temperature_2m": -20.0, "weather_code": 45, "is_day": 0},
-            "daily": {
-                "temperature_2m_max": [-7.8],
-                "temperature_2m_min": [-20.1],
-                "precipitation_probability_max": [None],
-            },
-        },
+        json=forecast_json(
+            current={"temperature_2m": -20.0, "weather_code": 45, "is_day": 0},
+            daily={"temperature_2m_max": [-7.8, -8.0], "temperature_2m_min": [-20.1, -21.0]}
+            | {"precipitation_probability_max": [None, None]},
+        ),
     )
 
 
@@ -290,14 +288,7 @@ def test_full_render_cycle_with_weather(isolated_cwd, monkeypatch):
     responses.add(
         responses.GET,
         "https://api.open-meteo.com/v1/forecast",
-        json={
-            "current": {"temperature_2m": 14.2, "weather_code": 2, "is_day": 1},
-            "daily": {
-                "temperature_2m_max": [18.4],
-                "temperature_2m_min": [9.1],
-                "precipitation_probability_max": [40],
-            },
-        },
+        json=forecast_json(),
     )
     _mock_glowmarkt()
     loop = _build_loop(config, monkeypatch)
@@ -439,10 +430,13 @@ def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isola
 def test_the_layout_follows_what_the_config_lets_the_device_show(isolated_cwd, monkeypatch):
     """Boots with Glowmarkt set up but not Spotify (GlowLayout); the owner then removes
     Glowmarkt's credentials on the broker, and the next cycle drops the energy column
-    (BaseLayout, with neither)."""
+    (BaseLayout, with neither). The screen is hung landscape: those are its layouts."""
     _mock_tfl_and_glowmarkt({}, {})
-    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=_app_config_json())
-    loop = _build_loop(_make_config(), monkeypatch)
+    landscape = {"orientation": "horizontal", "width": 800, "height": 480}
+    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=broker_payload(interval=1, screen=landscape))
+    config = _make_config()
+    config.screen = Screen.model_validate(landscape)
+    loop = _build_loop(config, monkeypatch)
     layouts: list[type] = []
     _spy_on_frames(monkeypatch, layouts)
 

@@ -1,10 +1,17 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Literal
 
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
+from countdown_core.spotify.spotify_panel import truncate_to_fit
+from countdown_core.tfl.arrival_styles import STYLES
 from countdown_core.tfl.models import ArrivalUnion
 from countdown_core.utils.utils import UBUNTU_BOLD, UBUNTU_CONDENSED, UBUNTU_MEDIUM
+
+# How a stop's departures are drawn: the config's tfl.style.
+Style = Literal["classic", "hero", "grouped", "card"]
 
 # One departure per row: a route badge (square-cornered -- on a 1-bit screen only straight
 # edges come out crisp), the destination, and the time on the right.
@@ -17,28 +24,84 @@ BADGE_PADDING = 3  # either side of the route inside its badge
 DESTINATION_GAP = 6  # between the badge and the destination
 
 
+@dataclass(frozen=True)
+class Departures:
+    """Everything leaving a stop for one route and destination, soonest first."""
+
+    badge: str  # what the route badge says: the bus's number, or the tube line's initial
+    line: str
+    destination: str
+    minutes: tuple[int, ...]
+
+
 class AbstractArrivalPanel(Panel, ABC):
-    def __init__(self, arrivals: list[ArrivalUnion]):
+    """One stop's departures, one Departures per route (and, on the tube, per destination),
+    the soonest route first."""
+
+    def __init__(self, arrivals: list[ArrivalUnion], style: Style = "classic"):
         super().__init__()
-        self.arrivals = arrivals
+        self.style = style
+        groups: dict[tuple[str, str], tuple[str, str, str, list[int]]] = {}
+        for arrival in sorted(arrivals, key=lambda a: a.time_to_station):
+            *_, minutes = groups.setdefault(
+                self._route_key(arrival), (self._badge(arrival), arrival.line, self._destination(arrival), [])
+            )
+            minutes.append(arrival.time_to_station // 60)
+        self.departures = [Departures(*group[:3], tuple(group[3])) for group in groups.values()]
+
+    @property
+    @abstractmethod
+    def stop_name(self) -> str: ...
+
+    @property
+    def stop_letter(self) -> str | None:
+        return None
+
+    @property
+    def is_tube(self) -> bool:
+        return False
+
+    @staticmethod
+    @abstractmethod
+    def _route_key(arrival: ArrivalUnion) -> tuple[str, str]:
+        """Arrivals sharing a key are one row: later buses on a route, later trains to a destination."""
+
+    @staticmethod
+    @abstractmethod
+    def _badge(arrival: ArrivalUnion) -> str: ...
+
+    @staticmethod
+    @abstractmethod
+    def _destination(arrival: ArrivalUnion) -> str: ...
 
     def render(self, image_width, image_height) -> Image.Image:
+        if self.style != "classic":
+            return STYLES[self.style](self, image_width, image_height)
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"
         draw.font = UBUNTU_BOLD
         draw.rounded_rectangle((0, 0, img.size[0], 20), 10, "black")
         self.add_header(img, draw)
-        img.paste(self._create_panel_for_arrivals(self.arrivals, img.size[0], img.size[1] - 25), (0, 25))
+        img.paste(self._create_panel_for_arrivals(img.size[0], img.size[1] - 25), (0, 25))
         return img
 
     @abstractmethod
     def add_header(self, img: Image.Image, draw: ImageDraw.ImageDraw) -> None:
         raise NotImplementedError("Subclasses must implement the add_header method.")
 
-    @abstractmethod
-    def _create_panel_for_arrivals(self, arrivals: list[ArrivalUnion], max_x: int, max_y: int) -> Image.Image:
-        raise NotImplementedError("Subclasses must implement the _create_panel_for_arrivals method.")
+    def _create_panel_for_arrivals(self, max_x: int, max_y: int) -> Image.Image:
+        img = Image.new("RGBA", (max_x, max_y), (255, 255, 255, 0))
+        y = 0
+        for departure in self.departures:
+            eta = self._get_time_text(departure.minutes[0])
+            arrival_panel = self._create_panel_for_stop_arrival(departure.badge, departure.destination, eta, max_x)
+            arrival_panel_bottom = y + arrival_panel.size[1]
+            if arrival_panel_bottom > img.size[1]:
+                return img
+            img.paste(arrival_panel, (0, y))
+            y = arrival_panel_bottom + ROW_GAP
+        return img
 
     @staticmethod
     def _route_font(route: str) -> ImageFont.FreeTypeFont:
@@ -55,7 +118,11 @@ class AbstractArrivalPanel(Panel, ABC):
         middle = ROW_HEIGHT // 2
         d.rectangle((0, 0, BADGE_WIDTH - 1, ROW_HEIGHT - 1), fill="black")
         d.text((BADGE_WIDTH / 2, middle), route, "white", font=AbstractArrivalPanel._route_font(route), anchor="mm")
-        d.text((BADGE_WIDTH + DESTINATION_GAP, middle), destination, "black", font=UBUNTU_BOLD, anchor="lm")
+        # Cut short rather than run into the time, on a stop narrowed to fit (a portrait screen).
+        destination_x = BADGE_WIDTH + DESTINATION_GAP
+        room = img.size[0] - destination_x - UBUNTU_MEDIUM.getlength(eta) - DESTINATION_GAP
+        destination = truncate_to_fit(destination, UBUNTU_BOLD, room)
+        d.text((destination_x, middle), destination, "black", font=UBUNTU_BOLD, anchor="lm")
         d.text((img.size[0], middle), eta, "black", font=UBUNTU_MEDIUM, anchor="rm")
         return img
 

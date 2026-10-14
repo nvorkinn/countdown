@@ -10,6 +10,7 @@ from countdown_core.core.panel import Panel
 from countdown_core.rendering import LAYOUTS, to_native
 from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLayout, SpotifyGlowLayout, SpotifyLayout
+from countdown_core.rendering.layouts.classic_portrait import BasePortraitLayout, SpotifyPortraitLayout
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
 
@@ -62,6 +63,33 @@ def test_only_the_variant_without_spotify_or_glowmarkt_shows_four_stops():
 )
 def test_the_canvas_is_the_screen_as_hung(orientation, width, height, expected):
     assert canvas_for(Screen(orientation=orientation, width=width, height=height)) == expected
+
+
+@pytest.mark.parametrize(
+    ("unavailable", "expected"),
+    [
+        (set(), SpotifyPortraitLayout),
+        ({ClientClasses.GLOWMARKT}, SpotifyPortraitLayout),  # no energy chart on portrait either way
+        ({ClientClasses.SPOTIFY}, BasePortraitLayout),
+        ({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT}, BasePortraitLayout),
+    ],
+)
+def test_a_portrait_screen_gets_the_classic_layout_stacked(unavailable, expected):
+    assert LAYOUTS.drawable(PORTRAIT) == PORTRAIT
+    assert type(LAYOUTS.select(PORTRAIT, None, EVERYTHING - unavailable)) is expected
+
+
+def test_portrait_arrivals_are_the_volatile_part():
+    panels = {api.api_name: _SolidPanel() for api in ClientClasses}
+    for layout in (SpotifyPortraitLayout(), BasePortraitLayout()):
+        frame = layout.render(panels, PORTRAIT)
+        assert frame.image.size == PORTRAIT.size
+        assert frame.volatile == (5, 280, 475, 280 + layout.ARRIVALS_HEIGHT)
+
+
+class _SolidPanel(Panel):
+    def render(self, image_width: int, image_height: int) -> Image.Image:
+        return Image.new("RGBA", (image_width, image_height), "black")
 
 
 def test_a_canvas_no_layout_draws_on_falls_back_to_the_default_with_one_warning(caplog):
