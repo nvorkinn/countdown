@@ -4,6 +4,11 @@ The long-running Python app that renders the 7.5" e-paper dashboard for a separa
 TfL arrivals, weather, a notice board, Glowmarkt energy use and Spotify, all
 configured remotely through [auth-broker](https://github.com/nvorkinn/auth-broker).
 
+This README is about the renderer. For the whole system (the ESP32 screen, Caddy, authentik, the broker, the
+orchestrator and the renderers: who calls whom, which token or secret exists when, and what each call changes)
+see auth-broker's [How the pieces fit together](https://github.com/nvorkinn/auth-broker/blob/main/docs/architecture.md)
+and [The database](https://github.com/nvorkinn/auth-broker/blob/main/docs/database.md).
+
 ## How it works
 
 **Boot** (`app.py`). The app reads `BROKER_URL` and `CLAIM_TOKEN` (both required; the
