@@ -20,7 +20,7 @@ SPEC = files("countdown_api") / "openapi.yaml"
 # Sent by the broker but not used by the renderer: its device_id comes from registration, and the screen's
 # shape is the display's business. setup_missing is still in the contract, but panels now say for themselves
 # that they need configuring.
-UNUSED_BY_THE_APP = {"device_id", "screen", "setup_missing"}
+UNUSED_BY_THE_APP = {"device_id", "screen"}
 # In the app's config but not sent by the broker, by design. See models.py for each.
 NOT_SENT_BY_THE_BROKER = {
     "tfl": {"enabled"},
