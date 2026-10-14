@@ -88,6 +88,22 @@ This directory is a uv workspace:
 
 `uv sync` installs them all, editable, for development and the tests.
 
+## The broker's API contract
+
+The config the renderer polls from [auth-broker](https://github.com/nvorkinn/auth-broker) is defined there, in
+pydantic (`broker/contract.py`), and published as `openapi.json`. `core/contract/broker-openapi.json` is a copy
+of it, and `config_server/wire.py` is generated from that; `AppConfig` is what the app actually uses.
+`tests/test_broker_contract.py` fails if any of the three stop agreeing. To pick up a change to the broker's API:
+
+```bash
+cp ../auth-broker/openapi.json core/contract/broker-openapi.json
+uv run python core/contract/generate.py   # rewrites wire.py
+uv run pytest tests/test_broker_contract.py
+```
+
+A new field the broker sends fails the tests until `AppConfig` reads it (or it's listed as unused), so the two
+can't quietly diverge.
+
 ## Running locally
 
 ```bash
