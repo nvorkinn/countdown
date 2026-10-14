@@ -66,7 +66,11 @@ only paints when the picture changes. If only the arrivals changed, it does a
 quick partial refresh of their box. Otherwise, or once 10 minutes have passed
 since the last full refresh (partial refreshes leave ghosting), it does a full
 refresh. If every API only has a message to show, a "Nothing to show yet" screen
-replaces the dashboard (`rendering.render`). Frames go to a display target: `ServerTarget` hands each one to the broker for
+replaces the dashboard (`rendering.render`). Frames are drawn upright, as the screen is
+hung; a vertical screen's 480x800 frame is turned a quarter into the panel's own 800x480
+picture before it's painted (`rendering.to_native`), and the pairing and "Nothing to show
+yet" screens are drawn smaller to fit its width. Until a 480x800 layout exists, a vertical
+screen's dashboard is still the landscape one. Frames go to a display target: `ServerTarget` hands each one to the broker for
 the screen to fetch. If the target can't take a frame, the app carries on, and a
 whole-screen picture it couldn't paint (pairing code, checklist) is retried
 every cycle until it can.

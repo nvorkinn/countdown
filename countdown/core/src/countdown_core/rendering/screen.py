@@ -31,3 +31,9 @@ def canvas_for(screen: Screen) -> Canvas:
     the same way round, however it's hung, so the orientation decides which side is long."""
     long, short = max(screen.width, screen.height), min(screen.width, screen.height)
     return Canvas(long, short) if screen.orientation == "horizontal" else Canvas(short, long)
+
+
+def native_size(screen: Screen) -> tuple[int, int]:
+    """The size of the panel's own picture: landscape, as the e-paper's buffer (and the broker's
+    frame) is laid out, however the screen is hung."""
+    return max(screen.width, screen.height), min(screen.width, screen.height)

@@ -24,6 +24,7 @@ from countdown_core.core import display_loop
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
 from countdown_core.glow.energy_panel import EnergyPanel
+from countdown_core.rendering import layout_for
 from countdown_core.rendering.layouts.classic import BaseLayout, GlowLayout
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
@@ -147,11 +148,11 @@ def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]
     seen: list[dict] = []
     original = display_module.render
 
-    def spy(layout, panels, canvas):
+    def spy(panels, screen, available):
         seen.append(dict(panels))
         if layouts is not None:
-            layouts.append(type(layout))
-        return original(layout, panels, canvas)
+            layouts.append(type(layout_for(screen, available)[0]))
+        return original(panels, screen, available)
 
     monkeypatch.setattr(display_module, "render", spy)
     return seen

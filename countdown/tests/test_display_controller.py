@@ -287,3 +287,45 @@ def test_shutdown_closes_the_target():
     DisplayController(target).shutdown()
 
     assert target.closed == 1
+
+
+VERTICAL = Screen(orientation="vertical", width=800, height=480)
+
+
+class Recording(FakeTarget):
+    """Also keeps the size of every picture painted."""
+
+    def __init__(self):
+        super().__init__()
+        self.sizes: list[tuple[int, int]] = []
+
+    def paint(self, img: Image.Image, region=None) -> bool:
+        self.sizes.append(img.size)
+        return super().paint(img, region)
+
+
+def test_a_vertical_screen_gets_its_pairing_screen_upright_and_the_panel_its_own_landscape_picture():
+    target = Recording()
+
+    img = DisplayController(target).display_pairing_screen(_pairing_panel(), VERTICAL)
+
+    assert img.size == (480, 800)
+    assert target.sizes == [(800, 480)]
+
+
+def test_a_vertical_screen_with_nothing_to_show_says_so_upright(clock):
+    target = Recording()
+
+    img = DisplayController(target).display_screen({}, VERTICAL, frozenset(ClientClasses))
+
+    assert img.size == (480, 800)
+    assert target.sizes == [(800, 480)]
+
+
+def test_a_vertical_screen_keeps_the_landscape_dashboard_until_a_portrait_layout_exists(clock):
+    target = Recording()
+
+    img = DisplayController(target).display_screen(frame(), VERTICAL, frozenset(ClientClasses))
+
+    assert img.size == (800, 480)
+    assert target.sizes == [(800, 480)]
