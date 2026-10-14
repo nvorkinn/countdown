@@ -20,7 +20,7 @@ SPEC = files("countdown_api") / "openapi.yaml"
 # Sent by the broker but not used by the renderer: its device_id comes from registration, and the screen's
 # shape is the display's business. setup_missing is still in the contract, but panels now say for themselves
 # that they need configuring.
-UNUSED_BY_THE_APP = {"device_id", "screen", "setup_missing"}
+UNUSED_BY_THE_APP = {"device_id", "screen"}
 # In the app's config but not sent by the broker, by design. See models.py for each.
 NOT_SENT_BY_THE_BROKER = {
     "tfl": {"enabled"},
@@ -34,7 +34,7 @@ NOT_SENT_BY_THE_BROKER = {
 def test_the_spec_describes_the_config_endpoint():
     spec = yaml.safe_load(SPEC.read_text())
     operation = spec["paths"]["/api/config"]["get"]
-    assert operation["security"] == [{"deviceSecret": []}]
+    assert operation["security"] == [{"deviceSecret": ["renderer"]}]
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/ConfigResponse"
     }
@@ -101,7 +101,6 @@ def _full_response() -> wire.ConfigResponse:
         spotify=wire.Spotify(enabled=True),
         glowmarkt=wire.Glowmarkt(username="someone@example.com", password="hunter2"),
         pairing_code="ABC123",
-        setup_missing=["a postcode"],
     )
 
 

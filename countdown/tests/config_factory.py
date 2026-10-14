@@ -30,6 +30,5 @@ def broker_payload(**sections) -> dict:
         spotify=wire.Spotify(enabled=False),
         glowmarkt=wire.Glowmarkt(username=None, password=None),
         pairing_code=None,
-        setup_missing=[],
     )
     return typical.model_dump(mode="json") | sections
