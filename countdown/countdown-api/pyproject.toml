@@ -1,0 +1,16 @@
+[project]
+name = "countdown-api"
+# Stamped from the latest countdown-api release by `uv run sync_api.py`.
+version = "0.0.0"
+description = "The API between the countdown renderer and auth-broker: a copy of nvorkinn/countdown-api's source."
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.13"]
+
+# Each side of the API needs one of these: the renderer the `requests` client, the broker the Flask views.
+[project.optional-dependencies]
+client = ["requests>=2.32"]
+server = ["flask>=3.1"]
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"

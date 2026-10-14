@@ -96,29 +96,26 @@ with Pydantic models, a `requests` client for this side, and Flask views for the
 https://nvorkinn.github.io/countdown-api/, is a package index, and its `constraints.txt` says which version is the
 latest.
 
-Here it is an ordinary dependency:
+Here it is a workspace member, `countdown-api/`, whose `src/` is a copy of the latest release's source (committed,
+since the package isn't on PyPI):
 
-- `core/pyproject.toml` depends on `countdown-api[client]` (the `client` extra adds `requests`), with no version.
-  `pyproject.toml` here declares the page as an `explicit` index for that package only, so nothing else is looked
-  up there and a same-named package on PyPI can't win.
-- `uv.lock` records the version and the wheel's hash. To move to the latest release:
+- `core/pyproject.toml` depends on `countdown-api[client]` (the `client` extra adds `requests`), with no version;
+  the workspace provides it.
+- To move to the latest release, run this in `countdown-api/`:
 
   ```bash
-  uv lock --upgrade-package countdown-api
+  uv run sync_api.py
   ```
 
-  CI and the release workflow set `UV_CONSTRAINT` to the page's `constraints.txt`, but their uv commands run with
-  `--frozen`, which installs exactly what `uv.lock` records and ignores constraints. So the lockfile decides which
-  version is built and tested, and moves only when it is upgraded as above.
+  It reads the version and the GitHub Releases link from https://nvorkinn.github.io/countdown-api/latest.json,
+  downloads the release's wheel, checks it against the checksum there, and replaces `src/countdown_api/` with its
+  contents (the version is recorded in `countdown-api/VERSION`). Then run `uv lock` and commit.
 - `BrokerClient.get_config` calls `countdown_api.clients.ApiConfigClient`, through the device's session, so the
   path, the method, the headers and the shape of the response all come from the contract.
 - `AppConfig` is what the app actually reads of the response. `tests/test_broker_contract.py` fails if the contract
   (the package carries `countdown_api/openapi.yaml`), the client or `AppConfig` stop agreeing: a new field the
   broker sends fails the tests until `AppConfig` reads it (or it's listed as unused), so the two can't quietly
   diverge.
-- The server image only installs the wheels in `dist/` (our packages never come from an index), so CI and the
-  release workflow add the `countdown-api` wheel the lock pins to `dist/` before building it
-  (`uvx pip download --require-hashes`, checked against the lock's hash).
 
 What the client accepts is the compatibility policy: the broker may **add** fields (the client ignores
 ones it doesn't know), but a value outside what the contract lists (a third screen orientation, say) is invalid, the
