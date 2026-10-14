@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 import responses
-from config_factory import make_config
+from config_factory import broker_payload, make_config
 from fake_target import FakeTarget
 from PIL import Image
 
@@ -39,15 +39,8 @@ QUEUE_URL = f"{TEST_BROKER_URL}/api/spotify/queue"
 def _app_config_json(
     pairing_code: str | None = None, interval: int = 1, setup_missing: list[str] | None = None
 ) -> dict:
-    return {
-        "interval": interval,
-        "tfl": {"app_key": "", "stop_ids": []},
-        "weather": {"api_key": "", "location": ""},
-        "spotify": {"enabled": False},
-        "glowmarkt": {"username": None, "password": None},
-        "pairing_code": pairing_code,
-        "setup_missing": setup_missing or [],
-    }
+    """What the broker's /api/config returns: all of it, as the contract says (see config_factory)."""
+    return broker_payload(interval=interval, pairing_code=pairing_code, setup_missing=setup_missing or [])
 
 
 BUS_STOP_JSON = {

@@ -1,20 +1,29 @@
 """The broker's config API against what the app reads of it.
 
-core/contract/broker-openapi.json is a copy of auth-broker's openapi.json, and config_server/wire.py is
-generated from it (core/contract/generate.py). Nothing here talks to a broker: these fail when the copy,
-the generated models, or AppConfig stop agreeing, so a change on either side can't go unnoticed."""
+core/contract/broker-openapi.json is a copy of auth-broker's openapi.json, and config_server/broker_api/ is
+generated from it by openapi-codegen (a dev dependency, installed from a release). Nothing here talks to a
+broker: these fail when the copy, the generated code, or AppConfig stop agreeing, so a change on either side
+can't go unnoticed."""
 
-import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+import responses
 
-from countdown_core.config_server import wire
-from countdown_core.config_server.broker_client import _device_name_header
+from countdown_core.config_server.broker_api import models as wire
+from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.config_server.models import AppConfig
+from countdown_credentials.registration import RendererRegistration
 
-CONTRACT_DIR = Path(__file__).resolve().parents[1] / "core" / "contract"
+COUNTDOWN = Path(__file__).resolve().parents[1]
+CONTRACT_DIR = COUNTDOWN / "core" / "contract"
+SPEC = CONTRACT_DIR / "broker-openapi.json"
+GENERATED = COUNTDOWN / "core" / "src" / "countdown_core" / "config_server" / "broker_api"
+# What generates it; keep in step with the README ("The broker's API contract").
+GENERATE = [sys.executable, "-m", "openapi_codegen", str(SPEC), "--out", str(GENERATED), "--only", "clients"]
 
 # Sent by the broker but not used by the renderer: its device_id comes from registration, and the screen's
 # shape is the display's business.
@@ -29,19 +38,12 @@ NOT_SENT_BY_THE_BROKER = {
 }
 
 
-def _generator():
-    spec = importlib.util.spec_from_file_location("contract_generate", CONTRACT_DIR / "generate.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def test_the_generated_client_is_current():
+    """After copying in a new broker-openapi.json, regenerate: `uv run openapi-codegen core/contract/broker-openapi.json
+    --out core/src/countdown_core/config_server/broker_api --only clients` (from countdown/)."""
+    checked = subprocess.run([*GENERATE, "--check"], capture_output=True, text=True)
 
-
-def test_the_generated_models_are_current(tmp_path):
-    """Regenerate with `uv run python core/contract/generate.py` after copying in a new broker-openapi.json."""
-    generated = tmp_path / "wire.py"
-    _generator().generate(generated)
-    current = Path(wire.__file__).read_text()
-    assert generated.read_text() == current, "wire.py is stale; run core/contract/generate.py and commit it"
+    assert checked.returncode == 0, f"broker_api/ is out of date; regenerate it.\n{checked.stderr}"
 
 
 def test_the_spec_describes_the_config_endpoint():
@@ -53,18 +55,27 @@ def test_the_spec_describes_the_config_endpoint():
     }
 
 
-def test_the_headers_the_client_sends_are_the_ones_the_spec_declares(monkeypatch):
-    """Authorization isn't a header parameter (the spec declares it as a security scheme); the rest are."""
+@responses.activate
+def test_the_headers_the_client_really_sends_are_the_ones_the_spec_declares(isolated_cwd, monkeypatch):
+    """Authorization isn't a header parameter (the spec declares it as a security scheme); every other header the
+    broker is sent on purpose must be declared, and a required one must be there."""
+    from config_factory import broker_payload
+
     monkeypatch.setenv("DEVICE_NAME", "camilla")
-    spec = json.loads((CONTRACT_DIR / "broker-openapi.json").read_text())
+    spec = json.loads(SPEC.read_text())
     declared = {
         p["name"]: p["required"] for p in spec["paths"]["/api/config"]["get"]["parameters"] if p["in"] == "header"
     }
+    client = BrokerClient(RendererRegistration("https://broker.example.com", "shh", "device-123"))
+    responses.add(responses.GET, "https://broker.example.com/api/config", json=broker_payload())
 
-    sent = set(_device_name_header())
+    client.get_config()
 
-    assert sent <= declared.keys(), "the client sends a header the spec doesn't declare"
-    assert {name for name, required in declared.items() if required} <= sent, "a required header isn't sent"
+    sent = responses.calls[0].request.headers
+    deliberate = {name for name in sent if name.lower().startswith("x-")}
+    assert deliberate <= declared.keys(), "the client sends a header the spec doesn't declare"
+    assert {name for name, required in declared.items() if required} <= deliberate, "a required header isn't sent"
+    assert sent["Authorization"] == "Bearer shh"
 
 
 def _fields(model) -> set[str]:
@@ -98,7 +109,7 @@ def _full_response() -> wire.ConfigResponse:
     return wire.ConfigResponse(
         device_id="abc",
         interval=30,
-        screen=wire.Screen(orientation=wire.Orientation.horizontal, width=800, height=480),
+        screen=wire.Screen(orientation="horizontal", width=800, height=480),
         weather=wire.Weather(api_key="weather-key", location="London"),
         notice_board=wire.NoticeBoard(postcode="SW1A 1AA"),
         tfl=wire.Tfl(app_key="tfl-key", stop_ids=["940GZZLUKNG", "490000077E"]),

@@ -91,18 +91,34 @@ This directory is a uv workspace:
 ## The broker's API contract
 
 The config the renderer polls from [auth-broker](https://github.com/nvorkinn/auth-broker) is defined there, in
-pydantic (`broker/contract.py`), and published as `openapi.json`. `core/contract/broker-openapi.json` is a copy
-of it, and `config_server/wire.py` is generated from that; `AppConfig` is what the app actually uses.
-`tests/test_broker_contract.py` fails if any of the three stop agreeing. To pick up a change to the broker's API:
+pydantic (`broker/contract.py`), and published as `openapi.json`. Three things here follow it:
+
+- `core/contract/broker-openapi.json` is a copy of that file.
+- `config_server/broker_api/` is the client for it, generated from the copy by
+  [openapi-codegen](https://github.com/nvorkinn/openapi-codegen) (`--only clients`: the Pydantic models and a
+  `requests` client, no Flask). Don't edit it. `BrokerClient.get_config` calls it, through the device's session,
+  so the path, the method, the headers and the shape of the response all come from the contract.
+- `AppConfig` is what the app actually reads of the response.
+
+openapi-codegen is a dev dependency, installed from a **release** of its repository: `pyproject.toml` points at the
+release's wheel and `uv.lock` records the wheel's hash, so a build fails if that file ever changes. To move to a
+newer release, change the URL in `[tool.uv.sources]` and run `uv lock --upgrade-package openapi-codegen`.
+
+`tests/test_broker_contract.py` fails if the copy, the generated client or `AppConfig` stop agreeing. To pick up a
+change to the broker's API:
 
 ```bash
 cp ../auth-broker/openapi.json core/contract/broker-openapi.json
-uv run python core/contract/generate.py   # rewrites wire.py
-uv run pytest tests/test_broker_contract.py
+uv run openapi-codegen core/contract/broker-openapi.json --out core/src/countdown_core/config_server/broker_api --only clients
+uv run pytest tests/test_broker_contract.py tests/test_broker_client.py
 ```
 
 A new field the broker sends fails the tests until `AppConfig` reads it (or it's listed as unused), so the two
 can't quietly diverge.
+
+What the generated client accepts is the compatibility policy: the broker may **add** fields (the client ignores
+ones it doesn't know), but a value outside what the contract lists (a third screen orientation, say) is invalid, the
+config is rejected, and the renderer keeps the one it has. A test pins each half.
 
 ## Running locally
 
