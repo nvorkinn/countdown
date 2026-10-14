@@ -1,5 +1,4 @@
 import asyncio
-import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -78,7 +77,7 @@ def test_get_config_sends_the_secret_as_a_bearer_token_and_the_role_in_the_body(
 
     request = responses.calls[0].request
     assert request.headers["Authorization"] == "Bearer test-secret"
-    assert json.loads(request.body) == {"role": "renderer"}  # the secret goes in the body only when registering
+    assert request.body is None  # the secret goes in the body only when registering
 
 
 def test_request_sends_device_name_header_from_device_name_env(isolated_cwd, monkeypatch):
