@@ -382,3 +382,48 @@ def test_portrait_screen_with_no_stops_and_no_weather_yet(snapshot):
     )
     img = _draw_portrait(panels, EVERYTHING - {ClientClasses.SPOTIFY})
     snapshot.assert_matches("screen_portrait_messages", img)
+
+
+BUSY_BUS_ARRIVALS = [
+    BusArrival(naptanId="490000123W", lineName=line, timeToStation=minutes * 60, modeName="bus", destinationName=to)
+    for line, to, minutes in [
+        ("36", "Queen's Park", 2),
+        ("185", "Victoria", 4),
+        ("36", "Queen's Park", 9),
+        ("436", "Paddington", 11),
+        ("N155", "Aldwych", 14),
+        ("36", "Queen's Park", 16),
+        ("P5", "Elephant & Castle", 18),
+    ]
+]
+BUSY_TUBE_ARRIVALS = [
+    TubeArrival(naptanId="940GZZLUKNG", lineName="Northern", timeToStation=minutes * 60, modeName="tube", towards=to)
+    for to, minutes in [
+        ("Morden", 1),
+        ("Edgware via Bank", 3),
+        ("Battersea Power Station", 5),
+        ("High Barnet via Charing Cross", 7),
+        ("Morden", 9),
+        ("Edgware via Bank", 12),
+    ]
+]
+
+
+def _styled_arrivals(style: str) -> CombinedArrivalPanel:
+    return CombinedArrivalPanel(
+        [BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS, style), TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS, style)]
+    )
+
+
+@pytest.mark.parametrize("style", ["classic", "hero", "grouped", "card"])
+def test_arrival_styles(snapshot, style):
+    """Each look the config's tfl.style can pick, on a busy bus stop and station."""
+    img = _draw(_panels(_styled_arrivals(style)))
+    snapshot.assert_matches(f"screen_arrivals_{style}", img)
+
+
+@pytest.mark.parametrize("style", ["hero", "grouped", "card"])
+def test_arrival_styles_on_a_portrait_screen(snapshot, style):
+    """Narrower stops, and taller ones without Spotify."""
+    img = _draw_portrait(_panels(_styled_arrivals(style)), EVERYTHING - {ClientClasses.SPOTIFY})
+    snapshot.assert_matches(f"screen_portrait_arrivals_{style}", img)

@@ -293,3 +293,19 @@ def test_session_has_retry_adapter_mounted():
     adapter = client.session.get_adapter("https://api.tfl.gov.uk")
     assert isinstance(adapter, HTTPAdapter)
     assert adapter.max_retries.total == 3
+
+
+def test_the_configured_style_reaches_the_panels_with_every_departure_grouped_by_route(monkeypatch):
+    client = TflClient(REGISTRATION, Tfl(app_key="", stop_ids=["490000123W"], style="hero"))
+    client.stops = [make_bus_stop()]
+    response = MagicMock()
+    response.json.return_value = [
+        {"naptanId": "490000123W", "lineName": line, "timeToStation": seconds, "modeName": "bus", "destinationName": to}
+        for line, to, seconds in [("36", "Queen's Park", 540), ("185", "Victoria", 240), ("36", "Queen's Park", 120)]
+    ]
+    monkeypatch.setattr(client.session, "get", lambda *args, **kwargs: response)
+
+    (panel,) = asyncio.run(client.update()).arrival_panels
+
+    assert panel.style == "hero"
+    assert [(d.badge, d.minutes) for d in panel.departures] == [("36", (2, 9)), ("185", (4,))]
