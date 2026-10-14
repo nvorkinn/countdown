@@ -22,9 +22,8 @@ from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core import display_loop
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
-from countdown_core.display_composers.base_composer import BaseComposer
-from countdown_core.display_composers.glow_composer import GlowComposer
 from countdown_core.glow.energy_panel import EnergyPanel
+from countdown_core.rendering.layouts.classic import BaseLayout, GlowLayout
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
@@ -141,17 +140,19 @@ def _build_loop(config: ConfigResponse, monkeypatch, pairing_code: str | None = 
     return DisplayLoop(broker, config, pairing_code_panel, DisplayController(FakeTarget()))
 
 
-def _spy_on_display_screen(loop: DisplayLoop, monkeypatch) -> list[dict]:
-    """Records the panels dict of every display_screen() call (which still runs for
-    real, so the whole render path is exercised too)."""
+def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]:
+    """Records the panels dict of every frame drawn (and its layout, in `layouts`). The frame
+    is still drawn and shown for real, so the whole render path is exercised too."""
     seen: list[dict] = []
-    original = loop.display.display_screen
+    original = display_loop.render
 
-    def spy(panels):
+    def spy(layout, panels, canvas):
         seen.append(dict(panels))
-        return original(panels)
+        if layouts is not None:
+            layouts.append(type(layout))
+        return original(layout, panels, canvas)
 
-    monkeypatch.setattr(loop.display, "display_screen", spy)
+    monkeypatch.setattr(display_loop, "render", spy)
     return seen
 
 
@@ -202,7 +203,7 @@ def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch):
     )
     _mock_forecast()
     loop = _build_loop(config, monkeypatch)
-    shown = _spy_on_display_screen(loop, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch)
 
@@ -229,7 +230,7 @@ def test_full_render_cycle_skips_glowmarkt_when_credentials_empty(isolated_cwd, 
     assert config.glowmarkt.username is None and config.glowmarkt.password is None
     _mock_tfl({"490000123W": BUS_STOP_JSON}, {"490000123W": BUS_ARRIVALS_JSON})
     loop = _build_loop(config, monkeypatch)
-    shown = _spy_on_display_screen(loop, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch)
 
@@ -248,7 +249,7 @@ def test_full_render_cycle_with_spotify_track(isolated_cwd, monkeypatch):
     responses.add(responses.GET, QUEUE_URL, json={"currently_playing": TRACK_JSON, "queue": []})
     responses.add(responses.GET, "https://example.com/album.jpg", body=_png_bytes(), content_type="image/png")
     loop = _build_loop(config, monkeypatch)
-    shown = _spy_on_display_screen(loop, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch)
 
@@ -267,7 +268,7 @@ def test_full_render_cycle_when_nothing_is_playing(isolated_cwd, monkeypatch):
     responses.add(responses.GET, f"{TEST_BROKER_URL}/api/spotify/top/tracks", json={"items": []})
     responses.add(responses.GET, f"{TEST_BROKER_URL}/api/spotify/top/artists", json={"items": []})
     loop = _build_loop(config, monkeypatch)
-    shown = _spy_on_display_screen(loop, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch)
 
@@ -298,7 +299,7 @@ def test_full_render_cycle_with_weather(isolated_cwd, monkeypatch):
     )
     _mock_glowmarkt()
     loop = _build_loop(config, monkeypatch)
-    shown = _spy_on_display_screen(loop, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch)
 
@@ -313,7 +314,7 @@ def test_one_api_being_down_does_not_stop_the_others_reaching_the_screen(isolate
     responses.add(responses.GET, "https://api.tfl.gov.uk/StopPoint/490000123W", status=500)
     _mock_glowmarkt()
     loop = _build_loop(config, monkeypatch)
-    shown = _spy_on_display_screen(loop, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch)
 
@@ -343,7 +344,7 @@ def test_later_cycles_reuse_client_state_and_keep_slow_panels_on_screen(isolated
         },
     )
     loop = _build_loop(config, monkeypatch)
-    shown = _spy_on_display_screen(loop, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
@@ -360,12 +361,12 @@ def test_run_shows_pairing_screen_and_skips_normal_display_while_unpaired(isolat
     """While a pairing code is active, run() shouldn't fetch anything or paint the
     normal screen (nothing is mocked, so any request would fail)."""
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-    shown = _spy_on_display_screen(loop, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
     pairing_screens = []
     monkeypatch.setattr(
         loop.display,
         "display_pairing_screen",
-        lambda panel: pairing_screens.append((panel.pairing_code, panel.device_id)),
+        lambda panel, canvas: pairing_screens.append((panel.pairing_code, panel.device_id)),
     )
 
     _run_cycles(loop, monkeypatch)
@@ -387,7 +388,9 @@ def test_run_only_repaints_pairing_screen_when_code_changes(isolated_cwd, monkey
     )
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
     screens_shown = []
-    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel: screens_shown.append(panel.pairing_code))
+    monkeypatch.setattr(
+        loop.display, "display_pairing_screen", lambda panel, canvas: screens_shown.append(panel.pairing_code)
+    )
 
     # cycle 1: pairing_code_panel seeded by _build_loop, has_changed=True -> repaint
     # cycle 2: refresh_broker_config() re-fetched the same code -> has_changed=False -> no repaint
@@ -422,7 +425,7 @@ def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isola
     new_config["tfl"]["stop_ids"] = ["490000123W"]
     responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=new_config)
     loop = _build_loop(make_config(), monkeypatch)
-    shown = _spy_on_display_screen(loop, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
@@ -432,26 +435,20 @@ def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isola
 
 @responses.activate
 def test_the_layout_follows_what_the_config_lets_the_device_show(isolated_cwd, monkeypatch):
-    """Boots with Glowmarkt set up but not Spotify (GlowComposer); the owner then removes
+    """Boots with Glowmarkt set up but not Spotify (GlowLayout); the owner then removes
     Glowmarkt's credentials on the broker, and the next cycle drops the energy column
-    (BaseComposer, with neither)."""
+    (BaseLayout, with neither)."""
     _mock_tfl_and_glowmarkt({}, {})
     responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=_app_config_json())
     loop = _build_loop(_make_config(), monkeypatch)
     layouts: list[type] = []
-    original = loop.display.display_screen
-
-    def spy(panels):
-        layouts.append(type(loop.display._composer))
-        return original(panels)
-
-    monkeypatch.setattr(loop.display, "display_screen", spy)
+    _spy_on_frames(monkeypatch, layouts)
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
-    assert layouts == [GlowComposer, BaseComposer]
-    # BaseComposer has room for four stops, and the TfL client was told so.
-    assert loop.api_reg.clients["tfl"].stops_per_update == BaseComposer.stops_shown == 4
+    assert layouts == [GlowLayout, BaseLayout]
+    # BaseLayout has room for four stops, and the TfL client was told so.
+    assert loop.api_reg.clients["tfl"].stops_per_update == BaseLayout.stops_shown == 4
 
 
 @responses.activate
@@ -463,7 +460,7 @@ def test_the_first_cycle_reports_how_long_startup_took_once(isolated_cwd, monkey
         json=_app_config_json(pairing_code="ABC123"),
     )
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel: None)
+    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel, canvas: None)
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
@@ -507,7 +504,7 @@ def test_run_asks_for_an_early_publish_only_when_the_stage_changes(isolated_cwd,
 def test_run_forces_a_publish_when_pairing_completes(isolated_cwd, monkeypatch):
     _mock_config(pairing_code=None)
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel: None)
+    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel, canvas: None)
     published = _record_publishes(loop, monkeypatch)
 
     _run_cycles(loop, monkeypatch, cycles=2)

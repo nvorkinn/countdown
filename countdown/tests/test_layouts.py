@@ -1,0 +1,132 @@
+import countdown_core  # noqa: F401, I001 -- see test_display_snapshots.py for why this comes first
+import logging
+
+import pytest
+from PIL import Image
+
+from countdown_api.models import Screen
+from countdown_core.core.api_registry import ClientClasses
+from countdown_core.core.panel import Panel
+from countdown_core.rendering import LAYOUTS
+from countdown_core.rendering.layout import Frame, Layout
+from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLayout, SpotifyGlowLayout, SpotifyLayout
+from countdown_core.rendering.registry import LayoutRegistry
+from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
+
+EVERYTHING = frozenset(ClientClasses)
+PORTRAIT = Canvas(480, 800)
+
+
+@pytest.mark.parametrize(
+    ("unavailable", "expected"),
+    [
+        (set(), SpotifyGlowLayout),
+        ({ClientClasses.GLOWMARKT}, SpotifyLayout),
+        ({ClientClasses.SPOTIFY}, GlowLayout),
+        ({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT}, BaseLayout),
+    ],
+)
+def test_the_classic_layout_makes_room_only_for_what_can_be_shown(unavailable, expected):
+    assert type(LAYOUTS.select(DEFAULT_CANVAS, None, EVERYTHING - unavailable)) is expected
+
+
+def test_every_combination_of_spotify_and_glowmarkt_has_exactly_one_classic_variant():
+    """So the order of the variants doesn't matter, and the fallback is never needed."""
+    optional = [ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT]
+    for spotify in (True, False):
+        for glowmarkt in (True, False):
+            unavailable = {api for api, on in zip(optional, (spotify, glowmarkt), strict=True) if not on}
+            fitting = [layout for layout in CLASSIC if layout.fits(EVERYTHING - unavailable)]
+            assert len(fitting) == 1, (spotify, glowmarkt, fitting)
+
+
+def test_only_the_variant_without_spotify_or_glowmarkt_shows_four_stops():
+    assert {type(layout): layout.stops_shown for layout in CLASSIC} == {
+        SpotifyGlowLayout: 2,
+        SpotifyLayout: 2,
+        GlowLayout: 2,
+        BaseLayout: 4,
+    }
+
+
+@pytest.mark.parametrize(
+    ("orientation", "width", "height", "expected"),
+    [
+        ("horizontal", 800, 480, Canvas(800, 480)),
+        ("vertical", 800, 480, Canvas(480, 800)),
+        # The device reports the panel the same way round however it's hung, but which way
+        # that is doesn't matter: the orientation decides which side is long.
+        ("horizontal", 480, 800, Canvas(800, 480)),
+        ("vertical", 480, 800, Canvas(480, 800)),
+    ],
+)
+def test_the_canvas_is_the_screen_as_hung(orientation, width, height, expected):
+    assert canvas_for(Screen(orientation=orientation, width=width, height=height)) == expected
+
+
+def test_a_canvas_no_layout_draws_on_falls_back_to_the_default_with_one_warning(caplog):
+    caplog.set_level(logging.WARNING)
+    registry = LayoutRegistry(CLASSIC)
+
+    assert registry.drawable(PORTRAIT) == DEFAULT_CANVAS
+    assert registry.drawable(PORTRAIT) == DEFAULT_CANVAS
+    assert registry.drawable(DEFAULT_CANVAS) == DEFAULT_CANVAS
+
+    assert caplog.text.count("No layout draws on 480x800") == 1
+
+
+class _Solid(Layout):
+    canvases = frozenset({DEFAULT_CANVAS})
+
+    def render(self, panels: dict[str, Panel], canvas: Canvas) -> Frame:
+        return Frame(Image.new("RGBA", canvas.size))
+
+
+class _Compact(_Solid):
+    layout_id = "compact"
+
+
+class _CompactNoSpotify(_Solid):
+    layout_id = "compact"
+    excludes = frozenset({ClientClasses.SPOTIFY})
+
+
+class _Portrait(_Solid):
+    layout_id = "tall"
+    canvases = frozenset({PORTRAIT})
+
+
+def test_the_config_picks_between_layouts_on_the_same_canvas():
+    registry = LayoutRegistry([*CLASSIC, _CompactNoSpotify(), _Compact()])
+
+    assert registry.layout_ids(DEFAULT_CANVAS) == ["classic", "compact"]
+    assert type(registry.select(DEFAULT_CANVAS, None, EVERYTHING)) is SpotifyGlowLayout
+    assert type(registry.select(DEFAULT_CANVAS, "compact", EVERYTHING)) is _Compact
+    assert type(registry.select(DEFAULT_CANVAS, "compact", EVERYTHING - {ClientClasses.SPOTIFY})) is _CompactNoSpotify
+
+
+def test_a_layout_choice_the_canvas_does_not_have_gets_its_default_with_one_warning(caplog):
+    caplog.set_level(logging.WARNING)
+    registry = LayoutRegistry([*CLASSIC, _Portrait()])
+
+    for _ in range(2):
+        assert type(registry.select(DEFAULT_CANVAS, "tall", EVERYTHING)) is SpotifyGlowLayout
+
+    assert caplog.text.count("No layout 'tall' for 800x480") == 1
+
+
+def test_each_canvas_has_its_own_layouts():
+    registry = LayoutRegistry([*CLASSIC, _Portrait()])
+
+    assert registry.drawable(PORTRAIT) == PORTRAIT
+    assert type(registry.select(PORTRAIT, None, EVERYTHING)) is _Portrait
+
+
+def test_two_variants_of_a_layout_that_fit_the_same_apis_are_refused():
+    with pytest.raises(ValueError, match="both fit the same APIs"):
+        LayoutRegistry([*CLASSIC, _Compact(), _Compact()])
+
+
+def test_a_registry_with_nothing_for_the_default_canvas_is_refused():
+    with pytest.raises(ValueError, match="default canvas"):
+        LayoutRegistry([_Portrait()])
