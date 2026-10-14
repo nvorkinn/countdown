@@ -1,3 +1,6 @@
+import requests
+
+from countdown_core.config_server.broker_api.clients import ApiConfigClient, ApiError
 from countdown_core.config_server.models import AppConfig
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
@@ -6,13 +9,13 @@ from countdown_credentials.device_name import device_name_from_env
 from countdown_credentials.registration import RendererRegistration
 
 
-def _device_name_header() -> dict[str, str]:
+def _device_name() -> str | None:
     """X-Device-Name is cosmetic on the broker side, so it's sent on every call (a rename
     shows on the next poll) but never allowed to fail a request."""
     try:
-        return {"X-Device-Name": device_name_from_env()}
+        return device_name_from_env()
     except ValueError:
-        return {}
+        return None
 
 
 class BrokerClient(AbstractClient):
@@ -24,21 +27,21 @@ class BrokerClient(AbstractClient):
         self.device_id = registration.device_id
         self.base_url = registration.broker_url
         self.session.auth = registration.auth
+        # broker_api/ is generated from the broker's OpenAPI document (core/contract/); the session brings the
+        # device's secret (session.auth) and the retries.
+        self._config_api = ApiConfigClient(self.base_url, self.session, timeout=DEFAULT_TIMEOUT)
 
     def _initialise(self) -> None:
         pass  # the registrar has done the work
 
-    def _request(self, method: str, path: str, **kwargs):
-        headers = _device_name_header()
-        response = self.session.request(
-            method, f"{self.base_url}{path}", headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
-        )
-        response.raise_for_status()
-        return response.json()
-
     def get_config(self) -> AppConfig:
-        json_data = self._request("GET", "/api/config")
-        return AppConfig.model_validate(json_data)
+        try:
+            wire_config = self._config_api.get(x_device_name=_device_name())
+        except ApiError as error:
+            # What callers already catch for a bad status (app.wait_for_config retries on RequestException).
+            raise requests.HTTPError(str(error), response=error.response) from error
+        # The generated model is the contract; AppConfig is what the app reads of it.
+        return AppConfig.model_validate(wire_config.model_dump(mode="json"))
 
     def get_pairing_code_panel(self, config: AppConfig) -> PairingCodePanel:
         """Wraps the config's pairing_code as a panel, flagging whether it changed since
