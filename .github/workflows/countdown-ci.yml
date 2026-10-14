@@ -56,10 +56,10 @@ jobs:
     - name: Install dependencies
       run: uv sync --frozen
 
-    # The broker client is generated from the latest countdown API contract, never committed: this fails if
+    # The broker client is unpacked from the latest countdown API release, never committed: this fails if
     # the code no longer fits the contract.
-    - name: Generate the broker client
-      run: uv run --frozen --only-group dev python core/contract/generate.py
+    - name: Fetch the broker client
+      run: python3 core/contract/fetch.py
 
     - name: Run tests
       run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
@@ -96,10 +96,10 @@ jobs:
     - name: Set up uv
       uses: astral-sh/setup-uv@v5
 
-    # countdown-core's wheel contains the broker client, which is generated from the latest countdown API
-    # contract and never committed.
-    - name: Generate the broker client
-      run: uv run --frozen --only-group dev python core/contract/generate.py
+    # countdown-core's wheel contains the broker client, which is unpacked from the latest countdown API
+    # release and never committed.
+    - name: Fetch the broker client
+      run: python3 core/contract/fetch.py
 
     - name: Build wheels
       run: uv build --wheel --all-packages
@@ -126,10 +126,10 @@ jobs:
     - name: Set up uv
       uses: astral-sh/setup-uv@v5
 
-    # countdown-core's wheel contains the broker client, which is generated from the latest countdown API
-    # contract and never committed.
-    - name: Generate the broker client
-      run: uv run --frozen --only-group dev python core/contract/generate.py
+    # countdown-core's wheel contains the broker client, which is unpacked from the latest countdown API
+    # release and never committed.
+    - name: Fetch the broker client
+      run: python3 core/contract/fetch.py
 
     - name: Build wheels
       run: uv build --wheel --all-packages
