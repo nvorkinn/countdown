@@ -55,17 +55,8 @@ jobs:
         run: |
           uv sync --frozen
           uv build --wheel --all-packages
-      # countdown-core's wheel requires countdown-api, which isn't on PyPI, and the images only install what is in
-      # dist/ (our packages never come from an index). So fetch the wheel the lock pins, checked against the lock's
-      # hash, from countdown-api's index. It ends up among the release's wheels, which records which API this
-      # release was built with.
-      - name: Add the countdown-api wheel the lock pins
-        working-directory: countdown
-        run: |
-          uv export --frozen --package countdown-server --no-dev --no-emit-workspace --no-header \
-            | awk '/^countdown-api==/ {p=1} p {print} p && !/\\$/ {exit}' > "$RUNNER_TEMP/countdown-api.txt"
-          uvx pip download --no-deps --require-hashes --only-binary :all: -r "$RUNNER_TEMP/countdown-api.txt" \
-            --index-url https://nvorkinn.github.io/countdown-api/simple/ --dest dist
+      # The images only install what is in dist/ (our packages never come from an index). That includes the
+      # countdown_api wheel, which the build above makes from the submodule, stamped with the release's version.
       - uses: actions/upload-artifact@v4
         with:
           name: countdown-wheel

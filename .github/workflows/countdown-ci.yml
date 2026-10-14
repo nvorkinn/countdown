@@ -128,16 +128,8 @@ jobs:
       - name: Build wheels
         run: uv build --wheel --all-packages
 
-      # countdown-core's wheel requires countdown-api, which isn't on PyPI, and the image only installs what is in
-      # dist/ (its packages never come from an index). So fetch the wheel the lock pins, checked against the lock's
-      # hash, from countdown-api's index.
-      - name: Add the countdown-api wheel the lock pins
-        run: |
-          uv export --frozen --package countdown-server --no-dev --no-emit-workspace --no-header \
-            | awk '/^countdown-api==/ {p=1} p {print} p && !/\\$/ {exit}' > "$RUNNER_TEMP/countdown-api.txt"
-          uvx pip download --no-deps --require-hashes --only-binary :all: -r "$RUNNER_TEMP/countdown-api.txt" \
-            --index-url https://nvorkinn.github.io/countdown-api/simple/ --dest dist
-
+      # The image only installs what is in dist/ (its packages never come from an index). That includes the
+      # countdown_api wheel, which the step above builds from the submodule like the other workspace packages.
       - name: Build image
         # Its own checks run here: the font is baked in and Raqm text layout is available.
         run: docker build -f server/Dockerfile -t countdown-server:ci .

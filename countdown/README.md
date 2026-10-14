@@ -6,11 +6,12 @@ configured remotely through [auth-broker](https://github.com/nvorkinn/auth-broke
 
 ## How it works
 
-**Boot** (`app.py`). The app reads `BROKER_URL` and registers with the broker
-before it does anything else (`countdown_credentials/registration.py`). On first
-run that saves its credentials to `.auth_broker_device` in the working directory;
-later runs just load them. The renderer then waits there until a screen has been
-matched with it. Then it sets up the display target and waits for a valid config. The app can't run without that config, so there's no
+**Boot** (`app.py`). The app reads `BROKER_URL` and `CLAIM_TOKEN` (both required; the
+orchestrator sets them) and claims its screen with the broker before it does anything
+else (`countdown_credentials/registration.py`). On first run it makes up a secret, sends
+it with the one-time claim token, which matches it to its screen at once, and saves the
+credentials to `.auth_broker_device` in the working directory; later runs just load them
+and ignore the token. Then it sets up the display target and waits for a valid config. The app can't run without that config, so there's no
 empty fallback: if the broker can't be reached or sends back something invalid,
 it keeps retrying, backing off from 30 seconds to 5 minutes. Nothing is painted
 until it has a config. Once it's running, a failed config refresh just keeps the
@@ -93,24 +94,31 @@ This directory is a uv workspace:
 
 The API between the renderer and [auth-broker](https://github.com/nvorkinn/auth-broker) is defined in neither
 repository but in [countdown-api](https://github.com/nvorkinn/countdown-api): an OpenAPI file and a Python package
-with Pydantic models, a `requests` client for this side, and Flask views for the broker's. It isn't on PyPI; its **latest page**,
-https://nvorkinn.github.io/countdown-api/, is a package index, and its `constraints.txt` says which version is the
-latest.
+with Pydantic models, a `requests` client for this side, and Flask views for the broker's. So far the contract
+covers `GET /api/config`; the other calls (registering, claiming, frames, the Spotify proxy, the orchestrator's) are
+ordinary `requests` code here.
 
-Here it is an ordinary dependency:
+Here it is a git submodule and a member of the uv workspace:
 
-- `core/pyproject.toml` depends on `countdown-api[client]` (the `client` extra adds `requests`), with no version.
-  `pyproject.toml` here declares the page as an `explicit` index for that package only, so nothing else is looked
-  up there and a same-named package on PyPI can't win.
-- `uv.lock` records the version and the wheel's hash. To move to the latest release:
+- `countdown/api` is the submodule (`.gitmodules`), and `api` is a workspace member (`pyproject.toml`:
+  `countdown-api = { workspace = true }`), so `uv sync` installs it editable like the other packages and `uv.lock`
+  records it as a path, with no version or hash. `core/pyproject.toml` depends on `countdown-api` with no version.
+- To move to a newer contract, move the submodule and commit the new pointer (nothing does it for you here):
 
   ```bash
-  uv lock --upgrade-package countdown-api
+  git submodule update --remote countdown/api   # from the repository root
+  git add countdown/api && git commit
   ```
 
-  CI and the release workflow set `UV_CONSTRAINT` to the page's `constraints.txt`, but their uv commands run with
-  `--frozen`, which installs exactly what `uv.lock` records and ignores constraints. So the lockfile decides which
-  version is built and tested, and moves only when it is upgraded as above.
+- The recorded commit is what a fresh checkout and local development get. **CI and the release workflow don't
+  use it:** they run `git submodule update --init --remote` first, so they test and build countdown-api's
+  current `main`.
+- A release stamps its version on every workspace package (`uv version`), countdown-api included, and
+  `uv build --wheel --all-packages` builds the `countdown_api` wheel from the submodule into `dist/`. The server image
+  installs it from there: our packages only ever come from these wheels, never an index. So the wheel carries the
+  release's version, not countdown-api's own.
+- countdown-api also publishes each of its releases as a package index (https://nvorkinn.github.io/countdown-api/),
+  for projects that want a pinned version. This repository doesn't use it.
 - `BrokerClient.get_config` calls `countdown_api.clients.ApiConfigClient`, through the device's session, so the
   path, the method, the headers and the shape of the response all come from the contract.
 - The app reads the contract's own `ConfigResponse` (and its sections) as `get_config` returns it, with no model of
@@ -118,9 +126,6 @@ Here it is an ordinary dependency:
   `interval` that isn't positive) is rejected, and the renderer keeps the config it has.
   `tests/test_broker_contract.py` fails if the contract (the package carries `countdown_api/openapi.yaml`) and the
   client stop agreeing on the path, the security and the headers the app sends.
-- The server image only installs the wheels in `dist/` (our packages never come from an index), so CI and the
-  release workflow add the `countdown-api` wheel the lock pins to `dist/` before building it
-  (`uvx pip download --require-hashes`, checked against the lock's hash).
 
 What the client accepts is the compatibility policy: the broker may **add** fields (the client ignores
 ones it doesn't know), but a value outside what the contract lists (a third screen orientation, say) is invalid, the
@@ -245,16 +250,17 @@ Each tagged release builds the wheels and the `countdown-server` Docker image,
 and deploys the renderers (see `.github/workflows/release.yml` at the repo root
 and [`server/deploy/`](server/deploy/)).
 
-There's no local config file: on first boot the renderer registers itself with
-[auth-broker](https://github.com/nvorkinn/auth-broker), and the screen shows a
-pairing code. Go to https://nikolaivorkinn.com, enter the code, and manage
-everything from there: TfL stops, refresh interval, weather location, Glowmarkt
-energy account, and connecting Spotify (the broker handles the OAuth handshake
-and proxies now-playing calls, so the renderer never holds a Spotify token
-itself). The only local setting is `BROKER_URL`; everything else, including
-Glowmarkt credentials, comes from the broker.
+There's no local config file. A screen registers itself with
+[auth-broker](https://github.com/nvorkinn/auth-broker); its owner pairs it at
+https://nikolaivorkinn.com and picks a name (the slug) for its renderer; the
+[orchestrator](orchestrator/README.md) then starts this renderer for it, with a one-time
+claim token. From then on everything is managed on the broker's pages: TfL stops, refresh
+interval, weather location, Glowmarkt energy account, and connecting Spotify (the broker
+handles the OAuth handshake and proxies now-playing calls, so the renderer never holds a
+Spotify token itself). The renderer's own settings are `BROKER_URL`, `CLAIM_TOKEN` and
+`DEVICE_NAME`; everything else, including Glowmarkt credentials, comes from the broker.
 
-Once paired, the screen shows a checklist of anything still missing (see
+Once paired, an API that still needs setting up shows "Not configured" in its area (see
 [How it works](#how-it-works)).
 
 ## Metrics
