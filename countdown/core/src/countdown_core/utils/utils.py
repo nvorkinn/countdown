@@ -5,6 +5,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 GAP = 5  # between panels, and between them and the screen's edge
+# The width the full-screen pictures (pairing code, nothing to show) are sized for.
+DESIGN_WIDTH = 800
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
 FONTS_DIR = PACKAGE_DIR / "fonts"
@@ -20,6 +22,17 @@ def _cached_font(url: str, filename: str) -> ImageFont.FreeTypeFont:
             tmp.write_bytes(resp.read())
         tmp.replace(path)  # atomic, so a killed download never leaves a broken font
     return ImageFont.truetype(path)
+
+
+def width_scale(image_width: int) -> float:
+    """How much smaller to draw a full-screen picture sized for DESIGN_WIDTH, to fit `image_width`."""
+    return min(1.0, image_width / DESIGN_WIDTH)
+
+
+@functools.cache
+def fitted_font(filename: str, size: int, scale: float = 1.0) -> ImageFont.FreeTypeFont:
+    """The font in fonts/ at `size` points, times `scale`."""
+    return ImageFont.truetype(str(FONTS_DIR / filename), round(size * scale))
 
 
 METEOCONS = ImageFont.truetype(str(FONTS_DIR / "meteocons.ttf"), 190)

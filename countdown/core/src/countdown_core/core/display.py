@@ -7,9 +7,9 @@ from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.panel import Panel
 from countdown_core.core.targets import DisplayTarget
-from countdown_core.rendering import LAYOUTS, render
-from countdown_core.rendering.layout import Frame, Layout
-from countdown_core.rendering.screen import Canvas, canvas_for
+from countdown_core.rendering import layout_for, render, to_native
+from countdown_core.rendering.layout import Frame
+from countdown_core.rendering.screen import canvas_for
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
 logger = logging.getLogger(__name__)
@@ -39,18 +39,16 @@ class DisplayController:
 
     def stops_shown(self, screen: Screen, available: frozenset[ClientClasses]) -> int:
         """How many stops the layout for `screen` and `available` has room for."""
-        layout, _ = _layout_for(screen, available)
+        layout, _ = layout_for(screen, available)
         return layout.stops_shown
 
     def display_screen(
         self, panels: dict[str, Panel], screen: Screen, available: frozenset[ClientClasses]
     ) -> Image.Image:
         """Draws `panels` in the layout for `screen` and what the device can show (`available`),
-        and paints the picture. Returns it."""
-        layout, canvas = _layout_for(screen, available)
-        logger.debug(f"Drawing {type(layout).__name__} on {canvas}")
-        frame = render(layout, panels, canvas)
-        self._show(frame)
+        and paints the picture. Returns it, upright as the viewer sees it."""
+        frame = render(panels, screen, available)
+        self._show(to_native(frame, screen))
         return frame.image
 
     def _show(self, frame: Frame) -> None:
@@ -106,9 +104,8 @@ class DisplayController:
             self._paint_whole_screen(self._pending)
 
     def display_pairing_screen(self, panel: PairingCodePanel, screen: Screen) -> Image.Image:
-        _, canvas = _layout_for(screen, frozenset())
-        img = panel.render(*canvas.size)
-        if not self._paint_whole_screen(img):
+        img = panel.render(*canvas_for(screen).size)
+        if not self._paint_whole_screen(to_native(Frame(img), screen).image):
             # Once per code. Without it a Pi with no screen can't be paired at all.
             logger.warning(
                 f"No display to show the pairing code on -- it is {panel.pairing_code} (device {panel.device_id})"
@@ -118,11 +115,3 @@ class DisplayController:
     def shutdown(self) -> None:
         # Runs inside the SIGTERM handler; targets' close() never raises.
         self.target.close()
-
-
-def _layout_for(screen: Screen, available: frozenset[ClientClasses]) -> tuple[Layout, Canvas]:
-    """The layout to draw this frame with, and the canvas it draws on: the screen as it's hung,
-    or the default canvas if no layout draws on that yet."""
-    canvas = LAYOUTS.drawable(canvas_for(screen))
-    # No layout choice in the config yet (the contract has no field for it): the canvas's first.
-    return LAYOUTS.select(canvas, None, available), canvas

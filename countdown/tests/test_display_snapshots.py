@@ -323,3 +323,32 @@ def test_pairing_screen_without_a_code_draws_no_boxes():
     img = PairingCodePanel(None, "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size)
 
     assert img.convert("L").crop((0, 232, 800, 342)).getextrema() == (255, 255)
+
+
+PORTRAIT = (480, 800)
+
+
+def test_pairing_code_screen_on_a_vertical_screen(snapshot):
+    img = PairingCodePanel("C4FFEZ", "7218485b654f", has_changed=True).render(*PORTRAIT)
+    snapshot.assert_matches("screen_pairing_code_portrait", img, threshold=0.02)
+
+
+@pytest.mark.parametrize("code", ["C4FFEZ", "ABCDEFGH", "ABCDEFGHJKLM"])
+def test_pairing_code_stays_on_a_vertical_screen_whatever_its_length(code):
+    img = PairingCodePanel(code, "7218485b654f", has_changed=True).render(*PORTRAIT).convert("L")
+
+    for edge in [(0, 0, 20, 800), (460, 0, 480, 800)]:
+        assert img.crop(edge).getextrema() == (255, 255)
+
+
+def test_screen_with_no_panels_at_all_on_a_vertical_screen(snapshot):
+    img = _CONTROLLER.display_screen({}, Screen(orientation="vertical", width=800, height=480), EVERYTHING)
+    assert img.size == PORTRAIT
+    snapshot.assert_matches("screen_nothing_to_show_portrait", img, threshold=0.02)
+
+
+def test_empty_screen_stays_clear_of_a_vertical_screens_edges():
+    img = EmptyPanel().render(*PORTRAIT).convert("L")
+
+    for edge in [(0, 0, 10, 800), (470, 0, 480, 800)]:
+        assert img.crop(edge).getextrema() == (255, 255)

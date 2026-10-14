@@ -1,15 +1,13 @@
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
-from countdown_core.utils.utils import FONTS_DIR
+from countdown_core.utils.utils import fitted_font, width_scale
 
 # Letters are white on black squares; if thin white strokes fill in on the real panel,
 # switch this to "Ubuntu-Medium.ttf".
 LETTER_FONT = "Ubuntu-Regular.ttf"
 
-TITLE = ImageFont.truetype(str(FONTS_DIR / "Ubuntu-Medium.ttf"), 64)
-BODY = ImageFont.truetype(str(FONTS_DIR / "Ubuntu-Medium.ttf"), 36)
-SMALL = ImageFont.truetype(str(FONTS_DIR / "Ubuntu-Medium.ttf"), 30)
+TITLE, BODY, SMALL = 64, 36, 30
 
 MARGIN = 40
 MAX_SIDE = 104
@@ -30,12 +28,18 @@ class PairingCodePanel(Panel):
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
         center_x, center_y = image_width / 2, image_height / 2
+        # Sized for 800 wide: a narrower (portrait) screen gets it all smaller.
+        scale = width_scale(image_width)
 
-        draw.text((center_x, center_y - 178), "Set up this display", anchor="mm", font=TITLE, fill="black")
-        draw.text((center_x, center_y - 98), "Go to nikolaivorkinn.com", anchor="mm", font=BODY, fill="black")
-        draw.text((center_x, center_y - 54), "and enter this code:", anchor="mm", font=BODY, fill="black")
-        self._draw_code(draw, image_width, center_y - 4)
-        draw.text((center_x, center_y + 168), f"Device: {self.device_id}", anchor="mm", font=SMALL, fill="black")
+        def text(offset: float, words: str, size: int) -> None:
+            font = fitted_font("Ubuntu-Medium.ttf", size, scale)
+            draw.text((center_x, center_y + offset * scale), words, anchor="mm", font=font, fill="black")
+
+        text(-178, "Set up this display", TITLE)
+        text(-98, "Go to nikolaivorkinn.com", BODY)
+        text(-54, "and enter this code:", BODY)
+        self._draw_code(draw, image_width, center_y - 4 * scale)
+        text(168, f"Device: {self.device_id}", SMALL)
 
         return img
 
@@ -45,7 +49,7 @@ class PairingCodePanel(Panel):
             return
         # Shrinks the squares for a code too long to fit at full size.
         side = min(MAX_SIDE, (image_width - 2 * MARGIN - GAP * (len(code) - 1)) // len(code))
-        font = ImageFont.truetype(str(FONTS_DIR / LETTER_FONT), round(78 * side / MAX_SIDE))
+        font = fitted_font(LETTER_FONT, round(78 * side / MAX_SIDE))
         x = (image_width - (len(code) * side + (len(code) - 1) * GAP)) / 2
         for char in code:
             draw.rectangle((x, top, x + side - 1, top + side - 1), fill="black")

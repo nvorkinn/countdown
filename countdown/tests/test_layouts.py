@@ -2,12 +2,12 @@ import countdown_core  # noqa: F401, I001 -- see test_display_snapshots.py for w
 import logging
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageOps
 
 from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.panel import Panel
-from countdown_core.rendering import LAYOUTS
+from countdown_core.rendering import LAYOUTS, to_native
 from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLayout, SpotifyGlowLayout, SpotifyLayout
 from countdown_core.rendering.registry import LayoutRegistry
@@ -130,3 +130,31 @@ def test_two_variants_of_a_layout_that_fit_the_same_apis_are_refused():
 def test_a_registry_with_nothing_for_the_default_canvas_is_refused():
     with pytest.raises(ValueError, match="default canvas"):
         LayoutRegistry([_Portrait()])
+
+
+VERTICAL = Screen(orientation="vertical", width=800, height=480)
+HORIZONTAL = Screen(orientation="horizontal", width=800, height=480)
+
+
+def test_a_landscape_frame_goes_to_the_panel_as_it_is():
+    frame = Frame(Image.new("RGB", (800, 480)), (5, 5, 100, 50))
+
+    assert to_native(frame, HORIZONTAL) is frame
+
+
+def test_a_portrait_frame_is_turned_into_the_panels_landscape_picture_with_its_volatile_box():
+    image = Image.new("RGB", (480, 800), "white")
+    image.paste("black", (10, 20, 110, 70))  # a 100x50 block, top-left of the portrait picture
+    frame = Frame(image, (10, 20, 110, 70))
+
+    native = to_native(frame, VERTICAL)
+
+    assert native.image.size == (800, 480)
+    # The box moved with the picture: it's exactly the black block, now 50 wide and 100 tall.
+    assert native.volatile == (20, 370, 70, 470)
+    assert native.image.getbbox() is not None
+    assert ImageOps.invert(native.image).getbbox() == native.volatile
+
+
+def test_a_portrait_frame_without_a_volatile_part_has_none_once_turned():
+    assert to_native(Frame(Image.new("RGB", (480, 800))), VERTICAL).volatile is None
