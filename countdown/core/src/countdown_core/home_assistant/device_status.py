@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-STAGES = ("waiting_for_broker", "pairing", "setup", "running")
+STAGES = ("waiting_for_broker", "pairing", "running")
 
 
 @dataclass

@@ -6,7 +6,7 @@ from countdown_core.config_server.models import AppConfig
 
 # The `isolated_cwd` fixture used below is defined once, autouse, in tests/conftest.py.
 
-SECTIONS = ["interval", "tfl", "spotify", "weather", "glowmarkt", "pairing_code", "setup_missing"]
+SECTIONS = ["interval", "tfl", "spotify", "weather", "glowmarkt", "pairing_code"]
 
 
 def test_an_empty_config_cannot_be_conjured():

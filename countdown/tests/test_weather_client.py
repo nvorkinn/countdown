@@ -54,9 +54,15 @@ def test_forecast_can_lack_a_precipitation_probability():
 
 
 @responses.activate
-def test_no_location_configured_makes_no_requests():
-    assert asyncio.run(make_client(location="").update()).message == "No location set"
-    assert len(responses.calls) == 0
+def test_no_location_configured_shows_the_weather_at_the_north_pole_without_geocoding():
+    responses.add(responses.GET, FORECAST_URL, json=FORECAST_JSON)
+
+    panel = asyncio.run(make_client(location="").update())
+
+    assert panel.weather.temperature == 14.2
+    (forecast_request,) = (call.request for call in responses.calls)
+    assert "latitude=90.0" in forecast_request.url
+    assert "longitude=0.0" in forecast_request.url
 
 
 @responses.activate

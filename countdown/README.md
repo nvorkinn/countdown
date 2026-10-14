@@ -17,13 +17,10 @@ until it has a config. Once it's running, a failed config refresh just keeps the
 config it already has.
 
 **The loop** (`display_loop.py`). Every `interval` seconds (set in the config),
-the device is in one of three stages:
+the device is in one of two stages:
 
 - *pairing*: the config carries a pairing code, so the device shows it full
   screen. It's only repainted when the code changes.
-- *setup*: paired, but `setup_missing` isn't empty (it needs a weather location
-  and at least one bus or tube stop). A "You're paired!" checklist is shown and
-  no API is polled.
 - *running*: the dashboard.
 
 After each cycle the loop publishes health over OTLP (see

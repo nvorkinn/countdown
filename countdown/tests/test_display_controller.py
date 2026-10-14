@@ -14,7 +14,6 @@ from countdown_core.core import display as display_module
 from countdown_core.core.display import FULL_REFRESH_INTERVAL_S, DisplayController
 from countdown_core.core.panel import Panel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_core.system_screens.setup_panel import SetupPanel
 
 FULL = None  # a full refresh is a paint with no region
 
@@ -193,13 +192,13 @@ def test_with_nothing_to_show_it_says_so_instead_of_a_blank_screen(clock):
     assert target.paints == [FULL]
 
 
-def test_the_setup_screen_is_one_full_paint_and_resets_what_is_remembered(clock):
+def test_the_pairing_screen_is_one_full_paint_and_resets_what_is_remembered(clock):
     target = FakeTarget()
     controller = DisplayController(target)
     controller.display_screen(frame())
     target.paints.clear()
 
-    controller.display_setup_screen(SetupPanel(["a weather location"]))
+    controller.display_pairing_screen(_pairing_panel())
     assert target.paints == [FULL]
 
     target.paints.clear()
@@ -223,15 +222,6 @@ def test_the_pairing_code_is_not_logged_when_the_screen_shows_it(caplog):
     controller.display_pairing_screen(_pairing_panel())
 
     assert "ABC123" not in caplog.text
-
-
-def test_the_setup_checklist_goes_to_the_log_when_there_is_no_screen(caplog):
-    caplog.set_level(logging.INFO)
-    controller = DisplayController(FakeTarget(accepts=False))
-
-    controller.display_setup_screen(SetupPanel(["a weather location", "a bus or tube stop"]))
-
-    assert "a weather location, a bus or tube stop" in caplog.text
 
 
 def test_a_whole_screen_that_found_no_screen_is_painted_once_one_appears():
@@ -265,7 +255,7 @@ def test_a_whole_screen_paint_that_failed_midway_is_retried():
     controller = DisplayController(target)
     target.fail = True
     with pytest.raises(RuntimeError):
-        controller.display_setup_screen(SetupPanel(["a weather location"]))
+        controller.display_pairing_screen(_pairing_panel())
 
     target.fail = False
     controller.repaint_pending()

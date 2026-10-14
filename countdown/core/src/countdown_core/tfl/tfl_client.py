@@ -102,7 +102,7 @@ class TflClient(AbstractClient):
 
     def _update(self) -> Panel:
         if not self.stops:
-            return self.message_panel("No stops set")
+            return self.message_panel("Needs configuring")
         stop_and_arrivals = []
         # All of them, in order, when they fit; otherwise the next page of them.
         if len(self.stops) <= self.stops_per_update:

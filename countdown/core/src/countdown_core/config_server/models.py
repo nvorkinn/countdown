@@ -67,8 +67,6 @@ class AppConfig(BaseModel):
     notice_board: NoticeBoardConfig = Field(default_factory=NoticeBoardConfig)
     # Required but nullable: the broker sends null once the device is paired.
     pairing_code: str | None
-    # What the device still needs before it's worth showing; empty once it's set up.
-    setup_missing: list[str]
 
     @model_validator(mode="before")
     @classmethod

@@ -14,13 +14,17 @@ logger = logging.getLogger(__name__)
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
+# Where the weather is for until a location is set.
+NORTH_POLE = (90.0, 0.0)
+
 # Forecasts move slowly.
 REFRESH_INTERVAL = dt.timedelta(minutes=30)
 
 
 class WeatherClient(AbstractClient):
     """Current conditions plus today's outlook from Open-Meteo (keyless, so
-    WeatherConfig.api_key is unused). The location is geocoded once, on first fetch."""
+    WeatherConfig.api_key is unused). The location is geocoded once, on first fetch; with no
+    location configured it's the weather at the North Pole."""
 
     panel_title = "Weather"
 
@@ -39,15 +43,12 @@ class WeatherClient(AbstractClient):
         return self.location != new_config.location
 
     def _update(self) -> Panel:
-        """A MessagePanel if there's no location or Open-Meteo can't find it. Network and
-        parse failures raise, so the registry keeps the last good panel."""
-        if not self.location:
-            return self.message_panel("No location set")
-
+        """A MessagePanel if Open-Meteo can't find the location. Network and parse failures
+        raise, so the registry keeps the last good panel."""
         if self._last_attempt and dt.datetime.now() - self._last_attempt < REFRESH_INTERVAL:
             return self._panel
 
-        coordinates = self._geocode()
+        coordinates = self._geocode() if self.location else NORTH_POLE
         if coordinates is None:
             logger.warning(f"Could not find a location matching {self.location!r}")
             self._panel = self.message_panel("Location not found")

@@ -12,7 +12,6 @@ def make_config(**overrides) -> AppConfig:
         "weather": {},
         "glowmarkt": {},
         "pairing_code": None,
-        "setup_missing": [],
     }
     return AppConfig.model_validate(typical | overrides)
 

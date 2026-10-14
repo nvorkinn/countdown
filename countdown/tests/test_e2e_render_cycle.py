@@ -36,11 +36,9 @@ GLOWMARKT_URL = "https://api.glowmarkt.com/api/v0-1"
 QUEUE_URL = f"{TEST_BROKER_URL}/api/spotify/queue"
 
 
-def _app_config_json(
-    pairing_code: str | None = None, interval: int = 1, setup_missing: list[str] | None = None
-) -> dict:
+def _app_config_json(pairing_code: str | None = None, interval: int = 1) -> dict:
     """What the broker's /api/config returns: all of it, as the contract says (see config_factory)."""
-    return broker_payload(interval=interval, pairing_code=pairing_code, setup_missing=setup_missing or [])
+    return broker_payload(interval=interval, pairing_code=pairing_code)
 
 
 BUS_STOP_JSON = {
@@ -176,6 +174,24 @@ def _calls_to(url_prefix: str) -> int:
     return sum(1 for call in responses.calls if call.request.url.startswith(url_prefix))
 
 
+FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+
+def _mock_forecast() -> None:
+    responses.add(
+        responses.GET,
+        FORECAST_URL,
+        json={
+            "current": {"temperature_2m": -20.0, "weather_code": 45, "is_day": 0},
+            "daily": {
+                "temperature_2m_max": [-7.8],
+                "temperature_2m_min": [-20.1],
+                "precipitation_probability_max": [None],
+            },
+        },
+    )
+
+
 @responses.activate
 def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch):
     config = _make_config()
@@ -184,6 +200,7 @@ def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch):
         {"490000123W": BUS_STOP_JSON, "940GZZLUKNG": METRO_STOP_JSON},
         {"490000123W": BUS_ARRIVALS_JSON, "940GZZLUKNG": METRO_ARRIVALS_JSON},
     )
+    _mock_forecast()
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_display_screen(loop, monkeypatch)
 
@@ -197,7 +214,9 @@ def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch):
     assert panels["glowmarkt"].page_index == 0
     assert [reading["kwh"] for reading in panels["glowmarkt"].readings] == [2.25, 1.5]  # oldest first
     assert panels["spotify"].message == "Not configured"  # not enabled, so never even built
-    assert panels["weather"].message == "No location set"
+    assert isinstance(panels["weather"], WeatherPanel)  # no location: the weather at the North Pole
+    forecast_request = next(c.request for c in responses.calls if c.request.url.startswith(FORECAST_URL))
+    assert "latitude=90.0" in forecast_request.url
 
 
 @responses.activate
@@ -407,7 +426,7 @@ def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isola
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
-    assert shown[0]["tfl"].message == "No stops set"
+    assert shown[0]["tfl"].message == "Needs configuring"
     assert len(shown[1]["tfl"].arrival_panels) == 1
 
 
@@ -451,70 +470,15 @@ def test_the_first_cycle_reports_how_long_startup_took_once(isolated_cwd, monkey
     assert caplog.text.count("First cycle finished") == 1
 
 
-MISSING_BOTH = ["a weather location", "a bus or tube stop"]
-
-
-def _spy_on_setup_screen(loop: DisplayLoop, monkeypatch) -> list[list[str]]:
-    seen: list[list[str]] = []
-    monkeypatch.setattr(loop.display, "display_setup_screen", lambda panel: seen.append(list(panel.missing)))
-    return seen
-
-
 def _mock_config(**kwargs) -> None:
     responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=_app_config_json(**kwargs))
 
 
 @responses.activate
-def test_run_shows_the_setup_checklist_once_and_leaves_the_apis_alone_until_set_up(isolated_cwd, monkeypatch):
-    _mock_config(setup_missing=MISSING_BOTH)
-    loop = _build_loop(make_config(setup_missing=MISSING_BOTH), monkeypatch)
-    shown = _spy_on_display_screen(loop, monkeypatch)
-    setup_screens = _spy_on_setup_screen(loop, monkeypatch)
-
-    _run_cycles(loop, monkeypatch, cycles=2)
-
-    assert setup_screens == [MISSING_BOTH]
-    assert shown == []
-    assert loop.api_reg.panels == {}
-
-
-@responses.activate
-def test_run_moves_on_to_the_dashboard_once_setup_is_complete(isolated_cwd, monkeypatch):
-    _mock_config(setup_missing=[])
-    loop = _build_loop(make_config(setup_missing=MISSING_BOTH), monkeypatch)
-    shown = _spy_on_display_screen(loop, monkeypatch)
-    setup_screens = _spy_on_setup_screen(loop, monkeypatch)
-
-    _run_cycles(loop, monkeypatch, cycles=2)
-
-    assert setup_screens == [MISSING_BOTH]
-    assert len(shown) == 1
-
-
-@responses.activate
-def test_a_pairing_code_takes_precedence_over_the_setup_checklist(isolated_cwd, monkeypatch):
-    loop = _build_loop(make_config(setup_missing=MISSING_BOTH), monkeypatch, pairing_code="ABC123")
-    setup_screens = _spy_on_setup_screen(loop, monkeypatch)
-    pairing_screens = []
-    monkeypatch.setattr(
-        loop.display, "display_pairing_screen", lambda panel: pairing_screens.append(panel.pairing_code)
-    )
-
-    _run_cycles(loop, monkeypatch)
-
-    assert pairing_screens == ["ABC123"]
-    assert setup_screens == []
-
-
-@responses.activate
-@pytest.mark.parametrize(
-    ("pairing_code", "setup_missing", "stage"),
-    [("ABC123", MISSING_BOTH, "pairing"), (None, MISSING_BOTH, "setup"), (None, [], "running")],
-    ids=["pairing", "setup", "dashboard"],
-)
-def test_run_reports_the_stage_it_is_in(isolated_cwd, monkeypatch, pairing_code, setup_missing, stage):
-    _mock_config(pairing_code=pairing_code, setup_missing=setup_missing)
-    loop = _build_loop(make_config(setup_missing=setup_missing), monkeypatch, pairing_code=pairing_code)
+@pytest.mark.parametrize(("pairing_code", "stage"), [("ABC123", "pairing"), (None, "running")])
+def test_run_reports_the_stage_it_is_in(isolated_cwd, monkeypatch, pairing_code, stage):
+    _mock_config(pairing_code=pairing_code)
+    loop = _build_loop(make_config(), monkeypatch, pairing_code=pairing_code)
 
     _run_cycles(loop, monkeypatch)
 
@@ -540,14 +504,15 @@ def test_run_asks_for_an_early_publish_only_when_the_stage_changes(isolated_cwd,
 
 
 @responses.activate
-def test_run_forces_a_publish_when_setup_completes(isolated_cwd, monkeypatch):
-    _mock_config(setup_missing=[])
-    loop = _build_loop(make_config(setup_missing=MISSING_BOTH), monkeypatch)
+def test_run_forces_a_publish_when_pairing_completes(isolated_cwd, monkeypatch):
+    _mock_config(pairing_code=None)
+    loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
+    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel: None)
     published = _record_publishes(loop, monkeypatch)
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
-    assert published == ["setup", "running"]
+    assert published == ["pairing", "running"]
 
 
 @responses.activate
@@ -562,27 +527,10 @@ def test_refreshing_the_config_records_when_the_broker_last_answered(isolated_cw
 
 
 @responses.activate
-def test_the_setup_checklist_is_repainted_when_the_list_changes(isolated_cwd, monkeypatch):
-    _mock_config(setup_missing=["a bus or tube stop"])
-    loop = _build_loop(make_config(setup_missing=MISSING_BOTH), monkeypatch)
-    setup_screens = _spy_on_setup_screen(loop, monkeypatch)
-
-    _run_cycles(loop, monkeypatch, cycles=2)
-
-    assert setup_screens == [MISSING_BOTH, ["a bus or tube stop"]]
-
-
-@responses.activate
-@pytest.mark.parametrize(
-    ("pairing_code", "setup_missing"),
-    [("ABC123", MISSING_BOTH), (None, MISSING_BOTH), (None, [])],
-    ids=["pairing", "setup", "dashboard"],
-)
-def test_run_retries_a_screen_the_panel_could_not_take_every_cycle(
-    isolated_cwd, monkeypatch, pairing_code, setup_missing
-):
-    _mock_config(pairing_code=pairing_code, setup_missing=setup_missing)
-    loop = _build_loop(make_config(setup_missing=setup_missing), monkeypatch, pairing_code=pairing_code)
+@pytest.mark.parametrize("pairing_code", ["ABC123", None], ids=["pairing", "dashboard"])
+def test_run_retries_a_screen_the_panel_could_not_take_every_cycle(isolated_cwd, monkeypatch, pairing_code):
+    _mock_config(pairing_code=pairing_code)
+    loop = _build_loop(make_config(), monkeypatch, pairing_code=pairing_code)
     retries = []
     monkeypatch.setattr(loop.display, "repaint_pending", lambda: retries.append(1))
 
