@@ -59,6 +59,9 @@ source = [
     "client/src",
     "orchestrator/src"
 ]
+# The client generated from the broker's OpenAPI (core/contract): it's tested where it's generated, in
+# openapi-codegen, and it isn't edited here. Ruff skips it for the same reason.
+omit = ["*/config_server/broker_api/*"]
 
 [tool.coverage.report]
 skip_empty = true
