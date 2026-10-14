@@ -41,7 +41,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           # Every workspace member: the root project is virtual, so it isn't built.
-          for package in countdown-credentials countdown-epd countdown-core countdown-server countdown-client countdown-orchestrator; do
+          for package in countdown-api countdown-credentials countdown-epd countdown-core countdown-server countdown-client countdown-orchestrator; do
             (cd countdown && uv version --frozen --package "$package" "$version")
           done
       - name: Install lgpio build dependencies
@@ -130,7 +130,7 @@ jobs:
 
   release:
     # The image too, so a GitHub release is only created once everything it ships exists.
-    needs: [build-python, build-server-image, build-orchestrator-image]
+    needs: [ build-python, build-server-image, build-orchestrator-image ]
     runs-on: ubuntu-latest
     permissions:
       contents: write

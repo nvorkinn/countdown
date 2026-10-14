@@ -20,19 +20,14 @@ dependencies = [
 [tool.uv]
 package = false
 
-[[tool.uv.index]]
-name = "countdown-api"
-url = "https://nvorkinn.github.io/countdown-api/simple/"
-explicit = true
-
 [tool.uv.sources]
+countdown-api = { workspace = true }
 countdown-credentials = { workspace = true }
 countdown-epd = { workspace = true }
 countdown-core = { workspace = true }
 countdown-server = { workspace = true }
 countdown-client = { workspace = true }
 countdown-orchestrator = { workspace = true }
-countdown-api = { index = "countdown-api" }
 
 [dependency-groups]
 dev = [
@@ -48,6 +43,7 @@ dev = [
 
 [tool.uv.workspace]
 members = [
+    "api",
     "credentials",
     "epd",
     "core",
@@ -59,6 +55,7 @@ members = [
 [tool.coverage.run]
 # Not countdown-epd (epd/src): it's only the vendored Waveshare driver.
 source = [
+    "api/src",
     "credentials/src",
     "core/src",
     "server/src",
@@ -73,6 +70,7 @@ target-version = "py314"
 line-length = 120
 # So isort knows the workspace packages are first-party.
 src = [
+    "api/src",
     "credentials/src",
     "epd/src",
     "core/src",
