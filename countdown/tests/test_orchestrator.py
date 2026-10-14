@@ -227,6 +227,17 @@ def test_the_assignments_are_listed_with_the_orchestrators_own_token():
 
 
 @responses.activate
+def test_a_claimed_assignment_has_no_claim_token():
+    """The broker clears the token once the renderer has used it."""
+    responses.get(
+        LIST_URL,
+        json={"assignments": [{"id": "a1", "slug": "lisa", "claim_token": None, "status": "provisioned"}]},
+    )
+
+    assert OrchestratorBroker(BROKER_URL, "t").assignments() == [Assignment("a1", "lisa", None, Status.PROVISIONED)]
+
+
+@responses.activate
 def test_a_report_is_posted_for_the_assignment():
     responses.post(f"{LIST_URL}/a1/status", json={})
 
@@ -362,6 +373,22 @@ def test_an_outdated_renderer_is_replaced_but_keeps_its_volumes():
     assert client.container.removed == {"force": True}  # no v=True, and no volume is touched
     assert client.volumes.removed == []
     assert len(client.run_calls) == 1
+
+
+@pytest.mark.parametrize("existing", ["outdated", None], ids=["on an old image", "gone"])
+def test_a_renderer_made_again_for_a_claimed_screen_still_gets_a_claim_token(existing):
+    """The broker has cleared the token by then, but a renderer won't start without one (it is ignored once the
+    renderer has claimed: its identity is in its volumes), so what it gets must be a value, not an unset variable."""
+    client = FakeDocker(FakeContainer("running") if existing else None)
+    if existing:
+        client.container.labels[IMAGE_LABEL] = "ghcr.io/x/countdown-server:0"
+    claimed = Assignment(id="a1", slug="lisa", claim_token=None, status=Status.PROVISIONED)
+
+    _runtime(client).ensure(claimed)
+
+    ((_, kwargs),) = client.run_calls
+    token = kwargs["environment"].get("CLAIM_TOKEN")
+    assert isinstance(token, str) and token
 
 
 def test_a_renderer_made_from_another_image_is_not_up_to_date():

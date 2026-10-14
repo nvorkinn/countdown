@@ -28,7 +28,8 @@ class Assignment:
 
     id: str
     slug: str
-    claim_token: str
+    # None once the renderer has claimed its screen: the broker clears the token when it is used.
+    claim_token: str | None
     status: Status
 
 
