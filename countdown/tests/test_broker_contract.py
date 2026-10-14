@@ -9,8 +9,8 @@ from importlib.resources import files
 import pytest
 import responses
 import yaml
-from countdown_api import models as wire
 
+from countdown_api import models as wire
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.config_server.models import AppConfig
 from countdown_credentials.registration import RendererRegistration

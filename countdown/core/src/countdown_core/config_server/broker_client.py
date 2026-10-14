@@ -1,6 +1,6 @@
 import requests
-from countdown_api.clients import ApiConfigClient, ApiError
 
+from countdown_api.clients import ApiConfigClient, ApiError
 from countdown_core.config_server.models import AppConfig
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
