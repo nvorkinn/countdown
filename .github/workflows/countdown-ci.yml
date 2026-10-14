@@ -13,10 +13,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # Pins countdown-api's dependencies to the versions it was generated against.
-  UV_CONSTRAINT: https://nvorkinn.github.io/countdown-api/constraints.txt
-
 defaults:
   run:
     working-directory: countdown
@@ -26,62 +22,68 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-    - name: Set up uv
-      uses: astral-sh/setup-uv@v5
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
 
-    - name: Run Ruff
-      run: uv run --frozen --only-group dev ruff check --output-format=github .
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
 
-    - name: Check Ruff formatting
-      run: uv run --frozen --only-group dev ruff format --check --diff .
+      - name: Run Ruff
+        run: uv run --frozen --only-group dev ruff check --output-format=github .
+
+      - name: Check Ruff formatting
+        run: uv run --frozen --only-group dev ruff format --check --diff .
 
   test:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-    - name: Set up uv
-      uses: astral-sh/setup-uv@v5
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.14"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
 
-    - name: Install system dependencies
-      # libfribidi0 turns on Pillow's Raqm text layout, which the golden images are drawn with.
-      run: sudo apt-get update && sudo apt-get install -y --no-install-recommends swig liblgpio-dev libfribidi0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
 
-    - name: Install dependencies
-      run: uv sync --frozen
+      - name: Install system dependencies
+        # libfribidi0 turns on Pillow's Raqm text layout, which the golden images are drawn with.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends swig liblgpio-dev libfribidi0
 
-    - name: Run tests
-      run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
-        
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v7
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: countdown/coverage.xml
-        flags: countdown
-        disable_search: true
+      - name: Install dependencies
+        run: uv sync --frozen
 
-    - name: Upload snapshot failure artifacts
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: snapshot-failures
-        path: countdown/tests/images/_failures/
-        if-no-files-found: ignore
+      - name: Run tests
+        run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
 
-    - name: Add coverage summary
-      if: always()
-      run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: countdown/coverage.xml
+          flags: countdown
+          disable_search: true
+
+      - name: Upload snapshot failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-failures
+          path: countdown/tests/images/_failures/
+          if-no-files-found: ignore
+
+      - name: Add coverage summary
+        if: always()
+        run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
 
   orchestrator-image:
     # The orchestrator's image (countdown/orchestrator/Dockerfile), so a broken one shows up here rather than
@@ -89,24 +91,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-    - name: Set up uv
-      uses: astral-sh/setup-uv@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
 
-    - name: Build wheels
-      run: uv build --wheel --all-packages
+      - name: Build wheels
+        run: uv build --wheel --all-packages
 
-    - name: Build image
-      run: docker build -f orchestrator/Dockerfile -t countdown-orchestrator:ci .
+      - name: Build image
+        run: docker build -f orchestrator/Dockerfile -t countdown-orchestrator:ci .
 
-    - name: Smoke-test the image
-      # Without its settings it must start and say which one is missing.
-      run: |
-        out="$(docker run --rm countdown-orchestrator:ci 2>&1 || true)"
-        echo "$out"
-        grep -q "BROKER_URL" <<< "$out"
+      - name: Smoke-test the image
+        # Without its settings it must start and say which one is missing.
+        run: |
+          out="$(docker run --rm countdown-orchestrator:ci 2>&1 || true)"
+          echo "$out"
+          grep -q "BROKER_URL" <<< "$out"
 
   server-image:
     # The image renderers run (countdown/server/Dockerfile), so a broken one shows up here rather than
@@ -114,39 +116,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-    - name: Set up uv
-      uses: astral-sh/setup-uv@v5
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
 
-    - name: Build wheels
-      run: uv build --wheel --all-packages
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
 
-    # countdown-core's wheel requires countdown-api, which isn't on PyPI, and the image only installs what is in
-    # dist/ (its packages never come from an index). So fetch the wheel the lock pins, checked against the lock's
-    # hash, from countdown-api's index.
-    - name: Add the countdown-api wheel the lock pins
-      run: |
-        uv export --frozen --package countdown-server --no-dev --no-emit-workspace --no-header \
-          | awk '/^countdown-api==/ {p=1} p {print} p && !/\\$/ {exit}' > "$RUNNER_TEMP/countdown-api.txt"
-        uvx pip download --no-deps --require-hashes --only-binary :all: -r "$RUNNER_TEMP/countdown-api.txt" \
-          --index-url https://nvorkinn.github.io/countdown-api/simple/ --dest dist
+      - name: Build wheels
+        run: uv build --wheel --all-packages
 
-    - name: Build image
-      # Its own checks run here: the font is baked in and Raqm text layout is available.
-      run: docker build -f server/Dockerfile -t countdown-server:ci .
+      # countdown-core's wheel requires countdown-api, which isn't on PyPI, and the image only installs what is in
+      # dist/ (its packages never come from an index). So fetch the wheel the lock pins, checked against the lock's
+      # hash, from countdown-api's index.
+      - name: Add the countdown-api wheel the lock pins
+        run: |
+          uv export --frozen --package countdown-server --no-dev --no-emit-workspace --no-header \
+            | awk '/^countdown-api==/ {p=1} p {print} p && !/\\$/ {exit}' > "$RUNNER_TEMP/countdown-api.txt"
+          uvx pip download --no-deps --require-hashes --only-binary :all: -r "$RUNNER_TEMP/countdown-api.txt" \
+            --index-url https://nvorkinn.github.io/countdown-api/simple/ --dest dist
 
-    - name: Smoke-test the image
-      # Gets as far as trying to register (with a broker that refuses), then stops cleanly: as the
-      # container's PID 1 the app must handle SIGTERM itself, or docker stop has to kill it.
-      run: |
-        docker run -d --name smoke -e BROKER_URL=http://127.0.0.1:9 -e CLAIM_TOKEN=ci-smoke-test countdown-server:ci
-        for _ in $(seq 30); do
-          docker logs smoke 2>&1 | grep -q "Couldn't register with the broker" && break
-          sleep 1
-        done
-        docker logs smoke
-        docker logs smoke 2>&1 | grep -q "Couldn't register with the broker"
-        docker stop smoke
-        test "$(docker inspect -f '{{.State.ExitCode}}' smoke)" = 0
+      - name: Build image
+        # Its own checks run here: the font is baked in and Raqm text layout is available.
+        run: docker build -f server/Dockerfile -t countdown-server:ci .
+
+      - name: Smoke-test the image
+        # Gets as far as trying to register (with a broker that refuses), then stops cleanly: as the
+        # container's PID 1 the app must handle SIGTERM itself, or docker stop has to kill it.
+        run: |
+          docker run -d --name smoke -e BROKER_URL=http://127.0.0.1:9 -e CLAIM_TOKEN=ci-smoke-test countdown-server:ci
+          for _ in $(seq 30); do
+            docker logs smoke 2>&1 | grep -q "Couldn't register with the broker" && break
+            sleep 1
+          done
+          docker logs smoke
+          docker logs smoke 2>&1 | grep -q "Couldn't register with the broker"
+          docker stop smoke
+          test "$(docker inspect -f '{{.State.ExitCode}}' smoke)" = 0

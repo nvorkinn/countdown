@@ -1,0 +1,3 @@
+[submodule "countdown/api"]
+	path = countdown/api
+	url = https://github.com/nvorkinn/countdown-api.git
