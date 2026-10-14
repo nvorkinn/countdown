@@ -27,7 +27,7 @@ class BrokerClient(AbstractClient):
         self.device_id = registration.device_id
         self.base_url = registration.broker_url
         self.session.auth = registration.auth
-        # broker_api/ is generated from the broker's OpenAPI document (core/contract/); the session brings the
+        # broker_api/ is generated from the countdown API contract (core/contract/generate.py); the session brings the
         # device's secret (session.auth) and the retries.
         self._config_api = ApiConfigClient(self.base_url, self.session, timeout=DEFAULT_TIMEOUT)
 

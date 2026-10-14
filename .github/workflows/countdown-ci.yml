@@ -56,6 +56,11 @@ jobs:
     - name: Install dependencies
       run: uv sync --frozen
 
+    # The broker client is generated from the latest countdown API contract, never committed: this fails if
+    # the code no longer fits the contract.
+    - name: Generate the broker client
+      run: uv run --frozen --only-group dev python core/contract/generate.py
+
     - name: Run tests
       run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
         

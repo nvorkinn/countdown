@@ -30,7 +30,7 @@ openapi-codegen = { url = "https://github.com/nvorkinn/openapi-codegen/releases/
 
 [dependency-groups]
 dev = [
-    "openapi-codegen",
+    "openapi-codegen[yaml]",
     "pyinstrument>=5.1.3",
     "pyproject-runner>=0.3.0",
     "pytest>=8.4.2",
@@ -59,8 +59,8 @@ source = [
     "client/src",
     "orchestrator/src"
 ]
-# The client generated from the broker's OpenAPI (core/contract): it's tested where it's generated, in
-# openapi-codegen, and it isn't edited here. Ruff skips it for the same reason.
+# The client generated from the countdown API contract (core/contract/generate.py): it's tested where it's
+# generated, in openapi-codegen, and it isn't edited here. Ruff skips it for the same reason.
 omit = ["*/config_server/broker_api/*"]
 
 [tool.coverage.report]
@@ -78,7 +78,7 @@ src = [
     "client/src",
     "orchestrator/src"
 ]
-# The vendored Waveshare driver, and the client generated from the broker's OpenAPI (core/contract).
+# The vendored Waveshare driver, and the client generated from the countdown API contract (core/contract/generate.py).
 extend-exclude = [
     "epd/src/countdown_epd/epdconfig.py",
     "epd/src/countdown_epd/epd7in5_V2.py",

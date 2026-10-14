@@ -50,6 +50,8 @@ jobs:
         # libraries they depend on (countdown-core, -credentials, -epd), none of which is on an index.
         run: |
           uv sync --frozen
+          # countdown-core's wheel contains the broker client, generated from the latest countdown API contract.
+          uv run --frozen --only-group dev python core/contract/generate.py
           uv build --wheel --all-packages
       - uses: actions/upload-artifact@v4
         with:

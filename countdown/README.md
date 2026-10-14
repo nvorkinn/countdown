@@ -88,33 +88,38 @@ This directory is a uv workspace:
 
 `uv sync` installs them all, editable, for development and the tests.
 
-## The broker's API contract
+## The API contract
 
-The config the renderer polls from [auth-broker](https://github.com/nvorkinn/auth-broker) is defined there, in
-pydantic (`broker/contract.py`), and published as `openapi.json`. Three things here follow it:
+The API between the renderer and [auth-broker](https://github.com/nvorkinn/auth-broker) is defined in neither
+repository but in [countdown-api](https://github.com/nvorkinn/countdown-api), as an OpenAPI file, and both
+generate their side of it with [openapi-codegen](https://github.com/nvorkinn/openapi-codegen) on every build. The
+latest release is the contract, at an address that never changes:
 
-- `core/contract/broker-openapi.json` is a copy of that file.
-- `config_server/broker_api/` is the client for it, generated from the copy by
-  [openapi-codegen](https://github.com/nvorkinn/openapi-codegen) (`--only clients`: the Pydantic models and a
-  `requests` client, no Flask). Don't edit it. `BrokerClient.get_config` calls it, through the device's session,
-  so the path, the method, the headers and the shape of the response all come from the contract.
-- `AppConfig` is what the app actually reads of the response.
+    https://github.com/nvorkinn/countdown-api/releases/latest/download/openapi.yaml
+
+Here that becomes:
+
+- `config_server/broker_api/` is the client (`--only clients`: the Pydantic models and a `requests` client, no
+  Flask), written by `core/contract/generate.py`, which downloads the contract to `core/contract/openapi.yaml` first.
+  Neither is committed. Run it after cloning and whenever the contract changes:
+
+  ```bash
+  uv sync --frozen
+  uv run --frozen --only-group dev python core/contract/generate.py
+  ```
+
+  CI and the release workflow run it before they test or build, so a contract this code no longer fits fails the
+  build. `COUNTDOWN_API_SPEC=<file or URL>` generates from something else, to try a countdown-api change before it
+  is released.
+- `BrokerClient.get_config` calls the generated client, through the device's session, so the path, the method, the
+  headers and the shape of the response all come from the contract.
+- `AppConfig` is what the app actually reads of the response. `tests/test_broker_contract.py` fails if the
+  contract, the generated client or `AppConfig` stop agreeing: a new field the broker sends fails the tests until
+  `AppConfig` reads it (or it's listed as unused), so the two can't quietly diverge.
 
 openapi-codegen is a dev dependency, installed from a **release** of its repository: `pyproject.toml` points at the
 release's wheel and `uv.lock` records the wheel's hash, so a build fails if that file ever changes. To move to a
 newer release, change the URL in `[tool.uv.sources]` and run `uv lock --upgrade-package openapi-codegen`.
-
-`tests/test_broker_contract.py` fails if the copy, the generated client or `AppConfig` stop agreeing. To pick up a
-change to the broker's API:
-
-```bash
-cp ../auth-broker/openapi.json core/contract/broker-openapi.json
-uv run openapi-codegen core/contract/broker-openapi.json --out core/src/countdown_core/config_server/broker_api --only clients
-uv run pytest tests/test_broker_contract.py tests/test_broker_client.py
-```
-
-A new field the broker sends fails the tests until `AppConfig` reads it (or it's listed as unused), so the two
-can't quietly diverge.
 
 What the generated client accepts is the compatibility policy: the broker may **add** fields (the client ignores
 ones it doesn't know), but a value outside what the contract lists (a third screen orientation, say) is invalid, the

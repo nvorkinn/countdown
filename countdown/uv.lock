@@ -183,7 +183,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "openapi-codegen" },
+    { name = "openapi-codegen", extra = ["yaml"] },
     { name = "pyinstrument" },
     { name = "pyproject-runner" },
     { name = "pytest" },
@@ -205,7 +205,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "openapi-codegen", url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v0.2.0/openapi_codegen-0.2.0-py3-none-any.whl" },
+    { name = "openapi-codegen", extras = ["yaml"], url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v0.2.0/openapi_codegen-0.2.0-py3-none-any.whl" },
     { name = "pyinstrument", specifier = ">=5.1.3" },
     { name = "pyproject-runner", specifier = ">=0.3.0" },
     { name = "pytest", specifier = ">=8.4.2" },
@@ -621,6 +621,11 @@ version = "0.2.0"
 source = { url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v0.2.0/openapi_codegen-0.2.0-py3-none-any.whl" }
 wheels = [
     { url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v0.2.0/openapi_codegen-0.2.0-py3-none-any.whl", hash = "sha256:ccf70707e24940dee7c9c7df11fe81850fe0b511db59fbaf473be9facb5996ba" },
+]
+
+[package.optional-dependencies]
+yaml = [
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
