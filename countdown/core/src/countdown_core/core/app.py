@@ -13,6 +13,7 @@ from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core.api_registry import API_NAMES, ApiRegistry
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
+from countdown_core.core.log_format import configure_logging
 from countdown_core.core.targets import DisplayTarget
 from countdown_core.home_assistant.device_status import DeviceStatus
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
@@ -35,15 +36,6 @@ def main(make_target: MakeTarget) -> None:
     exit 1 without running anything."""
     configure_logging()
     asyncio.run(run(make_target))
-
-
-def configure_logging() -> None:
-    """No timestamp: journald adds its own. An unrecognised LOG_LEVEL falls back to INFO."""
-    level = logging.getLevelNamesMapping().get(os.environ.get("LOG_LEVEL", "").upper(), logging.INFO)
-    logging.basicConfig(
-        level=level,
-        format="%(levelname)s %(name)s %(filename)s:%(lineno)d %(message)s",
-    )
 
 
 async def wait_for_config(

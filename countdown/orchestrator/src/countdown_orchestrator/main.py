@@ -5,6 +5,7 @@ import time
 import requests
 
 from countdown_orchestrator.broker import OrchestratorBroker
+from countdown_orchestrator.log_format import configure_logging
 from countdown_orchestrator.reconcile import reconcile
 from countdown_orchestrator.runtime import DockerRuntime
 
@@ -18,7 +19,7 @@ def run() -> None:
     """The `countdown-orchestrator` console script: runs on the renderers' host, polling the broker for
     screens that need a renderer. BROKER_URL, ORCHESTRATOR_TOKEN and RENDERER_IMAGE are required (no defaults:
     crash loudly rather than talk to, or run, something baked in)."""
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    configure_logging()
     broker_url = os.environ["BROKER_URL"]
     broker = OrchestratorBroker(broker_url, os.environ["ORCHESTRATOR_TOKEN"])
     runtime = DockerRuntime(
