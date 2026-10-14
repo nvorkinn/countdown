@@ -94,22 +94,16 @@ The config the renderer polls from [auth-broker](https://github.com/nvorkinn/aut
 pydantic (`broker/contract.py`), and published as `openapi.json`. Three things here follow it:
 
 - `core/contract/broker-openapi.json` is a copy of that file.
-- `config_server/broker_api/` is the client for it, generated from the copy by
-  [openapi-codegen](https://github.com/nvorkinn/openapi-codegen) (`--only clients`: the Pydantic models and a
-  `requests` client, no Flask). Don't edit it. `BrokerClient.get_config` calls it, through the device's session,
-  so the path, the method, the headers and the shape of the response all come from the contract.
+- `config_server/broker_api/` is the client for it: Pydantic models and a `requests` client, checked in as-is.
+  `BrokerClient.get_config` calls it, through the device's session, so the path, the method, the headers and
+  the shape of the response come from the contract.
 - `AppConfig` is what the app actually reads of the response.
 
-openapi-codegen is a dev dependency, installed from a **release** of its repository: `pyproject.toml` points at the
-release's wheel and `uv.lock` records the wheel's hash, so a build fails if that file ever changes. To move to a
-newer release, change the URL in `[tool.uv.sources]` and run `uv lock --upgrade-package openapi-codegen`.
-
 `tests/test_broker_contract.py` fails if the copy, the generated client or `AppConfig` stop agreeing. To pick up a
-change to the broker's API:
+change to the broker's API, copy in the new `openapi.json`, update `broker_api/` to match, and run:
 
 ```bash
 cp ../auth-broker/openapi.json core/contract/broker-openapi.json
-uv run openapi-codegen core/contract/broker-openapi.json --out core/src/countdown_core/config_server/broker_api --only clients
 uv run pytest tests/test_broker_contract.py tests/test_broker_client.py
 ```
 

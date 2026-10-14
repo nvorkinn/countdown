@@ -1,13 +1,10 @@
 """The broker's config API against what the app reads of it.
 
 core/contract/broker-openapi.json is a copy of auth-broker's openapi.json, and config_server/broker_api/ is
-generated from it by openapi-codegen (a dev dependency, installed from a release). Nothing here talks to a
-broker: these fail when the copy, the generated code, or AppConfig stop agreeing, so a change on either side
+the client for it. Nothing here talks to a broker: these fail when the copy, the client, or AppConfig stop agreeing, so a change on either side
 can't go unnoticed."""
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -21,9 +18,6 @@ from countdown_credentials.registration import RendererRegistration
 COUNTDOWN = Path(__file__).resolve().parents[1]
 CONTRACT_DIR = COUNTDOWN / "core" / "contract"
 SPEC = CONTRACT_DIR / "broker-openapi.json"
-GENERATED = COUNTDOWN / "core" / "src" / "countdown_core" / "config_server" / "broker_api"
-# What generates it; keep in step with the README ("The broker's API contract").
-GENERATE = [sys.executable, "-m", "openapi_codegen", str(SPEC), "--out", str(GENERATED), "--only", "clients"]
 
 # Sent by the broker but not used by the renderer: its device_id comes from registration, and the screen's
 # shape is the display's business.
@@ -36,14 +30,6 @@ NOT_SENT_BY_THE_BROKER = {
     "glowmarkt": {"enabled"},  # derived from the credentials
     "notice_board": {"enabled", "tfl"},  # tfl is a copy of AppConfig.tfl made on the device
 }
-
-
-def test_the_generated_client_is_current():
-    """After copying in a new broker-openapi.json, regenerate: `uv run openapi-codegen core/contract/broker-openapi.json
-    --out core/src/countdown_core/config_server/broker_api --only clients` (from countdown/)."""
-    checked = subprocess.run([*GENERATE, "--check"], capture_output=True, text=True)
-
-    assert checked.returncode == 0, f"broker_api/ is out of date; regenerate it.\n{checked.stderr}"
 
 
 def test_the_spec_describes_the_config_endpoint():

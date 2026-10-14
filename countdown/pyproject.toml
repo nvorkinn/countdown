@@ -26,11 +26,9 @@ countdown-core = { workspace = true }
 countdown-server = { workspace = true }
 countdown-client = { workspace = true }
 countdown-orchestrator = { workspace = true }
-openapi-codegen = { url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v0.2.0/openapi_codegen-0.2.0-py3-none-any.whl" }
 
 [dependency-groups]
 dev = [
-    "openapi-codegen",
     "pyinstrument>=5.1.3",
     "pyproject-runner>=0.3.0",
     "pytest>=8.4.2",
@@ -59,8 +57,7 @@ source = [
     "client/src",
     "orchestrator/src"
 ]
-# The client generated from the broker's OpenAPI (core/contract): it's tested where it's generated, in
-# openapi-codegen, and it isn't edited here. Ruff skips it for the same reason.
+# The vendored broker API client (core/contract); it isn't edited here. Ruff skips it for the same reason.
 omit = ["*/config_server/broker_api/*"]
 
 [tool.coverage.report]
@@ -78,7 +75,7 @@ src = [
     "client/src",
     "orchestrator/src"
 ]
-# The vendored Waveshare driver, and the client generated from the broker's OpenAPI (core/contract).
+# The vendored Waveshare driver, and the vendored broker API client (core/contract).
 extend-exclude = [
     "epd/src/countdown_epd/epdconfig.py",
     "epd/src/countdown_epd/epd7in5_V2.py",
