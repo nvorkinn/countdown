@@ -6,7 +6,7 @@ import requests
 import responses
 from test_utils import REGISTRATION
 
-from countdown_core.config_server.models import WeatherConfig
+from countdown_api.models import Weather as WeatherSection
 from countdown_core.notices.location import is_postcode
 from countdown_core.weather import weather_client
 from countdown_core.weather.models import Weather
@@ -25,7 +25,7 @@ FORECAST_JSON = {
 
 
 def make_client(location: str = "London") -> WeatherClient:
-    return WeatherClient(REGISTRATION, WeatherConfig(api_key="", location=location))
+    return WeatherClient(REGISTRATION, WeatherSection(api_key="", location=location))
 
 
 @responses.activate
@@ -126,10 +126,10 @@ def test_failed_fetch_raises_and_is_retried_next_cycle():
 
 
 def test_needs_refresh_only_when_the_location_changes():
-    client = WeatherClient(REGISTRATION, WeatherConfig(api_key="old", location="London"))
+    client = WeatherClient(REGISTRATION, WeatherSection(api_key="old", location="London"))
 
-    assert not client.needs_refresh(WeatherConfig(api_key="new", location="London"))  # keyless API
-    assert client.needs_refresh(WeatherConfig(api_key="old", location="Paris"))
+    assert not client.needs_refresh(WeatherSection(api_key="new", location="London"))  # keyless API
+    assert client.needs_refresh(WeatherSection(api_key="old", location="Paris"))
 
 
 @pytest.mark.parametrize(

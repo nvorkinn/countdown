@@ -1,7 +1,8 @@
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from countdown_core.config_server.models import NoticeBoardConfig
+from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.notices.calendar import BankHolidaySource, ClockChangeSource
 from countdown_core.notices.floods import FloodWarningsSource
@@ -23,13 +24,23 @@ STALE_AFTER = timedelta(hours=1)
 LOCATION_RETRY = timedelta(minutes=15)
 
 
+@dataclass(frozen=True)
+class NoticeBoardSettings:
+    """What the notice board is configured with: the broker's `notice_board` postcode, and its `tfl` section, for
+    the stops whose lines and stations the TfL disruptions are about. Compared by value, so a change to either
+    makes AbstractClient.needs_refresh rebuild the board."""
+
+    postcode: str | None
+    tfl: Tfl
+
+
 class NoticeBoardClient(AbstractClient):
     """Polls the notice sources, each on its own refresh_interval, and shows what they
     currently report, most severe first."""
 
     panel_title = "Notices"
 
-    def __init__(self, registration: Registration, config: NoticeBoardConfig):
+    def __init__(self, registration: Registration, config: NoticeBoardSettings):
         super().__init__(registration, config)
         self.postcode = config.postcode
         self.sources: list[NoticeSource] = [ClockChangeSource(self.session)]

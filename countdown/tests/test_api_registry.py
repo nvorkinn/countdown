@@ -6,12 +6,20 @@ from config_factory import make_config
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from test_utils import REGISTRATION
 
-from countdown_core.config_server.models import TflConfig, WeatherConfig
+from countdown_api.models import Glowmarkt, Spotify, Tfl
+from countdown_api.models import Weather as WeatherSection
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
-from countdown_core.core.api_registry import API_NAMES, ApiRegistry, ClientClasses, FailedClient
+from countdown_core.core.api_registry import (
+    API_NAMES,
+    ApiRegistry,
+    ClientClasses,
+    FailedClient,
+    is_enabled,
+    section_for,
+)
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
-from countdown_core.notices.notice_board_client import NoticeBoardClient
+from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.tfl.tfl_client import TflClient
@@ -65,10 +73,53 @@ def messages(panels: dict) -> dict:
 
 
 def test_api_names_match_the_config_field_names():
-    """build_from_config looks each client's config up by name on AppConfig."""
+    """on_config_update looks each client's config up by name on the ConfigResponse."""
     config = make_config()
     for member in ClientClasses:
         assert hasattr(config, member.api_name)
+
+
+def test_each_client_is_configured_with_its_section_of_the_config():
+    config = make_config(tfl={"stop_ids": ["940GZZLUKNG"]}, notice_board={"postcode": "SE17 3LL"})
+
+    assert section_for("tfl", config) is config.tfl
+    assert section_for("weather", config) is config.weather
+    assert section_for("spotify", config) is config.spotify
+    assert section_for("glowmarkt", config) is config.glowmarkt
+    # The notice board's TfL disruptions are for the arrivals' stops, so it also gets the tfl section.
+    assert section_for("notice_board", config) == NoticeBoardSettings(postcode="SE17 3LL", tfl=config.tfl)
+
+
+def test_only_spotify_has_a_switch_in_the_config():
+    assert is_enabled(Spotify(enabled=True))
+    assert not is_enabled(Spotify(enabled=False))
+
+
+def test_the_apis_without_a_switch_are_always_on():
+    config = make_config()
+
+    for name in ("tfl", "weather", "notice_board"):
+        assert is_enabled(section_for(name, config))
+
+
+@pytest.mark.parametrize(
+    "credentials",
+    [
+        {},
+        {"username": "me@example.com"},
+        {"password": "hunter2"},
+        {"username": "  ", "password": "hunter2"},
+        {"username": "me@example.com", "password": ""},
+    ],
+)
+def test_glowmarkt_is_off_without_both_credentials(credentials):
+    """The broker has no Glowmarkt switch, so the credentials decide. A cleared field can arrive as "" or
+    whitespace as well as null."""
+    assert not is_enabled(Glowmarkt(**{"username": None, "password": None, **credentials}))
+
+
+def test_glowmarkt_is_on_with_both_credentials():
+    assert is_enabled(Glowmarkt(username="me@example.com", password=" pass word "))
 
 
 def test_on_config_update_registers_the_enabled_clients():
@@ -88,12 +139,11 @@ def test_on_config_update_registers_the_enabled_clients():
 
 def test_on_config_update_skips_disabled_clients():
     config = make_config()  # spotify is off until the broker says otherwise
-    config.weather.enabled = False
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
 
     asyncio.run(registry.on_config_update(config))
 
-    assert set(registry.clients) == {"notice_board", "tfl"}  # glowmarkt: no credentials
+    assert set(registry.clients) == {"notice_board", "tfl", "weather"}  # glowmarkt: no credentials
 
 
 def test_on_config_update_initialises_new_clients_even_if_one_fails(monkeypatch):
@@ -155,15 +205,14 @@ def test_a_changed_config_replaces_only_that_client_and_drops_its_stale_panel():
 
 def test_a_client_that_is_switched_off_is_dropped_with_its_panel():
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
-    asyncio.run(registry.on_config_update(make_config()))
-    registry.panels["weather"] = "sunny"
-    off = make_config()
-    off.weather.enabled = False
+    asyncio.run(registry.on_config_update(make_config(spotify={"enabled": True})))
+    registry.panels["spotify"] = "now playing"
+    off = make_config(spotify={"enabled": False})
 
     asyncio.run(registry.on_config_update(off))
 
-    assert "weather" not in registry.clients
-    assert "weather" not in registry.panels
+    assert "spotify" not in registry.clients
+    assert "spotify" not in registry.panels
 
 
 def test_a_change_the_client_says_is_irrelevant_does_not_rebuild_it():
@@ -330,7 +379,9 @@ def test_available_is_the_built_clients_that_are_not_disabled():
     disabled = FakeClient()
     disabled.status = ClientStatus.DISABLED
     registry = registry_with(
-        tfl=FakeClient(), glowmarkt=disabled, weather=FailedClient(REGISTRATION, WeatherConfig(), ValueError())
+        tfl=FakeClient(),
+        glowmarkt=disabled,
+        weather=FailedClient(REGISTRATION, WeatherSection(api_key="", location=""), ValueError()),
     )
 
     # A failing client keeps its area (to say so); a disabled or missing one doesn't.
@@ -347,8 +398,7 @@ def test_available_leaves_out_glowmarkt_without_credentials_and_spotify_when_off
 
 @pytest.mark.parametrize("username", [None, "", "   "])
 def test_available_leaves_out_glowmarkt_when_its_username_is_cleared(username):
-    """The broker keeps glowmarkt.enabled true when the owner clears the credentials, so
-    it's the credentials themselves that decide."""
+    """The broker has no Glowmarkt switch, so it's the credentials themselves that decide."""
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
 
     asyncio.run(registry.on_config_update(make_config(glowmarkt={"username": username, "password": "pw"})))
@@ -357,8 +407,8 @@ def test_available_leaves_out_glowmarkt_when_its_username_is_cleared(username):
 
 
 def test_a_client_missing_what_it_needs_is_not_built_and_comes_back_fresh(monkeypatch):
-    """Clearing Glowmarkt's username removes its client altogether (the broker leaves
-    `enabled` true); putting it back builds a new one rather than reviving the old."""
+    """Clearing Glowmarkt's username removes its client altogether; putting it back builds a
+    new one rather than reviving the old."""
     monkeypatch.setattr(GlowClient, "_initialise", lambda self: asyncio.sleep(0))  # no network
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
     with_credentials = make_config(glowmarkt={"username": "me@example.com", "password": "pw"})
@@ -375,7 +425,7 @@ def test_a_client_missing_what_it_needs_is_not_built_and_comes_back_fresh(monkey
 
 
 def test_show_stops_tells_the_tfl_client_how_many_to_fetch():
-    registry = registry_with(tfl=TflClient(REGISTRATION, TflConfig()))
+    registry = registry_with(tfl=TflClient(REGISTRATION, Tfl(app_key="", stop_ids=[])))
 
     registry.show_stops(4)
 

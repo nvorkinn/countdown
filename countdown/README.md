@@ -109,10 +109,11 @@ Here it is an ordinary dependency:
   version is built and tested, and moves only when it is upgraded as above.
 - `BrokerClient.get_config` calls `countdown_api.clients.ApiConfigClient`, through the device's session, so the
   path, the method, the headers and the shape of the response all come from the contract.
-- `AppConfig` is what the app actually reads of the response. `tests/test_broker_contract.py` fails if the contract
-  (the package carries `countdown_api/openapi.yaml`), the client or `AppConfig` stop agreeing: a new field the
-  broker sends fails the tests until `AppConfig` reads it (or it's listed as unused), so the two can't quietly
-  diverge.
+- The app reads the contract's own `ConfigResponse` (and its sections) as `get_config` returns it, with no model of
+  its own beside it, so the two can't diverge. A response that doesn't match the contract (a section missing, an
+  `interval` that isn't positive) is rejected, and the renderer keeps the config it has.
+  `tests/test_broker_contract.py` fails if the contract (the package carries `countdown_api/openapi.yaml`) and the
+  client stop agreeing on the path, the security and the headers the app sends.
 - The server image only installs the wheels in `dist/` (our packages never come from an index), so CI and the
   release workflow add the `countdown-api` wheel the lock pins to `dist/` before building it
   (`uvx pip download --require-hashes`, checked against the lock's hash).

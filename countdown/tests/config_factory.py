@@ -1,25 +1,10 @@
 from countdown_api import models as wire
-from countdown_core.config_server.models import AppConfig
 
 
-def make_config(**overrides) -> AppConfig:
-    """A complete, typical config, validated the same way as the broker's response.
-    Override a whole section with a dict, e.g. make_config(tfl={"stop_ids": ["940GZZLUKNG"]})."""
-    typical = {
-        "interval": 15,
-        "tfl": {},
-        "spotify": {},
-        "weather": {},
-        "glowmarkt": {},
-        "pairing_code": None,
-    }
-    return AppConfig.model_validate(typical | overrides)
-
-
-def broker_payload(**sections) -> dict:
+def broker_payload(**overrides) -> dict:
     """What GET /api/config returns: complete and valid for the broker's contract (built from the generated
-    models, so it can't drift from it). Replace whole sections, e.g.
-    broker_payload(interval=20, tfl={"app_key": "k", "stop_ids": ["940GZZLUKNG"]})."""
+    models, so it can't drift from it). A section given as a dict is merged into the typical one, anything else
+    replaces it, e.g. broker_payload(interval=20, tfl={"stop_ids": ["940GZZLUKNG"]})."""
     typical = wire.ConfigResponse(
         device_id="device-123",
         interval=15,
@@ -30,5 +15,14 @@ def broker_payload(**sections) -> dict:
         spotify=wire.Spotify(enabled=False),
         glowmarkt=wire.Glowmarkt(username=None, password=None),
         pairing_code=None,
-    )
-    return typical.model_dump(mode="json") | sections
+    ).model_dump(mode="json")
+    return typical | {
+        name: typical[name] | value if isinstance(value, dict) and isinstance(typical.get(name), dict) else value
+        for name, value in overrides.items()
+    }
+
+
+def make_config(**overrides) -> wire.ConfigResponse:
+    """A complete, typical config, as the app gets it from the broker. Sections are overridden as for
+    broker_payload, e.g. make_config(tfl={"stop_ids": ["940GZZLUKNG"]})."""
+    return wire.ConfigResponse.model_validate(broker_payload(**overrides))

@@ -1,7 +1,7 @@
 import datetime as dt
 import logging
 
-from countdown_core.config_server.models import WeatherConfig
+from countdown_api.models import Weather as WeatherSection
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
 from countdown_core.notices.location import is_postcode, postcode_coordinates
@@ -23,12 +23,12 @@ REFRESH_INTERVAL = dt.timedelta(minutes=30)
 
 class WeatherClient(AbstractClient):
     """Current conditions plus today's outlook from Open-Meteo (keyless, so
-    WeatherConfig.api_key is unused). The location is geocoded once, on first fetch; with no
+    the config's api_key is unused). The location is geocoded once, on first fetch; with no
     location configured it's the weather at the North Pole."""
 
     panel_title = "Weather"
 
-    def __init__(self, registration: Registration, config: WeatherConfig):
+    def __init__(self, registration: Registration, config: WeatherSection):
         super().__init__(registration, config)
         self.location = config.location
         self._coordinates: tuple[float, float] | None = None
@@ -38,7 +38,7 @@ class WeatherClient(AbstractClient):
     def _initialise(self) -> None:
         pass
 
-    def needs_refresh(self, new_config: WeatherConfig) -> bool:
+    def needs_refresh(self, new_config: WeatherSection) -> bool:
         # Open-Meteo is keyless, so api_key changing changes nothing.
         return self.location != new_config.location
 

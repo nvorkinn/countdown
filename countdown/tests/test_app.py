@@ -9,7 +9,7 @@ import requests
 from config_factory import make_config
 from pydantic import BaseModel, ValidationError
 
-from countdown_core.config_server.models import AppConfig
+from countdown_api.models import ConfigResponse
 from countdown_core.core import app
 from countdown_core.core.display_loop import safe_fetch
 from countdown_credentials.registration import RendererRegistrar, RendererRegistration
@@ -130,7 +130,7 @@ def test_the_backoff_stops_growing_at_the_maximum():
 
 def test_a_response_that_is_not_a_valid_config_is_treated_like_no_response():
     with pytest.raises(ValidationError) as error:
-        AppConfig.model_validate({})
+        ConfigResponse.model_validate({})
     broker = FakeBroker(fetch_failures=[error.value])
 
     (config, _), delays = wait(broker)

@@ -1,7 +1,7 @@
 import requests
 
 from countdown_api.clients import ApiConfigClient, ApiError
-from countdown_core.config_server.models import AppConfig
+from countdown_api.models import ConfigResponse
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
@@ -34,16 +34,16 @@ class BrokerClient(AbstractClient):
     def _initialise(self) -> None:
         pass  # the registrar has done the work
 
-    def get_config(self) -> AppConfig:
+    def get_config(self) -> ConfigResponse:
+        """The config, as the contract says it is: a response that doesn't match it (a missing section, an
+        interval that isn't positive) raises a pydantic ValidationError, which callers treat as a bad config."""
         try:
-            wire_config = self._config_api.get(x_device_name=_device_name())
+            return self._config_api.get(x_device_name=_device_name())
         except ApiError as error:
             # What callers already catch for a bad status (app.wait_for_config retries on RequestException).
             raise requests.HTTPError(str(error), response=error.response) from error
-        # The generated model is the contract; AppConfig is what the app reads of it.
-        return AppConfig.model_validate(wire_config.model_dump(mode="json"))
 
-    def get_pairing_code_panel(self, config: AppConfig) -> PairingCodePanel:
+    def get_pairing_code_panel(self, config: ConfigResponse) -> PairingCodePanel:
         """Wraps the config's pairing_code as a panel, flagging whether it changed since
         the last check."""
         is_same = self._cache_and_compare("pairing_code", config.pairing_code)
@@ -52,7 +52,7 @@ class BrokerClient(AbstractClient):
     def _update(self) -> Panel | None:
         pass
 
-    def fetch_app_config(self) -> tuple[AppConfig, PairingCodePanel]:
+    def fetch_app_config(self) -> tuple[ConfigResponse, PairingCodePanel]:
         """The config and pairing status in one go, for boot. Raises rather than falling
         back if the broker can't be reached or the config is invalid."""
         config = self.get_config()

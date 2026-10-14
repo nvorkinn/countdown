@@ -6,7 +6,7 @@ from math import asin, cos, radians, sin, sqrt
 
 from pydantic import TypeAdapter
 
-from countdown_core.config_server.models import TflConfig
+from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.tfl.models import DisruptedPoint, Line, Postcode, RoadDisruption, StopPointUnion
@@ -39,7 +39,7 @@ RoadDisruptions = TypeAdapter(list[RoadDisruption])
 
 
 class TflSource(NoticeSource):
-    def __init__(self, session, config: TflConfig):
+    def __init__(self, session, config: Tfl):
         super().__init__(session)
         self.params = {"app_key": config.app_key} if config.app_key else {}
 
@@ -58,7 +58,7 @@ class TflLineStatusSource(TflSource):
     name = "TfL line status"
     refresh_interval = timedelta(minutes=5)
 
-    def __init__(self, session, config: TflConfig):
+    def __init__(self, session, config: Tfl):
         super().__init__(session, config)
         self.stop_ids = config.stop_ids
         self.line_ids: list[str] | None = None  # looked up on first fetch
@@ -138,7 +138,7 @@ class TflStationSource(TflSource):
     name = "TfL stations"
     refresh_interval = timedelta(minutes=15)
 
-    def __init__(self, session, config: TflConfig):
+    def __init__(self, session, config: Tfl):
         super().__init__(session, config)
         self.stop_ids = config.stop_ids
 
@@ -173,7 +173,7 @@ class TflRoadSource(TflSource):
     name = "TfL roads"
     refresh_interval = timedelta(minutes=10)
 
-    def __init__(self, session, config: TflConfig, location: Postcode):
+    def __init__(self, session, config: Tfl, location: Postcode):
         super().__init__(session, config)
         self.location = location
 

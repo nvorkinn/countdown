@@ -5,7 +5,7 @@ import pytest
 from requests.adapters import HTTPAdapter
 from test_utils import REGISTRATION
 
-from countdown_core.config_server.models import TflConfig
+from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, ClientStatus
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.models import MetroStopPoint, SingleStopPoint
@@ -40,8 +40,8 @@ def make_metro_stop(naptan_id="940GZZLUKNG"):
     return MetroStopPoint.model_validate(dict(METRO_STOP_JSON, naptanId=naptan_id))
 
 
-def make_config(stop_ids: list[str] | None = None, app_key: str = "") -> TflConfig:
-    return TflConfig(stop_ids=stop_ids or [], app_key=app_key)
+def make_config(stop_ids: list[str] | None = None, app_key: str = "") -> Tfl:
+    return Tfl(stop_ids=stop_ids or [], app_key=app_key)
 
 
 def test_find_stop_child_direct_match():

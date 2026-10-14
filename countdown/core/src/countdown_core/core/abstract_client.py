@@ -9,7 +9,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
-from countdown_core.config_server.models import ApiConfig
 from countdown_core.core.panel import Panel
 from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_credentials.registration import Registration
@@ -45,7 +44,7 @@ class AbstractClient(ABC):
     panel_title: str = ""
     panel_logo: str | None = None
 
-    def __init__(self, registration: Registration, config: ApiConfig | None = None):
+    def __init__(self, registration: Registration, config: object | None = None):
         # The device, as the broker knows it. Only the clients that call the broker send its
         # secret (session.auth): it mustn't go to third-party APIs.
         self.registration = registration
@@ -98,7 +97,7 @@ class AbstractClient(ABC):
         if elapsed >= SLOW_CALL_S:
             logger.warning(f"{type(self).__name__}: {what} took {elapsed:.1f}s")
 
-    def needs_refresh(self, new_config: ApiConfig) -> bool:
+    def needs_refresh(self, new_config: object) -> bool:
         """Whether `new_config` means this client must be rebuilt. Defaults to any change;
         override to keep state (tokens, caches) across changes that don't affect it."""
         return self.config != new_config

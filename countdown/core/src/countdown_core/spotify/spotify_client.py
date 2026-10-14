@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from countdown_core.config_server.models import SpotifyConfig
+from countdown_api.models import Spotify
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
@@ -34,7 +34,7 @@ class SpotifyClient(AbstractClient):
     panel_title = "Spotify"
     panel_logo = "spotify_logo.png"
 
-    def __init__(self, registration: Registration, config: SpotifyConfig):
+    def __init__(self, registration: Registration, config: Spotify):
         super().__init__(registration, config)
         self.page = -1
         self.base_url = registration.broker_url

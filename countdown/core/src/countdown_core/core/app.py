@@ -8,8 +8,8 @@ from datetime import UTC, datetime
 
 import requests
 
+from countdown_api.models import ConfigResponse
 from countdown_core.config_server.broker_client import BrokerClient
-from countdown_core.config_server.models import AppConfig
 from countdown_core.core.api_registry import API_NAMES, ApiRegistry
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
@@ -49,7 +49,7 @@ def configure_logging() -> None:
 async def wait_for_config(
     broker: BrokerClient,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
-) -> tuple[AppConfig, PairingCodePanel]:
+) -> tuple[ConfigResponse, PairingCodePanel]:
     """Blocks until the broker returns a valid config, retrying with backoff."""
     delay = INITIAL_RETRY_S
     while True:

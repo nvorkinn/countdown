@@ -5,7 +5,7 @@ import pytest
 import responses
 from pydantic import ValidationError
 
-from countdown_core.config_server.models import SpotifyConfig
+from countdown_api.models import Spotify
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
@@ -37,7 +37,7 @@ def mock_top():
 
 @pytest.fixture
 def client() -> SpotifyClient:
-    return SpotifyClient(RendererRegistration(BROKER_URL, "shh", "device-123"), SpotifyConfig(enabled=True))
+    return SpotifyClient(RendererRegistration(BROKER_URL, "shh", "device-123"), Spotify(enabled=True))
 
 
 @responses.activate
