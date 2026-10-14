@@ -8,10 +8,6 @@ from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_credentials.device_name import device_name_from_env
 from countdown_credentials.registration import RendererRegistration
 
-# Sent as the JSON body of the Spotify proxy calls (spotify_client). The config call is the generated
-# client's (broker_api/), which sends only what the broker's spec declares, and that has no body.
-ROLE_BODY = {"role": "renderer"}
-
 
 def _device_name() -> str | None:
     """X-Device-Name is cosmetic on the broker side, so it's sent on every call (a rename

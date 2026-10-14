@@ -1,5 +1,4 @@
 import asyncio
-import json
 from datetime import timedelta
 
 import pytest
@@ -61,7 +60,7 @@ def test_update_sends_the_device_secret_as_a_bearer_token(client):
 
     request = responses.calls[0].request
     assert request.headers["Authorization"] == "Bearer shh"
-    assert json.loads(request.body) == {"role": "renderer"}  # the secret goes in the header only
+    assert request.body is None  # the secret goes in the header only
 
 
 @responses.activate
