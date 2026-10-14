@@ -33,9 +33,11 @@ countdown-server = { workspace = true }
 countdown-client = { workspace = true }
 countdown-orchestrator = { workspace = true }
 countdown-api = { index = "countdown-api" }
+openapi-codegen = { url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v0.2.0/openapi_codegen-0.2.0-py3-none-any.whl" }
 
 [dependency-groups]
 dev = [
+    "openapi-codegen",
     "pyinstrument>=5.1.3",
     "pyproject-runner>=0.3.0",
     "pytest>=8.4.2",
