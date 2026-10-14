@@ -1,7 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from countdown_core.config_server.broker_client import ROLE_BODY
 from countdown_core.config_server.models import SpotifyConfig
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
@@ -45,9 +44,7 @@ class SpotifyClient(AbstractClient):
         pass
 
     def _request(self, method: str, path: str, **kwargs) -> bytes:
-        response = self.session.request(
-            method, f"{self.base_url}{path}", json=ROLE_BODY, timeout=DEFAULT_TIMEOUT, **kwargs
-        )
+        response = self.session.request(method, f"{self.base_url}{path}", timeout=DEFAULT_TIMEOUT, **kwargs)
         response.raise_for_status()
         return response.content
 

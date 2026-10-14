@@ -5,9 +5,6 @@ from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_credentials.device_name import device_name_from_env
 from countdown_credentials.registration import RendererRegistration
 
-# Sent as the JSON body of every broker call.
-ROLE_BODY = {"role": "renderer"}
-
 
 def _device_name_header() -> dict[str, str]:
     """X-Device-Name is cosmetic on the broker side, so it's sent on every call (a rename
@@ -34,7 +31,7 @@ class BrokerClient(AbstractClient):
     def _request(self, method: str, path: str, **kwargs):
         headers = _device_name_header()
         response = self.session.request(
-            method, f"{self.base_url}{path}", headers=headers, json=ROLE_BODY, timeout=DEFAULT_TIMEOUT, **kwargs
+            method, f"{self.base_url}{path}", headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
         )
         response.raise_for_status()
         return response.json()
