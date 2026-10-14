@@ -33,6 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
+
       - uses: astral-sh/setup-uv@v5
       - uses: actions/setup-python@v5
         with:
@@ -80,6 +84,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v7
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
       - uses: actions/download-artifact@v4
         with:
           name: countdown-wheel
@@ -109,6 +115,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v7
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
       - uses: actions/download-artifact@v4
         with:
           name: countdown-wheel
@@ -136,6 +144,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
       - uses: actions/download-artifact@v4
         with:
           name: countdown-wheel
@@ -167,6 +177,8 @@ jobs:
       DOCKER_HOST: ssh://${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
     steps:
       - uses: actions/checkout@v7
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
       - name: Set up SSH
         env:
           ORACLE_SSH_TOKEN: ${{ secrets.ORACLE_SSH_TOKEN }}
