@@ -94,7 +94,6 @@ def main() -> int:
     parser.add_argument("--width", type=int, default=800)
     parser.add_argument("--height", type=int, default=480)
     parser.add_argument("--replace", action="store_true", help="first remove the screen already made with this slug")
-    parser.add_argument("--print-secrets", action="store_true", help="also print the secrets, e.g. for an ESP32")
     add_pycharm_arguments(parser)
     args = parser.parse_args()
     if not SLUG_PATTERN.fullmatch(args.slug):
@@ -165,8 +164,6 @@ def main() -> int:
     write_pycharm_config(args, args.slug, env)
     print(f"Seeded {args.slug!r} (device {device_id}), paired to {args.owner}.")
     print(f"Identities and keys: {DEV_DIR / 'renderer'}, {DEV_DIR / 'screen'}; environment: {DEV_DIR / '.env'}")
-    if args.print_secrets:
-        print(f"renderer secret: {renderer_secret}\nscreen secret:   {display_secret}")
     return 0
 
 

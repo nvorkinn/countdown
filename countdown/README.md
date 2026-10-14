@@ -146,8 +146,8 @@ it once; it only knows the schema as of alembic revision 0009):
 uv run python dev/seed_broker.py /path/to/broker.db --owner <your user id> --slug dev --weather London --stops <naptan>
 ```
 
-It writes identities for both processes, `dev/.env`, and prints nothing secret (`--print-secrets` shows the screen's
-secret). The seeded renderer and screen are already paired, so start them and they just work; the broker must speak
+It writes identities for both processes, `dev/.env`, and prints nothing secret (the secrets live only in the
+encrypted identity files, beside their keys). The seeded renderer and screen are already paired, so start them and they just work; the broker must speak
 the contract in `api/` (a broker newer or older than the submodule's pin can reject the screen or the config).
 `--replace` re-seeds a slug.
 
