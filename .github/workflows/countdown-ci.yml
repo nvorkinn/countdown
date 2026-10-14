@@ -96,6 +96,11 @@ jobs:
     - name: Set up uv
       uses: astral-sh/setup-uv@v5
 
+    # countdown-core's wheel contains the broker client, which is generated from the latest countdown API
+    # contract and never committed.
+    - name: Generate the broker client
+      run: uv run --frozen --only-group dev python core/contract/generate.py
+
     - name: Build wheels
       run: uv build --wheel --all-packages
 
@@ -120,6 +125,11 @@ jobs:
 
     - name: Set up uv
       uses: astral-sh/setup-uv@v5
+
+    # countdown-core's wheel contains the broker client, which is generated from the latest countdown API
+    # contract and never committed.
+    - name: Generate the broker client
+      run: uv run --frozen --only-group dev python core/contract/generate.py
 
     - name: Build wheels
       run: uv build --wheel --all-packages
