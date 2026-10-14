@@ -206,7 +206,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "countdown-api", editable = "countdown-api" },
+    { name = "countdown-api", editable = "api" },
     { name = "countdown-client", editable = "client" },
     { name = "countdown-core", editable = "core" },
     { name = "countdown-credentials", editable = "credentials" },
@@ -230,7 +230,7 @@ dev = [
 [[package]]
 name = "countdown-api"
 version = "0.0.0"
-source = { editable = "countdown-api" }
+source = { editable = "api" }
 dependencies = [
     { name = "pydantic" },
 ]
@@ -292,7 +292,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "countdown-api", extras = ["client"], editable = "countdown-api" },
+    { name = "countdown-api", extras = ["client"], editable = "api" },
     { name = "countdown-credentials", editable = "credentials" },
     { name = "np", specifier = ">=1.0.2" },
     { name = "numpy", specifier = ">=2.5.3" },

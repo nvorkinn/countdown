@@ -244,5 +244,5 @@ tests/images/_failures/
 profile.html
 
 # Downloaded by `uv run sync_api.py`, not checked in.
-/countdown-api/src/
-/countdown-api/VERSION
+/api/src/
+/api/VERSION

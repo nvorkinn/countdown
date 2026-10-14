@@ -43,7 +43,7 @@ dev = [
 
 [tool.uv.workspace]
 members = [
-    "countdown-api",
+    "api",
     "credentials",
     "epd",
     "core",
@@ -69,7 +69,7 @@ target-version = "py314"
 line-length = 120
 # So isort knows the workspace packages are first-party.
 src = [
-    "countdown-api/src",
+    "api/src",
     "credentials/src",
     "epd/src",
     "core/src",
@@ -79,7 +79,7 @@ src = [
 ]
 # The vendored Waveshare driver.
 extend-exclude = [
-    "countdown-api/src",
+    "api/src",
     "epd/src/countdown_epd/epdconfig.py",
     "epd/src/countdown_epd/epd7in5_V2.py",
 ]
