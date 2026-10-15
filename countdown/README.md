@@ -99,6 +99,15 @@ This directory is a uv workspace:
 
 `uv sync` installs them all, editable, for development and the tests.
 
+### Weather panel
+
+The monochrome weather panel uses a large temperature with a smaller unit, a compact condition icon,
+and a plain-language description. Landscape layouts group today's low, high and rain probability
+below the current conditions; unavailable rain probability is omitted, but a reported 0% is shown.
+Short, wide panels arrange the readings beside the temperature instead of shrinking the whole layout.
+Portrait layouts put sunrise, sunset, humidity and wind in a separate row, followed by the next
+outlook. Both layouts leave clear margins and fit long readings to their available space.
+
 ## The API contract
 
 The API between the renderer and [auth-broker](https://github.com/nvorkinn/auth-broker) is defined in neither

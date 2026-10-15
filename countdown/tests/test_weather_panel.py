@@ -1,8 +1,25 @@
+from itertools import combinations
+
 import pytest
+from PIL import ImageDraw
 from weather_factory import make_weather
 
-from countdown_core.weather.weather_panel import FALLBACK_ICON, ICON_MAP, WeatherPanel, icon_for
+from countdown_core.weather.models import Upcoming
+from countdown_core.weather.weather_panel import FALLBACK_ICON, ICON_MAP, WEATHER_CODE_DESC, WeatherPanel, icon_for
 from countdown_core.weather.weather_trmnl_panel import HEIGHT, WeatherTrmnlPanel, _compass
+
+
+@pytest.fixture
+def drawn_text(monkeypatch):
+    calls = []
+    original = ImageDraw.ImageDraw.text
+
+    def record(draw, xy, text, fill=None, font=None, anchor=None, **kwargs):
+        calls.append((text, draw.textbbox(xy, text, font=font, anchor=anchor), font.size))
+        return original(draw, xy, text, fill=fill, font=font, anchor=anchor, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
+    return calls
 
 
 @pytest.mark.parametrize("code", [0, 1, 2])
@@ -53,6 +70,10 @@ def test_icon_map_covers_every_wmo_code_open_meteo_can_return():
     assert wmo_codes == set(ICON_MAP)
 
 
+def test_every_weather_icon_has_a_readable_description():
+    assert set(WEATHER_CODE_DESC) == set(ICON_MAP)
+
+
 @pytest.mark.parametrize("size", [(528, 280), (528, 170)])
 def test_render_fills_the_requested_size_and_draws_something(size):
     img = WeatherPanel(make_weather()).render(*size)
@@ -83,3 +104,131 @@ def test_a_long_wind_reading_shrinks_rather_than_runs_off_the_panel():
     img = WeatherTrmnlPanel(make_weather(wind_speed=123, wind_speed_units="mp/h")).render(470, HEIGHT)
 
     assert img.getchannel("A").crop((469, 0, 470, HEIGHT)).getbbox() is None
+
+
+PANEL_SIZES = [
+    (WeatherPanel, (528, 76)),
+    (WeatherPanel, (528, 49)),
+    (WeatherPanel, (528, 125)),
+    (WeatherPanel, (241, 185)),
+    (WeatherPanel, (528, 170)),
+    (WeatherPanel, (528, 280)),
+    (WeatherPanel, (241, 370)),
+    (WeatherTrmnlPanel, (470, HEIGHT)),
+    (WeatherTrmnlPanel, (320, 220)),
+]
+
+
+@pytest.mark.parametrize(("panel_type", "size"), PANEL_SIZES)
+@pytest.mark.parametrize("code", [*ICON_MAP, 1234])
+def test_weather_readings_have_clear_edges_and_never_overlap(panel_type, size, code, drawn_text):
+    weather = make_weather(
+        temperature=-123.4,
+        temperature_units="°F",
+        low=-130,
+        high=100,
+        precipitation_probability=100,
+        humidity=100,
+        wind_speed=123,
+        wind_speed_units="mp/h",
+        weather_code=code,
+        upcoming_weather_code=(Upcoming.THIS_AFTERNOON, code),
+    )
+    img = panel_type(weather).render(*size)
+    width, height = size
+
+    assert img.size == size
+    assert set(img.getchannel("A").get_flattened_data()) == {0, 255}
+    for text, (left, top, right, bottom), _ in drawn_text:
+        assert 4 <= left < right <= width - 4, text
+        assert 4 <= top < bottom <= height - 4, text
+    for first, second in combinations(drawn_text, 2):
+        _, (left_a, top_a, right_a, bottom_a), _ = first
+        _, (left_b, top_b, right_b, bottom_b), _ = second
+        assert right_a <= left_b or right_b <= left_a or bottom_a <= top_b or bottom_b <= top_a, (
+            first,
+            second,
+        )
+
+
+@pytest.mark.parametrize(
+    ("panel_type", "size", "number"), [(WeatherPanel, (241, 185), "14.2"), (WeatherTrmnlPanel, (470, HEIGHT), "14")]
+)
+def test_temperature_keeps_the_configured_unit_visually_secondary(panel_type, size, number, drawn_text):
+    panel_type(make_weather(temperature_units="°F")).render(*size)
+    sizes = {text: font_size for text, _, font_size in drawn_text}
+
+    assert sizes["°F"] < sizes[number] / 2
+    assert "°C" not in sizes
+
+
+def test_short_wide_panels_reflow_instead_of_miniaturizing_everything(drawn_text):
+    WeatherPanel(make_weather()).render(528, 76)
+    sizes = {text: font_size for text, _, font_size in drawn_text}
+
+    assert sizes["14.2"] >= 40
+    assert sizes["LOW"] >= 11
+    assert sizes["40%"] >= 20
+
+
+@pytest.mark.parametrize("probability", [None, 0, 100])
+def test_landscape_preserves_the_daily_readings_and_optional_rain(probability, drawn_text):
+    WeatherPanel(make_weather(precipitation_probability=probability)).render(241, 185)
+    texts = {text for text, _, _ in drawn_text}
+
+    assert {"NOW", "Overcast", "LOW", "9°", "HIGH", "18°"} <= texts
+    if probability is None:
+        assert "RAIN" not in texts
+    else:
+        assert {"RAIN", f"{probability}%"} <= texts
+
+
+@pytest.mark.parametrize("upcoming", list(Upcoming))
+def test_portrait_preserves_every_detail_and_the_next_outlook(upcoming, drawn_text):
+    weather = make_weather(upcoming_weather_code=(upcoming, 61))
+    WeatherTrmnlPanel(weather).render(470, HEIGHT)
+    texts = {text for text, _, _ in drawn_text}
+
+    assert {"Sunrise", "07:21", "Sunset", "18:04", "Humidity", "72%", "Wind", "13 km/h SW"} <= texts
+    assert {str(upcoming).upper(), "Slight rain", icon_for(61, upcoming is not Upcoming.TONIGHT)} <= texts
+
+
+def test_unknown_current_and_upcoming_weather_are_explicit(drawn_text):
+    weather = make_weather(weather_code=1234, upcoming_weather_code=(Upcoming.TONIGHT, 1234))
+    WeatherTrmnlPanel(weather).render(470, HEIGHT)
+    texts = [text for text, _, _ in drawn_text]
+
+    assert texts.count("Unknown conditions") == 2
+    assert texts.count(FALLBACK_ICON) == 2
+
+
+@pytest.mark.parametrize(
+    ("name", "panel_type", "size", "overrides"),
+    [
+        ("weather_inline", WeatherPanel, (528, 76), {}),
+        ("weather_compact", WeatherPanel, (241, 185), {}),
+        ("weather_tall", WeatherPanel, (241, 370), {}),
+        ("weather_no_rain", WeatherPanel, (528, 185), {"precipitation_probability": None}),
+        ("weather_portrait", WeatherTrmnlPanel, (470, HEIGHT), {}),
+        (
+            "weather_portrait_long",
+            WeatherTrmnlPanel,
+            (470, HEIGHT),
+            {
+                "temperature": -12,
+                "weather_code": 99,
+                "wind_speed": 123,
+                "wind_speed_units": "mp/h",
+                "upcoming_weather_code": (Upcoming.THIS_AFTERNOON, 99),
+            },
+        ),
+        (
+            "weather_portrait_clear_night",
+            WeatherTrmnlPanel,
+            (470, HEIGHT),
+            {"weather_code": 0, "is_day": False, "upcoming_weather_code": (Upcoming.TONIGHT, 0)},
+        ),
+    ],
+)
+def test_weather_layout_snapshots(snapshot, name, panel_type, size, overrides):
+    snapshot.assert_matches(name, panel_type(make_weather(**overrides)).render(*size), threshold=0.01)
