@@ -16,3 +16,10 @@ services:
       MAX_RENDERERS: ${MAX_RENDERERS:-20}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    # The tag is the stream's `service` in VictoriaLogs (the renderers' is renderer-<slug>, see runtime.py).
+    logging:
+      driver: json-file
+      options:
+        tag: orchestrator
+        max-size: 10m
+        max-file: "3"

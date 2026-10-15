@@ -281,6 +281,20 @@ Spotify token itself). The renderer's own settings are `BROKER_URL`, `CLAIM_TOKE
 Once paired, an API that still needs setting up shows "Not configured" in its area (see
 [How it works](#how-it-works)).
 
+## Logs
+
+The renderer and the orchestrator log one JSON object per line on stderr (`countdown_core/core/log_format.py`,
+and the orchestrator's own copy): `level` (`debug`, `info`, `warn`, `error`, `fatal`), `_msg`, `logger`,
+`source` (file:line), and `exception` when there is a traceback, kept inside its record. The renderer adds
+`device` (its slug). There is no timestamp: the container's log driver stamps each line. `LOG_LEVEL` sets the
+level (default INFO); `urllib3`, `asyncio`, `PIL` and `opentelemetry` stay at WARNING.
+
+The host's Fluent Bit ships the containers' json-file logs to VictoriaLogs, naming each stream after the
+container's `tag` log option: the orchestrator's compose file sets `orchestrator`, and the orchestrator
+makes each renderer with `tag: {{.Name}}`, so its stream is `renderer-<slug>`. A renderer made before this
+carries no tag (its stream is the container id) until the next release recreates it. The dashboards are in
+auth-broker (`docs/architecture.md`).
+
 ## Metrics
 
 The renderer reports its health as OTLP/HTTP metrics (protobuf, via the

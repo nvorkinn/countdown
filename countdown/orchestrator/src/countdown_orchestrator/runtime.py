@@ -11,6 +11,7 @@ MANAGED_LABEL = "countdown.managed"
 SLUG_LABEL = "countdown.slug"
 # The image a renderer was made from, so a release's deploy can bring it up to date.
 IMAGE_LABEL = "countdown.image"
+LOG_ROTATION = {"max-size": "10m", "max-file": "3"}
 # What a renderer is given as its claim token once the screen is claimed and the broker has cleared the real one. It
 # still refuses to start without some value, but then ignores it: its identity is in its volumes.
 CLAIMED = "already-claimed"
@@ -98,6 +99,8 @@ class DockerRuntime:
             container.start()
 
     def _run(self, assignment: Assignment) -> None:
+        from docker.types import LogConfig
+
         name = self.container_name(assignment.slug)
         self.client.containers.run(
             self.image,
@@ -108,6 +111,9 @@ class DockerRuntime:
             mem_limit=self.mem_limit,
             nano_cpus=self.nano_cpus,
             labels={MANAGED_LABEL: "1", SLUG_LABEL: assignment.slug, IMAGE_LABEL: self.image},
+            # What the host's log collector names the stream (renderer-<slug>), as for the compose services; the
+            # json-file driver is the one it tails. Rotated, so a chatty renderer can't fill the disk.
+            log_config=LogConfig(type=LogConfig.types.JSON, config={"tag": "{{.Name}}", **LOG_ROTATION}),
             environment={
                 "BROKER_URL": self.broker_url,
                 "DEVICE_NAME": assignment.slug,

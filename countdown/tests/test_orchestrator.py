@@ -324,6 +324,18 @@ def test_a_new_renderer_is_a_container_shaped_like_the_compose_services():
     assert set(kwargs["volumes"]) == {"renderer-lisa-data", "renderer-lisa-key"}
 
 
+def test_a_renderers_logs_are_tagged_with_its_container_name_and_rotated():
+    """The tag is the stream's `service` in VictoriaLogs; without it the stream is the container's id."""
+    client = FakeDocker()
+
+    _runtime(client).ensure(_assignment())
+
+    ((_, kwargs),) = client.run_calls
+    log_config = kwargs["log_config"]
+    assert log_config.type == "json-file"
+    assert log_config.config == {"tag": "{{.Name}}", "max-size": "10m", "max-file": "3"}
+
+
 def test_an_existing_running_renderer_is_left_alone():
     client = FakeDocker(FakeContainer("running"))
 

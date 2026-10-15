@@ -12,6 +12,7 @@ from pydantic import BaseModel, ValidationError
 from countdown_api.models import ConfigResponse
 from countdown_core.core import app
 from countdown_core.core.display_loop import safe_fetch
+from countdown_core.core.log_format import JsonFormatter
 from countdown_credentials.registration import RendererRegistrar, RendererRegistration
 from countdown_server.server_target import ServerTarget
 
@@ -69,8 +70,8 @@ def test_logging_defaults_to_info_and_honours_log_level(monkeypatch, env, expect
 
     (kwargs,) = calls
     assert kwargs["level"] == expected
-    assert "%(filename)s:%(lineno)d" in kwargs["format"]
-    assert "asctime" not in kwargs["format"]  # journald timestamps each line itself
+    (handler,) = kwargs["handlers"]
+    assert isinstance(handler.formatter, JsonFormatter)  # the container's log driver timestamps each line itself
 
 
 # --- waiting for a config at boot ---------------------------------------------------
