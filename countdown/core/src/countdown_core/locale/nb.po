@@ -378,16 +378,16 @@ msgid "Tonight"
 msgstr "I kveld"
 
 msgid "Top artists"
-msgstr "Toppartister"
+msgstr "Topp artister"
 
 msgid "Top artists:"
-msgstr "Toppartister:"
+msgstr "Topp artister:"
 
 msgid "Top tracks"
-msgstr "Topplåter"
+msgstr "Topp låter"
 
 msgid "Top tracks:"
-msgstr "Topplåter:"
+msgstr "Topp låter:"
 
 msgid "UP NEXT"
 msgstr "NESTE"
