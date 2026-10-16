@@ -1,5 +1,8 @@
+"""The energy panel: a bar chart of the electricity used, one page per period."""
+
 from datetime import datetime
 from math import ceil, floor, log10
+from typing import TYPE_CHECKING, override
 
 from PIL import Image, ImageDraw
 
@@ -7,6 +10,9 @@ from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_, _, format_date
 from countdown_core.utils.clock import ClockFormat, format_clock
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 TITLE_FONT = GOOGLE_SEMI.font_variant(size=16)
 LABEL_FONT = GOOGLE_REGULAR.font_variant(size=12)
@@ -41,14 +47,20 @@ PAGES = [
 
 
 class EnergyPanel(Panel):
-    def __init__(self, readings: list[dict], page_index: int):
+    """One page of Glow readings, as a bar chart with labelled axes."""
+
+    def __init__(self, readings: list[dict], page_index: int) -> None:
+        """Take one page's readings, {"start": iso-string, "kwh": float} dicts; `page_index` picks the page in PAGES."""
         super().__init__()
         self.page_index = page_index
         self.readings = readings
 
+    @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
-        """A bar chart of one page's readings ({"start": iso-string, "kwh": float} dicts).
-        Bars on whole-pixel edges and 1-bit text, so there's nothing grey to dither."""
+        """Draw the page's readings as a bar chart.
+
+        Bars on whole-pixel edges and 1-bit text, so there's nothing grey to dither.
+        """
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"
@@ -86,17 +98,35 @@ class EnergyPanel(Panel):
         def y_of(kwh: float) -> int:
             return baseline - round(max(kwh, 0) / axis_max * (baseline - chart_top))
 
-        self._draw_y_axis(draw, ticks, tick_labels, y_of, axis_x, chart_right, chart_top, baseline)
-        self._draw_bars(draw, values, chart_left, baseline, slot_width, y_of)
+        self._draw_y_axis(
+            draw,
+            ticks,
+            tick_labels,
+            y_of,
+            axis_x=axis_x,
+            chart_right=chart_right,
+            chart_top=chart_top,
+            baseline=baseline,
+        )
+        self._draw_bars(draw, values, y_of, chart_left=chart_left, baseline=baseline, slot_width=slot_width)
         draw.rectangle((axis_x, baseline, chart_right - 1, baseline + BASELINE_WIDTH - 1), fill="black")
-        self._draw_labels(draw, labels, chart_left, baseline + BASELINE_WIDTH + LABEL_GAP, slot_width, image_width)
+        self._draw_labels(
+            draw,
+            labels,
+            chart_left=chart_left,
+            y=baseline + BASELINE_WIDTH + LABEL_GAP,
+            slot_width=slot_width,
+            image_width=image_width,
+        )
         return img
 
     @staticmethod
     def _y_scale(peak: float) -> tuple[float, float]:
-        """A round tick step (1, 2, 2.5 or 5 times a power of ten) giving about
-        TARGET_Y_TICKS intervals, and the axis top: the first tick at or above the
-        tallest bar."""
+        """Return a round tick step for the y-axis, and the axis top.
+
+        The step is 1, 2, 2.5 or 5 times a power of ten, giving about TARGET_Y_TICKS intervals; the top is the first
+        tick at or above the tallest bar.
+        """
         if peak <= 0:
             return 1.0, 1.0
         rough = peak / TARGET_Y_TICKS
@@ -105,7 +135,17 @@ class EnergyPanel(Panel):
         return step, ceil(peak / step - 1e-9) * step
 
     @staticmethod
-    def _draw_y_axis(draw, ticks, tick_labels, y_of, axis_x, chart_right, chart_top, baseline):
+    def _draw_y_axis(  # noqa: PLR0913 -- a drawing helper given the chart's edges, by name
+        draw: ImageDraw.ImageDraw,
+        ticks: list[float],
+        tick_labels: list[str],
+        y_of: Callable[[float], int],
+        *,
+        axis_x: int,
+        chart_right: int,
+        chart_top: float,
+        baseline: float,
+    ) -> None:
         draw.rectangle((axis_x, chart_top, axis_x + AXIS_WIDTH - 1, baseline - 1), fill="black")
         for tick, label in zip(ticks, tick_labels, strict=True):
             y = y_of(tick)
@@ -116,7 +156,15 @@ class EnergyPanel(Panel):
                     draw.point((x, y), fill="black")
 
     @staticmethod
-    def _draw_bars(draw, values, chart_left, baseline, slot_width, y_of):
+    def _draw_bars(  # noqa: PLR0913 -- a drawing helper given the chart's edges, by name
+        draw: ImageDraw.ImageDraw,
+        values: list[float],
+        y_of: Callable[[float], int],
+        *,
+        chart_left: int,
+        baseline: float,
+        slot_width: float,
+    ) -> None:
         # Negative/zero readings just draw nothing.
         gap = max(1, round(slot_width * (1 - BAR_FILL) / 2))
         for i, value in enumerate(values):
@@ -129,7 +177,15 @@ class EnergyPanel(Panel):
                 draw.rectangle((x0, top, x1, baseline - 1), fill="black")
 
     @staticmethod
-    def _draw_labels(draw, labels, chart_left, y, slot_width, image_width):
+    def _draw_labels(  # noqa: PLR0913 -- a drawing helper given the chart's edges, by name
+        draw: ImageDraw.ImageDraw,
+        labels: list[str],
+        *,
+        chart_left: int,
+        y: float,
+        slot_width: float,
+        image_width: int,
+    ) -> None:
         # Label every nth bar, n being just enough that the widest label fits
         # between neighbours without overlapping.
         widest = max(LABEL_FONT.getlength(label) for label in labels)

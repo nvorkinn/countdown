@@ -42,7 +42,7 @@ def test_formatting_preserves_the_values_wall_clock_offset_fold_and_machine_time
 
 
 def test_naive_datetime_is_already_a_local_wall_clock_not_the_renderers_time_zone():
-    assert format_clock(datetime(2026, 1, 15, 18, 4), "12h") == "6:04 PM"
+    assert format_clock(datetime(2026, 1, 15, 18, 4), "12h") == "6:04 PM"  # noqa: DTZ001 -- naive on purpose
 
 
 def test_unsupported_clock_format_is_an_explicit_error():

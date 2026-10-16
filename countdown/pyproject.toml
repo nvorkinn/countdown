@@ -72,7 +72,19 @@ src = [
 force-exclude = true
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "TID251"]
+# Every rule, bar the few below that can't be satisfied together with another rule or with `ruff format`.
+select = ["ALL"]
+ignore = [
+    "D203",   # one blank line before a class docstring: contradicts D211 (no blank line), which we keep
+    "D213",   # summary on the docstring's second line: contradicts D212 (on the first), which we keep
+    "COM812", # trailing commas: ruff format adds and removes them itself, and the two fight
+    "ISC001", # implicit string concatenation on one line: can clash with ruff format
+    "CPY001", # a copyright notice at the top of every file: a policy this repo doesn't have
+]
+
+# Pydantic models need their annotations' imports at run time, not only for type checking.
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 # countdown-core must stay free of the apps: they depend on it, never the other way round.
 # The ban only applies inside core/ (see per-file-ignores).
@@ -81,5 +93,21 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "TID251"]
 
 [tool.ruff.lint.per-file-ignores]
 "!core/**" = ["TID251"]
+"tests/**" = [
+    "S101",    # pytest is built on assert
+    "PLR2004", # a test compares against the literal values it expects
+    "D1",      # a test's name says what it checks; fixtures and fakes are local to the tests
+    "ANN",     # pytest injects fixtures by name, and their types add nothing to a test
+    "ARG",     # fixtures requested only for their side effect, and fakes matching a real signature
+    "SLF001",  # tests look at private state to check it
+    "INP001",  # tests/ is a pytest rootdir, not a package
+    "S105",    # fake tokens and passwords
+    "S106",
+    "S107",
+]
+"dev/**" = [
+    "T201",   # command-line scripts: printing is their output
+    "INP001", # standalone scripts, run by path, not a package
+]
 
 [tool.pyproject-runner.tasks]

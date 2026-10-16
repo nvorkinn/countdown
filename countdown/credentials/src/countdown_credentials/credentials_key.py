@@ -1,6 +1,9 @@
-"""The key that keeps the device credentials file encrypted at rest. Under systemd it can be handed to the service
-as a credential (LoadCredential=), so it never lives next to the file; a container gets it as a Docker secret. Anywhere else (a dev machine) one is made in the user's config directory, so the file is
-never written unencrypted."""
+"""The key that keeps the device credentials file encrypted at rest.
+
+Under systemd it can be handed to the service as a credential (LoadCredential=), so it never lives next to the file;
+a container gets it as a Docker secret. Anywhere else (a dev machine) one is made in the user's config directory, so
+the file is never written unencrypted.
+"""
 
 import os
 from pathlib import Path
@@ -17,7 +20,7 @@ def _owner_only(path: str, flags: int) -> int:
 
 
 def _own_key() -> bytes:
-    """This user's own key, made on first use."""
+    """Read the user's own key, made on first use."""
     config_home = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
     path = Path(config_home) / "countdown" / KEY_NAME
     if not path.exists():
@@ -31,7 +34,7 @@ def _own_key() -> bytes:
 
 
 def credentials_key() -> Fernet:
-    """The cipher for the credentials file."""
+    """Return the cipher for the credentials file."""
     directories = [Path(d) for d in (os.environ.get("CREDENTIALS_DIRECTORY"),) if d]
     for directory in (*directories, DOCKER_SECRETS_DIR):
         path = directory / KEY_NAME

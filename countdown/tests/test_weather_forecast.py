@@ -8,6 +8,11 @@ from countdown_core.weather.models import ForecastResponse, WeatherPeriod
 from countdown_core.weather.weather_forecast import weather_pages
 
 
+def local_time(*fields: int) -> dt.datetime:
+    """Make a time as Open-Meteo gives it: local to the forecast's place, with no zone."""
+    return dt.datetime(*fields)  # noqa: DTZ001 -- naive on purpose, see above
+
+
 def test_pages_follow_the_tab_order_and_keep_the_reported_units():
     payload = forecast_json()
     payload["current_units"] = {"temperature_2m": "°F", "relative_humidity_2m": "%", "wind_speed_10m": "mp/h"}
@@ -34,8 +39,8 @@ def test_tonight_includes_the_next_morning_but_not_daytime():
     hourly["temperature_2m"][daytime] = -50
     tonight = weather_pages(ForecastResponse.model_validate(payload))[1]
 
-    assert tonight.starts_at == dt.datetime(2026, 1, 15, 18)
-    assert tonight.ends_at == dt.datetime(2026, 1, 16, 6)
+    assert tonight.starts_at == local_time(2026, 1, 15, 18)
+    assert tonight.ends_at == local_time(2026, 1, 16, 6)
     assert tonight.temperature == tonight.low == -3
     assert tonight.high == 9
     assert tonight.feels_like == -6
@@ -54,8 +59,8 @@ def test_late_tonight_does_not_include_hours_that_have_already_passed():
     tonight = weather_pages(ForecastResponse.model_validate(payload))[1]
 
     assert tonight.temperature == 8
-    assert tonight.starts_at == dt.datetime(2026, 1, 15, 23, 45)
-    assert tonight.ends_at == dt.datetime(2026, 1, 16, 6)
+    assert tonight.starts_at == local_time(2026, 1, 15, 23, 45)
+    assert tonight.ends_at == local_time(2026, 1, 16, 6)
     assert tonight.weather_code == 0  # the first remaining hour, not yesterday evening's rain
 
 
@@ -63,8 +68,8 @@ def test_before_dawn_tonight_means_the_coming_evening():
     payload = forecast_json(current={"time": "2026-01-15T02:00"})
     tonight = weather_pages(ForecastResponse.model_validate(payload))[1]
 
-    assert tonight.starts_at == dt.datetime(2026, 1, 15, 18)
-    assert tonight.ends_at == dt.datetime(2026, 1, 16, 6)
+    assert tonight.starts_at == local_time(2026, 1, 15, 18)
+    assert tonight.ends_at == local_time(2026, 1, 16, 6)
 
 
 @pytest.mark.parametrize("weekday", range(7))
@@ -133,5 +138,5 @@ def test_an_incomplete_forecast_is_not_accepted_just_because_now_is_available():
     for values in payload["daily"].values():
         del values[2:]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011 -- the point is only that it fails, not how
         weather_pages(ForecastResponse.model_validate(payload))

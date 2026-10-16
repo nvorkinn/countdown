@@ -1,18 +1,26 @@
-from typing import override
+"""The DisplayTarget that hands each frame to the broker."""
+
+from typing import TYPE_CHECKING, override
 
 import requests
-from PIL import Image
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.core.targets import DisplayTarget, Region, panel_bytes
-from countdown_credentials.registration import RendererRegistration
+
+if TYPE_CHECKING:
+    from PIL import Image
+
+    from countdown_credentials.registration import RendererRegistration
 
 
 class ServerTarget(DisplayTarget):
-    """Hands each frame to the broker, for the device's screen to fetch. Until a
-    screen has been matched with this renderer, the broker accepts frames with a 202 and drops them."""
+    """Hands each frame to the broker, for the device's screen to fetch.
 
-    def __init__(self, registration: RendererRegistration):
+    Until a screen has been matched with this renderer, the broker accepts frames with a 202 and drops them.
+    """
+
+    def __init__(self, registration: RendererRegistration) -> None:
+        """`registration` is the renderer's: where the broker is, and the secret it sends the frames with."""
         self.base_url = registration.broker_url
         self.session = requests.Session()
         self.session.auth = registration.auth

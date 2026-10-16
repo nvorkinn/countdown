@@ -1,9 +1,15 @@
+"""The pairing screen: the code to enter on the website to set the device up."""
+
+from typing import TYPE_CHECKING, override
+
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import fitted_font, width_scale
+
+if TYPE_CHECKING:
+    from countdown_core.utils.clock import ClockFormat
 
 # Letters are white on black squares; if thin white strokes fill in on the real panel,
 # switch this to "Ubuntu-Medium.ttf".
@@ -17,15 +23,19 @@ GAP = 12
 
 
 class PairingCodePanel(Panel):
-    """Shown full-screen while a device isn't paired yet. has_changed says whether the code
-    differs from the last check, so an unchanged screen isn't repainted."""
+    """Shown full-screen while a device isn't paired yet.
 
-    def __init__(self, pairing_code: str | None, device_id: str, has_changed: bool):
+    has_changed says whether the code differs from the last check, so an unchanged screen isn't repainted.
+    """
+
+    def __init__(self, pairing_code: str | None, device_id: str, *, has_changed: bool) -> None:
+        """`pairing_code` is the broker's code to show (None for no code yet); `device_id` names the device."""
         super().__init__()
         self.pairing_code = pairing_code
         self.device_id = device_id
         self.has_changed = has_changed
 
+    @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)

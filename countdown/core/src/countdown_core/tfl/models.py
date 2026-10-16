@@ -1,3 +1,5 @@
+"""TfL's API responses (and postcodes.io's), as far as the dashboard reads them."""
+
 from abc import ABC
 from datetime import datetime
 from enum import StrEnum
@@ -7,6 +9,8 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class Mode(StrEnum):
+    """A TfL mode of transport, as its modeName."""
+
     BUS = "bus"
     TUBE = "tube"
     NATIONAL_RAIL = "national-rail"
@@ -14,27 +18,35 @@ class Mode(StrEnum):
 
 
 class Arrival(BaseModel, ABC):
+    """One vehicle due at a stop, from TfL's /StopPoint/{id}/Arrivals."""
+
     naptan_id: str = Field(alias="naptanId")
     line: str = Field(alias="lineName")
     time_to_station: int = Field(alias="timeToStation")
 
 
 class TubeArrival(Arrival):
+    """A train due at a Tube station."""
+
     mode_name: Literal[Mode.TUBE] = Field(alias="modeName")
     towards: str
     destination_naptan_id: str | None = Field(alias="destinationNaptanId", default=None)
 
 
 class BusArrival(Arrival):
+    """A bus due at a bus stop."""
+
     mode_name: Literal[Mode.BUS] = Field(alias="modeName")
     destination: str = Field(alias="destinationName")
 
     @field_validator("destination")
     @classmethod
     def trim_destination(cls, value: str) -> str:
-        """TfL often qualifies a destination after a comma (a road or landmark), which
-        doesn't fit on the panel and isn't needed to tell buses apart. Keeps the whole
-        name if there's nothing before the comma."""
+        """Drop what TfL often adds to a destination after a comma (a road or landmark).
+
+        It doesn't fit on the panel and isn't needed to tell buses apart. Keeps the whole name if there's nothing
+        before the comma.
+        """
         return value.split(",", 1)[0].strip() or value.strip()
 
 
@@ -42,11 +54,15 @@ ArrivalUnion = Annotated[BusArrival | TubeArrival, Field(discriminator="mode_nam
 
 
 class AdditionalProperty(BaseModel):
+    """A key and value TfL tacks onto a stop point."""
+
     key: str
     value: str
 
 
 class StopType(StrEnum):
+    """What kind of place a stop point is, as its stopType."""
+
     NAPTAN_ONSTREET_BUS_COACH_STOP_PAIR = "NaptanOnstreetBusCoachStopPair"
     NAPTAN_PUBLIC_BUS_COACH_TRAM = "NaptanPublicBusCoachTram"
     NAPTAN_BUS_COACH_STATION = "NaptanBusCoachStation"
@@ -62,11 +78,15 @@ class StopType(StrEnum):
 
 
 class Identifier(BaseModel):
+    """A line serving a stop: its id and name."""
+
     id: str
     name: str
 
 
 class StopPoint(BaseModel):
+    """A place in TfL's stop hierarchy (a station, a stop, an entrance...), with the ones inside it."""
+
     naptan_id: str = Field(alias="naptanId")
     common_name: str = Field(alias="commonName")
     modes: list[Mode]
@@ -75,6 +95,8 @@ class StopPoint(BaseModel):
 
 
 class OtherStopPoint(StopPoint):
+    """A stop point that has no departures of its own to show: a cluster, an entrance, a platform..."""
+
     stop_type: Literal[
         StopType.NAPTAN_ONSTREET_BUS_COACH_STOP_PAIR,
         StopType.TRANSPORT_INTERCHANGE,
@@ -90,12 +112,16 @@ class OtherStopPoint(StopPoint):
 
 
 class SingleStopPoint(StopPoint):
+    """A single bus or tram stop, with the letter on its flag."""
+
     stop_type: Literal[StopType.NAPTAN_PUBLIC_BUS_COACH_TRAM] = Field(alias="stopType")
     stop_letter: str = Field(alias="stopLetter")
     lines: list[Identifier] = []
 
 
 class MetroStopPoint(StopPoint):
+    """A Tube station."""
+
     stop_type: Literal[StopType.NAPTAN_METRO_STATION] = Field(alias="stopType")
     lines: list[Identifier] = []
 
@@ -104,15 +130,21 @@ StopPointUnion = Annotated[OtherStopPoint | SingleStopPoint | MetroStopPoint, Fi
 
 
 class StopPointResponse(BaseModel):
+    """Stop points wrapped in a stopPoints list, as some TfL endpoints return them."""
+
     stop_points: list[StopPoint] = Field(alias="stopPoints")
 
 
 class ValidityPeriod(BaseModel):
+    """When a line status applies."""
+
     from_date: datetime = Field(alias="fromDate")
     to_date: datetime = Field(alias="toDate")
 
 
 class LineStatus(BaseModel):
+    """A line's status: Good Service, Minor Delays and the like, and why."""
+
     status_severity: int = Field(alias="statusSeverity")
     description: str = Field(alias="statusSeverityDescription")
     # What's actually going on, e.g. "Victoria Line: Minor delays due to a track fault at
@@ -131,8 +163,10 @@ class Line(BaseModel):
 
 
 class DisruptedPoint(BaseModel):
-    """One entry from TfL's /StopPoint/{ids}/Disruption: lifts out of order, closed
-    entrances, no step-free access and the like."""
+    """One entry from TfL's /StopPoint/{ids}/Disruption.
+
+    Lifts out of order, closed entrances, no step-free access and the like.
+    """
 
     common_name: str = Field(alias="commonName")
     description: str
@@ -165,6 +199,8 @@ class Postcode(BaseModel):
 
 
 class PostcodeResponse(BaseModel):
+    """postcodes.io's envelope around a Postcode."""
+
     result: Postcode
 
 
@@ -176,4 +212,6 @@ class Outcode(BaseModel):
 
 
 class OutcodeResponse(BaseModel):
+    """postcodes.io's envelope around an Outcode."""
+
     result: Outcode

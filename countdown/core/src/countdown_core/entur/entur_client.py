@@ -1,23 +1,31 @@
-"""Departures anywhere in Norway (Ruter in Oslo, and every other operator), from Entur's Journey Planner GraphQL
-API. One query shape serves every mode: bus, tram, metro, rail and ferry. Entur needs no key, only an ET-Client-Name
-header naming the app (https://developer.entur.org/pages-intro-authentication)."""
+"""Departures anywhere in Norway (Ruter in Oslo, and every other operator), from Entur's Journey Planner GraphQL API.
+
+One query shape serves every mode: bus, tram, metro, rail and ferry. Entur needs no key, only an ET-Client-Name
+header naming the app (https://developer.entur.org/pages-intro-authentication).
+"""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import requests
 from pydantic import BaseModel, Field
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 
+if TYPE_CHECKING:
+    import requests
+
 JOURNEY_PLANNER_URL = "https://api.entur.io/journey-planner/v3/graphql"
 HEADERS = {"ET-Client-Name": "nvorkinn-countdown"}
+# A departure that left up to this long ago (seconds) is still shown, as due; any earlier has gone.
+DEPARTED_GRACE = 60
 
 
 class TransportMode(StrEnum):
+    """How a line travels, as Entur names it."""
+
     BUS = "bus"
     TRAM = "tram"
     METRO = "metro"
@@ -29,6 +37,7 @@ class TransportMode(StrEnum):
 
     @classmethod
     def from_str(cls, value: str | None) -> TransportMode:
+        """Read Entur's mode, any case; UNKNOWN for a missing or new one."""
         try:
             return cls((value or "").lower())
         except ValueError:
@@ -98,7 +107,7 @@ query QuayDepartures($id: String!, $numberOfDepartures: Int = 10, $startTime: Da
 
 
 def normalize_stop_id(stop_id: str | int) -> str:
-    """The id with its NSR prefix; a bare number is taken to be a StopPlace."""
+    """Give the id its NSR prefix; a bare number is taken to be a StopPlace."""
     s = str(stop_id).strip()
     return s if s.startswith("NSR:") else f"NSR:StopPlace:{s}"
 
@@ -107,7 +116,7 @@ def _is_quay(stop_id: str) -> bool:
     return stop_id.startswith("NSR:Quay:")
 
 
-def _modes(raw: Any) -> list[TransportMode]:
+def _modes(raw: str | list[str] | None) -> list[TransportMode]:
     raw_modes = raw if isinstance(raw, list) else [raw] if raw else []
     return [TransportMode.from_str(m) for m in raw_modes]
 
@@ -115,10 +124,12 @@ def _modes(raw: Any) -> list[TransportMode]:
 class EnturClient:
     """Stop lookups and departures, over a session the caller owns (an AbstractClient's retrying one)."""
 
-    def __init__(self, session: requests.Session):
+    def __init__(self, session: requests.Session) -> None:
+        """Ask Entur over `session`, which the caller owns."""
         self.session = session
 
     def query(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+        """Run a GraphQL query and return its `data`; raises on an HTTP error or any GraphQL error."""
         response = self.session.post(
             JOURNEY_PLANNER_URL,
             json={"query": query, "variables": variables},
@@ -140,7 +151,7 @@ class EnturClient:
         return stop if isinstance(stop, dict) else None
 
     def get_stop_info(self, stop_id: str | int) -> EnturStop | None:
-        """What the stop is called and what serves it; None if Entur doesn't know the id."""
+        """Look up what the stop is called and what serves it; None if Entur doesn't know the id."""
         normalized = normalize_stop_id(stop_id)
         stop = self._stop(normalized, 1)
         if stop is None:
@@ -160,7 +171,7 @@ class EnturClient:
         )
 
     def get_departures(self, stop_id: str | int, limit: int = 10, now: datetime | None = None) -> list[EnturDeparture]:
-        """The stop's next departures, soonest first, leaving out cancelled ones and any that have gone."""
+        """Fetch the stop's next departures, soonest first, leaving out cancelled ones and any that have gone."""
         ref_time = now or datetime.now(UTC)
         stop = self._stop(normalize_stop_id(stop_id), limit, ref_time)
         calls = stop.get("estimatedCalls") if stop else None
@@ -179,7 +190,7 @@ class EnturClient:
                 continue
             expected = datetime.fromisoformat(when)
             seconds = int((expected - ref_time).total_seconds())
-            if seconds < -60:
+            if seconds < -DEPARTED_GRACE:
                 continue
             departures.append(
                 EnturDeparture(
