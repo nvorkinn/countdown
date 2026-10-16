@@ -8,8 +8,10 @@ REGISTRATION = RendererRegistration("https://broker.example.com", "shh", "device
 
 
 def images_equal(img1: Image.Image, img2: Image.Image, threshold: float = 0.0) -> bool:
-    """True if two images are pixel-identical (the default, threshold=0.0) or
-    within `threshold` mean normalized difference otherwise."""
+    """Check whether two images are pixel-identical, or within `threshold` mean normalized difference.
+
+    The default, threshold=0.0, means pixel-identical.
+    """
     if img1.size != img2.size or img1.mode != img2.mode:
         return False
     diff = ImageChops.difference(img1.convert("RGB"), img2.convert("RGB"))
@@ -19,21 +21,25 @@ def images_equal(img1: Image.Image, img2: Image.Image, threshold: float = 0.0) -
 
 
 def highlight_diff(expected: Image.Image, actual: Image.Image) -> Image.Image:
-    """Returns `actual` with differing pixels painted red, for quick visual review
-    of a snapshot mismatch. Assumes expected/actual are already the same size."""
+    """Return `actual` with differing pixels painted red, for quick visual review of a snapshot mismatch.
+
+    Assumes expected/actual are already the same size.
+    """
     diff = ImageChops.difference(expected.convert("RGB"), actual.convert("RGB"))
     mask = diff.convert("L").point(lambda p: 255 if p > 10 else 0)
     highlight = Image.new("RGB", actual.size, (255, 0, 0))
     return Image.composite(highlight, actual.convert("RGB"), mask)
 
 
-class StopWaiting(Exception):
+class StopWaitingError(Exception):
     """Raised by Sleeps to break out of a loop that would otherwise wait forever."""
 
 
 class Sleeps(list):
-    """Stands in for asyncio.sleep: records each wait, and raises StopWaiting at the `stop_after`th,
-    so a test can end a retry loop after as many waits as it means to see."""
+    """Stands in for asyncio.sleep: records each wait, and raises StopWaitingError at the `stop_after`th.
+
+    So a test can end a retry loop after as many waits as it means to see.
+    """
 
     def __init__(self, stop_after: int = 50):
         super().__init__()
@@ -42,4 +48,4 @@ class Sleeps(list):
     async def __call__(self, seconds: float) -> None:
         self.append(seconds)
         if len(self) >= self.stop_after:
-            raise StopWaiting
+            raise StopWaitingError

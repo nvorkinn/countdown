@@ -1,16 +1,23 @@
-"""One JSON object per log line, with the field names VictoriaLogs reads: `_msg` and `level`. The container's
-log driver stamps each line with its time, and the host's collector adds the service name, so neither is here.
-Matches the renderer's (countdown_core.core.log_format): the orchestrator's image installs only this package."""
+"""One JSON object per log line, with the field names VictoriaLogs reads: `_msg` and `level`.
+
+The container's log driver stamps each line with its time, and the host's collector adds the service name, so
+neither is here.
+Matches the renderer's (countdown_core.core.log_format): the orchestrator's image installs only this package.
+"""
 
 import json
 import logging
 import os
+from typing import override
 
 # Python's names for the two levels that differ from the shared vocabulary: debug, info, warn, error, fatal.
 LEVELS = {"WARNING": "warn", "CRITICAL": "fatal"}
 
 
 class JsonFormatter(logging.Formatter):
+    """Formats a record as one JSON line, with its traceback (if any) as a field rather than more lines."""
+
+    @override
     def format(self, record: logging.LogRecord) -> str:
         entry = {
             "level": LEVELS.get(record.levelname, record.levelname.lower()),

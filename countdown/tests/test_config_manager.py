@@ -10,8 +10,10 @@ SECTIONS = ["interval", "tfl", "spotify", "weather", "glowmarkt", "notice_board"
 
 
 def test_an_empty_config_cannot_be_conjured():
-    """A config only ever comes from a broker response (or, later, a cache of one): "no stops" must mean
-    the broker said so, not that we never heard from it."""
+    """A config only ever comes from a broker response (or, later, a cache of one).
+
+    "No stops" must mean the broker said so, not that we never heard from it.
+    """
     with pytest.raises(ValidationError) as error:
         ConfigResponse()
 
@@ -21,8 +23,10 @@ def test_an_empty_config_cannot_be_conjured():
 
 @pytest.mark.parametrize("section", SECTIONS)
 def test_a_response_missing_any_section_is_rejected(section):
-    """A broker deploy that renamed or dropped a section must not validate as "empty" and
-    blank every device -- it fails, and the device keeps the config it had."""
+    """A broker deploy that renamed or dropped a section must not validate as "empty" and blank every device.
+
+    It fails, and the device keeps the config it had.
+    """
     payload = broker_payload()
     del payload[section]
 
@@ -62,8 +66,10 @@ def test_invalid_clock_preference_is_rejected(clock_format):
 
 
 def test_config_ignores_env_vars(isolated_cwd, monkeypatch):
-    """The config is deliberately not env/settings-sourced -- broker-owned fields should never
-    pick up a local value, only ever what the broker sent."""
+    """The config is deliberately not env/settings-sourced.
+
+    Broker-owned fields should never pick up a local value, only ever what the broker sent.
+    """
     monkeypatch.setenv("TFL__APP_KEY", "should-be-ignored")
     monkeypatch.setenv("GLOWMARKT__USERNAME", "should-be-ignored")
     monkeypatch.setenv("INTERVAL", "99")

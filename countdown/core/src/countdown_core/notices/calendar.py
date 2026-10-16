@@ -1,4 +1,7 @@
+"""Notices worked out from the calendar: the UK's bank holidays and the clocks changing."""
+
 from datetime import date, datetime, time, timedelta
+from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
@@ -6,6 +9,9 @@ from pydantic import BaseModel, Field
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date, local_zone
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
+
+if TYPE_CHECKING:
+    import requests
 
 UK_TIME = ZoneInfo("Europe/London")
 
@@ -19,34 +25,43 @@ BANK_HOLIDAYS_REDOWNLOAD = timedelta(days=1)
 # How far ahead the clocks changing is mentioned.
 CLOCK_CHANGE_NOTICE = timedelta(days=7)
 
+DECEMBER = 12
+
 
 class BankHoliday(BaseModel):
+    """One of gov.uk's bank holidays."""
+
     title: str
     date: date
     notes: str = ""  # e.g. "Substitute day"
 
 
 class Division(BaseModel):
+    """One part of the UK's bank holidays: England and Wales, Scotland or Northern Ireland."""
+
     events: list[BankHoliday]
 
 
 class BankHolidays(BaseModel):
+    """gov.uk's bank holidays, by division."""
+
     divisions: dict[str, Division] = Field(default_factory=dict)
 
 
 def _one_month_after(day: date) -> date:
-    """The same day next month, or that month's last day if it's shorter."""
-    year, month = (day.year + 1, 1) if day.month == 12 else (day.year, day.month + 1)
+    """Return the same day next month, or that month's last day if it's shorter."""
+    year, month = (day.year + 1, 1) if day.month == DECEMBER else (day.year, day.month + 1)
     for d in (day.day, 30, 29, 28):
         try:
             return date(year, month, d)
         except ValueError:
             continue
-    raise AssertionError("every month has a 28th")
+    msg = "every month has a 28th"
+    raise AssertionError(msg)
 
 
 def when(day: date, today: date) -> str:
-    """ "Today", "Tomorrow", or the date, e.g. "Fri 16 Oct", in the screen's language."""
+    """Say `day` as "Today", "Tomorrow", or the date, e.g. "Fri 16 Oct", in the screen's language."""
     if day == today:
         return _("Today")
     if day == today + timedelta(days=1):
@@ -56,13 +71,16 @@ def when(day: date, today: date) -> str:
 
 
 class BankHolidaySource(NoticeSource):
-    """The next bank holiday for the device's part of the UK, once it's less than a month
-    away. England and Wales unless the postcode says otherwise."""
+    """The next bank holiday for the device's part of the UK, once it's less than a month away.
+
+    England and Wales unless the postcode says otherwise.
+    """
 
     name = "Bank holidays"
     refresh_interval = timedelta(hours=1)  # so "Tomorrow" becomes "Today" on time
 
-    def __init__(self, session, country: str | None = None):
+    def __init__(self, session: requests.Session, country: str | None = None) -> None:
+        """Fetch over `session`; `country` is postcodes.io's, None for England and Wales."""
         super().__init__(session)
         self.division = DIVISION_BY_COUNTRY.get(country or "", DEFAULT_DIVISION)
         self.events: list[BankHoliday] | None = None
@@ -78,6 +96,7 @@ class BankHolidaySource(NoticeSource):
             self.downloaded = now
         return self.events
 
+    @override
     def fetch(self, now: datetime) -> list[Notice]:
         today = now.astimezone(UK_TIME).date()
         upcoming = [e for e in self._download(now) if today <= e.date < _one_month_after(today)]
@@ -92,8 +111,10 @@ class BankHolidaySource(NoticeSource):
 
 
 def next_clock_change(now: datetime, zone: ZoneInfo) -> datetime | None:
-    """When the clocks in `zone` next change within CLOCK_CHANGE_NOTICE, as a UTC instant (the
-    changes always happen on the hour), or None if they don't."""
+    """Find when the clocks in `zone` next change within CLOCK_CHANGE_NOTICE, or None if they don't.
+
+    The answer is a UTC instant: the changes always happen on the hour.
+    """
     hour = now.astimezone(ZoneInfo("UTC")).replace(minute=0, second=0, microsecond=0)
     offset = hour.astimezone(zone).utcoffset()
     for _hour in range(int(CLOCK_CHANGE_NOTICE / timedelta(hours=1)) + 1):
@@ -118,6 +139,7 @@ class ClockChangeSource(NoticeSource):
     refresh_interval = timedelta(hours=1)
     needs_network = False
 
+    @override
     def fetch(self, now: datetime) -> list[Notice]:
         zone = local_zone()
         change = next_clock_change(now, zone)

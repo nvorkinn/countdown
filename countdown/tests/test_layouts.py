@@ -17,8 +17,11 @@ from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLa
 from countdown_core.rendering.layouts.classic_portrait import BasePortraitLayout, SpotifyPortraitLayout
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import GAP
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from countdown_core.utils.clock import ClockFormat
 
 EVERYTHING = frozenset(ClientClasses)
 PORTRAIT = Canvas(480, 800)

@@ -1,13 +1,20 @@
+"""Weather warnings for a UK postcode, from the Met Office's RSS feeds."""
+
 import logging
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
-from countdown_core.tfl.models import Postcode
+
+if TYPE_CHECKING:
+    import requests
+
+    from countdown_core.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 
@@ -78,42 +85,48 @@ VALID_TO_PATTERN = re.compile(r"\bto (\d{4}) \w{3} (\d{1,2}) (\w{3})\b")
 
 
 def region_for(location: Postcode) -> str:
+    """Find the Met Office warning region `location` is in; the whole UK if it's in none we know."""
     if location.country == "Scotland":
         region = SCOTTISH_REGION_BY_COUNCIL.get(location.admin_district or "")
     else:
         region = REGION_BY_AREA.get(location.region or location.country)
     if region is None:
         area = location.admin_district or location.region or location.country
-        logger.warning(f"No Met Office warning region for {area}; using the whole UK")
+        logger.warning("No Met Office warning region for %s; using the whole UK", area)
         return UK_REGION
     return region
 
 
 def _valid_until(description: str, now: datetime) -> datetime | None:
-    """The end of a warning's validity, from the "valid from ... to 2100 Wed 25 Sep" in
-    its description. The feed leaves the year out, so it's this year's date unless that's
-    long gone (a warning into January, read in December)."""
+    """Read the end of a warning's validity from the "valid from ... to 2100 Wed 25 Sep" in its description.
+
+    The feed leaves the year out, so it's this year's date unless that's long gone (a warning into January, read in
+    December).
+    """
     match = VALID_TO_PATTERN.search(description)
     if not match:
         return None
     time_text, day, month = match.groups()
     local_now = now.astimezone(UK_TIME)
     try:
-        until = datetime.strptime(f"{local_now.year} {month} {day} {time_text}", "%Y %b %d %H%M")
+        until = datetime.strptime(f"{local_now.year} {month} {day} {time_text}", "%Y %b %d %H%M").replace(
+            tzinfo=UK_TIME
+        )
     except ValueError:
         return None
-    until = until.replace(tzinfo=UK_TIME)
     if until < local_now - timedelta(days=180):
         until = until.replace(year=until.year + 1)
     return until
 
 
 def parse_warnings(feed: bytes, now: datetime) -> list[Notice]:
-    """The feed's items as Notices. Reads the colour and hazard out of titles like "Amber
-    warning of wind affecting London & South East England"; a title in any other shape is
-    shown as it is rather than dropped."""
+    """Turn the feed's items into Notices.
+
+    Reads the colour and hazard out of titles like "Amber warning of wind affecting London & South East England"; a
+    title in any other shape is shown as it is rather than dropped.
+    """
     notices = []
-    for item in ET.fromstring(feed).iter("item"):
+    for item in ET.fromstring(feed).iter("item"):  # noqa: S314 -- the Met Office's own feed, over https
         title = (item.findtext("title") or "").strip()
         description = (item.findtext("description") or "").strip()
         if not title:
@@ -134,14 +147,18 @@ def parse_warnings(feed: bytes, now: datetime) -> list[Notice]:
 
 
 class MetOfficeWarningsSource(NoticeSource):
+    """The Met Office's weather warnings for the postcode's region."""
+
     name = "Met Office warnings"
     refresh_interval = timedelta(minutes=15)
 
-    def __init__(self, session, location: Postcode):
+    def __init__(self, session: requests.Session, location: Postcode) -> None:
+        """Fetch over `session` the warnings for the region `location` is in."""
         super().__init__(session)
         self.region = region_for(location)
         self.url = FEED_URL.format(region=self.region)
 
+    @override
     def fetch(self, now: datetime) -> list[Notice]:
         response = self.session.get(self.url, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()

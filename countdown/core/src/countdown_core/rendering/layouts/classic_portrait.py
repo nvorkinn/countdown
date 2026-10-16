@@ -1,26 +1,32 @@
-"""The classic dashboard on a screen hung portrait (480x800), top to bottom: the weather, two
-stops side by side, Spotify, and the notices, only as tall as their rows so the stops get the
-rest. Without Spotify the stops and notices share its room. There's no energy chart: Glowmarkt
-is left out on portrait."""
+"""The classic dashboard on a screen hung portrait (480x800).
 
-from typing import override
+Top to bottom: the weather, two stops side by side, Spotify, and the notices, only as tall as their rows so the stops
+get the rest. Without Spotify the stops and notices share its room. There's no energy chart: Glowmarkt is left out on
+portrait.
+"""
+
+from typing import TYPE_CHECKING, override
 
 from PIL import Image
 
 from countdown_core.core.api_registry import ClientClasses
-from countdown_core.core.panel import Panel
 from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.screen import Canvas
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import GAP
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_core.weather.weather_trmnl_panel import HEIGHT as WEATHER_HEIGHT
 from countdown_core.weather.weather_trmnl_panel import WeatherTrmnlPanel
 
+if TYPE_CHECKING:
+    from countdown_core.core.panel import Panel
+    from countdown_core.utils.clock import ClockFormat
+
 SPOTIFY_HEIGHT = 120
 
 
 class ClassicPortraitLayout(Layout):
+    """The portrait layout's common ground: the variants differ in whether Spotify gets its room."""
+
     layout_id = "classic"
     canvases = frozenset({Canvas(480, 800)})
 
@@ -36,7 +42,7 @@ class ClassicPortraitLayout(Layout):
         weather_panel = panels[ClientClasses.WEATHER.api_name]
         if isinstance(weather_panel, WeatherPanel):
             weather_panel = WeatherTrmnlPanel(weather_panel.weather)
-        self._place(img, weather_panel, GAP, GAP, width, WEATHER_HEIGHT, clock_format=clock_format)
+        self._place(img, weather_panel, (GAP, GAP), (width, WEATHER_HEIGHT), clock_format=clock_format)
 
         arrivals_y = GAP + WEATHER_HEIGHT + GAP
         spotify_room = SPOTIFY_HEIGHT + GAP if self.SHOWS_SPOTIFY else 0
@@ -47,10 +53,8 @@ class ClassicPortraitLayout(Layout):
         arrivals = self._place(
             img,
             arrival_panel,
-            GAP,
-            arrivals_y,
-            width,
-            self.ARRIVALS_HEIGHT + spare,
+            (GAP, arrivals_y),
+            (width, self.ARRIVALS_HEIGHT + spare),
             clock_format=clock_format,
         )
         arrivals_box = (GAP, arrivals_y, GAP + arrivals.size[0], arrivals_y + arrivals.size[1])
@@ -61,10 +65,8 @@ class ClassicPortraitLayout(Layout):
             self._place(
                 img,
                 panels[ClientClasses.NOTICE_BOARD.api_name],
-                GAP,
-                bottom,
-                width,
-                notices_height,
+                (GAP, bottom),
+                (width, notices_height),
                 clock_format=clock_format,
             )
             bottom -= GAP
@@ -72,16 +74,16 @@ class ClassicPortraitLayout(Layout):
             self._place(
                 img,
                 panels[ClientClasses.SPOTIFY.api_name],
-                GAP,
-                bottom - SPOTIFY_HEIGHT,
-                width,
-                SPOTIFY_HEIGHT,
+                (GAP, bottom - SPOTIFY_HEIGHT),
+                (width, SPOTIFY_HEIGHT),
                 clock_format=clock_format,
             )
         return Frame(img, arrivals_box)
 
 
 class SpotifyPortraitLayout(ClassicPortraitLayout):
+    """With Spotify, between the stops and the notices."""
+
     requires = frozenset({ClientClasses.SPOTIFY})
 
 

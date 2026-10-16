@@ -1,13 +1,19 @@
-"""Disruptions at the Norwegian stops the screen shows departures for: Entur's situation messages (Ruter's and every
-other operator's), on the stops themselves and on the lines leaving them."""
+"""Disruptions at the Norwegian stops the screen shows departures for.
+
+These are Entur's situation messages (Ruter's and every other operator's), on the stops themselves and on the lines
+leaving them.
+"""
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any, override
 
 from countdown_core.entur.entur_client import EnturClient, normalize_stop_id
 from countdown_core.i18n import _, language
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
+
+if TYPE_CHECKING:
+    import requests
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +42,7 @@ WARNING_SEVERITIES = {"severe", "verySevere"}
 
 
 def _text(texts: list[dict[str, Any]]) -> str:
-    """The summary in the screen's language if Entur has it in that one, else whichever it has first."""
+    """Pick the summary in the screen's language if Entur has it in that one, else whichever it has first."""
     wanted = {"nb": ("nob", "no", "nb"), "en": ("eng", "en")}[language()]
     for text in texts:
         if (text.get("language") or "").lower() in wanted and text.get("value"):
@@ -50,17 +56,21 @@ def _until(situation: dict[str, Any]) -> datetime | None:
 
 
 class EnturSituationsSource(NoticeSource):
-    """One notice per situation, tagged with the stop or the line it's about, said once however many departures it
-    affects."""
+    """One notice per situation, tagged with the stop or the line it's about.
+
+    Each is said once, however many departures it affects.
+    """
 
     name = "Entur disruptions"
     refresh_interval = timedelta(minutes=5)
 
-    def __init__(self, session, stop_ids: list[str]):
+    def __init__(self, session: requests.Session, stop_ids: list[str]) -> None:
+        """Fetch over `session`; `stop_ids` are stop places or quays, with or without their NSR prefix."""
         super().__init__(session)
         self.client = EnturClient(session)
         self.stop_ids = [normalize_stop_id(stop_id) for stop_id in stop_ids]
 
+    @override
     def fetch(self, now: datetime) -> list[Notice]:
         notices: dict[str, Notice] = {}
 
@@ -77,7 +87,7 @@ class EnturSituationsSource(NoticeSource):
             data = self.client.query(_QUAY_QUERY if is_quay else _QUERY, {"id": stop_id})
             stop = data.get("quay" if is_quay else "stopPlace")
             if not isinstance(stop, dict):
-                logger.warning(f"Entur doesn't know stop {stop_id}")
+                logger.warning("Entur doesn't know stop %s", stop_id)
                 continue
             for situation in stop.get("situations") or []:
                 add(stop.get("name") or "", situation)

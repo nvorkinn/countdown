@@ -1,17 +1,21 @@
-"""The notice board's sources for a Norwegian postcode: where it is (Kartverket), public holidays (worked out here)
-and weather warnings (MET Norway's MetAlerts)."""
+"""The notice board's sources for a Norwegian postcode.
+
+Where it is (Kartverket), public holidays (worked out here) and weather warnings (MET Norway's MetAlerts).
+"""
 
 import logging
 from datetime import date, datetime, time, timedelta
+from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
-
-import requests
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date, language
 from countdown_core.notices.calendar import when
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.tfl.models import Postcode
+
+if TYPE_CHECKING:
+    import requests
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +28,11 @@ MET_HEADERS = {"User-Agent": "countdown https://github.com/nvorkinn/pi-dashboard
 
 
 def lookup_norwegian_postcode(session: requests.Session, postcode: str) -> Postcode | None:
-    """Where a Norwegian postcode is, as a Postcode with its municipality as the district. None if Kartverket has
-    no address with it; raises if Kartverket can't be reached, so the caller can try again later."""
+    """Look up where a Norwegian postcode is, as a Postcode with its municipality as the district.
+
+    None if Kartverket has no address with it; raises if Kartverket can't be reached, so the caller can try again
+    later.
+    """
     response = session.get(
         ADDRESSES_URL,
         params={"postnummer": postcode.strip(), "treffPerSide": 1, "utkoordsys": 4258},
@@ -63,8 +70,10 @@ def _easter(year: int) -> date:
 
 
 def norwegian_holidays(year: int) -> list[tuple[date, str]]:
-    """Norway's public holidays (helligdager and the two statutory days, 1 and 17 May), in date order, with English
-    names marked for translation."""
+    """List Norway's public holidays (helligdager and the two statutory days, 1 and 17 May), in date order.
+
+    Their English names are marked for translation.
+    """
     easter = _easter(year)
     holidays = [
         (date(year, 1, 1), N_("New Year's Day")),
@@ -84,13 +93,16 @@ def norwegian_holidays(year: int) -> list[tuple[date, str]]:
 
 
 class NorwegianHolidaySource(NoticeSource):
-    """The next Norwegian public holiday, once it's less than a month away, like BankHolidaySource. Worked out
-    here, so it needs no network."""
+    """The next Norwegian public holiday, once it's less than a month away, like BankHolidaySource.
+
+    Worked out here, so it needs no network.
+    """
 
     name = "Public holidays"
     refresh_interval = timedelta(hours=1)  # so "Tomorrow" becomes "Today" on time
     needs_network = False
 
+    @override
     def fetch(self, now: datetime) -> list[Notice]:
         today = now.astimezone(NORWAY_TIME).date()
         upcoming = [
@@ -115,8 +127,10 @@ WARNING_BY_COLOUR = {
 
 
 def _colour(properties: dict) -> str | None:
-    """The warning's level: "yellow", "orange" or "red". From riskMatrixColor, or awareness_level ("2; yellow;
-    Moderate")."""
+    """Read the warning's level: "yellow", "orange" or "red".
+
+    From riskMatrixColor, or awareness_level ("2; yellow; Moderate").
+    """
     colour = (properties.get("riskMatrixColor") or "").lower()
     if colour in SEVERITY_BY_COLOUR:
         return colour
@@ -152,10 +166,12 @@ class MetAlertsSource(NoticeSource):
     name = "MET weather warnings"
     refresh_interval = timedelta(minutes=15)
 
-    def __init__(self, session, location: Postcode):
+    def __init__(self, session: requests.Session, location: Postcode) -> None:
+        """Fetch over `session` the warnings for `location`."""
         super().__init__(session)
         self.params = {"lat": round(location.latitude, 4), "lon": round(location.longitude, 4)}
 
+    @override
     def fetch(self, now: datetime) -> list[Notice]:
         response = self.session.get(
             METALERTS_URL,

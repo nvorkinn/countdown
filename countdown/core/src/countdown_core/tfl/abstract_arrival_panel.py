@@ -1,14 +1,18 @@
+"""What every stop's departures panel shares, whichever source (TfL, Entur) its stops come from."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol, override
 
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _, ngettext
 from countdown_core.tfl.arrival_styles import STYLES
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import UBUNTU_BOLD, UBUNTU_CONDENSED, UBUNTU_MEDIUM, truncate_to_fit
+
+if TYPE_CHECKING:
+    from countdown_core.utils.clock import ClockFormat
 
 # How a stop's departures are drawn: the config's departures.style.
 Style = Literal["classic", "hero", "grouped", "card"]
@@ -44,10 +48,13 @@ class Departures:
 
 
 class AbstractArrivalPanel(Panel, ABC):
-    """One stop's departures, one Departures per route (and, on the tube, per destination),
-    the soonest route first. Subclasses adapt a source's stops and arrivals (TfL's, Entur's) to it."""
+    """One stop's departures, one Departures per route (and, on the tube, per destination), the soonest route first.
 
-    def __init__(self, arrivals: list[Arrival], style: Style = "classic"):
+    Subclasses adapt a source's stops and arrivals (TfL's, Entur's) to it.
+    """
+
+    def __init__(self, arrivals: list[Arrival], style: Style = "classic") -> None:
+        """Group `arrivals` (the stop's, in any order) into Departures, drawn in `style`."""
         super().__init__()
         self.style = style
         groups: dict[tuple[str, str], tuple[str, str, str, list[int]]] = {}
@@ -60,10 +67,12 @@ class AbstractArrivalPanel(Panel, ABC):
 
     @property
     @abstractmethod
-    def stop_name(self) -> str: ...
+    def stop_name(self) -> str:
+        """The stop's name, as its header shows it."""
 
     @property
     def stop_letter(self) -> str | None:
+        """The letter on a bus stop's flag (or a platform's number), or None if it has none."""
         return None
 
     @property
@@ -73,6 +82,7 @@ class AbstractArrivalPanel(Panel, ABC):
 
     @property
     def icon(self) -> Icon:
+        """The kind of transport the stop serves, for the styles that draw it beside its name."""
         return "subway" if self.is_tube else "bus"
 
     @staticmethod
@@ -88,7 +98,8 @@ class AbstractArrivalPanel(Panel, ABC):
     @abstractmethod
     def _destination(arrival: Arrival) -> str: ...
 
-    def render(self, image_width, image_height, *, clock_format: ClockFormat = "24h") -> Image.Image:
+    @override
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         if self.style != "classic":
             return STYLES[self.style](self, image_width, image_height)
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
@@ -102,7 +113,9 @@ class AbstractArrivalPanel(Panel, ABC):
 
     @abstractmethod
     def add_header(self, img: Image.Image, draw: ImageDraw.ImageDraw) -> None:
-        raise NotImplementedError("Subclasses must implement the add_header method.")
+        """Draw the stop's name (and letter or roundel) on the black bar along the top of the classic style."""
+        msg = "Subclasses must implement the add_header method."
+        raise NotImplementedError(msg)
 
     def _create_panel_for_arrivals(self, max_x: int, max_y: int) -> Image.Image:
         img = Image.new("RGBA", (max_x, max_y), (255, 255, 255, 0))
@@ -119,7 +132,7 @@ class AbstractArrivalPanel(Panel, ABC):
 
     @staticmethod
     def _route_font(route: str) -> ImageFont.FreeTypeFont:
-        """The usual font if the route fits its badge, otherwise the condensed one."""
+        """Pick the usual font if the route fits its badge, otherwise the condensed one."""
         if UBUNTU_MEDIUM.getlength(route) <= BADGE_WIDTH - 2 * BADGE_PADDING:
             return UBUNTU_MEDIUM
         return UBUNTU_CONDENSED

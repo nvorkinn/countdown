@@ -1,5 +1,10 @@
+"""The device's own state, as Home Assistant is told it."""
+
 from dataclasses import dataclass
-from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 STAGES = ("waiting_for_broker", "pairing", "running")
 
@@ -14,4 +19,5 @@ class DeviceStatus:
 
     @property
     def display_connected(self) -> bool:
+        """Whether the e-paper panel is known to be connected; False while there's no display to ask."""
         return getattr(self.display, "panel_connected", None) is True

@@ -2,9 +2,13 @@
 
 import contextlib
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from countdown_orchestrator.models import Assignment
+import docker
+from docker.types import LogConfig
+
+if TYPE_CHECKING:
+    from countdown_orchestrator.models import Assignment
 
 # On every container the orchestrator makes, so it only ever touches (and lists) its own.
 MANAGED_LABEL = "countdown.managed"
@@ -19,34 +23,42 @@ CLAIMED = "already-claimed"
 
 @dataclass(frozen=True)
 class Renderer:
+    """A renderer as it is on the host: whether it's running, and whether it's from the current image."""
+
     slug: str
     running: bool
     up_to_date: bool = True
 
 
 class Runtime(Protocol):
+    """What the orchestrator needs from wherever renderers run."""
+
     def renderers(self) -> dict[str, Renderer]:
         """Every renderer the orchestrator has made, by slug."""
         ...
 
     def ensure(self, assignment: Assignment) -> None:
-        """Makes the renderer if it doesn't exist, from the current image (replacing the container, never its
-        volumes, if it is from an older one), and starts it if it isn't running. Safe to repeat."""
+        """Make the renderer if it doesn't exist, and start it if it isn't running. Safe to repeat.
+
+        It's made from the current image, replacing the container (never its volumes) if it is from an older one.
+        """
         ...
 
     def stop(self, slug: str) -> None:
-        """Stops the renderer, keeping its container and volumes so it can be started again."""
+        """Stop the renderer, keeping its container and volumes so it can be started again."""
         ...
 
     def remove(self, slug: str) -> None:
-        """Stops the renderer and deletes it with its volumes (its identity and the key to it)."""
+        """Stop the renderer and delete it with its volumes (its identity and the key to it)."""
         ...
 
 
 class DockerRuntime:
-    """One container per renderer, from the countdown-server image, shaped like the services in
-    server/deploy/docker-compose.yml: host networking (for the host's Fluent Bit) and a volume each for the
-    identity and its key."""
+    """One container per renderer, from the countdown-server image.
+
+    Shaped like the services in server/deploy/docker-compose.yml: host networking (for the host's Fluent Bit) and
+    a volume each for the identity and its key.
+    """
 
     def __init__(
         self,
@@ -54,11 +66,14 @@ class DockerRuntime:
         broker_url: str,
         mem_limit: str = "256m",
         nano_cpus: int = 500_000_000,
-        client=None,
-    ):
-        if client is None:
-            import docker
+        client: docker.DockerClient | None = None,
+    ) -> None:
+        """Run renderers from `image`, pointed at the broker at `broker_url`.
 
+        Each is limited to `mem_limit` of memory and `nano_cpus` billionths of a CPU. `client` is the Docker
+        client, by default the one the environment configures.
+        """
+        if client is None:
             client = docker.from_env()
         self.client = client
         self.image = image
@@ -68,9 +83,11 @@ class DockerRuntime:
 
     @staticmethod
     def container_name(slug: str) -> str:
+        """Name the renderer's container; its volumes' names start with this too."""
         return f"renderer-{slug}"
 
     def renderers(self) -> dict[str, Renderer]:
+        """Every renderer container this orchestrator made (by its label), by slug."""
         containers = self.client.containers.list(all=True, filters={"label": f"{MANAGED_LABEL}=1"})
         return {
             slug: Renderer(
@@ -83,8 +100,7 @@ class DockerRuntime:
         }
 
     def ensure(self, assignment: Assignment) -> None:
-        import docker
-
+        """See Runtime.ensure: a container from an older image is replaced, a stopped one started."""
         name = self.container_name(assignment.slug)
         try:
             container = self.client.containers.get(name)
@@ -99,8 +115,6 @@ class DockerRuntime:
             container.start()
 
     def _run(self, assignment: Assignment) -> None:
-        from docker.types import LogConfig
-
         name = self.container_name(assignment.slug)
         self.client.containers.run(
             self.image,
@@ -126,15 +140,13 @@ class DockerRuntime:
         )
 
     def stop(self, slug: str) -> None:
-        import docker
-
+        """See Runtime.stop. A renderer that doesn't exist is already stopped."""
         with contextlib.suppress(docker.errors.NotFound):
             # Stopped by Docker, `unless-stopped` keeps it down across a reboot of the host too.
             self.client.containers.get(self.container_name(slug)).stop()
 
     def remove(self, slug: str) -> None:
-        import docker
-
+        """See Runtime.remove: the container, then its named volumes. Whatever is already gone is skipped."""
         name = self.container_name(slug)
         with contextlib.suppress(docker.errors.NotFound):
             self.client.containers.get(name).remove(force=True, v=True)

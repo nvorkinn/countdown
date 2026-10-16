@@ -21,7 +21,7 @@ def _no_art(size: int) -> Image.Image:
 
 
 def _clear_art(size: int) -> Image.Image:
-    """A cover that takes up room but draws nothing, so only the text shows where it went."""
+    """Make a cover that takes up room but draws nothing, so only the text shows where it went."""
     return Image.new("RGBA", (size, size), (0, 0, 0, 0))
 
 

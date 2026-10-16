@@ -1,17 +1,22 @@
+"""The base class of the API clients, and the states a client goes through."""
+
 import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from enum import StrEnum, auto
+from typing import TYPE_CHECKING
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
-from countdown_core.core.panel import Panel
 from countdown_core.system_screens.message_panel import MessagePanel
-from countdown_credentials.registration import Registration
+
+if TYPE_CHECKING:
+    from countdown_core.core.panel import Panel
+    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +28,8 @@ DEFAULT_TIMEOUT = 10
 
 
 class ClientStatus(StrEnum):
+    """Where a client stands, as the publisher reports it for each API."""
+
     DISABLED = auto()
     UNINITIALISED = auto()
     INITIALISING = auto()
@@ -32,19 +39,22 @@ class ClientStatus(StrEnum):
 
 
 class AbstractClient(ABC):
-    """Base for the API clients: a shared retrying session and a per-endpoint cache for
-    change detection (see https://github.com/nvorkinn/pi-dashboard/issues/8 for wider use).
+    """Base for the API clients: a shared retrying session and a per-endpoint cache for change detection.
+
+    See https://github.com/nvorkinn/pi-dashboard/issues/8 for wider use of the cache.
 
     _initialise() and _update() are blocking and run in a worker thread, so they must not
     touch anything main-thread-only: build the panel's data there and leave rendering
-    (Pillow, SPI) to the display."""
+    (Pillow, SPI) to the display.
+    """
 
     poll_interval: timedelta = timedelta(minutes=1)
     # Title/logo for a MessagePanel standing in for this client's panel.
     panel_title: str = ""
     panel_logo: str | None = None
 
-    def __init__(self, registration: Registration, config: object | None = None):
+    def __init__(self, registration: Registration, config: object | None = None) -> None:
+        """`registration` is the device, as the broker knows it; `config`, this API's section of the broker's config."""
         # The device, as the broker knows it. Only the clients that call the broker send its
         # secret (session.auth): it mustn't go to third-party APIs.
         self.registration = registration
@@ -54,12 +64,15 @@ class AbstractClient(ABC):
         self.status: ClientStatus = ClientStatus.UNINITIALISED
         self.last_updated: datetime | None = None
 
-    def __del__(self):
+    def __del__(self) -> None:
+        """Close the session's connections."""
         self.session.close()
 
     async def initialise(self) -> None:
-        """Runs _initialise() and tracks the outcome in self.status (ERROR, re-raised, on
-        failure). A disabled client makes no calls."""
+        """Run _initialise() and track the outcome in self.status (ERROR, re-raised, on failure).
+
+        A disabled client makes no calls.
+        """
         if self.is_disabled():
             return
         self.status = ClientStatus.INITIALISING
@@ -79,7 +92,7 @@ class AbstractClient(ABC):
 
     @staticmethod
     def _build_retrying_session(retries: int = 3, backoff_factor: float = 0.5) -> requests.Session:
-        """A requests.Session that retries connection errors and 502/503/504 with backoff."""
+        """Build a requests.Session that retries connection errors and 502/503/504 with backoff."""
         session = requests.Session()
         retry = Retry(
             total=retries,
@@ -95,26 +108,32 @@ class AbstractClient(ABC):
     def _log_if_slow(self, what: str, started: float) -> None:
         elapsed = time.monotonic() - started
         if elapsed >= SLOW_CALL_S:
-            logger.warning(f"{type(self).__name__}: {what} took {elapsed:.1f}s")
+            logger.warning("%s: %s took %.1fs", type(self).__name__, what, elapsed)
 
     def needs_refresh(self, new_config: object) -> bool:
-        """Whether `new_config` means this client must be rebuilt. Defaults to any change;
-        override to keep state (tokens, caches) across changes that don't affect it."""
+        """Whether `new_config` means this client must be rebuilt.
+
+        Defaults to any change; override to keep state (tokens, caches) across changes that don't affect it.
+        """
         return self.config != new_config
 
     def is_disabled(self) -> bool:
+        """Whether the client is switched off, and so makes no calls."""
         return self.status == ClientStatus.DISABLED
 
     @property
     def is_due(self) -> bool:
+        """Whether a full poll_interval has passed since the last update (always so before the first)."""
         if self.last_updated is None:
             return True
-        return datetime.now() - self.last_updated >= self.poll_interval
+        return datetime.now() - self.last_updated >= self.poll_interval  # noqa: DTZ005 -- last_updated is naive local time, as callers set it; only the elapsed interval matters
 
     async def update(self) -> Panel | None:
-        """Polls the API and returns its panel, initialising first if not yet CONNECTED.
-        last_updated is stamped even when that fails, so the retry waits a full
-        poll_interval (Glowmarkt rate-limits bad logins)."""
+        """Poll the API and return its panel, initialising first if not yet CONNECTED.
+
+        last_updated is stamped even when that fails, so the retry waits a full poll_interval (Glowmarkt
+        rate-limits bad logins).
+        """
         if self.is_disabled():
             panel = None
         else:
@@ -122,14 +141,14 @@ class AbstractClient(ABC):
                 try:
                     await self.initialise()
                 except Exception:
-                    self.last_updated = datetime.now()
+                    self.last_updated = datetime.now()  # noqa: DTZ005 -- last_updated is naive local time, as callers set it; only the elapsed interval matters
                     raise
             started = time.monotonic()
             try:
                 panel = await asyncio.to_thread(self._update)
             finally:
                 self._log_if_slow("update", started)
-        self.last_updated = datetime.now()
+        self.last_updated = datetime.now()  # noqa: DTZ005 -- last_updated is naive local time, as callers set it; only the elapsed interval matters
         return panel
 
     @abstractmethod
@@ -138,11 +157,14 @@ class AbstractClient(ABC):
 
     @classmethod
     def message_panel(cls, message: str) -> MessagePanel:
+        """Build a MessagePanel saying `message`, to stand in for this client's panel."""
         return MessagePanel(cls.panel_title, message, cls.panel_logo)
 
     def _cache_and_compare(self, endpoint: str, data: object) -> bool:
-        """True if the last call to the same endpoint returned the same data. Always False
-        the first time an endpoint is seen, even if that value is None."""
+        """Remember `data` for `endpoint`, and say whether the last call to it returned the same.
+
+        Always False the first time an endpoint is seen, even if that value is None.
+        """
         is_first_time = endpoint not in self.cache
         cached = self.cache.get(endpoint)
         self.cache[endpoint] = data

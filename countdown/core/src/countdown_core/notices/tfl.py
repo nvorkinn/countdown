@@ -1,17 +1,24 @@
+"""TfL's disruptions: on the lines and at the stations the screen shows, and on the roads near it."""
+
 import json
 import logging
 import re
 from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
+from typing import TYPE_CHECKING, override
 
 from pydantic import TypeAdapter
 
-from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import _
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.tfl.models import DisruptedPoint, Line, Postcode, RoadDisruption, StopPointUnion
 from countdown_core.tfl.tfl_client import _find_stop_child
+
+if TYPE_CHECKING:
+    import requests
+
+    from countdown_api.models import Tfl
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +47,19 @@ RoadDisruptions = TypeAdapter(list[RoadDisruption])
 
 
 class TflSource(NoticeSource):
-    def __init__(self, session, config: Tfl):
+    """A notice source asking TfL's unified API, with the screen's app key if it has one."""
+
+    def __init__(self, session: requests.Session, config: Tfl) -> None:
+        """Fetch over `session`, with `config`'s app key."""
         super().__init__(session)
         self.params = {"app_key": config.app_key} if config.app_key else {}
 
-    def _get(self, path: str, **params) -> bytes:
+    def _get(self, path: str, **params: str) -> bytes:
         response = self.session.get(f"{TFL_URL}{path}", params=self.params | params, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         # The raw body, before pydantic drops the fields the models don't declare: turn on
         # debug logging for this module to see everything TfL actually sends.
-        logger.debug(f"GET {path}: {response.text}")
+        logger.debug("GET %s: %s", path, response.text)
         return response.content
 
 
@@ -59,7 +69,8 @@ class TflLineStatusSource(TflSource):
     name = "TfL line status"
     refresh_interval = timedelta(minutes=5)
 
-    def __init__(self, session, config: Tfl):
+    def __init__(self, session: requests.Session, config: Tfl) -> None:
+        """Fetch over `session`, for the lines serving `config`'s stops."""
         super().__init__(session, config)
         self.stop_ids = config.stop_ids
         self.line_ids: list[str] | None = None  # looked up on first fetch
@@ -71,11 +82,12 @@ class TflLineStatusSource(TflSource):
                 TypeAdapter(StopPointUnion).validate_json(self._get(f"/StopPoint/{stop_id}")), stop_id
             )
             if stop is None:
-                logger.warning(f"TfL stop {stop_id} has no lines to watch")
+                logger.warning("TfL stop %s has no lines to watch", stop_id)
                 continue
             line_ids += [line.id for line in stop.lines if line.id not in line_ids]
         return line_ids
 
+    @override
     def fetch(self, now: datetime) -> list[Notice]:
         if self.line_ids is None:
             self.line_ids = self._resolve_line_ids()
@@ -113,9 +125,11 @@ class TflLineStatusSource(TflSource):
 
 
 def _headline(reason: str | None, line_name: str) -> str:
-    """The first sentence of a status reason (the rest never fits), without the line name
-    it usually starts with ("CENTRAL LINE: ..."). A location prefix, like a bus diversion's
-    "WATERLOO ROAD, Southwark:", is kept."""
+    """Cut a status reason to its first sentence (the rest never fits), dropping the line name at its start.
+
+    Most reasons start with one ("CENTRAL LINE: ..."). A location prefix, like a bus diversion's
+    "WATERLOO ROAD, Southwark:", is kept.
+    """
     text = " ".join((reason or "").split())
     prefix, colon, rest = text.partition(":")
     lowered = prefix.lower()
@@ -139,10 +153,12 @@ class TflStationSource(TflSource):
     name = "TfL stations"
     refresh_interval = timedelta(minutes=15)
 
-    def __init__(self, session, config: Tfl):
+    def __init__(self, session: requests.Session, config: Tfl) -> None:
+        """Fetch over `session`, for `config`'s stops."""
         super().__init__(session, config)
         self.stop_ids = config.stop_ids
 
+    @override
     def fetch(self, now: datetime) -> list[Notice]:
         notices: list[Notice] = []
         seen: set[str] = set()
@@ -168,13 +184,16 @@ def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 class TflRoadSource(TflSource):
-    """Serious and severe road incidents (collisions, closures, burst water mains) near
-    the postcode. London only: TfL doesn't know about roads anywhere else."""
+    """Serious and severe road incidents (collisions, closures, burst water mains) near the postcode.
+
+    London only: TfL doesn't know about roads anywhere else.
+    """
 
     name = "TfL roads"
     refresh_interval = timedelta(minutes=10)
 
-    def __init__(self, session, config: Tfl, location: Postcode):
+    def __init__(self, session: requests.Session, config: Tfl, location: Postcode) -> None:
+        """Fetch over `session` the incidents within ROAD_RADIUS_KM of `location`."""
         super().__init__(session, config)
         self.location = location
 
@@ -185,6 +204,7 @@ class TflRoadSource(TflSource):
             return False
         return _distance_km(self.location.latitude, self.location.longitude, lat, lon) <= ROAD_RADIUS_KM
 
+    @override
     def fetch(self, now: datetime) -> list[Notice]:
         disruptions = RoadDisruptions.validate_json(
             self._get("/Road/all/Disruption", severities=",".join(ROAD_SEVERITY))

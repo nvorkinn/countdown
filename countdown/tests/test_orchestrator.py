@@ -40,7 +40,7 @@ class FakeRuntime:
 
     def ensure(self, assignment):
         self.ensured.append(assignment.slug)
-        self.existing[assignment.slug] = Renderer(assignment.slug, True)
+        self.existing[assignment.slug] = Renderer(assignment.slug, running=True)
 
     def stop(self, slug):
         self.stopped.append(slug)
@@ -88,7 +88,7 @@ def test_a_second_pass_changes_nothing():
 
 
 def test_a_running_renderer_for_a_pending_assignment_is_only_reported():
-    broker, runtime = FakeBroker(_assignment()), FakeRuntime(Renderer("lisa", True))
+    broker, runtime = FakeBroker(_assignment()), FakeRuntime(Renderer("lisa", running=True))
 
     reconcile(broker, runtime)
 
@@ -106,7 +106,7 @@ def test_a_provisioned_assignment_whose_renderer_vanished_is_made_again():
 
 def test_a_stopped_renderer_is_started_again():
     broker = FakeBroker(_assignment(status=Status.PROVISIONED))
-    runtime = FakeRuntime(Renderer("lisa", False))
+    runtime = FakeRuntime(Renderer("lisa", running=False))
 
     reconcile(broker, runtime)
 
@@ -115,7 +115,7 @@ def test_a_stopped_renderer_is_started_again():
 
 def test_a_deleting_assignment_removes_the_renderer_and_reports_deleted():
     broker = FakeBroker(_assignment(status=Status.DELETING))
-    runtime = FakeRuntime(Renderer("lisa", True))
+    runtime = FakeRuntime(Renderer("lisa", running=True))
 
     reconcile(broker, runtime)
 
@@ -136,7 +136,8 @@ def test_one_failing_assignment_doesnt_stop_the_others():
     class Flaky(FakeRuntime):
         def ensure(self, assignment):
             if assignment.slug == "bad":
-                raise RuntimeError("no image")
+                msg = "no image"
+                raise RuntimeError(msg)
             super().ensure(assignment)
 
     broker = FakeBroker(_assignment("bad", id_="1"), _assignment("good", id_="2"))
@@ -154,7 +155,8 @@ def test_one_failing_assignment_doesnt_stop_the_others():
 def test_a_failure_already_reported_isnt_reported_again():
     class Broken(FakeRuntime):
         def ensure(self, assignment):
-            raise RuntimeError("no image")
+            msg = "no image"
+            raise RuntimeError(msg)
 
     broker = FakeBroker(_assignment(status=Status.FAILED))
 
@@ -166,17 +168,19 @@ def test_a_failure_already_reported_isnt_reported_again():
 def test_a_broker_error_while_reporting_a_failure_doesnt_escape():
     class Broken(FakeRuntime):
         def ensure(self, assignment):
-            raise RuntimeError("no image")
+            msg = "no image"
+            raise RuntimeError(msg)
 
     class DownBroker(FakeBroker):
         def report(self, assignment, status, detail=""):
-            raise ConnectionError("down")
+            msg = "down"
+            raise ConnectionError(msg)
 
     reconcile(DownBroker(_assignment()), Broken())
 
 
 def test_a_renderer_nobody_wants_is_left_alone():
-    broker, runtime = FakeBroker(), FakeRuntime(Renderer("stray", True))
+    broker, runtime = FakeBroker(), FakeRuntime(Renderer("stray", running=True))
 
     reconcile(broker, runtime)
 
@@ -185,7 +189,7 @@ def test_a_renderer_nobody_wants_is_left_alone():
 
 def test_nothing_new_is_started_at_capacity():
     broker = FakeBroker(_assignment("new"), _assignment("old", status=Status.PROVISIONED, id_="2"))
-    runtime = FakeRuntime(Renderer("old", True))
+    runtime = FakeRuntime(Renderer("old", running=True))
 
     reconcile(broker, runtime, max_renderers=1)
 
@@ -203,7 +207,7 @@ def test_zero_capacity_does_not_limit_renderer_count():
 
 def test_capacity_doesnt_stop_an_existing_renderer_being_restarted():
     broker = FakeBroker(_assignment("old", status=Status.PROVISIONED))
-    runtime = FakeRuntime(Renderer("old", False))
+    runtime = FakeRuntime(Renderer("old", running=False))
 
     reconcile(broker, runtime, max_renderers=1)
 
@@ -356,7 +360,7 @@ def test_an_existing_stopped_renderer_is_started():
 def test_only_labelled_containers_are_listed():
     client = FakeDocker(FakeContainer("exited", "lisa"))
 
-    assert _runtime(client).renderers() == {"lisa": Renderer("lisa", False)}
+    assert _runtime(client).renderers() == {"lisa": Renderer("lisa", running=False)}
     assert client.list_calls == [{"all": True, "filters": {"label": f"{MANAGED_LABEL}=1"}}]
 
 
@@ -389,8 +393,11 @@ def test_an_outdated_renderer_is_replaced_but_keeps_its_volumes():
 
 @pytest.mark.parametrize("existing", ["outdated", None], ids=["on an old image", "gone"])
 def test_a_renderer_made_again_for_a_claimed_screen_still_gets_a_claim_token(existing):
-    """The broker has cleared the token by then, but a renderer won't start without one (it is ignored once the
-    renderer has claimed: its identity is in its volumes), so what it gets must be a value, not an unset variable."""
+    """A renderer made again for a claimed screen must get a value for its token, not an unset variable.
+
+    The broker has cleared the token by then, but a renderer won't start without one (it is ignored once the renderer
+    has claimed: its identity is in its volumes).
+    """
     client = FakeDocker(FakeContainer("running") if existing else None)
     if existing:
         client.container.labels[IMAGE_LABEL] = "ghcr.io/x/countdown-server:0"
@@ -400,7 +407,8 @@ def test_a_renderer_made_again_for_a_claimed_screen_still_gets_a_claim_token(exi
 
     ((_, kwargs),) = client.run_calls
     token = kwargs["environment"].get("CLAIM_TOKEN")
-    assert isinstance(token, str) and token
+    assert isinstance(token, str)
+    assert token
 
 
 def test_a_renderer_made_from_another_image_is_not_up_to_date():
@@ -429,7 +437,7 @@ def test_stopping_a_renderer_that_doesnt_exist_is_fine():
 
 def test_a_suspended_assignment_stops_its_running_renderer():
     broker = FakeBroker(_assignment(status=Status.SUSPENDED))
-    runtime = FakeRuntime(Renderer("lisa", True))
+    runtime = FakeRuntime(Renderer("lisa", running=True))
 
     reconcile(broker, runtime)
 
@@ -438,7 +446,7 @@ def test_a_suspended_assignment_stops_its_running_renderer():
     assert broker.reports == []
 
 
-@pytest.mark.parametrize("existing", [[], [Renderer("lisa", False)]])
+@pytest.mark.parametrize("existing", [[], [Renderer("lisa", running=False)]])
 def test_a_suspended_assignment_with_nothing_running_does_nothing(existing):
     broker, runtime = FakeBroker(_assignment(status=Status.SUSPENDED)), FakeRuntime(*existing)
 
@@ -449,7 +457,7 @@ def test_a_suspended_assignment_with_nothing_running_does_nothing(existing):
 
 def test_a_screen_that_returns_gets_its_stopped_renderer_back():
     broker = FakeBroker(_assignment(status=Status.PENDING))
-    runtime = FakeRuntime(Renderer("lisa", False))
+    runtime = FakeRuntime(Renderer("lisa", running=False))
 
     reconcile(broker, runtime)
 
@@ -460,7 +468,7 @@ def test_a_screen_that_returns_gets_its_stopped_renderer_back():
 
 def test_a_running_renderer_on_an_old_image_is_ensured_again():
     broker = FakeBroker(_assignment(status=Status.PROVISIONED))
-    runtime = FakeRuntime(Renderer("lisa", True, up_to_date=False))
+    runtime = FakeRuntime(Renderer("lisa", running=True, up_to_date=False))
 
     reconcile(broker, runtime)
 
@@ -470,7 +478,7 @@ def test_a_running_renderer_on_an_old_image_is_ensured_again():
 
 def test_suspended_renderers_dont_count_against_capacity():
     broker = FakeBroker(_assignment("new"), _assignment("asleep", status=Status.SUSPENDED, id_="2"))
-    runtime = FakeRuntime(Renderer("asleep", False))
+    runtime = FakeRuntime(Renderer("asleep", running=False))
 
     reconcile(broker, runtime, max_renderers=1)
 

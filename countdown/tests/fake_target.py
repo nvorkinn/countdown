@@ -1,12 +1,15 @@
-from PIL import Image
+from typing import TYPE_CHECKING
 
 from countdown_core.core.targets import DisplayTarget, Region
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 
 class FakeTarget(DisplayTarget):
     """Records each paint -- the region for a partial refresh, None for a full one."""
 
-    def __init__(self, accepts: bool = True):
+    def __init__(self, *, accepts: bool = True) -> None:
         self.accepts = accepts  # False: there's no screen to take the picture
         self.fail = False  # True: painting raises, as a screen dying midway would
         self.paints: list[Region | None] = []
@@ -14,7 +17,8 @@ class FakeTarget(DisplayTarget):
 
     def paint(self, img: Image.Image, region: Region | None = None) -> bool:
         if self.fail:
-            raise RuntimeError("the screen failed midway")
+            msg = "the screen failed midway"
+            raise RuntimeError(msg)
         if not self.accepts:
             return False
         self.paints.append(region)
