@@ -1,3 +1,7 @@
+"""How the notice board is drawn."""
+
+from typing import override
+
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
@@ -19,7 +23,9 @@ SOURCE_GAP = 6  # between the source tag and the text
 
 
 class NoticeBoardPanel(Panel):
-    def __init__(self, notices: list[Notice]):
+    """The notice board: a title, then a row per notice, the most severe first."""
+
+    def __init__(self, notices: list[Notice]) -> None:
         """`notices` already ranked, most important first."""
         self.notices = notices
 
@@ -28,18 +34,21 @@ class NoticeBoardPanel(Panel):
         """Where the first row starts, below the title."""
         return PADDING + TITLE_FONT.getbbox(_("Notices"))[3] + TITLE_GAP
 
+    @override
     def fitted_height(self, max_height: int) -> int:
-        """A row per notice, or nothing at all when there are none. At `max_height` the
-        rows that don't fit are counted on the last one.
+        """Leave room for a row per notice, or nothing at all when there are none.
+
+        At `max_height` the rows that don't fit are counted on the last one.
         """
         if not self.notices:
             return 0
         return min(max_height, self._top() + len(self.notices) * ROW_HEIGHT + PADDING)
 
+    @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
-        """One notice per row: a severity marker, the source and as much of the text as
-        fits. If there are more current notices than rows, the last row says how many
-        didn't fit.
+        """Draw one notice per row: a severity marker, the source and as much of the text as fits.
+
+        If there are more current notices than rows, the last row says how many didn't fit.
         """
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)

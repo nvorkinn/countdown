@@ -1,6 +1,7 @@
-"""The dashboard as it has always looked on an 800x480 screen hung landscape: the arrivals and
-weather along the top, and below them whichever of Spotify, the notices and the energy chart
-the device can show. One variant per combination of Spotify and Glowmarkt.
+"""The dashboard as it has always looked on an 800x480 screen hung landscape.
+
+The arrivals and weather go along the top, and below them whichever of Spotify, the notices and the energy chart the
+device can show. One variant per combination of Spotify and Glowmarkt.
 """
 
 from typing import TYPE_CHECKING, override
@@ -28,9 +29,10 @@ SPOTIFY_HEIGHT = 120
 
 
 class ClassicLayout(Layout):
-    """Bottom up, in the column below the arrivals (the whole width without the energy chart):
-    the notices, only as tall as their rows, then Spotify. The arrivals take the rest, so
-    fewer notices mean more departures.
+    """The classic layout's common ground, laid out bottom up in the column below the arrivals.
+
+    That column is the whole width without the energy chart. The notices go at the bottom, only as tall as their
+    rows, then Spotify. The arrivals take the rest, so fewer notices mean more departures.
     """
 
     layout_id = "classic"
@@ -58,40 +60,43 @@ class ClassicLayout(Layout):
             self._place(
                 img,
                 panels[ClientClasses.NOTICE_BOARD.api_name],
-                GAP,
-                bottom,
-                width,
-                notices_height,
+                (GAP, bottom),
+                (width, notices_height),
                 clock_format=clock_format,
             )
             bottom -= GAP
         if self.SHOWS_SPOTIFY:
             spotify_panel = panels[ClientClasses.SPOTIFY.api_name]
             self._place(
-                img, spotify_panel, GAP, bottom - SPOTIFY_HEIGHT, width, SPOTIFY_HEIGHT, clock_format=clock_format
+                img, spotify_panel, (GAP, bottom - SPOTIFY_HEIGHT), (width, SPOTIFY_HEIGHT), clock_format=clock_format
             )
         if self.SHOWS_ENERGY:
             x, y = GAP + width + GAP, GAP + self.ARRIVALS_HEIGHT + GAP
             energy_panel = panels[ClientClasses.GLOWMARKT.api_name]
             self._place(
-                img, energy_panel, x, y, canvas.width - x - GAP, canvas.height - y - GAP, clock_format=clock_format
+                img,
+                energy_panel,
+                (x, y),
+                (canvas.width - x - GAP, canvas.height - y - GAP),
+                clock_format=clock_format,
             )
         return Frame(img, arrivals_box)
 
-    def _column_width(self, canvas: Canvas, arrivals_box: Box) -> int:
+    def _column_width(self, canvas: Canvas, arrivals_box: Box) -> int:  # noqa: ARG002 -- variants size it by the arrivals
         """How wide Spotify and the notices are drawn."""
         return canvas.width - 2 * GAP
 
     def _draw_top_row(
         self, img: Image.Image, panels: dict[str, Panel], canvas: Canvas, height: int, clock_format: ClockFormat
     ) -> Box:
-        """The arrivals, `height` tall, with the weather beside them, at the same place in every
-        variant so the arrivals' partial refreshes keep working. Returns the arrivals' box.
+        """Draw the arrivals, `height` tall, with the weather beside them, and return the arrivals' box.
+
+        They're at the same place in every variant so the arrivals' partial refreshes keep working.
         """
         arrival_panel = panels[ClientClasses.TFL.api_name]
         arrivals_width = canvas.width if isinstance(arrival_panel, CombinedArrivalPanel) else ARRIVALS_MESSAGE_WIDTH
         x, y = ARRIVALS_ORIGIN
-        arrivals = self._place(img, arrival_panel, x, y, arrivals_width, height, clock_format=clock_format)
+        arrivals = self._place(img, arrival_panel, (x, y), (arrivals_width, height), clock_format=clock_format)
         arrivals_box = (x, y, x + arrivals.size[0], y + arrivals.size[1])
 
         weather_x = arrivals_box[2] + GAP
@@ -100,10 +105,8 @@ class ClassicLayout(Layout):
         self._place(
             img,
             weather_panel,
-            weather_x,
-            y,
-            canvas.width - weather_x - GAP,
-            weather_height,
+            (weather_x, y),
+            (canvas.width - weather_x - GAP, weather_height),
             clock_format=clock_format,
         )
         return arrivals_box
@@ -117,13 +120,14 @@ class SpotifyGlowLayout(ClassicLayout):
     SHOWS_ENERGY = True
 
     @override
-    def _column_width(self, canvas, arrivals_box):
+    def _column_width(self, canvas: Canvas, arrivals_box: Box) -> int:
         return SPOTIFY_WIDTH
 
 
 class SpotifyLayout(ClassicLayout):
-    """No energy chart (Glowmarkt isn't set up): Spotify and the notices both take the full
-    width below the arrivals and weather, so notices get longer lines.
+    """No energy chart (Glowmarkt isn't set up).
+
+    Spotify and the notices both take the full width below the arrivals and weather, so notices get longer lines.
     """
 
     requires = frozenset({ClientClasses.SPOTIFY})
@@ -132,8 +136,9 @@ class SpotifyLayout(ClassicLayout):
 
 
 class GlowLayout(ClassicLayout):
-    """No Spotify: two columns below the weather and the top of the arrivals -- the notices
-    under the arrivals, the energy chart under the weather.
+    """No Spotify: two columns below the weather and the top of the arrivals.
+
+    The notices go under the arrivals, the energy chart under the weather.
     """
 
     requires = frozenset({ClientClasses.GLOWMARKT})
@@ -141,13 +146,14 @@ class GlowLayout(ClassicLayout):
     SHOWS_ENERGY = True
 
     @override
-    def _column_width(self, canvas, arrivals_box):
+    def _column_width(self, canvas: Canvas, arrivals_box: Box) -> int:
         return arrivals_box[2] - arrivals_box[0]
 
 
 class BaseLayout(ClassicLayout):
-    """Neither Spotify nor Glowmarkt: four stops, a 2x2 grid beside the weather, and the
-    notices full width below.
+    """Neither Spotify nor Glowmarkt.
+
+    Four stops, a 2x2 grid beside the weather, and the notices full width below.
     """
 
     excludes = frozenset({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT})

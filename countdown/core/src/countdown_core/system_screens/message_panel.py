@@ -1,5 +1,7 @@
+"""A short message drawn in place of a panel that has nothing to show."""
+
 from math import floor
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -14,16 +16,19 @@ TITLE = ImageFont.truetype(str(FONTS_DIR / "Ubuntu-Medium.ttf"), 28)
 
 
 class MessagePanel(Panel):
-    """Stands in for a panel with nothing to draw, so its area is never blank. Shows
-    `message` with `logo` (a file in images/) if given, else `title`. Both are English, marked with N_(), and
+    """Stands in for a panel with nothing to draw, so its area is never blank.
+
+    Shows `message` with `logo` (a file in images/) if given, else `title`. Both are English, marked with N_(), and
     drawn in the screen's language.
     """
 
-    def __init__(self, title: str, message: str, logo: str | None = None):
+    def __init__(self, title: str, message: str, logo: str | None = None) -> None:
+        """`title` is the panel's name and `message` what to say; `logo`, a file in images/, takes the title's place."""
         self.title = title
         self.message = message
         self.logo = logo
 
+    @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)

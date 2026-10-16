@@ -1,11 +1,13 @@
-"""Takes over a screen's existing renderer, so the screen needn't be set up again. See "Running it in development"
-in ../README.md.
+"""Take over a screen's existing renderer, so the screen needn't be set up again.
+
+See "Running it in development" in ../README.md.
 
     DOCKER_HOST=ssh://user@host uv run python dev/adopt_renderer.py <slug>
 
 Copies the identity (.auth_broker_device) and the key that decrypts it out of the container the orchestrator
-made, `renderer-<slug>`, and writes dev/.env and a PyCharm run configuration from its environment. Your process is then the same device the broker
-already matched with the screen: nothing changes on the broker, and there's no claim token or orchestrator token.
+made, `renderer-<slug>`, and writes dev/.env and a PyCharm run configuration from its environment. Your process is
+then the same device the broker already matched with the screen: nothing changes on the broker, and there's no claim
+token or orchestrator token.
 
 Two renderers must never run as one device, so before you start yours, stop the orchestrator (it restarts a
 stopped renderer within seconds) and then the renderer: `docker stop <orchestrator> renderer-<slug>`. When you're
@@ -29,13 +31,20 @@ KEY_PATH = Path("countdown") / "credentials-key"
 
 
 def docker(*args: str) -> str:
-    result = subprocess.run(["docker", *args], capture_output=True, text=True)
+    """Run the docker CLI (on DOCKER_HOST, if set) and return its output, or exit with its error."""
+    result = subprocess.run(  # noqa: S603 -- the docker CLI from PATH, as the developer runs it
+        ["docker", *args],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if result.returncode:
         sys.exit(f"docker {' '.join(args)} failed: {result.stderr.strip()}")
     return result.stdout
 
 
 def main() -> int:
+    """Adopt the renderer named on the command line; the exit status is 1 if there's already an identity here."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("slug", help="the renderer's slug, as picked on the broker's config page")
     parser.add_argument("--force", action="store_true", help="replace an identity already in dev/renderer")

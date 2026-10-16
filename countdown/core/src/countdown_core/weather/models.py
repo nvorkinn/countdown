@@ -1,3 +1,5 @@
+"""Open-Meteo's responses, and the readings each page of the weather panel draws."""
+
 import datetime as dt
 from enum import StrEnum
 from typing import Self
@@ -8,17 +10,23 @@ from countdown_core.i18n import N_
 
 
 class GeocodingResult(BaseModel):
+    """A place Open-Meteo's geocoder matched to the configured location."""
+
     latitude: float
     longitude: float
     name: str
 
 
 class GeocodingResponse(BaseModel):
+    """The geocoder's matches, best first."""
+
     # Open-Meteo leaves "results" out entirely (rather than sending []) when nothing matches
     results: list[GeocodingResult] = []
 
 
 class CurrentConditions(BaseModel):
+    """The weather now."""
+
     time: dt.datetime  # the location's local time, since the forecast asks for timezone=auto
     temperature: float = Field(alias="temperature_2m")
     weather_code: int  # WMO code, see display.weather_panel.ICON_MAP
@@ -29,12 +37,16 @@ class CurrentConditions(BaseModel):
 
 
 class CurrentUnits(BaseModel):
+    """The units the current conditions are in, such as "°C"."""
+
     temperature: str = Field(alias="temperature_2m")
     humidity: str = Field(alias="relative_humidity_2m")
     wind_speed: str = Field(alias="wind_speed_10m")
 
 
 class HourlyForecast(BaseModel):
+    """One parallel list per variable, one entry per hour."""
+
     time: list[dt.datetime]
     weather_code: list[int]
     temperature: list[float] = Field(alias="temperature_2m")
@@ -46,6 +58,7 @@ class HourlyForecast(BaseModel):
 
     @model_validator(mode="after")
     def matching_hours(self) -> Self:
+        """Check every column has one value per hour."""
         columns = (
             self.weather_code,
             self.temperature,
@@ -76,6 +89,7 @@ class DailyForecast(BaseModel):
 
     @model_validator(mode="after")
     def matching_days(self) -> Self:
+        """Check every column has one value per day."""
         columns = (
             self.temperature_max,
             self.temperature_min,
@@ -93,6 +107,8 @@ class DailyForecast(BaseModel):
 
 
 class ForecastResponse(BaseModel):
+    """Open-Meteo's forecast for one place, in its local time."""
+
     utc_offset_seconds: int
     current: CurrentConditions
     current_units: CurrentUnits
@@ -110,6 +126,8 @@ class Upcoming(StrEnum):
 
 
 class WeatherPeriod(StrEnum):
+    """The pages of the weather carousel, by the tab each is under."""
+
     NOW = N_("Now")
     TONIGHT = N_("Tonight")
     TOMORROW = N_("Tomorrow")
@@ -117,6 +135,8 @@ class WeatherPeriod(StrEnum):
 
 
 class WeatherDay(BaseModel):
+    """One day of the weekend page."""
+
     date: dt.date
     high: float
     low: float

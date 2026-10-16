@@ -1,3 +1,5 @@
+"""Drawing helpers shared by the panels: fonts, sizes, borders and images."""
+
 import functools
 import urllib.request
 from pathlib import Path
@@ -18,7 +20,7 @@ def _cached_font(url: str, filename: str) -> ImageFont.FreeTypeFont:
     if not path.exists():
         FONTS_DIR.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".part")
-        with urllib.request.urlopen(url, timeout=10) as resp:
+        with urllib.request.urlopen(url, timeout=10) as resp:  # noqa: S310 -- only ever google_symbols()'s fixed https URL
             tmp.write_bytes(resp.read())
         tmp.replace(path)  # atomic, so a killed download never leaves a broken font
     return ImageFont.truetype(path)
@@ -31,7 +33,7 @@ def width_scale(image_width: int) -> float:
 
 @functools.cache
 def fitted_font(filename: str, size: int, scale: float = 1.0) -> ImageFont.FreeTypeFont:
-    """The font in fonts/ at `size` points, times `scale`."""
+    """Load the font in fonts/ at `size` points, times `scale`."""
     return ImageFont.truetype(str(FONTS_DIR / filename), round(size * scale))
 
 
@@ -51,8 +53,9 @@ GOOGLE_SEMI = ImageFont.truetype(str(FONTS_DIR / "GoogleSans-SemiBold.ttf"), 14)
 
 @functools.cache
 def google_symbols() -> ImageFont.FreeTypeFont:
-    """Material Symbols, downloaded on first use rather than at import, so importing
-    countdown_core (the app at boot, every test) never needs the network.
+    """Load Material Symbols, downloaded on first use.
+
+    Not at import, so importing countdown_core (the app at boot, every test) never needs the network.
     """
     return _cached_font(
         "https://github.com/google/material-design-icons/raw/refs/heads/master/variablefont/MaterialSymbolsOutlined%5BFILL,GRAD,opsz,wght%5D.ttf",
@@ -61,7 +64,7 @@ def google_symbols() -> ImageFont.FreeTypeFont:
 
 
 def truncate_to_fit(text: str, font: ImageFont.BaseImageFont, max_width: int) -> str:
-    """Truncates text with an ellipsis if it exceeds max_width pixels."""
+    """Truncate text with an ellipsis if it exceeds max_width pixels."""
     if font.getlength(text) <= max_width:
         return text
 
@@ -72,6 +75,7 @@ def truncate_to_fit(text: str, font: ImageFont.BaseImageFont, max_width: int) ->
 
 
 def add_border(img: Image.Image) -> None:
+    """Draw a 1-pixel black line round the edge of `img`."""
     draw = ImageDraw.Draw(img)
     width = img.size[0]
     height = img.size[1]
@@ -82,6 +86,7 @@ def add_border(img: Image.Image) -> None:
 
 
 def load_tfl_roundel() -> Image.Image:
+    """Load the TfL roundel, 16 pixels high and white, keeping its transparency."""
     roundel = Image.open(IMAGES_DIR / "tfl.png")
     ratio = roundel.size[0] / roundel.size[1]
     height = 16

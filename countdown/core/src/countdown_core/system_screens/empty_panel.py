@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING
+"""The "nothing to show yet" screen."""
+
+from typing import TYPE_CHECKING, override
 
 from PIL import Image, ImageDraw
 
@@ -13,10 +15,12 @@ TITLE, INSTRUCTION, HINT = 72, 42, 34
 
 
 class EmptyPanel(Panel):
-    """Shown full-screen when the device is set up but has nothing to display yet: the first
-    data hasn't arrived, or every API is failing.
+    """Shown full-screen when the device is set up but has nothing to display yet.
+
+    That's while the first data hasn't arrived, or while every API is failing.
     """
 
+    @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)

@@ -16,7 +16,7 @@ def drawn_text(monkeypatch):
     calls = []
     original = ImageDraw.ImageDraw.text
 
-    def record(draw, xy, text, fill=None, font=None, anchor=None, **kwargs):
+    def record(draw, xy, text, fill=None, font=None, anchor=None, **kwargs):  # noqa: PLR0913, PLR0917 -- ImageDraw.text's signature
         calls.append((text, draw.textbbox(xy, text, font=font, anchor=anchor), font.size))
         return original(draw, xy, text, fill=fill, font=font, anchor=anchor, **kwargs)
 
@@ -200,7 +200,7 @@ def test_portrait_preserves_every_detail_and_the_next_outlook(upcoming, drawn_te
     texts = {text for text, _, _ in drawn_text}
 
     assert {"Sunrise", "07:21", "Sunset", "18:04", "Humidity", "72%", "Wind", "13 km/h SW"} <= texts
-    assert {str(upcoming).upper(), "Slight rain", icon_for(61, upcoming is not Upcoming.TONIGHT)} <= texts
+    assert {str(upcoming).upper(), "Slight rain", icon_for(61, is_day=upcoming is not Upcoming.TONIGHT)} <= texts
 
 
 @pytest.mark.parametrize("clock_format", ["12h", "24h"])
@@ -217,7 +217,7 @@ def test_portrait_preserves_every_detail_and_the_next_outlook(upcoming, drawn_te
         ),
     ],
 )
-def test_all_portrait_clocks_use_the_preference_without_overlap(
+def test_all_portrait_clocks_use_the_preference_without_overlap(  # noqa: PLR0913, PLR0917 -- pytest passes each parameter and fixture
     clock_format, size, period, hour_24, hour_12, forecast_weather, drawn_text
 ):
     weather = forecast_weather[period].model_copy(update={"sunrise": dt.time(0, 7), "sunset": dt.time(12, 59)})
@@ -243,7 +243,7 @@ def test_unknown_current_and_upcoming_weather_are_explicit(drawn_text):
 @pytest.mark.parametrize(("panel_type", "size"), PANEL_SIZES)
 @pytest.mark.parametrize("period", [WeatherPeriod.TONIGHT, WeatherPeriod.TOMORROW, WeatherPeriod.WEEKEND])
 @pytest.mark.parametrize("code", [0, 99, 1234])
-def test_forecast_tabs_and_readings_never_overlap(panel_type, size, period, code, forecast_weather, drawn_text):
+def test_forecast_tabs_and_readings_never_overlap(panel_type, size, period, code, forecast_weather, drawn_text):  # noqa: PLR0913, PLR0917 -- pytest passes each parameter and fixture
     base = forecast_weather[period]
     weather = base.model_copy(
         update={
@@ -279,7 +279,7 @@ def test_forecast_tabs_and_readings_never_overlap(panel_type, size, period, code
         (WeatherPanel, (528, 76), ["NOW", "TONIGHT", "TOMORROW", "WEEKEND"]),
     ],
 )
-def test_only_the_selected_tab_has_a_filled_pill(panel_type, size, labels, period, forecast_weather, monkeypatch):
+def test_only_the_selected_tab_has_a_filled_pill(panel_type, size, labels, period, forecast_weather, monkeypatch):  # noqa: PLR0913, PLR0917 -- pytest passes each parameter and fixture
     white_text = []
     original = ImageDraw.ImageDraw.text
 
@@ -299,7 +299,7 @@ def test_only_the_selected_tab_has_a_filled_pill(panel_type, size, labels, perio
     [
         (WeatherPeriod.TONIGHT, {"OVERNIGHT LOW", "8", "Feels like", "6°", "65%", "18:00 - 06:00"}),
         (WeatherPeriod.TOMORROW, {"DAYTIME HIGH", "17", "8°", "10%", "FRIDAY 16 JANUARY"}),
-        (WeatherPeriod.WEEKEND, {"15–17", "Mixed skies", "SATURDAY", "SUNDAY", "17° / 9°", "15° / 8°"}),
+        (WeatherPeriod.WEEKEND, {"15–17", "Mixed skies", "SATURDAY", "SUNDAY", "17° / 9°", "15° / 8°"}),  # noqa: RUF001 -- the en dash the panel draws
     ],
 )
 def test_forecast_readings_match_the_selected_period(period, expected, forecast_weather, drawn_text):
@@ -395,6 +395,6 @@ def test_weather_layout_snapshots(snapshot, name, panel_type, size, overrides):
         ("inline", WeatherPanel, (528, 76)),
     ],
 )
-def test_forecast_layout_snapshots(snapshot, period, layout, panel_type, size, forecast_weather):
+def test_forecast_layout_snapshots(snapshot, period, layout, panel_type, size, forecast_weather):  # noqa: PLR0913, PLR0917 -- pytest passes each parameter and fixture
     image = panel_type(forecast_weather[period]).render(*size)
     snapshot.assert_matches(f"weather_carousel_{period.value.lower()}_{layout}", image, threshold=0.01)

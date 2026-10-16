@@ -18,9 +18,9 @@ def test_device_name_is_sanitised_for_use_as_a_topic_level():
 
 
 def test_device_name_errors_when_nothing_usable():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="DEVICE_NAME is not set"):
         resolve_device_name(None, None)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="has no usable characters"):
         resolve_device_name("///", None)
 
 

@@ -1,3 +1,5 @@
+"""The `countdown-server` console script."""
+
 import logging
 
 from countdown_core import main
@@ -7,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def run() -> None:
-    """The `countdown-server` console script: the app, rendering for a separate screen."""
+    """Run the app, rendering for a separate screen: the `countdown-server` console script."""
     main(ServerTarget)
 
 

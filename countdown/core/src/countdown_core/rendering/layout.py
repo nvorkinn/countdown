@@ -1,3 +1,5 @@
+"""What a layout is: a way of arranging the panels on a canvas, and the frame it draws."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
@@ -26,8 +28,10 @@ class Frame:
 
 
 class Layout(ABC):
-    """One way of arranging the panels on a canvas. Layouts are stateless: everything they
-    know is in class attributes, so the registry can hand the same instance out every cycle.
+    """One way of arranging the panels on a canvas.
+
+    Layouts are stateless: everything they know is in class attributes, so the registry can hand the same instance
+    out every cycle.
     """
 
     # What the config's layout choice names. Layouts sharing an id are its variants, one per
@@ -41,17 +45,19 @@ class Layout(ABC):
     stops_shown: ClassVar[int] = 2
 
     def fits(self, available: frozenset[ClientClasses]) -> bool:
+        """Whether this variant suits a device that can show the `available` APIs."""
         return self.requires <= available and not self.excludes & available
 
     @abstractmethod
     def render(self, panels: dict[str, Panel], canvas: Canvas, *, clock_format: ClockFormat = "24h") -> Frame:
-        """The whole screen, from a panel for every API (a MessagePanel where one has nothing)."""
+        """Draw the whole screen, from a panel for every API (a MessagePanel where one has nothing)."""
 
     @staticmethod
     def _fit_notices(panels: dict[str, Panel], room: int) -> tuple[int, int]:
-        """How tall to draw the notices: only as tall as their rows, up to `room` (0 leaves
-        them out: none to show, or no notice board). And how much of `room`, with the gap
-        above it, that leaves spare for the arrivals.
+        """How tall to draw the notices, and how much of `room` that leaves spare for the arrivals.
+
+        The notices are only as tall as their rows, up to `room` (0 leaves them out: none to show, or no notice
+        board). The spare room includes the gap above them.
         """
         panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
         height = 0 if panel is None else panel.fitted_height(room)
@@ -61,16 +67,15 @@ class Layout(ABC):
     def _place(
         img: Image.Image,
         panel: Panel,
-        x: int,
-        y: int,
-        width: int,
-        height: int,
+        at: tuple[int, int],
+        size: tuple[int, int],
         *,
         clock_format: ClockFormat = "24h",
     ) -> Image.Image:
-        """Renders `panel` and pastes it at (x, y). Returns what was rendered, since some
-        panels (the arrivals) choose their own size.
+        """Render `panel` `size` (width, height) big and paste it with its top left `at` (x, y).
+
+        Returns what was rendered, since some panels (the arrivals) choose their own size.
         """
-        rendered = panel.render(width, height, clock_format=clock_format)
-        img.paste(rendered, (x, y), rendered)
+        rendered = panel.render(*size, clock_format=clock_format)
+        img.paste(rendered, at, rendered)
         return rendered

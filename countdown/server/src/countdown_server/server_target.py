@@ -1,3 +1,5 @@
+"""The DisplayTarget that hands each frame to the broker."""
+
 from typing import TYPE_CHECKING, override
 
 import requests
@@ -12,11 +14,13 @@ if TYPE_CHECKING:
 
 
 class ServerTarget(DisplayTarget):
-    """Hands each frame to the broker, for the device's screen to fetch. Until a
-    screen has been matched with this renderer, the broker accepts frames with a 202 and drops them.
+    """Hands each frame to the broker, for the device's screen to fetch.
+
+    Until a screen has been matched with this renderer, the broker accepts frames with a 202 and drops them.
     """
 
-    def __init__(self, registration: RendererRegistration):
+    def __init__(self, registration: RendererRegistration) -> None:
+        """`registration` is the renderer's: where the broker is, and the secret it sends the frames with."""
         self.base_url = registration.broker_url
         self.session = requests.Session()
         self.session.auth = registration.auth

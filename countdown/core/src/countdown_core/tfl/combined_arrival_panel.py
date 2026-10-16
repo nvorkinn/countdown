@@ -1,6 +1,8 @@
+"""Every stop on screen in one panel, two to a row, with a marker for the ones paged out."""
+
 from dataclasses import dataclass
 from math import ceil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from PIL import Image, ImageDraw
 
@@ -30,11 +32,15 @@ class Rotation:
 
 
 class CombinedArrivalPanel(Panel):
-    def __init__(self, arrival_panels: list[AbstractArrivalPanel], rotation: Rotation | None = None):
+    """The stops on screen side by side, cropped to what they drew so the weather can sit right beside them."""
+
+    def __init__(self, arrival_panels: list[AbstractArrivalPanel], rotation: Rotation | None = None) -> None:
+        """`arrival_panels`: the stops on screen; `rotation`: where they are among all of them, if not all fit."""
         super().__init__()
         self.arrival_panels = arrival_panels
         self.rotation = rotation
 
+    @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
@@ -58,22 +64,22 @@ class CombinedArrivalPanel(Panel):
                 x = 0
         if self.rotation:
             columns = min(COLUMNS, len(self.arrival_panels))
-            self._draw_rotation(draw, columns * stop_width + (columns - 1) * COLUMN_GAP, stops_height)
+            self._draw_rotation(draw, self.rotation, columns * stop_width + (columns - 1) * COLUMN_GAP, stops_height)
         bus_panel_bbox = img.getbbox()
         if bus_panel_bbox is None:
             # Nothing drawn: crop(None) would mean "the whole image", not "nothing".
             return img.crop((0, 0, 0, image_height))
         return img.crop(bus_panel_bbox)
 
-    def _draw_rotation(self, draw: ImageDraw.ImageDraw, stops_width: int, top: int) -> None:
-        """The squares, centred under the stops in the strip below them."""
-        assert self.rotation is not None
-        row_width = self.rotation.total * (SQUARE + SQUARE_GAP) - SQUARE_GAP
+    @staticmethod
+    def _draw_rotation(draw: ImageDraw.ImageDraw, rotation: Rotation, stops_width: int, top: int) -> None:
+        """Draw the squares, centred under the stops in the strip below them."""
+        row_width = rotation.total * (SQUARE + SQUARE_GAP) - SQUARE_GAP
         x = (stops_width - row_width) // 2
         y = top + (ROTATION_STRIP - SQUARE) // 2 + 1
-        for i in range(self.rotation.total):
+        for i in range(rotation.total):
             box = (x, y, x + SQUARE - 1, y + SQUARE - 1)
-            if i in self.rotation.shown:
+            if i in rotation.shown:
                 draw.rectangle(box, fill="black")
             else:
                 draw.rectangle(box, outline="black", width=1)

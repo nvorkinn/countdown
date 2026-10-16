@@ -1,3 +1,5 @@
+"""The top artists half of the classic top page."""
+
 from typing import TYPE_CHECKING, override
 
 from countdown_core.i18n import N_
@@ -8,7 +10,10 @@ if TYPE_CHECKING:
 
 
 class SpotifyTopArtistsPanel(AbstractSpotifyTopSubPanel):
+    """The listener's top artists."""
+
     def __init__(self, top_response: TopResponse[Artist]) -> None:
+        """`top_response`: the artists, from Spotify."""
         super().__init__(N_("Top artists:"), top_response)
 
     @override

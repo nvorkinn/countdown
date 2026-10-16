@@ -7,8 +7,9 @@ from test_utils import highlight_diff, images_equal
 
 @pytest.fixture(autouse=True)
 def isolated_cwd(tmp_path, monkeypatch):
-    """Run every test in an empty temp directory (device-local files like
-    .auth_broker_device land there), with the app's env vars cleared.
+    """Run every test in an empty temp directory, with the app's env vars cleared.
+
+    Device-local files like .auth_broker_device land there.
     """
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("BROKER_URL", raising=False)
@@ -40,7 +41,7 @@ def pytest_addoption(parser):
 
 
 class Snapshot:
-    def __init__(self, update: bool):
+    def __init__(self, *, update: bool) -> None:
         self.update = update
 
     def assert_matches(self, name: str, image: Image.Image, threshold: float = DEFAULT_SNAPSHOT_THRESHOLD) -> None:

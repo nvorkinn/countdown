@@ -1,5 +1,7 @@
+"""What the two halves of the classic top tracks and artists page share."""
+
 from abc import abstractmethod
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeVar, override
 
 from PIL import Image, ImageDraw
 
@@ -15,10 +17,14 @@ T = TypeVar("T", Artist, Track)
 
 
 class AbstractSpotifyTopSubPanel(Panel):
+    """One of the top lists in the classic style: a heading, then a numbered line per item."""
+
     def __init__(self, header: str, top_response: TopResponse[T]) -> None:
+        """`header`: the list's heading, in English (it's translated as it's drawn); `top_response`: its items."""
         self.header = header
         self.top_response = top_response
 
+    @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
@@ -35,4 +41,4 @@ class AbstractSpotifyTopSubPanel(Panel):
 
     @abstractmethod
     def format_line(self, idx: int, row: T) -> str:
-        pass
+        """Write the line for `row`, the list's `idx`th item (from 0)."""

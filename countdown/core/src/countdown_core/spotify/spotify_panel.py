@@ -1,5 +1,7 @@
+"""The Spotify area's now playing page: the cover, the track, and what's up next."""
+
 import io
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, override
 
 import requests
 from PIL import Image, ImageDraw, ImageOps
@@ -19,10 +21,14 @@ Style = Literal["classic", "airy", "hero", "card"]
 
 
 class SpotifyPanel(Panel):
+    """What's playing, with its cover, and what's up next."""
+
     def __init__(self, queue: Queue, style: Style = "classic") -> None:
+        """`queue`: the player's, with something playing; `style`: how to draw it."""
         self.queue = queue
         self.style = style
 
+    @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         if self.style != "classic":
             album = self.queue.currently_playing.album
@@ -71,8 +77,9 @@ class SpotifyPanel(Panel):
 
 
 def _create_album_image_panel(album: Album, height: int) -> Image.Image:
-    """Downloads the album's art (see _pick_image) and scales it down to `height`. A local
-    file has no art at all: that gets an empty (0-wide) image.
+    """Download the album's art (see _pick_image) and scale it down to `height`.
+
+    A local file has no art at all: that gets an empty (0-wide) image.
     """
     if not album.images:
         return Image.new("RGBA", (0, height))
@@ -84,8 +91,9 @@ def _create_album_image_panel(album: Album, height: int) -> Image.Image:
 
 
 def _contrasty(art: Image.Image) -> Image.Image:
-    """The cover in grey with its contrast stretched, so it still reads once it's dithered to
-    black and white rather than turning to an even speckle.
+    """Turn the cover grey and stretch its contrast.
+
+    So it still reads once it's dithered to black and white rather than turning to an even speckle.
     """
     if not art.size[0]:
         return art
@@ -95,8 +103,9 @@ def _contrasty(art: Image.Image) -> Image.Image:
 
 
 def _pick_image(images: list[AlbumImage], height: int) -> AlbumImage:
-    """The smallest image at least `height` tall, for thumbnail() to scale down (it never
-    scales up, so a smaller one would stay small); the tallest if none is tall enough.
+    """Pick the smallest image at least `height` tall, or the tallest if none is tall enough.
+
+    That's for thumbnail() to scale down: it never scales up, so a smaller one would stay small.
     """
     tall_enough = [image for image in images if image.height >= height]
     if tall_enough:

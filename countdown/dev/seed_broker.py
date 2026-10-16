@@ -1,8 +1,9 @@
-"""Seeds a *local* auth-broker's database with a screen that is already set up, paired and named, with its renderer
-assigned and claimed, so nobody goes through WiFi, pairing, naming or the config page. See "Running it in
-development" in ../README.md.
+r"""Seed a *local* auth-broker's database with a screen that is already set up, paired and named.
 
-    uv run python dev/seed_broker.py ../../auth-broker/data/broker.db --owner <user id> --slug nikolai-dev \\
+Its renderer is assigned and claimed too, so nobody goes through WiFi, pairing, naming or the config page. See
+"Running it in development" in ../README.md.
+
+    uv run python dev/seed_broker.py ../../auth-broker/data/broker.db --owner <user id> --slug nikolai-dev \
         --weather London --postcode "SW1A 1AA" --stops 490000077E
 
 It adds a device (paired to --owner, the id the login proxy sends as X-Authentik-Uid) with its config and a
@@ -57,8 +58,10 @@ def timestamp() -> str:
 
 
 def write_identity(role: str, secret: str, device_id: str | None) -> None:
-    """The file a registrar keeps (see countdown_credentials.registration.Registrar._save), encrypted with a new
-    key for this process. A renderer with its device_id is already registered: it makes no claim.
+    """Write the file a registrar keeps (see countdown_credentials.registration.Registrar._save).
+
+    It's encrypted with a new key for this process. A renderer with its device_id is already registered: it makes
+    no claim.
     """
     directory = DEV_DIR / role
     key_file = directory / KEY_HOME / KEY_PATH
@@ -73,6 +76,7 @@ def write_identity(role: str, secret: str, device_id: str | None) -> None:
 
 
 def forget(db: sqlite3.Connection, slug: str) -> None:
+    """Delete the screen with this slug and everything the broker keeps for it, if there is one."""
     row = db.execute("SELECT device_id FROM renderer_assignments WHERE slug = ?", (slug,)).fetchone()
     if row is None:
         return
@@ -83,6 +87,7 @@ def forget(db: sqlite3.Connection, slug: str) -> None:
 
 
 def main() -> int:
+    """Seed the screen the command line describes; the exit status is 1 if the schema or the slug is wrong for it."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("db", type=Path, help="the broker's SQLite file (data/broker.db in its checkout)")
     parser.add_argument("--owner", required=True, help="the user the screen is paired with (X-Authentik-Uid)")

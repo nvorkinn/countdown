@@ -8,7 +8,10 @@ REQUEST_TIMEOUT_S = 10
 
 
 class OrchestratorBroker:
-    def __init__(self, broker_url: str, token: str, session: requests.Session | None = None):
+    """A client for the broker's orchestrator endpoints, authenticated with the orchestrator's own token."""
+
+    def __init__(self, broker_url: str, token: str, session: requests.Session | None = None) -> None:
+        """Talk to the broker at `broker_url` with `token`, over `session` if given (tests pass a fake one)."""
         self.base_url = broker_url.rstrip("/")
         self.session = session or requests.Session()
         # Its own credential, not a device secret: it may only read and report on assignments.
@@ -29,6 +32,7 @@ class OrchestratorBroker:
         ]
 
     def report(self, assignment: Assignment, status: Status, detail: str = "") -> None:
+        """Tell the broker the assignment's new status, with `detail` saying why if it failed."""
         response = self.session.post(
             f"{self.base_url}/api/orchestrator/assignments/{assignment.id}/status",
             json={"status": status.value, "detail": detail},

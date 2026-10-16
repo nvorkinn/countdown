@@ -1,3 +1,5 @@
+"""The app's entry point: register with the broker, wait for a config, then run the display loop."""
+
 import asyncio
 import logging
 import os
@@ -5,7 +7,7 @@ import signal
 import sys
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 import requests
 
@@ -20,6 +22,8 @@ from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_credentials.registration import RendererRegistrar, RendererRegistration
 
 if TYPE_CHECKING:
+    from types import FrameType
+
     from countdown_api.models import ConfigResponse
     from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
@@ -34,9 +38,9 @@ MakeTarget = Callable[[RendererRegistration], DisplayTarget]
 
 
 def main(make_target: MakeTarget) -> None:
-    """Called by the console script (countdown_server), passing the `make_target` that knows where
-    its frames go. Must stay sync: the generated wrapper never awaits, so an `async def` here would
-    exit 1 without running anything.
+    """Run the app, from the console script (countdown_server), with the `make_target` that knows where frames go.
+
+    Must stay sync: the generated wrapper never awaits, so an `async def` here would exit 1 without running anything.
     """
     configure_logging()
     asyncio.run(run(make_target))
@@ -46,24 +50,25 @@ async def wait_for_config(
     broker: BrokerClient,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> tuple[ConfigResponse, PairingCodePanel]:
-    """Blocks until the broker returns a valid config, retrying with backoff."""
+    """Block until the broker returns a valid config, retrying with backoff."""
     delay = INITIAL_RETRY_S
     while True:
         try:
             return await asyncio.to_thread(broker.fetch_app_config)
         except (requests.exceptions.RequestException, ValueError, KeyError) as e:
             reason = f"{type(e).__name__}: {e}".splitlines()[0]
-            logger.warning(f"Can't get a valid config from the broker yet ({reason}) -- retrying in {delay}s")
+            logger.warning("Can't get a valid config from the broker yet (%s) -- retrying in %ss", reason, delay)
             await sleep(delay)
             delay = min(delay * 2, MAX_RETRY_S)
 
 
 async def run(make_target: MakeTarget) -> None:
+    """Register, wait for a config and run the display loop, painting on the target `make_target` makes."""
     display: DisplayController | None = None
 
     # Set up first, so a stop request works through the (possibly long) waits to register and for a
     # config too. In a container, where the app is PID 1, SIGTERM would otherwise be ignored outright.
-    def handle_shutdown(_signum, _frame):
+    def handle_shutdown(_signum: int, _frame: FrameType | None) -> NoReturn:
         logger.info("Shutting down gracefully...")
         if display is not None:
             # Lets the target release whatever it holds.

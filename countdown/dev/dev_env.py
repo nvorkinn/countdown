@@ -1,5 +1,6 @@
-"""Writes dev/.env, so a renderer can be run by hand (PyCharm, `uv run countdown-server`) instead of by the
-orchestrator, and the screen (VS Code) can use the same broker. See "Running it in development" in ../README.md.
+"""Write dev/.env, so a renderer can be run by hand (PyCharm, `uv run countdown-server`) instead of by the orchestrator.
+
+The screen (VS Code) can then use the same broker. See "Running it in development" in ../README.md.
 
     BROKER_URL=http://localhost:5000 ORCHESTRATOR_TOKEN=... uv run python dev/dev_env.py <slug>
 
@@ -28,8 +29,9 @@ CLAIMED = "already-claimed"
 
 
 def write_env(broker_url: str, slug: str, claim_token: str, **extra: str) -> dict[str, str]:
-    """Writes dev/.env (owner-only: the claim token is a credential) and makes the working directories. Returns
-    the variables written.
+    """Write dev/.env and make the working directories. Return the variables written.
+
+    The file is owner-only: the claim token is a credential.
     """
     values = {
         "BROKER_URL": broker_url,
@@ -46,6 +48,7 @@ def write_env(broker_url: str, slug: str, claim_token: str, **extra: str) -> dic
 
 
 def add_pycharm_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the options write_pycharm_config reads, shared by the scripts that call it."""
     parser.add_argument("--no-pycharm", action="store_true", help="don't write a PyCharm run configuration")
     parser.add_argument(
         "--idea-dir",
@@ -56,17 +59,21 @@ def add_pycharm_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def write_pycharm_config(args: argparse.Namespace, slug: str, env: dict[str, str]) -> Path | None:
-    """Writes .idea/runConfigurations/countdown_server_<slug>.xml: `countdown_server.main` with these variables and
-    dev/renderer as its working directory, so it only has to be run or debugged. Does nothing with --no-pycharm.
-    The file holds the variables (the claim token, say), and .idea/ is git-ignored.
+    """Write .idea/runConfigurations/countdown_server_<slug>.xml, so the renderer only has to be run or debugged.
+
+    It runs `countdown_server.main` with these variables and dev/renderer as its working directory. Does nothing
+    with --no-pycharm. The file holds the variables (the claim token, say), and .idea/ is git-ignored.
     """
     if args.no_pycharm:
         return None
     if args.idea_dir:
         idea_dir = args.idea_dir.resolve()
     else:
-        top = subprocess.run(
-            ["git", "-C", str(DEV_DIR), "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
+        top = subprocess.run(  # noqa: S603 -- a fixed git command, on this checkout
+            ["git", "-C", str(DEV_DIR), "rev-parse", "--show-toplevel"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
         idea_dir = Path(top) / ".idea"
     project_dir = idea_dir.parent
@@ -116,6 +123,7 @@ def write_pycharm_config(args: argparse.Namespace, slug: str, env: dict[str, str
 
 
 def main() -> int:
+    """Write dev/.env for the slug named on the command line; the exit status is 1 if the broker has no such slug."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("slug", help="the renderer's slug, as picked on the broker's config page")
     parser.add_argument("--broker-url", default=os.environ.get("BROKER_URL"))

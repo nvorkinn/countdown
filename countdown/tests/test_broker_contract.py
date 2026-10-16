@@ -9,6 +9,7 @@ from importlib.resources import files
 
 import responses
 import yaml
+from config_factory import broker_payload
 
 from countdown_api import models as wire
 from countdown_core.config_server.broker_client import BrokerClient
@@ -28,11 +29,10 @@ def test_the_spec_describes_the_config_endpoint():
 
 @responses.activate
 def test_the_headers_the_client_really_sends_are_the_ones_the_spec_declares(isolated_cwd, monkeypatch):
-    """Authorization isn't a header parameter (the spec declares it as a security scheme); every other header the
-    broker is sent on purpose must be declared, and a required one must be there.
-    """
-    from config_factory import broker_payload
+    """Every header the broker is sent on purpose must be declared, and a required one must be there.
 
+    Authorization isn't a header parameter: the spec declares it as a security scheme.
+    """
     monkeypatch.setenv("DEVICE_NAME", "camilla")
     spec = yaml.safe_load(SPEC.read_text())
     declared = {

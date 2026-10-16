@@ -1,3 +1,5 @@
+"""The renderer's client for the broker: the device's config and its pairing code."""
+
 from typing import TYPE_CHECKING
 
 import requests
@@ -14,8 +16,10 @@ if TYPE_CHECKING:
 
 
 def _device_name() -> str | None:
-    """X-Device-Name is cosmetic on the broker side, so it's sent on every call (a rename
-    shows on the next poll) but never allowed to fail a request.
+    """Return the X-Device-Name to send, or None if there's no usable name.
+
+    It's cosmetic on the broker side, so it's sent on every call (a rename shows on the next poll) but never allowed
+    to fail a request.
     """
     try:
         return device_name_from_env()
@@ -24,11 +28,13 @@ def _device_name() -> str | None:
 
 
 class BrokerClient(AbstractClient):
-    """Talks to auth-broker (https://github.com/nvorkinn/auth-broker) for the device's config,
-    as the device `registration` registered.
+    """Talks to auth-broker (https://github.com/nvorkinn/auth-broker) for the device's config.
+
+    It asks as the device `registration` registered.
     """
 
-    def __init__(self, registration: RendererRegistration):
+    def __init__(self, registration: RendererRegistration) -> None:
+        """`registration` is the renderer's: where the broker is, the device's secret and its device_id."""
         super().__init__(registration)
         self.device_id = registration.device_id
         self.base_url = registration.broker_url
@@ -41,8 +47,10 @@ class BrokerClient(AbstractClient):
         pass  # the registrar has done the work
 
     def get_config(self) -> ConfigResponse:
-        """The config, as the contract says it is: a response that doesn't match it (a missing section, an
-        interval that isn't positive) raises a pydantic ValidationError, which callers treat as a bad config.
+        """Fetch the config, as the contract says it is.
+
+        A response that doesn't match it (a missing section, an interval that isn't positive) raises a pydantic
+        ValidationError, which callers treat as a bad config.
         """
         try:
             return self._config_api.get(x_device_name=_device_name())
@@ -51,9 +59,7 @@ class BrokerClient(AbstractClient):
             raise requests.HTTPError(str(error), response=error.response) from error
 
     def get_pairing_code_panel(self, config: ConfigResponse) -> PairingCodePanel:
-        """Wraps the config's pairing_code as a panel, flagging whether it changed since
-        the last check.
-        """
+        """Wrap the config's pairing_code as a panel, flagging whether it changed since the last check."""
         is_same = self._cache_and_compare("pairing_code", config.pairing_code)
         return PairingCodePanel(config.pairing_code, self.device_id, has_changed=not is_same)
 
@@ -61,8 +67,9 @@ class BrokerClient(AbstractClient):
         pass
 
     def fetch_app_config(self) -> tuple[ConfigResponse, PairingCodePanel]:
-        """The config and pairing status in one go, for boot. Raises rather than falling
-        back if the broker can't be reached or the config is invalid.
+        """Fetch the config and pairing status in one go, for boot.
+
+        Raises rather than falling back if the broker can't be reached or the config is invalid.
         """
         config = self.get_config()
         return config, self.get_pairing_code_panel(config)

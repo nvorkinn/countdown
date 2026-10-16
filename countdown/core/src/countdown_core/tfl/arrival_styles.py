@@ -1,5 +1,6 @@
-"""The looks a stop's departures can have besides classic (the config's tfl.style). Each draws
-the whole stop, header included, into `width` x `height`, on a transparent background.
+"""The looks a stop's departures can have besides classic (the config's tfl.style).
+
+Each draws the whole stop, header included, into `width` x `height`, on a transparent background.
 """
 
 from typing import TYPE_CHECKING
@@ -19,6 +20,8 @@ MEDIUM = "Ubuntu-Medium.ttf"
 REGULAR = "Ubuntu-Regular.ttf"
 SANS = "GoogleSans-Regular.ttf"
 SANS_SEMI = "GoogleSans-SemiBold.ttf"
+# The smallest a badge's or name's text is shrunk to, to fit.
+MIN_FONT_SIZE = 8
 
 # Material Symbols glyphs, by AbstractArrivalPanel.icon
 ICONS = {
@@ -38,9 +41,9 @@ def _canvas(width: int, height: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
 
 
 def _shrunk(text: str, filename: str, size: int, width: float) -> ImageFont.FreeTypeFont:
-    """The font at `size`, or smaller until `text` fits `width`."""
+    """Load the font at `size`, or smaller until `text` fits `width`."""
     font = fitted_font(filename, size)
-    while font.getlength(text) > width and size > 8:
+    while font.getlength(text) > width and size > MIN_FONT_SIZE:
         size -= 1
         font = fitted_font(filename, size)
     return font
@@ -51,12 +54,12 @@ def _minutes(minutes: int) -> str:
 
 
 def _later(minutes: tuple[int, ...]) -> str:
-    """The next two after the first, e.g. "then 9, 14 min"; empty if there are none."""
+    """Show the next two after the first, e.g. "then 9, 14 min"; empty if there are none."""
     return _("then {times} min").format(times=", ".join(map(str, minutes[1:3]))) if len(minutes) > 1 else ""
 
 
 def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
-    """The next departure big, so it reads from across the room; the rest in a list below."""
+    """Draw the next departure big, so it reads from across the room; the rest in a list below."""
     img, d = _canvas(width, height)
     # Header: the stop's mode (a bus, a train...), its name, its letter in a circle, and a rule.
     d.text((0, 11), ICONS[panel.icon], "black", google_symbols().font_variant(size=22), anchor="lm")
@@ -114,7 +117,7 @@ def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
 
 
 def grouped(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
-    """A row per route, with its next departure big on the right and the ones after under it."""
+    """Draw a row per route, with its next departure big on the right and the ones after under it."""
     img, d = _canvas(width, height)
     # A bus or tram stop's letter, or a metro or railway platform's number.
     label = _("Platform {letter}") if panel.icon in ("subway", "train") else _("Stop {letter}")
@@ -158,8 +161,9 @@ def grouped(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image
 
 
 def card(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
-    """The stop in a rounded card: a black title bar, then a row per route with its minutes
-    lined up in a column on the right.
+    """Draw the stop in a rounded card.
+
+    A black title bar, then a row per route with its minutes lined up in a column on the right.
     """
     img, d = _canvas(width, height)
     d.rounded_rectangle((0, 0, width - 1, height - 1), 10, fill="white", outline="black", width=2)

@@ -1,6 +1,7 @@
-"""The looks the Spotify panel can have besides classic (the config's spotify.style), each to
-match the bus/tube style of the same name. A style draws both pages: what's playing, and the
-top tracks and artists. Each draws into `width` x `height`, on a transparent background.
+"""The looks the Spotify panel can have besides classic (the config's spotify.style).
+
+Each matches the bus/tube style of the same name. A style draws both pages: what's playing, and the top tracks and
+artists. Each draws into `width` x `height`, on a transparent background.
 """
 
 from collections.abc import Callable
@@ -42,7 +43,7 @@ def _length(duration: timedelta) -> str:
     return f"{hours}:{minutes:02}:{seconds:02}" if hours else f"{minutes}:{seconds:02}"
 
 
-def _track_and_by(
+def _track_and_by(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which fonts
     d: ImageDraw.ImageDraw,
     y: float,
     left: float,
@@ -52,8 +53,9 @@ def _track_and_by(
     name_font: ImageFont.FreeTypeFont,
     by_font: ImageFont.FreeTypeFont,
 ) -> None:
-    """`name` from the left and, when there is one, `by` against the right, smaller. The
-    artist gets at most 40% of the row, so a long one can't squeeze the name out.
+    """Draw `name` from the left and, when there is one, `by` against the right, smaller.
+
+    The artist gets at most 40% of the row, so a long one can't squeeze the name out.
     """
     if by:
         by = truncate_to_fit(by, by_font, (right - left) * 0.4)
@@ -63,7 +65,7 @@ def _track_and_by(
 
 
 def _columns(tracks: list[Track], artists: list[Artist]) -> list[tuple[str, list[tuple[str, str]]]]:
-    """The two lists side by side, as (name, by) rows; an artist has no "by"."""
+    """Put the two lists side by side, as (name, by) rows; an artist has no "by"."""
     return [
         ("tracks", [(track.name, track.artists[0].name if track.artists else "") for track in tracks]),
         ("artists", [(artist.name, "") for artist in artists]),
@@ -74,6 +76,7 @@ def _columns(tracks: list[Track], artists: list[Artist]) -> list[tuple[str, list
 
 
 def airy_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Image:
+    """Draw what's playing beside its cover, under a small-caps label, with what's up next below a hairline."""
     img, d = _canvas(width, height)
     track = queue.currently_playing
     cover = art(height)
@@ -104,6 +107,7 @@ def airy_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
 
 
 def airy_top(period: str, tracks: list[Track], artists: list[Artist], width: int, height: int) -> Image.Image:
+    """Draw the two top lists side by side, each under a small-caps label and a hairline."""
     img, d = _canvas(width, height)
     label = fitted_font(SANS_SEMI, 11)
     rank_font, name_font, by_font = fitted_font(SANS_SEMI, 14), fitted_font(SANS, 14), fitted_font(SANS, 12)
@@ -129,7 +133,7 @@ def airy_top(period: str, tracks: list[Track], artists: list[Artist], width: int
 # --- hero: an icon header over a heavy rule, and number one big, like the next bus ----------
 
 
-def _hero_header(d: ImageDraw.ImageDraw, left: float, right: float, icon: str, title: str, aside: str) -> None:
+def _hero_header(d: ImageDraw.ImageDraw, left: float, right: float, icon: str, title: str, aside: str) -> None:  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and with which icon
     d.text((left, 11), icon, "black", google_symbols().font_variant(size=22), anchor="lm")
     d.text((left + 26, 11), title, "black", fitted_font(SANS_SEMI, 17), anchor="lm")
     d.text((right, 11), aside, "black", fitted_font(MEDIUM, 13), anchor="rm")
@@ -137,6 +141,7 @@ def _hero_header(d: ImageDraw.ImageDraw, left: float, right: float, icon: str, t
 
 
 def hero_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Image:
+    """Draw what's playing beside its cover, the title big, with what's up next in a NEXT badge's row."""
     img, d = _canvas(width, height)
     track = queue.currently_playing
     cover = art(height)
@@ -166,6 +171,7 @@ def hero_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
 
 
 def hero_top(period: str, tracks: list[Track], artists: list[Artist], width: int, height: int) -> Image.Image:
+    """Draw the two top lists side by side, number one big in a black badge and two to five under it."""
     img, d = _canvas(width, height)
     gap = 24
     column = (width - gap) / 2
@@ -210,7 +216,7 @@ def hero_top(period: str, tracks: list[Track], artists: list[Artist], width: int
 CARD_BAR = 28
 
 
-def _card(d: ImageDraw.ImageDraw, left: int, right: int, height: int, icon: str, title: str, aside: str) -> None:
+def _card(d: ImageDraw.ImageDraw, left: int, right: int, height: int, icon: str, title: str, aside: str) -> None:  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and with which icon
     d.rounded_rectangle((left, 0, right - 1, height - 1), 10, fill="white", outline="black", width=2)
     d.rounded_rectangle((left, 0, right - 1, CARD_BAR), 10, fill="black")
     d.rectangle((left, CARD_BAR - 10, right - 1, CARD_BAR), fill="black")  # square off the bar's bottom corners
@@ -220,6 +226,7 @@ def _card(d: ImageDraw.ImageDraw, left: int, right: int, height: int, icon: str,
 
 
 def card_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Image:
+    """Draw what's playing in a card, its cover inside, with what's up next under a dotted line."""
     img, d = _canvas(width, height)
     track = queue.currently_playing
     _card(d, 0, width, height, NOTE, _("Now playing"), _length(track.duration_ms))
@@ -248,6 +255,7 @@ def card_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
 
 
 def card_top(period: str, tracks: list[Track], artists: list[Artist], width: int, height: int) -> Image.Image:
+    """Draw the two top lists side by side, a card each."""
     img, d = _canvas(width, height)
     gap = 10
     column = (width - gap) / 2
@@ -268,6 +276,8 @@ def card_top(period: str, tracks: list[Track], artists: list[Artist], width: int
 
 @dataclass(frozen=True)
 class Style:
+    """A Spotify style's two pages: `now` draws what's playing, `top` the top tracks and artists."""
+
     now: Callable[[Queue, AlbumArt, int, int], Image.Image]
     top: Callable[[str, list[Track], list[Artist], int, int], Image.Image]
 

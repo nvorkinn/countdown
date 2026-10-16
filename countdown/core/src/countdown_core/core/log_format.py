@@ -1,11 +1,14 @@
-"""One JSON object per log line, with the field names VictoriaLogs reads: `_msg` and `level`. The container's
-log driver stamps each line with its time, and the host's collector adds the service name, so neither is here.
+"""One JSON object per log line, with the field names VictoriaLogs reads: `_msg` and `level`.
+
+The container's log driver stamps each line with its time, and the host's collector adds the service name, so
+neither is here.
 A traceback stays inside its record (`exception`) instead of becoming a line of its own.
 """
 
 import json
 import logging
 import os
+from typing import override
 
 from countdown_credentials.device_name import device_name_from_env
 
@@ -19,9 +22,11 @@ class JsonFormatter(logging.Formatter):
     """`fixed` is added to every record, e.g. the device the process is."""
 
     def __init__(self, **fixed: str) -> None:
+        """Add the `fixed` fields to every record."""
         super().__init__()
         self.fixed = fixed
 
+    @override
     def format(self, record: logging.LogRecord) -> str:
         entry = {
             "level": LEVELS.get(record.levelname, record.levelname.lower()),

@@ -1,3 +1,5 @@
+"""The Spotify area's client: it rotates between what's playing and the listener's top tracks and artists."""
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -19,8 +21,9 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class PageConfig:
-    """One of the pages the Spotify area rotates through. A page with nothing to show
-    (update_function returns None) gives way to the next one.
+    """One of the pages the Spotify area rotates through.
+
+    A page with nothing to show (update_function returns None) gives way to the next one.
     """
 
     update_function: Callable[[SpotifyClient, PageConfig], Panel | None]
@@ -28,20 +31,24 @@ class PageConfig:
 
 @dataclass(frozen=True)
 class TopPageConfig(PageConfig):
+    """A top tracks and artists page: `params` for Spotify's time range, and the `period` it shows as."""
+
     update_function: Callable[[SpotifyClient, TopPageConfig], Panel | None]
     params: dict[str, str]
     period: str
 
 
 class SpotifyClient(AbstractClient):
-    """Now playing and top tracks/artists, via auth-broker, which calls Spotify server-side
-    so this device never holds a token. Authenticates as the device `registration` registered.
+    """Now playing and top tracks/artists, via auth-broker, which calls Spotify server-side.
+
+    So this device never holds a token. Authenticates as the device `registration` registered.
     """
 
     panel_title = N_("Spotify")
     panel_logo = "spotify_logo.png"
 
-    def __init__(self, registration: Registration, config: Spotify):
+    def __init__(self, registration: Registration, config: Spotify) -> None:
+        """`registration`: this device at the broker, which it calls as; `config`: the Spotify settings."""
         super().__init__(registration, config)
         self.page = -1
         self.base_url = registration.broker_url
@@ -50,13 +57,13 @@ class SpotifyClient(AbstractClient):
     def _initialise(self) -> None:
         pass
 
-    def _request(self, method: str, path: str, **kwargs) -> bytes:
-        response = self.session.request(method, f"{self.base_url}{path}", timeout=DEFAULT_TIMEOUT, **kwargs)
+    def _request(self, method: str, path: str, params: dict[str, str | int] | None = None) -> bytes:
+        response = self.session.request(method, f"{self.base_url}{path}", params=params, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         return response.content
 
     def _update(self) -> Panel:
-        """The next page in PAGES, or the one after if that has nothing to show."""
+        """Show the next page in PAGES, or the one after if that has nothing to show."""
         for _ in range(2):
             self.page = (self.page + 1) % len(PAGES)
             page_config = PAGES[self.page]
@@ -73,6 +80,7 @@ class SpotifyClient(AbstractClient):
         return SpotifyPanel(queue, self.config.style)
 
     def update_top(self, page_config: TopPageConfig) -> Panel:
+        """Fetch the listener's top five tracks and artists over the page's period."""
         params = {**page_config.params, "limit": 5}
         top_tracks_bytes = self._request("GET", "/api/spotify/top/tracks", params=params)
         top_tracks_panel = SpotifyTopTracksPanel(TopResponse[Track].model_validate_json(top_tracks_bytes))

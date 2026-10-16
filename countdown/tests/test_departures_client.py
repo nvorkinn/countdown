@@ -48,7 +48,7 @@ def make_config(stop_ids: list[str] | None = None, app_key: str = "", style: str
 
 
 def tfl_stops(client: DeparturesClient, *stops) -> list[ResolvedStop]:
-    """The stops, as the client holds them once resolved."""
+    """Get the stops, as the client holds them once resolved."""
     return [ResolvedStop(stop.naptan_id, client.sources["tfl"], stop) for stop in stops]
 
 
@@ -71,8 +71,9 @@ def test_find_stop_child_not_found_returns_none():
 
 
 def test_construction_never_touches_the_network():
-    """__init__ must be cheap and unable to fail -- stop resolution is deferred to
-    first use, so a flaky TfL API can never prevent a DeparturesClient from being built.
+    """__init__ must be cheap and unable to fail: stop resolution is deferred to first use.
+
+    So a flaky TfL API can never prevent a DeparturesClient from being built.
     """
     client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"], "app-key"))
     assert client.stops == []

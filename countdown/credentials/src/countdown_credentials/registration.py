@@ -1,7 +1,8 @@
-"""Registering with auth-broker (https://github.com/nvorkinn/auth-broker), and the device credentials
-that come out of it. A Registrar does the registering, and is the one place that reads and writes
-CREDENTIALS_FILE. What it hands back, a Registration, never changes: everything else talks to the
-broker through a session whose `auth` is a Registration's `auth`, so the bearer secret is set in one place.
+"""Registering with auth-broker (https://github.com/nvorkinn/auth-broker), and the credentials that come of it.
+
+A Registrar does the registering, and is the one place that reads and writes CREDENTIALS_FILE. What it hands back,
+a Registration, never changes: everything else talks to the broker through a session whose `auth` is a
+Registration's `auth`, so the bearer secret is set in one place.
 
 Until it's registered, a client has nothing to do but wait, so register() only returns once it is.
 """
@@ -14,7 +15,7 @@ import secrets
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, NotRequired, TypedDict, Unpack, override
 
 import requests
 from cryptography.fernet import Fernet, InvalidToken
@@ -39,12 +40,20 @@ def _bearer(request: requests.PreparedRequest, secret: str) -> requests.Prepared
 
 
 def _owner_only(path: str, flags: int) -> int:
-    """An opener for open(): the file is created readable by its owner only, never briefly by anyone else."""
+    """Open `path` as open()'s opener: the file is created readable by its owner only, never briefly by anyone else."""
     return os.open(path, flags, 0o600)
 
 
 def _retry_after(response: requests.Response) -> int:
     return int(response.headers.get("Retry-After", DEFAULT_RETRY_S))
+
+
+class RegistrarOptions(TypedDict):
+    """What a Registrar can be given besides the broker's URL (see Registrar.__init__)."""
+
+    credentials_file: NotRequired[Path]
+    sleep: NotRequired[Callable[[float], Awaitable[None]]]
+    cipher: NotRequired[Fernet | None]
 
 
 @dataclass(frozen=True)
@@ -67,8 +76,9 @@ class RendererRegistration(Registration):
 
 
 class Registrar[R: Registration](ABC):
-    """Registers the device as one role, and keeps its credentials in `credentials_file`. A new secret
-    is saved before it's ever sent, so retrying a registration never makes a second identity.
+    """Registers the device as one role, and keeps its credentials in `credentials_file`.
+
+    A new secret is saved before it's ever sent, so retrying a registration never makes a second identity.
     """
 
     role: str
@@ -80,7 +90,11 @@ class Registrar[R: Registration](ABC):
         credentials_file: Path = CREDENTIALS_FILE,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         cipher: Fernet | None = None,
-    ):
+    ) -> None:
+        """Register with the broker at `broker_url`, keeping the credentials in `credentials_file`.
+
+        `sleep` waits between attempts; `cipher` encrypts the file (by default, with credentials_key()).
+        """
         self.broker_url = broker_url.rstrip("/")
         self.credentials_file = credentials_file
         self._cipher = cipher or credentials_key()
@@ -94,7 +108,7 @@ class Registrar[R: Registration](ABC):
             self._new_secret()
 
     async def register(self) -> R:
-        """The registration, once the broker has taken it, retrying until it does."""
+        """Return the registration, once the broker has taken it, retrying until it does."""
         if (cached := self._cached()) is not None:
             return cached
         while True:
@@ -130,7 +144,7 @@ class Registrar[R: Registration](ABC):
             await self._sleep(delay)
 
     def _cached(self) -> R | None:
-        """A registration from the credentials file that needs no call to the broker."""
+        """Return a registration from the credentials file that needs no call to the broker."""
         return None
 
     @abstractmethod
@@ -139,10 +153,10 @@ class Registrar[R: Registration](ABC):
 
     @abstractmethod
     def _registered(self, response: requests.Response) -> R:
-        """The registration, from /register's 200 or 201."""
+        """Make the registration from /register's 200 or 201."""
 
     def _accepted(self) -> R:
-        """The registration, from a 202 (only a display's /register answers that)."""
+        """Make the registration from a 202 (only a display's /register answers that)."""
         raise NotImplementedError
 
     def _auth(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
@@ -177,15 +191,18 @@ class Registrar[R: Registration](ABC):
 
 
 class RendererRegistrar(Registrar[RendererRegistration]):
-    """Whatever draws the frames. The orchestrator starts it for one screen and gives it that screen's
-    claim token, which it sends with its secret to POST /api/renderers/claim. The broker answers 201 with
-    the device_id on the first claim, and 200 on a repeat with the same secret (the token is then ignored).
+    """Whatever draws the frames.
+
+    The orchestrator starts it for one screen and gives it that screen's claim token, which it sends with its secret
+    to POST /api/renderers/claim. The broker answers 201 with the device_id on the first claim, and 200 on a repeat
+    with the same secret (the token is then ignored).
     """
 
     role = "renderer"
     path = "/api/renderers/claim"
 
-    def __init__(self, broker_url: str, claim_token: str, **kwargs):
+    def __init__(self, broker_url: str, claim_token: str, **kwargs: Unpack[RegistrarOptions]) -> None:
+        """Claim the screen whose `claim_token` the orchestrator gave; `kwargs` are as for Registrar."""
         if not claim_token:
             msg = "A renderer can only register with a claim token"
             raise ValueError(msg)
@@ -214,9 +231,10 @@ class RendererRegistrar(Registrar[RendererRegistration]):
 
 
 class DisplayRegistrar(Registrar[Registration]):
-    """A thin screen that only fetches finished frames. Registers on every boot (the broker allows
-    it) and doesn't wait to be matched: until it is, its frame polls answer 202. It never needs
-    its device_id.
+    """A thin screen that only fetches finished frames.
+
+    Registers on every boot (the broker allows it) and doesn't wait to be matched: until it is, its frame polls answer
+    202. It never needs its device_id.
     """
 
     role = "display"

@@ -1,3 +1,5 @@
+"""Every layout there is, and which one draws a given cycle."""
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -13,11 +15,17 @@ logger = logging.getLogger(__name__)
 
 
 class LayoutRegistry:
-    """Every layout, by the canvas it draws on. select() is a lookup with nothing to remember
-    (beyond not repeating a warning), so it's asked again every cycle rather than its answer kept.
+    """Every layout, by the canvas it draws on.
+
+    select() is a lookup with nothing to remember (beyond not repeating a warning), so it's asked again every cycle
+    rather than its answer kept.
     """
 
-    def __init__(self, layouts: Iterable[Layout]):
+    def __init__(self, layouts: Iterable[Layout]) -> None:
+        """Index `layouts` by canvas; the first for each canvas is its default.
+
+        Raises ValueError if none draws on the default canvas, or two variants of a layout fit the same APIs.
+        """
         self._by_canvas: dict[Canvas, list[Layout]] = {}
         for layout in layouts:
             for canvas in layout.canvases:
@@ -34,12 +42,13 @@ class LayoutRegistry:
         self._warned: set[tuple[Canvas, str | None]] = set()
 
     def layout_ids(self, canvas: Canvas) -> list[str]:
-        """The layouts the config can choose from for `canvas`, the default first."""
+        """List the layouts the config can choose from for `canvas`, the default first."""
         return list(dict.fromkeys(layout.layout_id for layout in self._by_canvas.get(canvas, [])))
 
     def drawable(self, canvas: Canvas) -> Canvas:
-        """`canvas` if some layout draws on it, else the default canvas, so a screen nothing
-        has been designed for yet still shows the dashboard the way it always has.
+        """`canvas` if some layout draws on it, else the default canvas.
+
+        So a screen nothing has been designed for yet still shows the dashboard the way it always has.
         """
         if canvas in self._by_canvas:
             return canvas
@@ -47,9 +56,10 @@ class LayoutRegistry:
         return DEFAULT_CANVAS
 
     def select(self, canvas: Canvas, layout_id: str | None, available: frozenset[ClientClasses]) -> Layout:
-        """The layout to draw this cycle on `canvas` (one drawable() returned): the chosen
-        layout, else the canvas's first, in its variant for what's `available`. A layout id
-        the canvas doesn't have gets the default, so a choice gone stale never blanks the screen.
+        """Pick the layout to draw this cycle on `canvas` (one drawable() returned).
+
+        That's the chosen layout, else the canvas's first, in its variant for what's `available`. A layout id the
+        canvas doesn't have gets the default, so a choice gone stale never blanks the screen.
         """
         candidates = self._by_canvas[canvas]
 

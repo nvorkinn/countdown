@@ -1,6 +1,11 @@
+"""The weather panel's four pages (now, tonight, tomorrow and the weekend), worked out from one forecast."""
+
 import datetime as dt
 
 from countdown_core.weather.models import ForecastResponse, Upcoming, Weather, WeatherDay, WeatherPeriod
+
+# The hour whose weather stands for the whole night, when the forecast has it.
+NIGHT_HOUR = 21
 
 
 def weather_pages(forecast: ForecastResponse) -> tuple[Weather, ...]:
@@ -36,7 +41,7 @@ def weather_pages(forecast: ForecastResponse) -> tuple[Weather, ...]:
         raise ValueError(msg)
     coldest = min(hours, key=lambda index: hourly.temperature[index])
     windiest = max(hours, key=lambda index: hourly.wind_speed[index])
-    representative = next((index for index in hours if hourly.time[index].hour == 21), hours[0])
+    representative = next((index for index in hours if hourly.time[index].hour == NIGHT_HOUR), hours[0])
     tonight = now.model_copy(
         update={
             "period": WeatherPeriod.TONIGHT,

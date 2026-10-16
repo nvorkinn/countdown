@@ -13,9 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 def reconcile(broker: OrchestratorBroker, runtime: Runtime, max_renderers: int | None = None) -> None:
-    """Idempotent, so a crash or a reboot only means running it again. One assignment failing is reported and
-    never holds up the others. `max_renderers` is the host's capacity: an assignment beyond it stays pending
-    until there's room (the one place that, later, chooses which renderer a screen goes to).
+    """Make, start, stop and delete renderers until they match the broker's assignments.
+
+    Idempotent, so a crash or a reboot only means running it again. One assignment failing is reported and never
+    holds up the others. `max_renderers` is the host's capacity: an assignment beyond it stays pending until
+    there's room (the one place that, later, chooses which renderer a screen goes to).
     """
     wanted = broker.assignments()
     existing = runtime.renderers()
@@ -36,7 +38,7 @@ def _reconcile_one(
     broker: OrchestratorBroker,
     runtime: Runtime,
     assignment: Assignment,
-    existing: dict,
+    existing: dict[str, Renderer],
     max_renderers: int | None,
 ) -> None:
     if assignment.status == Status.DELETING:
@@ -77,7 +79,7 @@ def _reconcile_one(
 
 
 def _report(broker: OrchestratorBroker, assignment: Assignment, status: Status, detail: str) -> None:
-    """Reports without raising, so a broker error can't stop the pass; it's retried on the next one."""
+    """Report without raising, so a broker error can't stop the pass; it's retried on the next one."""
     if assignment.status == status:
         return  # already told
     try:

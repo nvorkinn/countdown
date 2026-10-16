@@ -1,5 +1,7 @@
+"""The Spotify area's top page: the listener's top tracks and artists over a period."""
+
 from math import floor
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from PIL import Image, ImageDraw
 
@@ -16,6 +18,8 @@ if TYPE_CHECKING:
 
 
 class SpotifyTopPanel(Panel):
+    """The top tracks and artists side by side, under a heading naming the period."""
+
     def __init__(
         self,
         period: str,
@@ -23,11 +27,13 @@ class SpotifyTopPanel(Panel):
         top_artists_panel: SpotifyTopArtistsPanel,
         style: Style = "classic",
     ) -> None:
+        """`period`: what the lists cover, in English ("4 weeks"); the two lists; `style`: how to draw them."""
         super().__init__()
         self.period = period
         self.sub_panels = [top_tracks_panel, top_artists_panel]
         self.style = style
 
+    @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         if self.style != "classic":
             tracks, artists = (panel.top_response.items for panel in self.sub_panels)

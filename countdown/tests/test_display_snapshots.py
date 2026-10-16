@@ -1,6 +1,7 @@
-"""Visual regression tests for the composed display screen: each scenario builds panels
-from representative data (no HTTP mocking -- see test_e2e_render_cycle.py) and compares
-the render against a golden image in tests/images/. See the README for the workflow.
+"""Visual regression tests for the composed display screen.
+
+Each scenario builds panels from representative data (no HTTP mocking -- see test_e2e_render_cycle.py) and
+compares the render against a golden image in tests/images/. See the README for the workflow.
 """
 
 import datetime as dt
@@ -57,11 +58,12 @@ LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
 
 
 def _draw(panels: dict[str, Panel], available: frozenset[ClientClasses] = EVERYTHING) -> Image.Image:
-    """The screen as it's drawn on an 800x480 landscape screen able to show `available`."""
+    """Draw the screen as it's drawn on an 800x480 landscape screen able to show `available`."""
     return _CONTROLLER.display_screen(panels, LANDSCAPE, available)
 
 
-_FROZEN_NOW = dt.datetime(2026, 1, 15, 12, 0, 0)
+# Naive, as the panels' clock is: local wall-clock time.
+_FROZEN_NOW = dt.datetime(2026, 1, 15, 12, 0, 0)  # noqa: DTZ001 -- see above
 
 
 class _FrozenDatetime(dt.datetime):
@@ -147,8 +149,9 @@ SPOTIFY_QUEUE_LAST_TRACK = SPOTIFY_QUEUE.model_copy(update={"queue": []})
 
 
 def _album_art_bytes() -> bytes:
-    """The album's only image, and a small one: thumbnail() never scales up, so it
-    stays 64x64 in the 120px-high panel.
+    """Make the album's only image, and a small one.
+
+    thumbnail() never scales up, so it stays 64x64 in the 120px-high panel.
     """
     buf = io.BytesIO()
     Image.new("RGB", (64, 64), (30, 30, 30)).save(buf, format="PNG")
@@ -202,8 +205,9 @@ def _panels(
     spotify: Panel = SPOTIFY_NOT_CONFIGURED,
     notices: Panel = NOTICES,
 ) -> dict[str, Panel]:
-    """What ApiRegistry.update_all() hands the layout: a panel
-    for every API, a MessagePanel where one has nothing to show.
+    """Build what ApiRegistry.update_all() hands the layout.
+
+    That's a panel for every API, a MessagePanel where one has nothing to show.
     """
     return {
         ClientClasses.TFL.api_name: arrivals,
@@ -236,8 +240,9 @@ def test_screen_without_weather_data_yet(snapshot):
 
 
 def test_screen_without_energy_panel(snapshot):
-    """Glowmarkt not set up (the common case for a gifted device): no energy column, and
-    the notices and Spotify take the full width instead.
+    """Glowmarkt not set up (the common case for a gifted device): no energy column.
+
+    The notices and Spotify take the full width instead.
     """
     img = _draw(_panels(_bus_only_arrivals(), energy=GlowClient.message_panel("Not configured")), NO_GLOWMARKT)
     snapshot.assert_matches("screen_no_energy", img)
@@ -285,8 +290,9 @@ def test_empty_screen_stays_clear_of_the_screen_edges():
 
 
 def test_screen_with_no_panels_at_all_says_there_is_nothing_to_show(snapshot):
-    """First cycle after boot, a paired device nobody's set up yet, or every API failing:
-    a message saying so, not a blank white screen that looks broken (or a crash).
+    """First cycle after boot, a paired device nobody's set up yet, or every API failing.
+
+    A message saying so, not a blank white screen that looks broken (or a crash).
     """
     img = _draw({})
     assert img.size == DEFAULT_CANVAS.size
@@ -310,9 +316,7 @@ def test_screen_with_spotify_playing_the_last_queued_track(snapshot):
 
 
 def test_weather_panel_rainy_night(snapshot):
-    """A different code and the night variant, at the shorter height the panel gets
-    while a Spotify track is playing.
-    """
+    """A different code and the night variant, at the shorter height the panel gets while Spotify plays."""
     panel = WeatherPanel(
         make_weather(temperature=8.6, weather_code=63, is_day=False, high=11, low=6, precipitation_probability=85)
     )
@@ -566,7 +570,7 @@ def test_oslo_screen_in_norwegian(snapshot):
 
 
 def _rotating_arrivals() -> CombinedArrivalPanel:
-    """The first two of three stops: two squares filled, one empty."""
+    """Show the first two of three stops: two squares filled, one empty."""
     return CombinedArrivalPanel(
         [
             BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS, "hero"),
@@ -588,8 +592,9 @@ def test_rotating_stops_on_a_portrait_screen(snapshot):
 
 
 def test_rotation_squares_are_part_of_the_arrivals_panel():
-    """The layouts make the arrivals' partial-refresh box from the panel's rendered size, so
-    the squares, in the strip at the bottom of it, are repainted along with the stops.
+    """The layouts make the arrivals' partial-refresh box from the panel's rendered size.
+
+    So the squares, in the strip at the bottom of it, are repainted along with the stops.
     """
     rendered = _rotating_arrivals().render(800, 185)
     assert rendered.size[1] > 185 - ROTATION_STRIP
@@ -603,8 +608,9 @@ SPOTIFY_STYLES = ["classic", "airy", "hero", "card"]
 
 
 def _cover_art_bytes() -> bytes:
-    """A low-contrast gradient with a disc on it: the styles stretch its contrast, so the
-    disc still shows once the screen dithers it.
+    """Make a low-contrast gradient with a disc on it.
+
+    The styles stretch its contrast, so the disc still shows once the screen dithers it.
     """
     img = Image.new("RGB", (300, 300))
     draw = ImageDraw.Draw(img)
@@ -641,9 +647,7 @@ def _spotify_page(page: str, style: str) -> Panel:
 @pytest.mark.parametrize("page", ["now", "top"])
 @pytest.mark.parametrize("style", SPOTIFY_STYLES)
 def test_spotify_styles(snapshot, style, page):
-    """Each look the config's spotify.style can pick, on both of Spotify's pages, beside
-    the energy chart.
-    """
+    """Each look the config's spotify.style can pick, on both of Spotify's pages, beside the energy chart."""
     responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
     img = _draw(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
     snapshot.assert_matches(f"screen_spotify_{style}_{page}", img)

@@ -1,5 +1,7 @@
-"""The JSON log lines the renderer and the orchestrator write for VictoriaLogs (`_msg`, `level`, one record per
-exception). Both packages carry the same formatter, since the orchestrator's image installs only its own.
+"""The JSON log lines the renderer and the orchestrator write for VictoriaLogs.
+
+They have `_msg` and `level`, and one record per exception. Both packages carry the same formatter, since the
+orchestrator's image installs only its own.
 """
 
 import json
@@ -43,11 +45,15 @@ def test_levels_use_the_shared_vocabulary(formatter, level, expected):
     assert json.loads(formatter.format(record(level)))["level"] == expected
 
 
+def fail() -> None:
+    msg = "boom"
+    raise ValueError(msg)
+
+
 @pytest.mark.parametrize("formatter", FORMATTERS)
 def test_a_traceback_stays_inside_its_record(formatter):
     try:
-        msg = "boom"
-        raise ValueError(msg)
+        fail()
     except ValueError:
         line = formatter.format(record(logging.ERROR, "failed", (), sys.exc_info()))
 
