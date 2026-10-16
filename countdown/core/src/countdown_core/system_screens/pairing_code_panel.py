@@ -1,6 +1,7 @@
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import _
 from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import fitted_font, width_scale
 
@@ -36,11 +37,11 @@ class PairingCodePanel(Panel):
             font = fitted_font("Ubuntu-Medium.ttf", size, scale)
             draw.text((center_x, center_y + offset * scale), words, anchor="mm", font=font, fill="black")
 
-        text(-178, "Set up this display", TITLE)
-        text(-98, "Go to nikolaivorkinn.com", BODY)
-        text(-54, "and enter this code:", BODY)
+        text(-178, _("Set up this display"), TITLE)
+        text(-98, _("Go to {site}").format(site="nikolaivorkinn.com"), BODY)
+        text(-54, _("and enter this code:"), BODY)
         self._draw_code(draw, image_width, center_y - 4 * scale)
-        text(168, f"Device: {self.device_id}", SMALL)
+        text(168, _("Device: {device}").format(device=self.device_id), SMALL)
 
         return img
 

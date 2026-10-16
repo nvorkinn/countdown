@@ -9,8 +9,9 @@ from config_factory import make_config
 from PIL import Image, ImageDraw
 from test_utils import REGISTRATION
 
-from countdown_api.models import Tfl
+from countdown_api.models import DepartureStop, Tfl
 from countdown_core.core.api_registry import section_for
+from countdown_core.departures.departures_client import DeparturesSettings
 from countdown_core.notices.calendar import (
     BANK_HOLIDAYS_URL,
     BankHolidaySource,
@@ -554,7 +555,8 @@ def clock(monkeypatch):
 
 
 def board_settings(postcode: str | None = None, stop_ids: list[str] | None = None) -> NoticeBoardSettings:
-    return NoticeBoardSettings(postcode=postcode, tfl=Tfl(app_key="", stop_ids=stop_ids or []))
+    stops = tuple(DepartureStop(source="tfl", id=stop_id) for stop_id in stop_ids or [])
+    return NoticeBoardSettings(postcode=postcode, departures=DeparturesSettings(stops))
 
 
 def board_with(*sources: NoticeSource) -> NoticeBoardClient:

@@ -4,10 +4,14 @@ from datetime import UTC, datetime, timedelta
 
 from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.departures.departures_client import DeparturesSettings
+from countdown_core.i18n import N_, local_zone
 from countdown_core.notices.calendar import BankHolidaySource, ClockChangeSource
+from countdown_core.notices.entur import EnturSituationsSource
 from countdown_core.notices.floods import FloodWarningsSource
 from countdown_core.notices.location import lookup_postcode
 from countdown_core.notices.met_office import MetOfficeWarningsSource
+from countdown_core.notices.norway import MetAlertsSource, NorwegianHolidaySource, lookup_norwegian_postcode
 from countdown_core.notices.notice import Notice, NoticeSource
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.tfl import TflLineStatusSource, TflRoadSource, TflStationSource
@@ -26,28 +30,38 @@ LOCATION_RETRY = timedelta(minutes=15)
 
 @dataclass(frozen=True)
 class NoticeBoardSettings:
-    """What the notice board is configured with: the broker's `notice_board` postcode, and its `tfl` section, for
-    the stops whose lines and stations the TfL disruptions are about. Compared by value, so a change to either
-    makes AbstractClient.needs_refresh rebuild the board."""
+    """What the notice board is configured with: the broker's `notice_board` section, and the departures' stops,
+    whose lines and stations the disruptions are about. Compared by value, so a change to either makes
+    AbstractClient.needs_refresh rebuild the board."""
 
     postcode: str | None
-    tfl: Tfl
+    departures: DeparturesSettings
+    # The postcode's country; None for a broker that predates it, whose postcodes are all British.
+    country: str | None = None
+
+    @property
+    def tfl(self) -> Tfl:
+        """The TfL stops alone, for the TfL disruption sources."""
+        return Tfl(app_key=self.departures.tfl_app_key, stop_ids=self.departures.stop_ids("tfl"))
 
 
 class NoticeBoardClient(AbstractClient):
     """Polls the notice sources, each on its own refresh_interval, and shows what they
     currently report, most severe first."""
 
-    panel_title = "Notices"
+    panel_title = N_("Notices")
 
     def __init__(self, registration: Registration, config: NoticeBoardSettings):
         super().__init__(registration, config)
         self.postcode = config.postcode
+        self.norwegian = config.country == "NO"
         self.sources: list[NoticeSource] = [ClockChangeSource(self.session)]
         if not config.postcode:
-            self.sources.append(BankHolidaySource(self.session))  # England and Wales
+            self.sources.append(self._default_holidays())
         if config.tfl.stop_ids:
             self.sources += [TflLineStatusSource(self.session, config.tfl), TflStationSource(self.session, config.tfl)]
+        if entur_stops := config.departures.stop_ids("entur"):
+            self.sources.append(EnturSituationsSource(self.session, entur_stops))
         self.tfl_config = config.tfl
         # Location-based sources are added once the postcode is looked up (_ensure_location).
         self.location: Postcode | None = None
@@ -59,24 +73,37 @@ class NoticeBoardClient(AbstractClient):
     def _initialise(self) -> None:
         pass  # nothing to set up that update() can't retry on its own
 
+    def _default_holidays(self) -> NoticeSource:
+        """The holidays for a screen whose postcode doesn't say where it is: Norway's for a Norwegian postcode or a
+        screen on Norwegian time, otherwise England and Wales's."""
+        if self.norwegian or local_zone().key == "Europe/Oslo":
+            return NorwegianHolidaySource(self.session)
+        return BankHolidaySource(self.session)
+
     def _ensure_location(self, now: datetime) -> None:
         if not self.postcode or self.location is not None:
             return
         if self.location_tried is not None and now - self.location_tried < LOCATION_RETRY:
             return
         self.location_tried = now
+        lookup = lookup_norwegian_postcode if self.norwegian else lookup_postcode
         try:
-            location = lookup_postcode(self.session, self.postcode)
+            location = lookup(self.session, self.postcode)
         except Exception as e:
             logger.warning(f"Couldn't look up the postcode: {type(e).__name__}")
             return
         if location is None:
-            logger.warning("The configured postcode isn't a known UK postcode; no local notices")
+            country = "Norwegian" if self.norwegian else "UK"
+            logger.warning(f"The configured postcode isn't a known {country} postcode; no local notices")
             self.postcode = None  # don't keep asking about a postcode that doesn't exist
             self.unknown_postcode = True
-            self.sources.append(BankHolidaySource(self.session))  # England and Wales
+            self.sources.append(self._default_holidays())
             return
         self.location = location
+        if self.norwegian:
+            self.sources += [NorwegianHolidaySource(self.session), MetAlertsSource(self.session, location)]
+            logger.info(f"Notice board: location lookup succeeded: {location.admin_district or 'Norway'}")
+            return
         bank_holidays = BankHolidaySource(self.session, location.country)
         met_office = MetOfficeWarningsSource(self.session, location)
         self.sources += [
@@ -127,7 +154,7 @@ class NoticeBoardClient(AbstractClient):
                 # been checked: "All clear" would be a guess.
                 raise RuntimeError("Couldn't look up the postcode yet")
             if self.unknown_postcode:
-                return self.message_panel("Unknown postcode")
+                return self.message_panel(N_("Unknown postcode"))
             return NoticeBoardPanel([])  # all clear: the layout leaves the notices out
         active.sort(key=lambda pair: (pair[0].severity, pair[1]))
         return NoticeBoardPanel([notice for notice, _ in active])

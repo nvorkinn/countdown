@@ -18,8 +18,12 @@ from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.display import DisplayController
 from countdown_core.core.panel import Panel
+from countdown_core.departures.departures_client import DeparturesClient
+from countdown_core.entur.entur_arrival_panel import EnturArrivalPanel
+from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.glow.glow_client import GlowClient
+from countdown_core.i18n import set_locale
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.rendering.screen import DEFAULT_CANVAS
@@ -34,7 +38,6 @@ from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.combined_arrival_panel import ROTATION_STRIP, CombinedArrivalPanel, Rotation
 from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
-from countdown_core.tfl.tfl_client import TflClient
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
 from countdown_core.weather.models import ForecastResponse, WeatherPeriod
 from countdown_core.weather.weather_client import WeatherClient
@@ -206,7 +209,7 @@ def _panels(
 
 
 def test_screen_with_no_stops_configured(snapshot):
-    img = _draw(_panels(TflClient.message_panel("Needs configuring")))
+    img = _draw(_panels(DeparturesClient.message_panel("Needs configuring")))
     snapshot.assert_matches("screen_no_stops", img)
 
 
@@ -383,7 +386,7 @@ def test_portrait_screen_without_spotify(snapshot):
 def test_portrait_screen_with_no_stops_and_no_weather_yet(snapshot):
     """Messages take their slots' full width."""
     panels = _panels(
-        TflClient.message_panel("Needs configuring"), weather=WeatherClient.message_panel("Could not connect")
+        DeparturesClient.message_panel("Needs configuring"), weather=WeatherClient.message_panel("Could not connect")
     )
     img = _draw_portrait(panels, EVERYTHING - {ClientClasses.SPOTIFY})
     snapshot.assert_matches("screen_portrait_messages", img)
@@ -478,6 +481,79 @@ def test_arrival_styles_on_a_portrait_screen(snapshot, style):
     """Narrower stops, and taller ones without Spotify."""
     img = _draw_portrait(_panels(_styled_arrivals(style)), EVERYTHING - {ClientClasses.SPOTIFY})
     snapshot.assert_matches(f"screen_portrait_arrivals_{style}", img)
+
+
+MAJORSTUEN = EnturStop(id="NSR:Quay:7333", name="Majorstuen", public_code="2", transport_modes=[TransportMode.METRO])
+FROGNER_PLASS = EnturStop(id="NSR:StopPlace:58404", name="Frogner plass", transport_modes=[TransportMode.TRAM])
+
+
+def _entur_departures(rows: list[tuple[str, str, int]], mode: TransportMode) -> list[EnturDeparture]:
+    return [
+        EnturDeparture(
+            line=line,
+            destination=to,
+            mode=mode,
+            expected_departure_time=dt.datetime(2026, 10, 16, 16, minutes, tzinfo=dt.UTC),
+            time_to_station=minutes * 60,
+        )
+        for line, to, minutes in rows
+    ]
+
+
+BUSY_METRO_DEPARTURES = _entur_departures(
+    [
+        ("5", "Vestli", 1),
+        ("3", "Mortensrud", 3),
+        ("2", "Ellingsrudåsen", 4),
+        ("5", "Vestli", 9),
+        ("1", "Bergkrystallen", 6),
+    ],
+    TransportMode.METRO,
+)
+BUSY_TRAM_DEPARTURES = _entur_departures(
+    [("12", "Majorstuen", 2), ("12", "Kværnerbyen", 5), ("12", "Majorstuen", 12), ("12", "Kværnerbyen", 15)],
+    TransportMode.TRAM,
+)
+
+
+@pytest.mark.parametrize("style", ["classic", "hero", "grouped", "card"])
+def test_oslo_stops_in_every_style(snapshot, style):
+    """Entur's stops look like London's: a platform's code where a bus stop has its letter, and its mode's icon."""
+    panel = CombinedArrivalPanel(
+        [
+            EnturArrivalPanel(MAJORSTUEN, BUSY_METRO_DEPARTURES, style),
+            EnturArrivalPanel(FROGNER_PLASS, BUSY_TRAM_DEPARTURES, style),
+        ]
+    )
+    snapshot.assert_matches(f"screen_oslo_arrivals_{style}", _draw(_panels(panel)))
+
+
+def test_oslo_screen_in_norwegian(snapshot):
+    """The whole screen in Norwegian, with Norway's notices: Nikolai's translations, drawn."""
+    set_locale("nb", "Europe/Oslo")
+    try:
+        panel = CombinedArrivalPanel(
+            [
+                EnturArrivalPanel(MAJORSTUEN, BUSY_METRO_DEPARTURES, "classic"),
+                EnturArrivalPanel(FROGNER_PLASS, BUSY_TRAM_DEPARTURES, "classic"),
+            ]
+        )
+        notices = NoticeBoardPanel(
+            [
+                Notice(
+                    "MET",
+                    Severity.WARNING,
+                    "Oransje farevarsel: kraftig vind til fre.",
+                    display_time=dt.datetime(2026, 10, 16, 21, tzinfo=dt.UTC),
+                ),
+                Notice("Linje 12", Severity.INFO, "Trikken kjører ikke mellom Majorstuen og Frogner plass."),
+                Notice("Helligdag", Severity.REMINDER, "I morgen: Grunnlovsdag"),
+            ]
+        )
+        img = _draw(_panels(panel, notices=notices))
+    finally:
+        set_locale("en", "Europe/London")
+    snapshot.assert_matches("screen_oslo_norwegian", img)
 
 
 def _rotating_arrivals() -> CombinedArrivalPanel:

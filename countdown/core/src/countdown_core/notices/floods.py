@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
+from countdown_core.i18n import N_, _
 from countdown_core.notices.models import FloodWarningsResponse
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.tfl.models import Postcode
@@ -10,9 +11,9 @@ RADIUS_KM = 5
 
 # severityLevel 4 is "warning no longer in force", which isn't worth showing.
 SEVERITY_BY_LEVEL = {
-    1: (Severity.SEVERE, "Severe flood warning"),
-    2: (Severity.WARNING, "Flood warning"),
-    3: (Severity.INFO, "Flood alert"),
+    1: (Severity.SEVERE, N_("Severe flood warning")),
+    2: (Severity.WARNING, N_("Flood warning")),
+    3: (Severity.INFO, N_("Flood alert")),
 }
 
 
@@ -34,5 +35,5 @@ class FloodWarningsSource(NoticeSource):
         for warning in FloodWarningsResponse.model_validate_json(response.content).items:
             if warning.severity_level in SEVERITY_BY_LEVEL:
                 severity, label = SEVERITY_BY_LEVEL[warning.severity_level]
-                notices.append(Notice("Floods", severity, f"{label}: {warning.description}"))
+                notices.append(Notice(_("Floods"), severity, f"{_(label)}: {warning.description}"))
         return notices

@@ -131,6 +131,31 @@ period-specific readings on the forecast tabs. Unavailable rain probability is o
 0% is shown; a combined period is unknown if any of its rain readings is missing. Short, wide panels
 reflow horizontally rather than shrinking the whole layout. Both orientations retain clear margins.
 
+### Departures
+
+The departures panel (the `tfl` client, by its old name) shows every stop in the broker's `departures`, London's
+and Norway's mixed in the owner's order. Each stop names its source: `tfl` stops are asked of TfL by NaPTAN id,
+`entur` stops of [Entur's Journey Planner](https://developer.entur.org/pages-journeyplanner-journeyplanner) by NSR
+id, a whole stop place (`NSR:StopPlace:58381`) or one platform (`NSR:Quay:7333`), for Ruter and every other
+Norwegian operator. Entur needs no key, only the `ET-Client-Name` header. Both are drawn in the same four styles; a
+Norwegian platform's code stands where a London bus stop's letter does. A broker that predates `departures` is read
+through `tfl` as before.
+
+### Language, time zone and Norway
+
+The broker's `language` (`en` or `nb`) and `timezone` are per screen; a change to either rebuilds every client.
+Every text the screen draws is English in the code, marked with `_()` (or `N_()` where it's defined away from where
+it's drawn) and translated from `core/src/countdown_core/locale/<language>.po` as it's drawn; an untranslated text
+stays English. After adding or changing a text, run `sh dev/update_translations.sh`: it regathers them into
+`messages.pot` and brings `nb.po` in line, new texts untranslated. Dates go through Babel with a CLDR pattern
+(`i18n.format_date`), so the pattern itself is translatable ("EEE d MMM" in English, "EEE d. MMM" in Norwegian).
+
+A Norwegian postcode (`notice_board.country` is `NO`) gets Norway's notices instead of the UK's: it's placed by
+[Kartverket](https://ws.geonorge.no/adresser/v1/), the public holidays are worked out here, weather warnings come
+from [MET Norway's MetAlerts](https://api.met.no/weatherapi/metalerts/2.0/documentation) in the screen's language,
+and the clocks-change reminder goes by the screen's time zone. Entur stops bring their disruptions to the board
+whatever the postcode, as TfL stops bring theirs.
+
 ## The API contract
 
 The API between the renderer and [auth-broker](https://github.com/nvorkinn/auth-broker) is defined in neither

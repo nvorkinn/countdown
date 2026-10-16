@@ -1,6 +1,7 @@
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import _
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.utils.clock import ClockFormat, format_clock
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, truncate_to_fit
@@ -25,7 +26,7 @@ class NoticeBoardPanel(Panel):
     @staticmethod
     def _top() -> int:
         """Where the first row starts, below the title."""
-        return PADDING + TITLE_FONT.getbbox("Notices")[3] + TITLE_GAP
+        return PADDING + TITLE_FONT.getbbox(_("Notices"))[3] + TITLE_GAP
 
     def fitted_height(self, max_height: int) -> int:
         """A row per notice, or nothing at all when there are none. At `max_height` the
@@ -42,7 +43,7 @@ class NoticeBoardPanel(Panel):
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"
 
-        draw.text((PADDING, PADDING), "Notices", "black", font=TITLE_FONT)
+        draw.text((PADDING, PADDING), _("Notices"), "black", font=TITLE_FONT)
         top = self._top()
         rows = max(1, (image_height - PADDING - top) // ROW_HEIGHT)
 
@@ -57,7 +58,7 @@ class NoticeBoardPanel(Panel):
             self._draw_row(draw, notice, top + i * ROW_HEIGHT, image_width, clock_format)
         if more:
             y = top + len(shown) * ROW_HEIGHT + ROW_HEIGHT // 2
-            draw.text((PADDING, y), f"+{more} more", "black", font=TEXT_FONT, anchor="lm")
+            draw.text((PADDING, y), _("+{count} more").format(count=more), "black", font=TEXT_FONT, anchor="lm")
         return img
 
     @staticmethod

@@ -1,6 +1,7 @@
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import N_, _, format_date
 from countdown_core.spotify.spotify_panel import truncate_to_fit
 from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS
@@ -96,9 +97,9 @@ class WeatherPanel(Panel):
 
     def _draw_readings(self, draw: ImageDraw.ImageDraw, coord: tuple[float, float], width: float, scale: float) -> None:
         weather = self.weather
-        readings = [("LOW", f"{weather.low:.0f}°"), ("HIGH", f"{weather.high:.0f}°")]
+        readings = [(_("LOW"), f"{weather.low:.0f}°"), (_("HIGH"), f"{weather.high:.0f}°")]
         if weather.precipitation_probability is not None:
-            readings.append(("RAIN", f"{weather.precipitation_probability}%"))
+            readings.append((_("RAIN"), f"{weather.precipitation_probability}%"))
         x, y = coord
         label = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
         column_width = width / len(readings)
@@ -123,11 +124,12 @@ def _draw_tabs(
     width: float,
     scale: float,
 ) -> None:
-    labels = [period.value.upper() for period in WeatherPeriod]
+    labels = [_(period.value).upper() for period in WeatherPeriod]
     font = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
     padding, gap, height = 13 * scale, 8 * scale, 25 * scale
     if sum(font.getlength(label) + 2 * padding for label in labels) + 3 * gap > width:
-        labels = ["NOW", "NIGHT", "TMRW", "WKND"]
+        # Short forms of the tabs, for a narrow panel.
+        labels = [_("NOW"), _("NIGHT"), _("TMRW"), _("WKND")]
         font = GOOGLE_SEMI.font_variant(size=max(1, round(10 * scale)))
         padding, gap, height = 7 * scale, 4 * scale, 21 * scale
     x, y = coord
@@ -151,17 +153,20 @@ def _caption(weather: Weather) -> str:
         if len(weather.days) != 2:
             raise ValueError("The weekend page needs Saturday and Sunday readings")
         first, last = weather.days
+        # Translators: a CLDR date pattern, e.g. "17 Oct". Norwegian: "d. MMM".
         dates = (
-            f"{first.date.day}-{last.date.day} {last.date:%b}"
+            f"{first.date.day}-{format_date(last.date, _('d MMM'))}"
             if first.date.month == last.date.month
-            else f"{first.date.day} {first.date:%b} - {last.date.day} {last.date:%b}"
+            else f"{format_date(first.date, _('d MMM'))} - {format_date(last.date, _('d MMM'))}"
         )
-        return f"DAYTIME HIGHS / {dates.upper()}"
-    return {
-        WeatherPeriod.NOW: "CURRENT CONDITIONS",
-        WeatherPeriod.TONIGHT: "OVERNIGHT LOW",
-        WeatherPeriod.TOMORROW: "DAYTIME HIGH",
-    }[weather.period]
+        return _("DAYTIME HIGHS / {dates}").format(dates=dates.upper())
+    return _(
+        {
+            WeatherPeriod.NOW: N_("CURRENT CONDITIONS"),
+            WeatherPeriod.TONIGHT: N_("OVERNIGHT LOW"),
+            WeatherPeriod.TOMORROW: N_("DAYTIME HIGH"),
+        }[weather.period]
+    )
 
 
 def _temperature_text(weather: Weather, decimals: int = 0) -> str:
@@ -177,8 +182,8 @@ def _temperature_text(weather: Weather, decimals: int = 0) -> str:
 
 def _condition(weather: Weather) -> str:
     if weather.period is WeatherPeriod.WEEKEND and len({day.weather_code for day in weather.days}) > 1:
-        return "Mixed skies"
-    return WEATHER_CODE_DESC.get(weather.weather_code, "Unknown conditions")
+        return _("Mixed skies")
+    return _(WEATHER_CODE_DESC.get(weather.weather_code, N_("Unknown conditions")))
 
 
 def _draw_temperature(
@@ -272,32 +277,32 @@ ICON_MAP: dict[int, tuple[str, str]] = {
 
 # What Open-Meteo's WMO weather codes mean.
 WEATHER_CODE_DESC = {
-    0: "Clear sky",
-    1: "Mainly clear",
-    2: "Partly cloudy",
-    3: "Overcast",
-    45: "Fog",
-    48: "Depositing rime fog",
-    51: "Light drizzle",
-    53: "Moderate drizzle",
-    55: "Dense drizzle",
-    56: "Light freezing drizzle",
-    57: "Dense freezing drizzle",
-    61: "Slight rain",
-    63: "Moderate rain",
-    65: "Heavy rain",
-    66: "Light freezing rain",
-    67: "Heavy freezing rain",
-    71: "Slight snowfall",
-    73: "Moderate snowfall",
-    75: "Heavy snowfall",
-    77: "Snow grains",
-    80: "Slight rain showers",
-    81: "Moderate rain showers",
-    82: "Violent rain showers",
-    85: "Slight snow showers",
-    86: "Heavy snow showers",
-    95: "Thunderstorm",
-    96: "Thunderstorm with slight hail",
-    99: "Thunderstorm with heavy hail",
+    0: N_("Clear sky"),
+    1: N_("Mainly clear"),
+    2: N_("Partly cloudy"),
+    3: N_("Overcast"),
+    45: N_("Fog"),
+    48: N_("Depositing rime fog"),
+    51: N_("Light drizzle"),
+    53: N_("Moderate drizzle"),
+    55: N_("Dense drizzle"),
+    56: N_("Light freezing drizzle"),
+    57: N_("Dense freezing drizzle"),
+    61: N_("Slight rain"),
+    63: N_("Moderate rain"),
+    65: N_("Heavy rain"),
+    66: N_("Light freezing rain"),
+    67: N_("Heavy freezing rain"),
+    71: N_("Slight snowfall"),
+    73: N_("Moderate snowfall"),
+    75: N_("Heavy snowfall"),
+    77: N_("Snow grains"),
+    80: N_("Slight rain showers"),
+    81: N_("Moderate rain showers"),
+    82: N_("Violent rain showers"),
+    85: N_("Slight snow showers"),
+    86: N_("Heavy snow showers"),
+    95: N_("Thunderstorm"),
+    96: N_("Thunderstorm with slight hail"),
+    99: N_("Thunderstorm with heavy hail"),
 }

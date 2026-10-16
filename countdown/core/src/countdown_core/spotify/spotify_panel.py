@@ -5,6 +5,7 @@ import requests
 from PIL import Image, ImageDraw, ImageOps
 
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import _
 from countdown_core.spotify.models import Album, Artist, Queue
 from countdown_core.spotify.models import Image as AlbumImage
 from countdown_core.spotify.spotify_styles import STYLES
@@ -58,7 +59,7 @@ class SpotifyPanel(Panel):
             up_next = f"{self.queue.queue[0].name} by {_artists_names(self.queue.queue[0].artists)}"
             draw.text(
                 (album_image_panel.size[0] + 5, image_height - 10),
-                truncate_to_fit(f"Up next: {up_next}", UBUNTU_MEDIUM_15, space_remaining),
+                truncate_to_fit(_("Up next: {track}").format(track=up_next), UBUNTU_MEDIUM_15, space_remaining),
                 "black",
                 font=UBUNTU_MEDIUM_15,
                 anchor="ld",

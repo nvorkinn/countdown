@@ -1,17 +1,26 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
 
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import _, ngettext
 from countdown_core.tfl.arrival_styles import STYLES
-from countdown_core.tfl.models import ArrivalUnion
 from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import UBUNTU_BOLD, UBUNTU_CONDENSED, UBUNTU_MEDIUM, truncate_to_fit
 
-# How a stop's departures are drawn: the config's tfl.style.
+# How a stop's departures are drawn: the config's departures.style.
 Style = Literal["classic", "hero", "grouped", "card"]
+# What the styles that show one draw beside a stop's name.
+Icon = Literal["bus", "subway", "tram", "train", "ferry"]
+
+
+class Arrival(Protocol):
+    """What the panels need of a departure, whichever source it came from."""
+
+    time_to_station: int  # seconds
+
 
 # One departure per row: a route badge (square-cornered -- on a 1-bit screen only straight
 # edges come out crisp), the destination, and the time on the right.
@@ -36,9 +45,9 @@ class Departures:
 
 class AbstractArrivalPanel(Panel, ABC):
     """One stop's departures, one Departures per route (and, on the tube, per destination),
-    the soonest route first."""
+    the soonest route first. Subclasses adapt a source's stops and arrivals (TfL's, Entur's) to it."""
 
-    def __init__(self, arrivals: list[ArrivalUnion], style: Style = "classic"):
+    def __init__(self, arrivals: list[Arrival], style: Style = "classic"):
         super().__init__()
         self.style = style
         groups: dict[tuple[str, str], tuple[str, str, str, list[int]]] = {}
@@ -59,20 +68,25 @@ class AbstractArrivalPanel(Panel, ABC):
 
     @property
     def is_tube(self) -> bool:
+        """A London Underground station: the roundel, and trains told apart by destination."""
         return False
+
+    @property
+    def icon(self) -> Icon:
+        return "subway" if self.is_tube else "bus"
 
     @staticmethod
     @abstractmethod
-    def _route_key(arrival: ArrivalUnion) -> tuple[str, str]:
+    def _route_key(arrival: Arrival) -> tuple[str, str]:
         """Arrivals sharing a key are one row: later buses on a route, later trains to a destination."""
 
     @staticmethod
     @abstractmethod
-    def _badge(arrival: ArrivalUnion) -> str: ...
+    def _badge(arrival: Arrival) -> str: ...
 
     @staticmethod
     @abstractmethod
-    def _destination(arrival: ArrivalUnion) -> str: ...
+    def _destination(arrival: Arrival) -> str: ...
 
     def render(self, image_width, image_height, *, clock_format: ClockFormat = "24h") -> Image.Image:
         if self.style != "classic":
@@ -128,10 +142,6 @@ class AbstractArrivalPanel(Panel, ABC):
 
     @staticmethod
     def _get_time_text(minutes: int) -> str:
-        match minutes:
-            case 0:
-                return "due"
-            case 1:
-                return "1 min"
-            case _:
-                return f"{minutes} mins"
+        if minutes == 0:
+            return _("due")
+        return ngettext("{n} min", "{n} mins", minutes).format(n=minutes)

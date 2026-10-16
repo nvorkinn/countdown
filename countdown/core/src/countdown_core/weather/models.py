@@ -4,6 +4,8 @@ from typing import Self
 
 from pydantic import BaseModel, Field, model_validator
 
+from countdown_core.i18n import N_
+
 
 class GeocodingResult(BaseModel):
     latitude: float
@@ -96,19 +98,20 @@ class ForecastResponse(BaseModel):
     daily: DailyForecast
 
 
+# The values are English, and translated where they're drawn (see i18n): N_ marks them for that.
 class Upcoming(StrEnum):
     """The part of the day the outlook is for: the next one that hasn't started yet."""
 
-    THIS_AFTERNOON = "This afternoon"
-    TONIGHT = "Tonight"
-    TOMORROW = "Tomorrow"
+    THIS_AFTERNOON = N_("This afternoon")
+    TONIGHT = N_("Tonight")
+    TOMORROW = N_("Tomorrow")
 
 
 class WeatherPeriod(StrEnum):
-    NOW = "Now"
-    TONIGHT = "Tonight"
-    TOMORROW = "Tomorrow"
-    WEEKEND = "Weekend"
+    NOW = N_("Now")
+    TONIGHT = N_("Tonight")
+    TOMORROW = N_("Tomorrow")
+    WEEKEND = N_("Weekend")
 
 
 class WeatherDay(BaseModel):
