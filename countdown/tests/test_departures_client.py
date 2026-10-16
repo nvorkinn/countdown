@@ -42,7 +42,7 @@ def make_metro_stop(naptan_id="940GZZLUKNG"):
     return MetroStopPoint.model_validate(dict(METRO_STOP_JSON, naptanId=naptan_id))
 
 
-def make_config(stop_ids: list[str] | None = None, app_key: str = "", style: str = "classic") -> DeparturesSettings:
+def make_config(stop_ids: list[str] | None = None, app_key: str = "", style: str = "hero") -> DeparturesSettings:
     stops = tuple(DepartureStop(source="tfl", id=stop_id) for stop_id in stop_ids or [])
     return DeparturesSettings(stops, style, app_key)
 

@@ -7,15 +7,14 @@ from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.i18n import N_
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_panel import SpotifyPanel
-from countdown_core.spotify.spotify_top_artists_panel import SpotifyTopArtistsPanel
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
-from countdown_core.spotify.spotify_top_tracks_panel import SpotifyTopTracksPanel
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from countdown_api.models import Spotify
     from countdown_core.core.panel import Panel
+    from countdown_core.spotify.spotify_panel import Style
     from countdown_credentials.registration import Registration
 
 
@@ -57,6 +56,12 @@ class SpotifyClient(AbstractClient):
     def _initialise(self) -> None:
         pass
 
+    @property
+    def style(self) -> Style:
+        """The configured style; the retired classic, which a broker that hasn't migrated may still send, is hero."""
+        style = self.config.style
+        return "hero" if style == "classic" else style
+
     def _request(self, method: str, path: str, params: dict[str, str | int] | None = None) -> bytes:
         response = self.session.request(method, f"{self.base_url}{path}", params=params, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
@@ -77,16 +82,15 @@ class SpotifyClient(AbstractClient):
         queue = Queue.model_validate_json(self._request("GET", "/api/spotify/queue"))
         if queue.currently_playing is None:
             return None
-        return SpotifyPanel(queue, self.config.style)
+        return SpotifyPanel(queue, self.style)
 
     def update_top(self, page_config: TopPageConfig) -> Panel:
         """Fetch the listener's top five tracks and artists over the page's period."""
         params = {**page_config.params, "limit": 5}
-        top_tracks_bytes = self._request("GET", "/api/spotify/top/tracks", params=params)
-        top_tracks_panel = SpotifyTopTracksPanel(TopResponse[Track].model_validate_json(top_tracks_bytes))
-        top_artists_bytes = self._request("GET", "/api/spotify/top/artists", params=params)
-        top_artists_panel = SpotifyTopArtistsPanel(TopResponse[Artist].model_validate_json(top_artists_bytes))
-        return SpotifyTopPanel(page_config.period, top_tracks_panel, top_artists_panel, self.config.style)
+        tracks = TopResponse[Track].model_validate_json(self._request("GET", "/api/spotify/top/tracks", params=params))
+        artists_bytes = self._request("GET", "/api/spotify/top/artists", params=params)
+        artists = TopResponse[Artist].model_validate_json(artists_bytes)
+        return SpotifyTopPanel(page_config.period, tracks.items, artists.items, self.style)
 
 
 PAGES: tuple[PageConfig, ...] = (

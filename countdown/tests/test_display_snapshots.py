@@ -29,12 +29,10 @@ from countdown_core.i18n import set_locale
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.rendering.screen import DEFAULT_CANVAS
-from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
+from countdown_core.spotify.models import Artist, Queue, Track
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.spotify.spotify_panel import SpotifyPanel
-from countdown_core.spotify.spotify_top_artists_panel import SpotifyTopArtistsPanel
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
-from countdown_core.spotify.spotify_top_tracks_panel import SpotifyTopTracksPanel
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
@@ -436,7 +434,7 @@ def _styled_arrivals(style: str) -> CombinedArrivalPanel:
     )
 
 
-@pytest.mark.parametrize("style", ["classic", "hero", "grouped", "card"])
+@pytest.mark.parametrize("style", ["hero", "grouped", "card"])
 def test_arrival_styles(snapshot, style):
     """Each look the config's tfl.style can pick, on a busy bus stop and station."""
     img = _draw(_panels(_styled_arrivals(style)))
@@ -529,7 +527,7 @@ BUSY_TRAM_DEPARTURES = _entur_departures(
 )
 
 
-@pytest.mark.parametrize("style", ["classic", "hero", "grouped", "card"])
+@pytest.mark.parametrize("style", ["hero", "grouped", "card"])
 def test_oslo_stops_in_every_style(snapshot, style):
     """Entur's stops look like London's: a platform's code where a bus stop has its letter, and its mode's icon."""
     panel = CombinedArrivalPanel(
@@ -547,8 +545,8 @@ def test_oslo_screen_in_norwegian(snapshot):
     try:
         panel = CombinedArrivalPanel(
             [
-                EnturArrivalPanel(MAJORSTUEN, BUSY_METRO_DEPARTURES, "classic"),
-                EnturArrivalPanel(FROGNER_PLASS, BUSY_TRAM_DEPARTURES, "classic"),
+                EnturArrivalPanel(MAJORSTUEN, BUSY_METRO_DEPARTURES),
+                EnturArrivalPanel(FROGNER_PLASS, BUSY_TRAM_DEPARTURES),
             ]
         )
         notices = NoticeBoardPanel(
@@ -604,7 +602,7 @@ def test_rotation_squares_are_part_of_the_arrivals_panel():
     ).getbbox()
 
 
-SPOTIFY_STYLES = ["classic", "airy", "hero", "card"]
+SPOTIFY_STYLES = ["airy", "hero", "card"]
 
 
 def _cover_art_bytes() -> bytes:
@@ -636,10 +634,7 @@ def _spotify_page(page: str, style: str) -> Panel:
     ]
     artists = ["Daft Punk", "Frank Ocean", "Fleetwood Mac", "Radiohead", "Little Simz"]
     return SpotifyTopPanel(
-        "4 weeks",
-        SpotifyTopTracksPanel(TopResponse[Track].model_validate({"items": tracks})),
-        SpotifyTopArtistsPanel(TopResponse[Artist].model_validate({"items": [{"name": a} for a in artists]})),
-        style,
+        "4 weeks", [Track.model_validate(t) for t in tracks], [Artist(name=a) for a in artists], style
     )
 
 
@@ -655,7 +650,7 @@ def test_spotify_styles(snapshot, style, page):
 
 @responses.activate
 @pytest.mark.parametrize("page", ["now", "top"])
-@pytest.mark.parametrize("style", SPOTIFY_STYLES[1:])
+@pytest.mark.parametrize("style", SPOTIFY_STYLES)
 def test_spotify_styles_on_a_portrait_screen(snapshot, style, page):
     responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
     img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
@@ -690,7 +685,7 @@ def test_landscape_screen_in_12_hour_time(snapshot):
     snapshot.assert_matches("screen_12h_landscape", img)
 
 
-@pytest.mark.parametrize("style", ["classic", "hero", "grouped", "card"])
+@pytest.mark.parametrize("style", ["hero", "grouped", "card"])
 def test_arrival_countdown_durations_do_not_use_the_clock_preference(style):
     panel = _styled_arrivals(style)
 

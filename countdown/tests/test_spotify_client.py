@@ -108,3 +108,19 @@ def test_the_configs_style_reaches_both_pages():
 
     assert isinstance(top, SpotifyTopPanel)
     assert (now_playing.style, top.style) == ("hero", "hero")
+
+
+@responses.activate
+def test_the_retired_classic_style_is_drawn_as_hero():
+    """A broker that hasn't migrated its stored styles yet still sends classic."""
+    client = SpotifyClient(
+        RendererRegistration(BROKER_URL, "shh", "device-123"), Spotify(enabled=True, style="classic")
+    )
+    responses.add(responses.GET, QUEUE_URL, json=QUEUE)
+    mock_top()
+
+    now_playing = asyncio.run(client.update())
+    client.last_updated = None
+    top = asyncio.run(client.update())
+
+    assert (now_playing.style, top.style) == ("hero", "hero")

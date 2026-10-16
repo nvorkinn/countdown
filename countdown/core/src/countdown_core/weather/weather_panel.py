@@ -6,8 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_, _, format_date
-from countdown_core.spotify.spotify_panel import truncate_to_fit
-from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS
+from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS, truncate_to_fit
 from countdown_core.weather.models import Weather, WeatherPeriod
 
 if TYPE_CHECKING:

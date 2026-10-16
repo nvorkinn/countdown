@@ -5,15 +5,13 @@ from typing import TYPE_CHECKING, override
 from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
 
 if TYPE_CHECKING:
-    from PIL import Image, ImageDraw
-
     from countdown_core.tfl.models import BusArrival, SingleStopPoint
 
 
 class BusArrivalPanel(AbstractArrivalPanel):
     """A bus stop's departures, headed by its name and the letter on its flag."""
 
-    def __init__(self, stop: SingleStopPoint, arrivals: list[BusArrival], style: Style = "classic") -> None:
+    def __init__(self, stop: SingleStopPoint, arrivals: list[BusArrival], style: Style = "hero") -> None:
         """`stop` and its `arrivals` from TfL, drawn in `style`."""
         super().__init__(arrivals, style)
         self.stop = stop
@@ -42,8 +40,3 @@ class BusArrivalPanel(AbstractArrivalPanel):
     @override
     def _destination(arrival: BusArrival) -> str:
         return arrival.destination
-
-    @override
-    def add_header(self, img: Image.Image, draw: ImageDraw.ImageDraw) -> None:
-        draw.text((7, 10), self.stop.common_name, "white", font_size=15, anchor="lm")
-        draw.text((img.size[0] - 9, 10), self.stop.stop_letter, "white", anchor="rm", stroke_width=0.2)

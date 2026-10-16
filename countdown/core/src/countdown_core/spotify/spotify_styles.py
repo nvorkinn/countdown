@@ -1,4 +1,4 @@
-"""The looks the Spotify panel can have besides classic (the config's spotify.style).
+"""The looks the Spotify panel can have (the config's spotify.style).
 
 Each matches the bus/tube style of the same name. A style draws both pages: what's playing, and the top tracks and
 artists. Each draws into `width` x `height`, on a transparent background.
