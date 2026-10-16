@@ -9,7 +9,7 @@ import pytest
 import responses
 from fake_target import FakeTarget
 from PIL import Image, ImageDraw
-from weather_factory import make_weather
+from weather_factory import forecast_json, make_weather
 
 # `countdown_core` must be imported before any display.* module, or it's a circular import.
 import countdown_core  # noqa: F401, I001
@@ -36,7 +36,9 @@ from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
 from countdown_core.tfl.tfl_client import TflClient
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
+from countdown_core.weather.models import ForecastResponse, WeatherPeriod
 from countdown_core.weather.weather_client import WeatherClient
+from countdown_core.weather.weather_forecast import weather_pages
 from countdown_core.weather.weather_panel import WeatherPanel
 
 _CONTROLLER = DisplayController(FakeTarget())
@@ -533,3 +535,50 @@ def test_spotify_styles_on_a_portrait_screen(snapshot, style, page):
     responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
     img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
     snapshot.assert_matches(f"screen_portrait_spotify_{style}_{page}", img)
+
+
+@pytest.mark.parametrize("period", [WeatherPeriod.NOW, WeatherPeriod.TONIGHT, WeatherPeriod.TOMORROW])
+def test_portrait_screen_in_12_hour_time(snapshot, period):
+    pages = weather_pages(ForecastResponse.model_validate(forecast_json()))
+    weather = WeatherPanel(next(page for page in pages if page.period is period))
+    expiry = dt.datetime.fromisoformat("2026-01-15T12:07:00+00:00")
+    notices = NoticeBoardPanel(
+        [Notice("Met Office", Severity.WARNING, "Amber warning: wind until Thu", expiry, display_time=expiry)]
+    )
+    img = _CONTROLLER.display_screen(
+        _panels(_bus_and_tube_arrivals(), weather=weather, notices=notices),
+        Screen(orientation="vertical", width=800, height=480),
+        EVERYTHING,
+        clock_format="12h",
+    )
+    snapshot.assert_matches(f"screen_12h_portrait_{period.value}", img)
+
+
+def test_landscape_screen_in_12_hour_time(snapshot):
+    expiry = dt.datetime.fromisoformat("2026-01-15T00:07:00+00:00")
+    notices = NoticeBoardPanel(
+        [Notice("Met Office", Severity.WARNING, "Yellow warning: rain until Thu", expiry, display_time=expiry)]
+    )
+    img = _CONTROLLER.display_screen(
+        _panels(_bus_and_tube_arrivals(), notices=notices), LANDSCAPE, EVERYTHING, clock_format="12h"
+    )
+    snapshot.assert_matches("screen_12h_landscape", img)
+
+
+@pytest.mark.parametrize("style", ["classic", "hero", "grouped", "card"])
+def test_arrival_countdown_durations_do_not_use_the_clock_preference(style):
+    panel = _styled_arrivals(style)
+
+    assert panel.render(800, 185).tobytes() == panel.render(800, 185, clock_format="12h").tobytes()
+
+
+@pytest.mark.parametrize("orientation", ["horizontal", "vertical"])
+def test_clock_preference_does_not_leak_between_controllers_sharing_layouts_and_panels(orientation):
+    panels = _panels(_bus_and_tube_arrivals())
+    screen = Screen(orientation=orientation, width=800, height=480)
+    twelve_hour = DisplayController(FakeTarget()).display_screen(panels, screen, EVERYTHING, clock_format="12h")
+    default = DisplayController(FakeTarget()).display_screen(panels, screen, EVERYTHING)
+    explicit = DisplayController(FakeTarget()).display_screen(panels, screen, EVERYTHING, clock_format="24h")
+
+    assert default.tobytes() == explicit.tobytes()
+    assert default.tobytes() != twelve_hour.tobytes()

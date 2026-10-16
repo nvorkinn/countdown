@@ -43,6 +43,24 @@ def test_pairing_code_is_required_but_may_be_null():
     assert make_config(pairing_code="ABC123").pairing_code == "ABC123"
 
 
+def test_missing_clock_preference_keeps_legacy_configs_on_24_hour_time():
+    payload = broker_payload()
+    del payload["clock_format"]
+
+    assert ConfigResponse.model_validate(payload).clock_format == "24h"
+
+
+@pytest.mark.parametrize("clock_format", ["12h", "24h"])
+def test_clock_preference_round_trips(clock_format):
+    assert make_config(clock_format=clock_format).model_dump(mode="json")["clock_format"] == clock_format
+
+
+@pytest.mark.parametrize("clock_format", [None, "", "12", "24H", 12])
+def test_invalid_clock_preference_is_rejected(clock_format):
+    with pytest.raises(ValidationError, match="clock_format"):
+        make_config(clock_format=clock_format)
+
+
 def test_config_ignores_env_vars(isolated_cwd, monkeypatch):
     """The config is deliberately not env/settings-sourced -- broker-owned fields should never
     pick up a local value, only ever what the broker sent."""

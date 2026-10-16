@@ -11,6 +11,7 @@ from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.panel import Panel
 from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.screen import Canvas
+from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import GAP
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_core.weather.weather_trmnl_panel import HEIGHT as WEATHER_HEIGHT
@@ -28,14 +29,14 @@ class ClassicPortraitLayout(Layout):
     SHOWS_SPOTIFY = True
 
     @override
-    def render(self, panels: dict[str, Panel], canvas: Canvas) -> Frame:
+    def render(self, panels: dict[str, Panel], canvas: Canvas, *, clock_format: ClockFormat = "24h") -> Frame:
         img = Image.new("RGBA", canvas.size, (255, 255, 255, 255))
         width = canvas.width - 2 * GAP
 
         weather_panel = panels[ClientClasses.WEATHER.api_name]
         if isinstance(weather_panel, WeatherPanel):
             weather_panel = WeatherTrmnlPanel(weather_panel.weather)
-        self._place(img, weather_panel, GAP, GAP, width, WEATHER_HEIGHT)
+        self._place(img, weather_panel, GAP, GAP, width, WEATHER_HEIGHT, clock_format=clock_format)
 
         arrivals_y = GAP + WEATHER_HEIGHT + GAP
         spotify_room = SPOTIFY_HEIGHT + GAP if self.SHOWS_SPOTIFY else 0
@@ -43,17 +44,39 @@ class ClassicPortraitLayout(Layout):
         notices_height, spare = self._fit_notices(panels, notices_room)
 
         arrival_panel = panels[ClientClasses.TFL.api_name]
-        arrivals = self._place(img, arrival_panel, GAP, arrivals_y, width, self.ARRIVALS_HEIGHT + spare)
+        arrivals = self._place(
+            img,
+            arrival_panel,
+            GAP,
+            arrivals_y,
+            width,
+            self.ARRIVALS_HEIGHT + spare,
+            clock_format=clock_format,
+        )
         arrivals_box = (GAP, arrivals_y, GAP + arrivals.size[0], arrivals_y + arrivals.size[1])
 
         bottom = canvas.height - GAP
         if notices_height:
             bottom -= notices_height
-            self._place(img, panels[ClientClasses.NOTICE_BOARD.api_name], GAP, bottom, width, notices_height)
+            self._place(
+                img,
+                panels[ClientClasses.NOTICE_BOARD.api_name],
+                GAP,
+                bottom,
+                width,
+                notices_height,
+                clock_format=clock_format,
+            )
             bottom -= GAP
         if self.SHOWS_SPOTIFY:
             self._place(
-                img, panels[ClientClasses.SPOTIFY.api_name], GAP, bottom - SPOTIFY_HEIGHT, width, SPOTIFY_HEIGHT
+                img,
+                panels[ClientClasses.SPOTIFY.api_name],
+                GAP,
+                bottom - SPOTIFY_HEIGHT,
+                width,
+                SPOTIFY_HEIGHT,
+                clock_format=clock_format,
             )
         return Frame(img, arrivals_box)
 

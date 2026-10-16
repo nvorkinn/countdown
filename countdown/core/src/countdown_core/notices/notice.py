@@ -24,6 +24,7 @@ class Notice:
     severity: Severity
     text: str  # one line; the panel truncates whatever doesn't fit
     valid_until: datetime | None = None  # dropped from the board after this, if known
+    display_time: datetime | None = None  # a generated clock appended to text at render time, not necessarily expiry
 
 
 class NoticeSource(ABC):

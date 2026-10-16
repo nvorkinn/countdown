@@ -3,6 +3,7 @@ from math import floor
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
+from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import FONTS_DIR, IMAGES_DIR, UBUNTU_BOLD
 
 TITLE = ImageFont.truetype(str(FONTS_DIR / "Ubuntu-Medium.ttf"), 28)
@@ -17,7 +18,7 @@ class MessagePanel(Panel):
         self.message = message
         self.logo = logo
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"

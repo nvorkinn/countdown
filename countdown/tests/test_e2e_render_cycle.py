@@ -15,7 +15,7 @@ import pytest
 import responses
 from config_factory import broker_payload, make_config
 from fake_target import FakeTarget
-from PIL import Image
+from PIL import Image, ImageDraw
 from weather_factory import forecast_json
 
 from countdown_api.models import ConfigResponse, Screen
@@ -25,6 +25,9 @@ from countdown_core.core import display_loop
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
 from countdown_core.glow.energy_panel import EnergyPanel
+from countdown_core.notices.notice import Notice, Severity
+from countdown_core.notices.notice_board_client import NoticeBoardClient
+from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.rendering import layout_for
 from countdown_core.rendering.layouts.classic import BaseLayout, GlowLayout
 from countdown_core.spotify.spotify_panel import SpotifyPanel
@@ -149,11 +152,11 @@ def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]
     seen: list[dict] = []
     original = display_module.render
 
-    def spy(panels, screen, available):
+    def spy(panels, screen, available, *, clock_format="24h"):
         seen.append(dict(panels))
         if layouts is not None:
             layouts.append(type(layout_for(screen, available)[0]))
-        return original(panels, screen, available)
+        return original(panels, screen, available, clock_format=clock_format)
 
     monkeypatch.setattr(display_module, "render", spy)
     return seen
@@ -424,6 +427,85 @@ def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isola
 
     assert shown[0]["tfl"].message == "Needs configuring"
     assert len(shown[1]["tfl"].arrival_panels) == 1
+
+
+@responses.activate
+@pytest.mark.parametrize("orientation", ["horizontal", "vertical"])
+def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orientation, monkeypatch):
+    config = _make_config()
+    config.screen.orientation = orientation
+    config.tfl.stop_ids = ["490000123W"]
+    _mock_tfl_and_glowmarkt({"490000123W": BUS_STOP_JSON}, {"490000123W": BUS_ARRIVALS_JSON})
+    _mock_forecast()
+    for clock_format in ("12h", "24h"):
+        responses.add(
+            responses.GET,
+            f"{TEST_BROKER_URL}/api/config",
+            json=config.model_dump(mode="json") | {"clock_format": clock_format},
+        )
+    expiry = datetime.datetime.fromisoformat("2026-09-25T21:00:00+01:00")
+    notice_panel = NoticeBoardPanel(
+        [
+            Notice("Met Office", Severity.WARNING, "Wind until Fri", expiry, display_time=expiry),
+            Notice("TfL", Severity.INFO, "Works at 18:00"),
+        ]
+    )
+    monkeypatch.setattr(NoticeBoardClient, "_update", lambda self: notice_panel)
+    loop = _build_loop(config, monkeypatch)
+    texts, frames = [], []
+    original_text = ImageDraw.ImageDraw.text
+    original_render = display_module.render
+
+    def record_text(draw, xy, text, *args, **kwargs):
+        texts.append(text)
+        return original_text(draw, xy, text, *args, **kwargs)
+
+    def record_frame(panels, screen, available, *, clock_format="24h"):
+        texts.clear()
+        frame = original_render(panels, screen, available, clock_format=clock_format)
+        frames.append(
+            (
+                dict(panels),
+                clock_format,
+                frame,
+                set(texts),
+                dict(loop.api_reg.clients),
+                {name: c.last_updated for name, c in loop.api_reg.clients.items()},
+            )
+        )
+        return frame
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", record_text)
+    monkeypatch.setattr(display_module, "render", record_frame)
+    _run_cycles(loop, monkeypatch, cycles=3)
+
+    assert [f[1] for f in frames] == ["24h", "12h", "24h"]
+    first, twelve_hour, restored = frames
+    assert first[2].image.tobytes() == restored[2].image.tobytes()
+    assert first[2].image.tobytes() != twelve_hour[2].image.tobytes()
+    assert first[2].volatile == twelve_hour[2].volatile == restored[2].volatile
+    for frame in frames:
+        assert all(frame[0][name] is first[0][name] for name in first[4])
+        assert frame[4] == first[4]  # the same clients, not just equivalent new ones
+        assert frame[5] == first[5]  # no client was polled early
+        assert "Works at 18:00" in frame[3]
+    assert any(text.endswith("21:00") for text in first[3])
+    assert any(text.endswith("9:00 PM") for text in twelve_hour[3])
+    if orientation == "vertical":
+        assert {"07:58", "16:22"} <= first[3]
+        assert {"7:58 AM", "4:22 PM"} <= twelve_hour[3]
+    else:
+        assert any(text.endswith((" AM", " PM")) and "until" not in text for text in twelve_hour[3])
+    assert loop.api_reg.clients["weather"]._next_page == 1
+    assert _calls_to(FORECAST_URL) == 1
+    assert _calls_to(f"{GLOWMARKT_URL}/resource") == 1
+    assert _calls_to("https://api.tfl.gov.uk/StopPoint/490000123W/Arrivals") == 1
+    assert loop.interval == 1
+    assert loop.display.target.paints == [None, None, None]
+    loop.display.display_screen(
+        restored[0], loop.config.screen, loop.api_reg.available(), clock_format=loop.config.clock_format
+    )
+    assert loop.display.target.paints == [None, None, None]  # unchanged pictures are still skipped
 
 
 @responses.activate
