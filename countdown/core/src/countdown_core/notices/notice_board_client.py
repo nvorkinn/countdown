@@ -126,6 +126,8 @@ class NoticeBoardClient(AbstractClient):
                 # The postcode isn't placed yet, so the weather, floods and roads haven't
                 # been checked: "All clear" would be a guess.
                 raise RuntimeError("Couldn't look up the postcode yet")
-            return self.message_panel("Unknown postcode" if self.unknown_postcode else "All clear")
+            if self.unknown_postcode:
+                return self.message_panel("Unknown postcode")
+            return NoticeBoardPanel([])  # all clear: the layout leaves the notices out
         active.sort(key=lambda pair: (pair[0].severity, pair[1]))
         return NoticeBoardPanel([notice for notice, _ in active])
