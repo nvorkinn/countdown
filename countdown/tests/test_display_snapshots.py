@@ -8,7 +8,7 @@ import io
 import pytest
 import responses
 from fake_target import FakeTarget
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 from weather_factory import make_weather
 
 # `countdown_core` must be imported before any display.* module, or it's a circular import.
@@ -33,7 +33,7 @@ from countdown_core.spotify.spotify_top_tracks_panel import SpotifyTopTracksPane
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
-from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
+from countdown_core.tfl.combined_arrival_panel import ROTATION_STRIP, CombinedArrivalPanel, Rotation
 from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
 from countdown_core.tfl.tfl_client import TflClient
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
@@ -430,6 +430,39 @@ def test_arrival_styles_on_a_portrait_screen(snapshot, style):
     """Narrower stops, and taller ones without Spotify."""
     img = _draw_portrait(_panels(_styled_arrivals(style)), EVERYTHING - {ClientClasses.SPOTIFY})
     snapshot.assert_matches(f"screen_portrait_arrivals_{style}", img)
+
+
+def _rotating_arrivals() -> CombinedArrivalPanel:
+    """The first two of three stops: two squares filled, one empty."""
+    return CombinedArrivalPanel(
+        [
+            BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS, "hero"),
+            TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS, "hero"),
+        ],
+        Rotation(frozenset({0, 1}), 3),
+    )
+
+
+def test_rotating_stops_show_which_are_on_screen(snapshot):
+    """A square per configured stop under the arrivals, filled for those shown now."""
+    img = _draw(_panels(_rotating_arrivals()))
+    snapshot.assert_matches("screen_arrivals_rotating", img)
+
+
+def test_rotating_stops_on_a_portrait_screen(snapshot):
+    img = _draw_portrait(_panels(_rotating_arrivals()), EVERYTHING - {ClientClasses.SPOTIFY})
+    snapshot.assert_matches("screen_portrait_arrivals_rotating", img)
+
+
+def test_rotation_squares_are_part_of_the_arrivals_panel():
+    """The layouts make the arrivals' partial-refresh box from the panel's rendered size, so
+    the squares, in the strip at the bottom of it, are repainted along with the stops."""
+    rendered = _rotating_arrivals().render(800, 185)
+    assert rendered.size[1] > 185 - ROTATION_STRIP
+    assert ImageChops.difference(
+        rendered.crop((0, 185 - ROTATION_STRIP, rendered.size[0], rendered.size[1])),
+        Image.new("RGBA", (rendered.size[0], rendered.size[1] - 185 + ROTATION_STRIP), (255, 255, 255, 0)),
+    ).getbbox()
 
 
 SPOTIFY_STYLES = ["classic", "airy", "hero", "card"]
