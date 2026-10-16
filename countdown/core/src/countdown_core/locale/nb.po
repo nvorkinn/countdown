@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: countdown VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-16 16:50+0000\n"
+"POT-Creation-Date: 2026-10-16 17:04+0000\n"
 "PO-Revision-Date: 2026-10-16 16:50+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nb\n"
@@ -28,6 +28,8 @@ msgstr ""
 msgid "4 weeks"
 msgstr ""
 
+#. Translators: the notice board with nothing on it: no warnings, disruptions
+#. or reminders to show.
 msgid "All clear"
 msgstr ""
 
