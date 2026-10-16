@@ -6,7 +6,7 @@ from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
-from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
+from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
 from countdown_core.tfl.models import (
     ArrivalUnion,
     MetroStopPoint,
@@ -73,26 +73,30 @@ class TflClient(AbstractClient):
         info = TypeAdapter(StopPointUnion).validate_python(json)
         return _find_stop_child(info, stop_id)
 
-    def _get_next_stop(self) -> SingleStopPoint | MetroStopPoint:
+    def _next_stop_index(self) -> int:
+        """The index of the next stop to show."""
         if not self.stops:
             raise ValueError("No stops initialised")
-        stop = self.stops[self.current_stop]
+        index = self.current_stop
         self.current_stop += 1
         if self.current_stop >= len(self.stops):
             self.current_stop = 0
-        return stop
+        return index
 
     def _update(self) -> Panel:
         if not self.stops:
             return self.message_panel("Needs configuring")
         stop_and_arrivals = []
+        shown: set[int] = set()
         # All of them, in order, when they fit; otherwise the next page of them.
-        if len(self.stops) <= self.stops_per_update:
-            to_fetch = list(self.stops)
+        rotating = len(self.stops) > self.stops_per_update
+        if rotating:
+            to_fetch = [self._next_stop_index() for _ in range(self.stops_per_update)]
         else:
-            to_fetch = [self._get_next_stop() for _ in range(self.stops_per_update)]
+            to_fetch = list(range(len(self.stops)))
         count_to_fetch = len(to_fetch)
-        for stop in to_fetch:
+        for index in to_fetch:
+            stop = self.stops[index]
             try:
                 response = self.session.get(
                     f"https://api.tfl.gov.uk/StopPoint/{stop.naptan_id}/Arrivals",
@@ -107,9 +111,12 @@ class TflClient(AbstractClient):
                     stop_and_arrivals.append(BusArrivalPanel(stop, arrivals, self.config.style))
                 elif isinstance(stop, MetroStopPoint):
                     stop_and_arrivals.append(TubeArrivalPanel(stop, arrivals, self.config.style))
+                shown.add(index)
             except Exception as e:
                 logger.exception(f"Error fetching arrivals for stop {stop.naptan_id}: {e}")
         if not stop_and_arrivals:
             # Raised rather than shown, so the registry keeps the last good arrivals.
             raise RuntimeError(f"Could not fetch arrivals for any of {count_to_fetch} TfL stops")
-        return CombinedArrivalPanel(stop_and_arrivals)
+        # Only when they rotate: then the squares under the stops say which are on screen.
+        rotation = Rotation(frozenset(shown), len(self.stops)) if rotating else None
+        return CombinedArrivalPanel(stop_and_arrivals, rotation)

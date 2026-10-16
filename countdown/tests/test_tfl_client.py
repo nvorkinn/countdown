@@ -8,6 +8,7 @@ from test_utils import REGISTRATION
 from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, ClientStatus
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
+from countdown_core.tfl.combined_arrival_panel import Rotation
 from countdown_core.tfl.models import MetroStopPoint, SingleStopPoint
 from countdown_core.tfl.tfl_client import TflClient, _find_stop_child
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
@@ -153,13 +154,12 @@ def test_init_stops_is_a_pure_function_returning_resolved_stops(monkeypatch):
     assert client.stops == []  # init_stops does not mutate self
 
 
-def test_get_next_stop_cycles_and_wraps():
+def test_next_stop_index_cycles_and_wraps():
     client = TflClient(REGISTRATION, make_config())
-    a, b = make_bus_stop("A"), make_metro_stop("B")
-    client.stops = [a, b]
-    assert client._get_next_stop() is a
-    assert client._get_next_stop() is b
-    assert client._get_next_stop() is a
+    client.stops = [make_bus_stop("A"), make_metro_stop("B")]
+    assert client._next_stop_index() == 0
+    assert client._next_stop_index() == 1
+    assert client._next_stop_index() == 0
 
 
 def test_update_builds_correct_panels(monkeypatch):
@@ -231,6 +231,44 @@ def test_update_shows_every_stop_in_order_when_they_all_fit(monkeypatch):
 
     assert _shown_stop_ids(client) == ["490000000", "490000001", "490000002"]
     assert _shown_stop_ids(client) == ["490000000", "490000001", "490000002"]
+
+
+def test_update_says_which_stops_are_on_screen_when_they_rotate(monkeypatch):
+    """The window moves a stop at a time: with 3 stops and room for 2, it's 0+1, 2+0, 1+2."""
+    client = TflClient(REGISTRATION, make_config())
+    client.stops = [make_bus_stop(f"49000000{i}") for i in range(3)]
+    client.stops_per_update = 2
+    _no_arrivals(monkeypatch, client)
+
+    rotations = [asyncio.run(client.update()).rotation for _ in range(3)]
+    assert rotations == [Rotation(frozenset(s), 3) for s in ({0, 1}, {2, 0}, {1, 2})]
+
+
+def test_update_has_no_rotation_when_every_stop_fits(monkeypatch):
+    client = TflClient(REGISTRATION, make_config())
+    client.stops = [make_bus_stop(f"49000000{i}") for i in range(2)]
+    client.stops_per_update = 2
+    _no_arrivals(monkeypatch, client)
+
+    assert asyncio.run(client.update()).rotation is None
+
+
+def test_rotation_leaves_out_a_stop_whose_arrivals_failed(monkeypatch):
+    """Its square stays empty, as its departures aren't on screen."""
+    client = TflClient(REGISTRATION, make_config())
+    client.stops = [make_bus_stop(f"49000000{i}") for i in range(3)]
+    client.stops_per_update = 2
+    response = MagicMock(raise_for_status=MagicMock())
+    response.json.return_value = []
+
+    def get(url, params=None, timeout=None):
+        if "490000001" in url:
+            raise ConnectionError("down")
+        return response
+
+    monkeypatch.setattr(client.session, "get", get)
+
+    assert asyncio.run(client.update()).rotation == Rotation(frozenset({0}), 3)
 
 
 def test_update_raises_when_no_stops_arrivals_could_be_fetched(monkeypatch):
