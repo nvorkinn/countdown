@@ -445,7 +445,7 @@ def test_arrival_styles(snapshot, style):
 FEW_NOTICES = NoticeBoardPanel(NOTICES.notices[1:3])
 
 
-def _many_route_arrivals() -> CombinedArrivalPanel:
+def _many_route_arrivals(style: str = "hero") -> CombinedArrivalPanel:
     """More routes than the stops have room for, so the room the notices leave shows."""
     more_buses = [
         BusArrival(naptanId="490000123W", lineName=line, timeToStation=minutes * 60, modeName="bus", destinationName=to)
@@ -459,8 +459,8 @@ def _many_route_arrivals() -> CombinedArrivalPanel:
     ]
     return CombinedArrivalPanel(
         [
-            BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS + more_buses),
-            TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS + more_trains),
+            BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS + more_buses, style),
+            TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS + more_trains, style),
         ]
     )
 
@@ -490,24 +490,25 @@ def test_portrait_screen_with_few_notices(snapshot):
 
 @responses.activate
 @pytest.mark.parametrize("style", list(NOTICE_STYLES))
-def test_notice_styles(snapshot, style):
-    """Each look the config's style can pick, below Spotify in the same style."""
+def test_every_panel_in_one_style(snapshot, style):
+    """Each look the config's style can pick, on every panel at once: the stops, Spotify and the notices."""
     responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
     spotify = SpotifyPanel(SPOTIFY_QUEUE, style)
     notices = NoticeBoardPanel(NOTICES.notices, style)
     snapshot.assert_matches(
-        f"screen_notices_{style}", _draw(_panels(_many_route_arrivals(), spotify=spotify, notices=notices))
+        f"screen_style_{style}", _draw(_panels(_many_route_arrivals(style), spotify=spotify, notices=notices))
     )
 
 
 @responses.activate
 @pytest.mark.parametrize("style", list(NOTICE_STYLES))
-def test_notice_styles_on_a_portrait_screen(snapshot, style):
+def test_every_panel_in_one_style_on_a_portrait_screen(snapshot, style):
+    """As the config page shows each style."""
     responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
     spotify = SpotifyPanel(SPOTIFY_QUEUE, style)
     notices = NoticeBoardPanel(FEW_NOTICES.notices, style)
-    img = _draw_portrait(_panels(_many_route_arrivals(), spotify=spotify, notices=notices))
-    snapshot.assert_matches(f"screen_portrait_notices_{style}", img)
+    img = _draw_portrait(_panels(_many_route_arrivals(style), spotify=spotify, notices=notices))
+    snapshot.assert_matches(f"screen_portrait_style_{style}", img)
 
 
 @pytest.mark.parametrize("style", ["airy", "hero", "card"])
