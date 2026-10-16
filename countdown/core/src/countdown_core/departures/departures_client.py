@@ -11,7 +11,7 @@ from countdown_core.core.panel import Panel
 from countdown_core.entur.entur_source import EnturSource
 from countdown_core.i18n import N_
 from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
-from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
+from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
 from countdown_core.tfl.tfl_client import TflSource
 from countdown_credentials.registration import Registration
 
@@ -96,29 +96,36 @@ class DeparturesClient(AbstractClient):
                 resolved.append(ResolvedStop(stop.id, source, info))
         return resolved
 
-    def _get_next_stop(self) -> ResolvedStop:
+    def _next_stop_index(self) -> int:
+        """The index of the next stop to show."""
         if not self.stops:
             raise ValueError("No stops initialised")
-        stop = self.stops[self.current_stop]
+        index = self.current_stop
         self.current_stop = (self.current_stop + 1) % len(self.stops)
-        return stop
+        return index
 
     def _update(self) -> Panel:
         if not self.stops:
             return self.message_panel(N_("Needs configuring"))
         # All of them, in order, when they fit; otherwise the next page of them.
-        if len(self.stops) <= self.stops_per_update:
-            to_fetch = list(self.stops)
+        rotating = len(self.stops) > self.stops_per_update
+        if rotating:
+            to_fetch = [self._next_stop_index() for _ in range(self.stops_per_update)]
         else:
-            to_fetch = [self._get_next_stop() for _ in range(self.stops_per_update)]
+            to_fetch = list(range(len(self.stops)))
         panels = []
-        for resolved in to_fetch:
+        shown: set[int] = set()
+        for index in to_fetch:
+            resolved = self.stops[index]
             try:
                 # The panels group them by route, keeping the later ones for the styles that show them.
                 panels.append(resolved.source.panel(resolved.stop, self.config.style))
+                shown.add(index)
             except Exception as e:
                 logger.exception(f"Error fetching departures for {resolved.id}: {e}")
         if not panels:
             # Raised rather than shown, so the registry keeps the last good departures.
             raise RuntimeError(f"Could not fetch departures for any of {len(to_fetch)} stops")
-        return CombinedArrivalPanel(panels)
+        # Only when they rotate: then the squares under the stops say which are on screen.
+        rotation = Rotation(frozenset(shown), len(self.stops)) if rotating else None
+        return CombinedArrivalPanel(panels, rotation)

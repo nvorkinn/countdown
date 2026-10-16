@@ -8,8 +8,8 @@ import io
 import pytest
 import responses
 from fake_target import FakeTarget
-from PIL import Image, ImageDraw
-from weather_factory import make_weather
+from PIL import Image, ImageChops, ImageDraw
+from weather_factory import forecast_json, make_weather
 
 # `countdown_core` must be imported before any display.* module, or it's a circular import.
 import countdown_core  # noqa: F401, I001
@@ -25,7 +25,6 @@ from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.i18n import set_locale
 from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_client import NoticeBoardClient
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.rendering.screen import DEFAULT_CANVAS
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
@@ -37,10 +36,12 @@ from countdown_core.spotify.spotify_top_tracks_panel import SpotifyTopTracksPane
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
-from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
+from countdown_core.tfl.combined_arrival_panel import ROTATION_STRIP, CombinedArrivalPanel, Rotation
 from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
+from countdown_core.weather.models import ForecastResponse, WeatherPeriod
 from countdown_core.weather.weather_client import WeatherClient
+from countdown_core.weather.weather_forecast import weather_pages
 from countdown_core.weather.weather_panel import WeatherPanel
 
 _CONTROLLER = DisplayController(FakeTarget())
@@ -251,7 +252,8 @@ def test_screen_without_energy_panel_playing_spotify(snapshot):
 
 
 def test_screen_with_no_notices(snapshot):
-    img = _draw(_panels(_bus_only_arrivals(), notices=NoticeBoardClient.message_panel("All clear")))
+    """All clear: the notices are left out, and the stops take their room."""
+    img = _draw(_panels(_bus_only_arrivals(), notices=NoticeBoardPanel([])))
     snapshot.assert_matches("screen_no_notices", img)
 
 
@@ -369,7 +371,7 @@ def _draw_portrait(panels: dict[str, Panel], available: frozenset[ClientClasses]
 
 @responses.activate
 def test_portrait_screen_playing_spotify(snapshot):
-    """Top to bottom: the weather in full, two stops side by side, the notices, Spotify."""
+    """Top to bottom: the weather in full, two stops side by side, Spotify, the notices."""
     responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
     img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE)))
     snapshot.assert_matches("screen_portrait_spotify", img)
@@ -426,6 +428,52 @@ def test_arrival_styles(snapshot, style):
     """Each look the config's tfl.style can pick, on a busy bus stop and station."""
     img = _draw(_panels(_styled_arrivals(style)))
     snapshot.assert_matches(f"screen_arrivals_{style}", img)
+
+
+FEW_NOTICES = NoticeBoardPanel(NOTICES.notices[1:3])
+
+
+def _many_route_arrivals() -> CombinedArrivalPanel:
+    """More routes than the stops have room for, so the room the notices leave shows."""
+    more_buses = [
+        BusArrival(naptanId="490000123W", lineName=line, timeToStation=minutes * 60, modeName="bus", destinationName=to)
+        for line, to, minutes in [("12", "Oxford Circus", 19), ("148", "White City", 21), ("171", "Holborn", 23)]
+    ]
+    more_trains = [
+        TubeArrival(
+            naptanId="940GZZLUKNG", lineName="Northern", timeToStation=minutes * 60, modeName="tube", towards=to
+        )
+        for to, minutes in [("Mill Hill East via Bank", 10), ("Kennington", 14), ("High Barnet via Bank", 17)]
+    ]
+    return CombinedArrivalPanel(
+        [
+            BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS + more_buses),
+            TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS + more_trains),
+        ]
+    )
+
+
+@responses.activate
+def test_screen_with_few_notices(snapshot):
+    """The notices only as tall as their two rows, at the bottom: the stops get the rest."""
+    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
+    panels = _panels(_many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE), notices=FEW_NOTICES)
+    snapshot.assert_matches("screen_few_notices", _draw(panels))
+
+
+@responses.activate
+def test_screen_with_few_notices_and_no_energy_panel(snapshot):
+    """Without the energy chart under it, the weather grows with the stops."""
+    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
+    panels = _panels(_many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE), notices=FEW_NOTICES)
+    snapshot.assert_matches("screen_few_notices_no_energy", _draw(panels, NO_GLOWMARKT))
+
+
+@responses.activate
+def test_portrait_screen_with_few_notices(snapshot):
+    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
+    panels = _panels(_many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE), notices=FEW_NOTICES)
+    snapshot.assert_matches("screen_portrait_few_notices", _draw_portrait(panels))
 
 
 @pytest.mark.parametrize("style", ["hero", "grouped", "card"])
@@ -492,7 +540,12 @@ def test_oslo_screen_in_norwegian(snapshot):
         )
         notices = NoticeBoardPanel(
             [
-                Notice("MET", Severity.WARNING, "Oransje farevarsel: kraftig vind til fre. 21:00"),
+                Notice(
+                    "MET",
+                    Severity.WARNING,
+                    "Oransje farevarsel: kraftig vind til fre.",
+                    display_time=dt.datetime(2026, 10, 16, 21, tzinfo=dt.UTC),
+                ),
                 Notice("Linje 12", Severity.INFO, "Trikken kjører ikke mellom Majorstuen og Frogner plass."),
                 Notice("Helligdag", Severity.REMINDER, "I morgen: Grunnlovsdag"),
             ]
@@ -501,6 +554,39 @@ def test_oslo_screen_in_norwegian(snapshot):
     finally:
         set_locale("en", "Europe/London")
     snapshot.assert_matches("screen_oslo_norwegian", img)
+
+
+def _rotating_arrivals() -> CombinedArrivalPanel:
+    """The first two of three stops: two squares filled, one empty."""
+    return CombinedArrivalPanel(
+        [
+            BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS, "hero"),
+            TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS, "hero"),
+        ],
+        Rotation(frozenset({0, 1}), 3),
+    )
+
+
+def test_rotating_stops_show_which_are_on_screen(snapshot):
+    """A square per configured stop under the arrivals, filled for those shown now."""
+    img = _draw(_panels(_rotating_arrivals()))
+    snapshot.assert_matches("screen_arrivals_rotating", img)
+
+
+def test_rotating_stops_on_a_portrait_screen(snapshot):
+    img = _draw_portrait(_panels(_rotating_arrivals()), EVERYTHING - {ClientClasses.SPOTIFY})
+    snapshot.assert_matches("screen_portrait_arrivals_rotating", img)
+
+
+def test_rotation_squares_are_part_of_the_arrivals_panel():
+    """The layouts make the arrivals' partial-refresh box from the panel's rendered size, so
+    the squares, in the strip at the bottom of it, are repainted along with the stops."""
+    rendered = _rotating_arrivals().render(800, 185)
+    assert rendered.size[1] > 185 - ROTATION_STRIP
+    assert ImageChops.difference(
+        rendered.crop((0, 185 - ROTATION_STRIP, rendered.size[0], rendered.size[1])),
+        Image.new("RGBA", (rendered.size[0], rendered.size[1] - 185 + ROTATION_STRIP), (255, 255, 255, 0)),
+    ).getbbox()
 
 
 SPOTIFY_STYLES = ["classic", "airy", "hero", "card"]
@@ -558,3 +644,50 @@ def test_spotify_styles_on_a_portrait_screen(snapshot, style, page):
     responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
     img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
     snapshot.assert_matches(f"screen_portrait_spotify_{style}_{page}", img)
+
+
+@pytest.mark.parametrize("period", [WeatherPeriod.NOW, WeatherPeriod.TONIGHT, WeatherPeriod.TOMORROW])
+def test_portrait_screen_in_12_hour_time(snapshot, period):
+    pages = weather_pages(ForecastResponse.model_validate(forecast_json()))
+    weather = WeatherPanel(next(page for page in pages if page.period is period))
+    expiry = dt.datetime.fromisoformat("2026-01-15T12:07:00+00:00")
+    notices = NoticeBoardPanel(
+        [Notice("Met Office", Severity.WARNING, "Amber warning: wind until Thu", expiry, display_time=expiry)]
+    )
+    img = _CONTROLLER.display_screen(
+        _panels(_bus_and_tube_arrivals(), weather=weather, notices=notices),
+        Screen(orientation="vertical", width=800, height=480),
+        EVERYTHING,
+        clock_format="12h",
+    )
+    snapshot.assert_matches(f"screen_12h_portrait_{period.value}", img)
+
+
+def test_landscape_screen_in_12_hour_time(snapshot):
+    expiry = dt.datetime.fromisoformat("2026-01-15T00:07:00+00:00")
+    notices = NoticeBoardPanel(
+        [Notice("Met Office", Severity.WARNING, "Yellow warning: rain until Thu", expiry, display_time=expiry)]
+    )
+    img = _CONTROLLER.display_screen(
+        _panels(_bus_and_tube_arrivals(), notices=notices), LANDSCAPE, EVERYTHING, clock_format="12h"
+    )
+    snapshot.assert_matches("screen_12h_landscape", img)
+
+
+@pytest.mark.parametrize("style", ["classic", "hero", "grouped", "card"])
+def test_arrival_countdown_durations_do_not_use_the_clock_preference(style):
+    panel = _styled_arrivals(style)
+
+    assert panel.render(800, 185).tobytes() == panel.render(800, 185, clock_format="12h").tobytes()
+
+
+@pytest.mark.parametrize("orientation", ["horizontal", "vertical"])
+def test_clock_preference_does_not_leak_between_controllers_sharing_layouts_and_panels(orientation):
+    panels = _panels(_bus_and_tube_arrivals())
+    screen = Screen(orientation=orientation, width=800, height=480)
+    twelve_hour = DisplayController(FakeTarget()).display_screen(panels, screen, EVERYTHING, clock_format="12h")
+    default = DisplayController(FakeTarget()).display_screen(panels, screen, EVERYTHING)
+    explicit = DisplayController(FakeTarget()).display_screen(panels, screen, EVERYTHING, clock_format="24h")
+
+    assert default.tobytes() == explicit.tobytes()
+    assert default.tobytes() != twelve_hour.tobytes()

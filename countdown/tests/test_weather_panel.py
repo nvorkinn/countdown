@@ -203,6 +203,34 @@ def test_portrait_preserves_every_detail_and_the_next_outlook(upcoming, drawn_te
     assert {str(upcoming).upper(), "Slight rain", icon_for(61, upcoming is not Upcoming.TONIGHT)} <= texts
 
 
+@pytest.mark.parametrize("clock_format", ["12h", "24h"])
+@pytest.mark.parametrize("size", [(470, HEIGHT), (320, 220)])
+@pytest.mark.parametrize(
+    ("period", "hour_24", "hour_12"),
+    [
+        (WeatherPeriod.NOW, {"00:07", "12:59"}, {"12:07 AM", "12:59 PM"}),
+        (WeatherPeriod.TONIGHT, {"18:00 - 06:00"}, {"6:00 PM - 6:00 AM"}),
+        (
+            WeatherPeriod.TOMORROW,
+            {"12:59", "Sunrise 00:07 / Sunset 12:59"},
+            {"12:59 PM", "Sunrise 12:07 AM / Sunset 12:59 PM"},
+        ),
+    ],
+)
+def test_all_portrait_clocks_use_the_preference_without_overlap(
+    clock_format, size, period, hour_24, hour_12, forecast_weather, drawn_text
+):
+    weather = forecast_weather[period].model_copy(update={"sunrise": dt.time(0, 7), "sunset": dt.time(12, 59)})
+    WeatherTrmnlPanel(weather).render(*size, clock_format=clock_format)
+    expected = hour_12 if clock_format == "12h" else hour_24
+
+    assert expected <= {text for text, _, _ in drawn_text}
+    _assert_clear_text(drawn_text, size)
+    for text, _, font_size in drawn_text:
+        if text in expected:
+            assert font_size >= (12 if size[0] == 470 else 8), text
+
+
 def test_unknown_current_and_upcoming_weather_are_explicit(drawn_text):
     weather = make_weather(weather_code=1234, upcoming_weather_code=(Upcoming.TONIGHT, 1234))
     WeatherTrmnlPanel(weather).render(470, HEIGHT)

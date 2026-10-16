@@ -105,10 +105,9 @@ def next_clock_change(now: datetime, zone: ZoneInfo) -> datetime | None:
 
 # Separate texts for each direction, so a translation can word them differently.
 CLOCKS_GO = {
-    # Translators: {when} is "tonight" or "on Sun 25 Oct". The time is there as {time12} ("1am") and as {time24}
-    # ("01:00"): use whichever suits.
-    "forward": N_("Clocks go forward an hour {when}, at {time12}"),
-    "back": N_("Clocks go back an hour {when}, at {time12}"),
+    # Translators: {when} is "tonight" or "on Sun 25 Oct". The screen adds the time after it ("01:00" or "1:00 AM").
+    "forward": N_("Clocks go forward an hour {when}, at"),
+    "back": N_("Clocks go back an hour {when}, at"),
 }
 
 
@@ -127,10 +126,11 @@ class ClockChangeSource(NoticeSource):
         before = (change - timedelta(microseconds=1)).astimezone(zone)
         after = change.astimezone(zone)
         direction = "forward" if after.utcoffset() > before.utcoffset() else "back"
-        # Said in the time it is just before the change: "1am" in March, "2am" in October in London.
+        # Said in the time it is just before the change: 01:00 in March, 02:00 in October in London. The board adds
+        # the time, in the screen's clock format.
         at = change.astimezone(zone) - (after.utcoffset() - before.utcoffset())
         today = now.astimezone(zone).date()
         day = before.date()
         on = _("tonight") if day in (today, today + timedelta(days=1)) else _("on {day}").format(day=when(day, today))
-        text = _(CLOCKS_GO[direction]).format(when=on, time12=f"{at:%-I%p}".lower(), time24=f"{at:%H:%M}")
-        return [Notice(_("Clocks"), Severity.REMINDER, text, change)]
+        text = _(CLOCKS_GO[direction]).format(when=on)
+        return [Notice(_("Clocks"), Severity.REMINDER, text, change, display_time=at)]

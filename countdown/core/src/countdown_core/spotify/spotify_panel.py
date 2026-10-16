@@ -9,6 +9,7 @@ from countdown_core.i18n import _
 from countdown_core.spotify.models import Album, Artist, Queue
 from countdown_core.spotify.models import Image as AlbumImage
 from countdown_core.spotify.spotify_styles import STYLES
+from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import UBUNTU_BOLD_20, UBUNTU_MEDIUM_15, UBUNTU_MEDIUM_20, truncate_to_fit
 
 # How the Spotify panel is drawn: the config's spotify.style.
@@ -20,7 +21,7 @@ class SpotifyPanel(Panel):
         self.queue = queue
         self.style = style
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         if self.style != "classic":
             album = self.queue.currently_playing.album
             return STYLES[self.style].now(

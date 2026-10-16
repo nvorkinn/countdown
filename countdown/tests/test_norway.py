@@ -25,6 +25,7 @@ from countdown_core.notices.norway import (
 from countdown_core.notices.notice import Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.tfl.models import Postcode
+from countdown_core.utils.clock import format_clock
 
 NOW = datetime(2026, 10, 16, 12, 0, tzinfo=UTC)
 OSLO = Postcode(postcode="0150", latitude=59.9116, longitude=10.7505, country="Norway", admin_district="Oslo")
@@ -119,9 +120,15 @@ def test_metalerts_become_notices_until_their_end_in_oslo_time():
     assert (orange.source, orange.severity, orange.text) == (
         "MET",
         Severity.WARNING,
-        "Orange warning: kraftig vind until Fri 21:00",
+        "Orange warning: kraftig vind until Fri",
     )
-    assert (yellow.severity, yellow.text) == (Severity.INFO, "Yellow warning: regn until Sat 08:00")
+    # The board adds the time, in the screen's clock format: "until Fri 21:00".
+    assert format_clock(orange.display_time) == "21:00"
+    assert (yellow.severity, yellow.text, format_clock(yellow.display_time)) == (
+        Severity.INFO,
+        "Yellow warning: regn until Sat",
+        "08:00",
+    )
 
 
 def test_metalerts_are_asked_for_in_the_screens_language(api):
@@ -155,8 +162,9 @@ def test_entur_situations_are_said_once_tagged_with_their_line_in_the_screens_la
 
 def test_the_clocks_change_in_the_screens_time_zone(oslo_screen):
     [notice] = ClockChangeSource(requests.Session()).fetch(datetime(2026, 10, 24, 18, tzinfo=UTC))
-    # 01:00 UTC is 3am in Oslo, before the clocks go back to 2am.
-    assert notice.text == "Clocks go back an hour tonight, at 3am"
+    # 01:00 UTC is 03:00 in Oslo, before the clocks go back to 02:00.
+    assert notice.text == "Clocks go back an hour tonight, at"
+    assert format_clock(notice.display_time, "12h") == "3:00 AM"
 
 
 def board(postcode: str | None, country: str | None, stops: tuple[DepartureStop, ...] = ()) -> NoticeBoardClient:

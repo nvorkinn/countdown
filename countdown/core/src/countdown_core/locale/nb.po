@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: countdown VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-16 17:11+0000\n"
+"POT-Creation-Date: 2026-10-16 17:18+0000\n"
 "PO-Revision-Date: 2026-10-16 16:50+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nb\n"
@@ -27,11 +27,6 @@ msgstr "12 måneder"
 
 msgid "4 weeks"
 msgstr "4 uker"
-
-#. Translators: the notice board with nothing on it: no warnings, disruptions
-#. or reminders to show.
-msgid "All clear"
-msgstr "Ingen varsler"
 
 #, python-brace-format
 msgid "Amber warning: {hazard}"
@@ -69,15 +64,14 @@ msgid "Clocks"
 msgstr "Klokker"
 
 #, python-brace-format
-msgid "Clocks go back an hour {when}, at {time12}"
-msgstr "Klokken stilles tilbake en time {when}, kl. {time12}"
+msgid "Clocks go back an hour {when}, at"
+msgstr "Klokken stilles tilbake en time {when}, kl."
 
-#. Translators: {when} is "tonight" or "on Sun 25 Oct". The time is there as
-#. {time12} ("1am") and as {time24}
-#. ("01:00"): use whichever suits.
+#. Translators: {when} is "tonight" or "on Sun 25 Oct". The screen adds the
+#. time after it ("01:00" or "1:00 AM").
 #, python-brace-format
-msgid "Clocks go forward an hour {when}, at {time12}"
-msgstr "Klokken stilles frem en time {when}, kl. {time12}"
+msgid "Clocks go forward an hour {when}, at"
+msgstr "Klokken stilles frem en time {when}, kl."
 
 msgid "Constitution Day"
 msgstr "Grunnlovsdag"
@@ -471,8 +465,8 @@ msgid "tonight"
 msgstr "i kveld"
 
 #, python-brace-format
-msgid "until {day} {time}"
-msgstr "til {day} {time}"
+msgid "until {day}"
+msgstr "til {day}"
 
 #, python-brace-format
 msgid "{line} line"

@@ -35,6 +35,17 @@ broker. The broker has no change notification, so this poll is how changes to
 stops, credentials and so on reach the device, and how the pairing code stays
 current.
 
+**Clock format.** The config website's clock choice is the top-level `clock_format` in
+`GET /api/config`: `"24h"` (the default when omitted) or `"12h"`. Generated clock times use
+`07:21` / `18:04` or `7:21 AM` / `6:04 PM`, including `12:00 AM` at midnight and `12:00 PM`
+at noon. This covers portrait weather sunrise/sunset and overnight windows, hourly energy
+chart labels, Met Office warning expiry and clock-change reminders (which previously always
+used compact `1am` / `2am` text). A change takes effect on the next dashboard frame after the
+normal config refresh, including cached panels; it does not restart clients, reset the weather
+carousel or change polling. Layouts receive the preference per frame and do not store it.
+Times stay in their data source's time zone. Durations (including arrival countdowns), API
+timestamps/parameters, logs and upstream free-form notice text are not rewritten.
+
 **API clients** (`*_client.py`, `api_registry.py`). Each API has an
 `AbstractClient` subclass: TfL arrivals, Open-Meteo weather, Glowmarkt energy,
 Spotify (proxied by the broker, so the device never holds a Spotify token) and

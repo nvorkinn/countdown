@@ -64,7 +64,9 @@ class DisplayLoop:
                 else:
                     self.api_reg.status.stage = "running"
                     panels = await self.api_reg.update_all()
-                    self.display.display_screen(panels, self.config.screen, self.api_reg.available())
+                    self.display.display_screen(
+                        panels, self.config.screen, self.api_reg.available(), clock_format=self.config.clock_format
+                    )
                 self.display.repaint_pending()
             except requests.exceptions.RequestException as e:
                 logger.exception(f"Network error encountered: {e}")

@@ -138,11 +138,11 @@ def parse_metalerts(payload: dict, now: datetime) -> list[Notice]:
         if valid_until is not None and valid_until < now:
             continue
         text = _(WARNING_BY_COLOUR[colour]).format(hazard=hazard.lower())
-        if valid_until is not None:
-            local = valid_until.astimezone(NORWAY_TIME)
-            # Like the Met Office's: "until Fri 21:00".
-            text += " " + _("until {day} {time}").format(day=format_date(local.date(), "EEE"), time=f"{local:%H:%M}")
-        notices.append(Notice("MET", SEVERITY_BY_COLOUR[colour], text, valid_until))
+        local = valid_until.astimezone(NORWAY_TIME) if valid_until is not None else None
+        if local is not None:
+            # Like the Met Office's: "until Fri 21:00", the board adding the time in the screen's clock format.
+            text += " " + _("until {day}").format(day=format_date(local.date(), "EEE"))
+        notices.append(Notice("MET", SEVERITY_BY_COLOUR[colour], text, valid_until, display_time=local))
     return notices
 
 

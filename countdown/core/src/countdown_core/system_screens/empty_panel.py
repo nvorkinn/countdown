@@ -2,6 +2,7 @@ from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
+from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import fitted_font, width_scale
 
 TITLE, INSTRUCTION, HINT = 72, 42, 34
@@ -11,7 +12,7 @@ class EmptyPanel(Panel):
     """Shown full-screen when the device is set up but has nothing to display yet: the first
     data hasn't arrived, or every API is failing."""
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
         center_x, center_y = image_width / 2, image_height / 2

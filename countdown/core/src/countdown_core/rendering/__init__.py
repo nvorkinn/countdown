@@ -15,6 +15,7 @@ from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import Canvas, canvas_for, native_size
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.message_panel import MessagePanel
+from countdown_core.utils.clock import ClockFormat
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +30,21 @@ def layout_for(screen: Screen, available: frozenset[ClientClasses]) -> tuple[Lay
     return LAYOUTS.select(canvas, None, available), canvas
 
 
-def render(panels: dict[str, Panel], screen: Screen, available: frozenset[ClientClasses]) -> Frame:
-    """The frame for `screen`, upright as the viewer sees it. If every panel is a MessagePanel,
-    it's the "nothing to show yet" screen instead of a layout full of messages."""
-    if all(isinstance(panel, MessagePanel) for panel in panels.values()):
+def render(
+    panels: dict[str, Panel],
+    screen: Screen,
+    available: frozenset[ClientClasses],
+    *,
+    clock_format: ClockFormat = "24h",
+) -> Frame:
+    """The frame for `screen`, upright as the viewer sees it. If every panel is a MessagePanel
+    (or has nothing to draw), it's the "nothing to show yet" screen instead of a layout full
+    of messages."""
+    if all(isinstance(panel, MessagePanel) or not panel.fitted_height(1) for panel in panels.values()):
         return Frame(EmptyPanel().render(*canvas_for(screen).size))
     layout, canvas = layout_for(screen, available)
     logger.debug(f"Drawing {type(layout).__name__} on {canvas}")
-    return layout.render(panels, canvas)
+    return layout.render(panels, canvas, clock_format=clock_format)
 
 
 def to_native(frame: Frame, screen: Screen) -> Frame:

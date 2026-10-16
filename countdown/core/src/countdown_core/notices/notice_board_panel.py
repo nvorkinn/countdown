@@ -3,6 +3,7 @@ from PIL import Image, ImageDraw
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
 from countdown_core.notices.notice import Notice, Severity
+from countdown_core.utils.clock import ClockFormat, format_clock
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, truncate_to_fit
 
 TITLE_FONT = GOOGLE_SEMI.font_variant(size=16)
@@ -22,7 +23,19 @@ class NoticeBoardPanel(Panel):
         """`notices` already ranked, most important first."""
         self.notices = notices
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    @staticmethod
+    def _top() -> int:
+        """Where the first row starts, below the title."""
+        return PADDING + TITLE_FONT.getbbox(_("Notices"))[3] + TITLE_GAP
+
+    def fitted_height(self, max_height: int) -> int:
+        """A row per notice, or nothing at all when there are none. At `max_height` the
+        rows that don't fit are counted on the last one."""
+        if not self.notices:
+            return 0
+        return min(max_height, self._top() + len(self.notices) * ROW_HEIGHT + PADDING)
+
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         """One notice per row: a severity marker, the source and as much of the text as
         fits. If there are more current notices than rows, the last row says how many
         didn't fit."""
@@ -31,7 +44,7 @@ class NoticeBoardPanel(Panel):
         draw.fontmode = "1"
 
         draw.text((PADDING, PADDING), _("Notices"), "black", font=TITLE_FONT)
-        top = PADDING + TITLE_FONT.getbbox(_("Notices"))[3] + TITLE_GAP
+        top = self._top()
         rows = max(1, (image_height - PADDING - top) // ROW_HEIGHT)
 
         current = [n for n in self.notices if n.severity != Severity.PLANNED]
@@ -42,14 +55,16 @@ class NoticeBoardPanel(Panel):
             # Planned works only fill the rows left over, and don't count as "more".
             shown, more = current + planned[: rows - len(current)], 0
         for i, notice in enumerate(shown):
-            self._draw_row(draw, notice, top + i * ROW_HEIGHT, image_width)
+            self._draw_row(draw, notice, top + i * ROW_HEIGHT, image_width, clock_format)
         if more:
             y = top + len(shown) * ROW_HEIGHT + ROW_HEIGHT // 2
             draw.text((PADDING, y), _("+{count} more").format(count=more), "black", font=TEXT_FONT, anchor="lm")
         return img
 
     @staticmethod
-    def _draw_row(draw: ImageDraw.ImageDraw, notice: Notice, y: int, image_width: int) -> None:
+    def _draw_row(
+        draw: ImageDraw.ImageDraw, notice: Notice, y: int, image_width: int, clock_format: ClockFormat
+    ) -> None:
         middle = y + ROW_HEIGHT // 2
         box = (PADDING, middle - MARKER_SIZE // 2, PADDING + MARKER_SIZE - 1, middle + MARKER_SIZE // 2 - 1)
         centre = ((box[0] + box[2] + 1) / 2, middle)
@@ -72,5 +87,13 @@ class NoticeBoardPanel(Panel):
         x = PADDING + MARKER_SIZE + MARKER_GAP
         draw.text((x, middle), notice.source, "black", font=SOURCE_FONT, anchor="lm")
         x += round(SOURCE_FONT.getlength(notice.source)) + SOURCE_GAP
-        text = truncate_to_fit(notice.text, TEXT_FONT, image_width - PADDING - x)
+        available = image_width - PADDING - x
+        suffix = ""
+        if notice.display_time is not None:
+            suffix = f" {format_clock(notice.display_time, clock_format)}"
+        if suffix and clock_format == "12h":
+            # Keep AM/PM visible even when the longer clock leaves less room for the notice.
+            text = truncate_to_fit(notice.text, TEXT_FONT, available - TEXT_FONT.getlength(suffix)) + suffix
+        else:
+            text = truncate_to_fit(notice.text + suffix, TEXT_FONT, available)
         draw.text((x, middle), text, "black", font=TEXT_FONT, anchor="lm")

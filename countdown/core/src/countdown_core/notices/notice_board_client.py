@@ -155,7 +155,6 @@ class NoticeBoardClient(AbstractClient):
                 raise RuntimeError("Couldn't look up the postcode yet")
             if self.unknown_postcode:
                 return self.message_panel(N_("Unknown postcode"))
-            # Translators: the notice board with nothing on it: no warnings, disruptions or reminders to show.
-            return self.message_panel(N_("All clear"))
+            return NoticeBoardPanel([])  # all clear: the layout leaves the notices out
         active.sort(key=lambda pair: (pair[0].severity, pair[1]))
         return NoticeBoardPanel([notice for notice, _ in active])

@@ -2,6 +2,7 @@ from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_, _, format_date
+from countdown_core.utils.clock import ClockFormat, format_clock
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS
 from countdown_core.weather.models import Upcoming, Weather, WeatherPeriod
 from countdown_core.weather.weather_panel import (
@@ -26,7 +27,7 @@ class WeatherTrmnlPanel(Panel):
         super().__init__()
         self.weather = weather
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"
@@ -61,7 +62,7 @@ class WeatherTrmnlPanel(Panel):
             anchor="ls",
         )
 
-        readings = self._readings()
+        readings = self._readings(clock_format)
         column_width = width / len(readings)
         label = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
         for index, (title, value) in enumerate(readings):
@@ -78,16 +79,16 @@ class WeatherTrmnlPanel(Panel):
             )
 
         draw.line((x, y + 214 * scale, x + width, y + 214 * scale), fill="black")
-        self._draw_footer(draw, (x, y), width, scale)
+        self._draw_footer(draw, (x, y), width, scale, clock_format)
         return img
 
-    def _readings(self) -> list[tuple[str, str]]:
+    def _readings(self, clock_format: ClockFormat = "24h") -> list[tuple[str, str]]:
         w = self.weather
         wind = (_("Wind"), f"{round(w.wind_speed)} {w.wind_speed_units} {_compass(w.wind_direction)}")
         if w.period is WeatherPeriod.NOW:
             return [
-                (_("Sunrise"), w.sunrise.isoformat("minutes")),
-                (_("Sunset"), w.sunset.isoformat("minutes")),
+                (_("Sunrise"), format_clock(w.sunrise, clock_format)),
+                (_("Sunset"), format_clock(w.sunset, clock_format)),
                 (_("Humidity"), f"{w.humidity}{w.humidity_units}"),
                 wind,
             ]
@@ -103,10 +104,17 @@ class WeatherTrmnlPanel(Panel):
         if w.period is WeatherPeriod.TONIGHT:
             readings.append((_("Humidity"), f"{w.humidity}{w.humidity_units}"))
         elif w.period is WeatherPeriod.TOMORROW:
-            readings.append((_("Sunset"), w.sunset.isoformat("minutes")))
+            readings.append((_("Sunset"), format_clock(w.sunset, clock_format)))
         return readings
 
-    def _draw_footer(self, draw: ImageDraw.ImageDraw, coord: tuple[float, float], width: float, scale: float) -> None:
+    def _draw_footer(
+        self,
+        draw: ImageDraw.ImageDraw,
+        coord: tuple[float, float],
+        width: float,
+        scale: float,
+        clock_format: ClockFormat,
+    ) -> None:
         w = self.weather
         x, y = coord
         label = GOOGLE_SEMI.font_variant(size=max(1, round(10 * scale)))
@@ -147,11 +155,11 @@ class WeatherTrmnlPanel(Panel):
                 if w.starts_at is None or w.ends_at is None:
                     raise ValueError("Tonight requires an overnight time window")
                 title += " - " + _("OVERNIGHT")
-                detail = f"{w.starts_at:%H:%M} - {w.ends_at:%H:%M}"
+                detail = f"{format_clock(w.starts_at, clock_format)} - {format_clock(w.ends_at, clock_format)}"
                 code, is_day = 0, False
             else:
                 detail = _("Sunrise {sunrise} / Sunset {sunset}").format(
-                    sunrise=f"{w.sunrise:%H:%M}", sunset=f"{w.sunset:%H:%M}"
+                    sunrise=format_clock(w.sunrise, clock_format), sunset=format_clock(w.sunset, clock_format)
                 )
                 code, is_day = 0, True
         _draw_shrunk_to_fit(draw, (x, y + 228 * scale), title, GOOGLE_SEMI, width - 65 * scale, round(10 * scale))

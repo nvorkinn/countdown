@@ -8,6 +8,7 @@ from countdown_core.spotify.spotify_panel import Style
 from countdown_core.spotify.spotify_styles import STYLES
 from countdown_core.spotify.spotify_top_artists_panel import SpotifyTopArtistsPanel
 from countdown_core.spotify.spotify_top_tracks_panel import SpotifyTopTracksPanel
+from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import UBUNTU_MEDIUM_15
 
 
@@ -24,7 +25,7 @@ class SpotifyTopPanel(Panel):
         self.sub_panels = [top_tracks_panel, top_artists_panel]
         self.style = style
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         if self.style != "classic":
             tracks, artists = (panel.top_response.items for panel in self.sub_panels)
             return STYLES[self.style].top(self.period, tracks, artists, image_width, image_height)
@@ -41,7 +42,7 @@ class SpotifyTopPanel(Panel):
         )
         x = 0
         for sub_panel in self.sub_panels:
-            panel = sub_panel.render(floor(image_width / 2), image_height)
+            panel = sub_panel.render(floor(image_width / 2), image_height, clock_format=clock_format)
             img.paste(panel, (x, 20), panel)
             x += panel.size[0] + 10
 

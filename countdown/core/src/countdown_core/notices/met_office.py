@@ -127,10 +127,9 @@ def parse_warnings(feed: bytes, now: datetime) -> list[Notice]:
         else:
             text, severity = title, Severity.WARNING
         if valid_until is not None:
-            text += " " + _("until {day} {time}").format(
-                day=format_date(valid_until.date(), "EEE"), time=f"{valid_until:%H:%M}"
-            )
-        notices.append(Notice("Met Office", severity, text, valid_until))
+            # The board adds the time, in the screen's clock format: "until Fri 21:00".
+            text += " " + _("until {day}").format(day=format_date(valid_until.date(), "EEE"))
+        notices.append(Notice("Met Office", severity, text, valid_until, display_time=valid_until))
     return notices
 
 
