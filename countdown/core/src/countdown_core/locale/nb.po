@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: countdown VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-16 18:12+0000\n"
+"POT-Creation-Date: 2026-10-16 18:27+0000\n"
 "PO-Revision-Date: 2026-10-16 16:50+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nb\n"
@@ -383,24 +383,14 @@ msgstr "I kveld"
 msgid "Top artists"
 msgstr "Topp artister"
 
-msgid "Top artists:"
-msgstr "Topp artister:"
-
 msgid "Top tracks"
 msgstr "Topp låter"
-
-msgid "Top tracks:"
-msgstr "Topp låter:"
 
 msgid "UP NEXT"
 msgstr "NESTE"
 
 msgid "Unknown postcode"
 msgstr "Ukjent postnummer"
-
-#, python-brace-format
-msgid "Up next: {track}"
-msgstr "Neste: {track}"
 
 msgid "Violent rain showers"
 msgstr "Voldsomme regnbyger"
@@ -432,10 +422,6 @@ msgstr "Vind"
 #, python-brace-format
 msgid "Yellow warning: {hazard}"
 msgstr "Gult farevarsel: {hazard}"
-
-#, python-brace-format
-msgid "Your Spotify over the last {period}:"
-msgstr "Din Spotify de siste {period}:"
 
 msgid "and enter this code:"
 msgstr "og skriv inn denne koden:"
@@ -474,12 +460,6 @@ msgstr "til {day}"
 #, python-brace-format
 msgid "{line} line"
 msgstr "{line}-linjen"
-
-#, python-brace-format
-msgid "{n} min"
-msgid_plural "{n} mins"
-msgstr[0] "{n} min"
-msgstr[1] "{n} min"
 
 #, python-brace-format
 msgid "{n} notice"

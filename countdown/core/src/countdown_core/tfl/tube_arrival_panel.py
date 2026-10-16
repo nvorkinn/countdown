@@ -3,18 +3,15 @@
 from typing import TYPE_CHECKING, override
 
 from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
-from countdown_core.utils.utils import ROUNDEL
 
 if TYPE_CHECKING:
-    from PIL import Image, ImageDraw
-
     from countdown_core.tfl.models import MetroStopPoint, TubeArrival
 
 
 class TubeArrivalPanel(AbstractArrivalPanel):
     """A Tube station's departures, headed by the roundel and its name."""
 
-    def __init__(self, stop: MetroStopPoint, arrivals: list[TubeArrival], style: Style = "classic") -> None:
+    def __init__(self, stop: MetroStopPoint, arrivals: list[TubeArrival], style: Style = "hero") -> None:
         """`stop` and its `arrivals` from TfL, drawn in `style`."""
         # Trains terminating here aren't departures.
         super().__init__([a for a in arrivals if a.naptan_id != a.destination_naptan_id], style)
@@ -44,8 +41,3 @@ class TubeArrivalPanel(AbstractArrivalPanel):
     @override
     def _destination(arrival: TubeArrival) -> str:
         return arrival.towards
-
-    @override
-    def add_header(self, img: Image.Image, draw: ImageDraw.ImageDraw) -> None:
-        img.paste(ROUNDEL, (5, 2), ROUNDEL)
-        draw.text((10 + ROUNDEL.size[0], 10), self.stop_name, "white", font_size=15, anchor="lm")

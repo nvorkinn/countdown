@@ -150,7 +150,7 @@ class MetOfficeWarningsSource(NoticeSource):
     """The Met Office's weather warnings for the postcode's region."""
 
     name = "Met Office warnings"
-    refresh_interval = timedelta(minutes=15)
+    refresh_interval = timedelta(minutes=10)
 
     def __init__(self, session: requests.Session, location: Postcode) -> None:
         """Fetch over `session` the warnings for the region `location` is in."""

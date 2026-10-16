@@ -31,7 +31,7 @@ class FloodWarningsSource(NoticeSource):
     """
 
     name = "Flood warnings"
-    refresh_interval = timedelta(minutes=15)
+    refresh_interval = timedelta(minutes=10)
 
     def __init__(self, session: requests.Session, location: Postcode) -> None:
         """Fetch over `session` the warnings within RADIUS_KM of `location`."""

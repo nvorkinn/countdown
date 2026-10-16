@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # that cleared hours ago isn't still on the board.
 STALE_AFTER = timedelta(hours=1)
 # How long to wait before trying postcodes.io again after it couldn't be reached.
-LOCATION_RETRY = timedelta(minutes=15)
+LOCATION_RETRY = timedelta(minutes=10)
 
 
 @dataclass(frozen=True)

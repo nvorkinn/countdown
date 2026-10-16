@@ -5,7 +5,7 @@ Each stop is asked of its own source and drawn the same way.
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, override
+from typing import TYPE_CHECKING, Any, Protocol, cast, override
 
 from countdown_api.models import ConfigResponse, DepartureStop
 from countdown_core.core.abstract_client import AbstractClient
@@ -32,6 +32,11 @@ class StopSource[S](Protocol):
         """Fetch the stop's departures; raises if they can't be fetched."""
 
 
+def _retire_classic(style: str) -> Style:
+    """Draw the retired classic style, which a broker that hasn't migrated may still send, as hero."""
+    return "hero" if style == "classic" else cast("Style", style)
+
+
 @dataclass(frozen=True)
 class DeparturesSettings:
     """What the departures panel is configured with.
@@ -41,16 +46,16 @@ class DeparturesSettings:
     """
 
     stops: tuple[DepartureStop, ...]
-    style: Style = "classic"
+    style: Style = "hero"
     tfl_app_key: str = ""
 
     @classmethod
     def from_config(cls, config: ConfigResponse) -> DeparturesSettings:
         """Read the settings from the broker's config, from whichever of its sections it has."""
         if config.departures is not None:
-            return cls(tuple(config.departures.stops), config.departures.style, config.tfl.app_key)
+            return cls(tuple(config.departures.stops), _retire_classic(config.departures.style), config.tfl.app_key)
         stops = tuple(DepartureStop(source="tfl", id=stop_id) for stop_id in config.tfl.stop_ids)
-        return cls(stops, config.tfl.style, config.tfl.app_key)
+        return cls(stops, _retire_classic(config.tfl.style), config.tfl.app_key)
 
     def stop_ids(self, source: str) -> list[str]:
         """Return the ids of the stops from one source, in order."""

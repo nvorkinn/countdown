@@ -42,9 +42,9 @@ class GlowClient(AbstractClient):
     # update() runs every minute to rotate the page; each page only asks Glow for fresh
     # readings this often and redraws from cache otherwise.
     refresh_intervals: ClassVar[dict[int, timedelta]] = {
-        0: timedelta(minutes=30),
-        1: timedelta(hours=3),
-        2: timedelta(hours=12),
+        0: timedelta(minutes=10),
+        1: timedelta(minutes=10),
+        2: timedelta(minutes=10),
     }
     panel_title = N_("Energy")
     base_url = "https://api.glowmarkt.com/api/v0-1"

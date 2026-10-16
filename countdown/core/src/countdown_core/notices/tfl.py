@@ -151,7 +151,7 @@ class TflStationSource(TflSource):
     """Lifts out of order, closed entrances and the like at the stops themselves."""
 
     name = "TfL stations"
-    refresh_interval = timedelta(minutes=15)
+    refresh_interval = timedelta(minutes=10)
 
     def __init__(self, session: requests.Session, config: Tfl) -> None:
         """Fetch over `session`, for `config`'s stops."""

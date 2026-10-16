@@ -122,6 +122,19 @@ def test_settings_prefer_departures_with_each_stops_source():
     assert (settings.style, settings.tfl_app_key, settings.stop_ids("tfl")) == ("card", "key", ["940GZZLUKNG"])
 
 
+@pytest.mark.parametrize(
+    "sections",
+    [
+        {"tfl": {"stop_ids": ["940GZZLUKNG"], "style": "classic"}},
+        {"tfl": {"stop_ids": []}, "departures": {"stops": [], "style": "classic"}},
+    ],
+    ids=["tfl", "departures"],
+)
+def test_the_retired_classic_style_is_drawn_as_hero(sections):
+    """A broker that hasn't migrated its stored styles yet still sends classic."""
+    assert DeparturesSettings.from_config(make_broker_config(**sections)).style == "hero"
+
+
 BUS_STOP_JSON = {
     "naptanId": "490000123W",
     "commonName": "Elephant & Castle",
