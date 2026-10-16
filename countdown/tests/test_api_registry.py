@@ -1,10 +1,13 @@
 import asyncio
+import datetime as dt
 import logging
 
 import pytest
+import responses
 from config_factory import make_config
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from test_utils import REGISTRATION
+from weather_factory import forecast_json
 
 from countdown_api.models import Glowmarkt, Spotify, Tfl
 from countdown_api.models import Weather as WeatherSection
@@ -23,7 +26,8 @@ from countdown_core.notices.notice_board_client import NoticeBoardClient, Notice
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.tfl.tfl_client import TflClient
-from countdown_core.weather.weather_client import WeatherClient
+from countdown_core.weather.models import WeatherPeriod
+from countdown_core.weather.weather_client import FORECAST_URL, WeatherClient
 
 
 class FakeClient(AbstractClient):
@@ -61,6 +65,28 @@ def registry_with(**clients: AbstractClient) -> ApiRegistry:
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
     registry.clients.update(clients)
     return registry
+
+
+@responses.activate
+def test_weather_rotates_only_when_the_registry_actually_polls_it():
+    responses.add(responses.GET, FORECAST_URL, json=forecast_json())
+    client = WeatherClient(REGISTRATION, WeatherSection(location="", api_key=""))
+    registry = registry_with(weather=client)
+    seen = []
+    for _ in range(5):
+        panels = asyncio.run(registry.update_all())
+        seen.append(panels["weather"].weather.period)
+        assert asyncio.run(registry.update_all())["weather"] is panels["weather"]
+        client.last_updated -= client.poll_interval + dt.timedelta(seconds=1)
+
+    assert seen == [
+        WeatherPeriod.NOW,
+        WeatherPeriod.TONIGHT,
+        WeatherPeriod.TOMORROW,
+        WeatherPeriod.WEEKEND,
+        WeatherPeriod.NOW,
+    ]
+    assert len(responses.calls) == 1
 
 
 def drawn(panels: dict) -> dict:

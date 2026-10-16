@@ -98,12 +98,27 @@ This directory is a uv workspace:
 
 ### Weather panel
 
-The monochrome weather panel uses a large temperature with a smaller unit, a compact condition icon,
-and a plain-language description. Landscape layouts group today's low, high and rain probability
-below the current conditions; unavailable rain probability is omitted, but a reported 0% is shown.
-Short, wide panels arrange the readings beside the temperature instead of shrinking the whole layout.
-Portrait layouts put sunrise, sunset, humidity and wind in a separate row, followed by the next
-outlook. Both layouts leave clear margins and fit long readings to their available space.
+The monochrome weather panel rotates through **Now, Tonight, Tomorrow and Weekend**. A filled pill
+marks the selected tab; narrow landscape panels abbreviate the labels. Each time the weather client
+is asked to update, it returns the next tab, wrapping back to Now. Rendering a frame does not advance
+it, and the registry keeps the current tab while the client is not due for a poll.
+
+The rotation uses a cached eight-day Open-Meteo forecast, not an HTTP request per tab. The forecast
+is refreshed every 30 minutes, or when the date changes at the weather location. A failed fetch keeps
+the last good frame and does not skip a tab; changing the configured location starts a new carousel.
+
+Now shows current conditions; landscape panels also show today's low, high and rain probability.
+Tonight shows the overnight low from 18:00 to 06:00, excluding hours that have already passed.
+Tomorrow shows the daytime high.
+Weekend covers the next complete Saturday and Sunday, including the current weekend on Saturday but
+the following weekend on Sunday. Its headline is the range of the two daytime highs, with each day's
+high, low and icon shown separately on portrait screens. Forecast dates and temperature labels make
+these readings distinct from the current temperature.
+
+Portrait layouts retain sunrise, sunset, humidity, wind and the next outlook on Now, and use
+period-specific readings on the forecast tabs. Unavailable rain probability is omitted, but a reported
+0% is shown; a combined period is unknown if any of its rain readings is missing. Short, wide panels
+reflow horizontally rather than shrinking the whole layout. Both orientations retain clear margins.
 
 ## The API contract
 

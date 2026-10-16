@@ -1,27 +1,25 @@
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
-from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS, google_symbols
-from countdown_core.weather.models import Upcoming, Weather
+from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS
+from countdown_core.weather.models import Upcoming, Weather, WeatherPeriod
 from countdown_core.weather.weather_panel import (
     WEATHER_CODE_DESC,
+    _caption,
+    _condition,
     _draw_centered,
     _draw_shrunk_to_fit,
+    _draw_tabs,
     _draw_temperature,
+    _temperature_text,
     icon_for,
 )
-
-# Material Symbols glyphs
-SUNRISE = chr(0xE1C6)
-SUNSET = chr(0xFFF1F)
-HUMIDITY = chr(0xF879)
-WIND = chr(0xEFD8)
 
 HEIGHT = 270
 
 
 class WeatherTrmnlPanel(Panel):
-    """Current conditions, a quiet row of readings, and the next outlook on portrait screens."""
+    """The selected weather period, a quiet readings row, and an outlook on portrait screens."""
 
     def __init__(self, weather: Weather):
         super().__init__()
@@ -36,47 +34,41 @@ class WeatherTrmnlPanel(Panel):
         x = (image_width - 470 * scale) / 2 + 20 * scale
         y = (image_height - HEIGHT * scale) / 2
         width = 430 * scale
-        label = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
-        draw.text((x, y + 16 * scale), "NOW", "black", font=label, anchor="lt")
+        _draw_tabs(draw, w.period, (x, y + 11 * scale), width, scale)
+        _draw_shrunk_to_fit(draw, (x, y + 46 * scale), _caption(w), GOOGLE_SEMI, width, round(10 * scale))
         _draw_temperature(
             draw,
-            (x, y + 103 * scale),
-            str(round(w.temperature)),
+            (x, y + 119 * scale),
+            _temperature_text(w),
             w.temperature_units,
             280 * scale,
-            round(88 * scale),
+            round(82 * scale),
         )
         _draw_centered(
             draw,
             icon_for(w.weather_code, w.is_day),
-            (x + width - 65 * scale, y + 75 * scale),
-            METEOCONS.font_variant(size=max(1, round(106 * scale))),
+            (x + width - 65 * scale, y + 92 * scale),
+            METEOCONS.font_variant(size=max(1, round(103 * scale))),
         )
         _draw_shrunk_to_fit(
             draw,
-            (x, y + 124 * scale),
-            WEATHER_CODE_DESC.get(w.weather_code, "Unknown conditions"),
+            (x, y + 144 * scale),
+            _condition(w),
             GOOGLE_REGULAR,
             width,
             round(16 * scale),
-            anchor="lm",
+            anchor="ls",
         )
 
-        symbols = google_symbols().font_variant(size=max(1, round(20 * scale)))
-        readings = [
-            (SUNRISE, "Sunrise", w.sunrise.isoformat("minutes")),
-            (SUNSET, "Sunset", w.sunset.isoformat("minutes")),
-            (HUMIDITY, "Humidity", f"{w.humidity}{w.humidity_units}"),
-            (WIND, "Wind", f"{round(w.wind_speed)} {w.wind_speed_units} {_compass(w.wind_direction)}"),
-        ]
+        readings = self._readings()
         column_width = width / len(readings)
-        for index, (symbol, title, value) in enumerate(readings):
+        label = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
+        for index, (title, value) in enumerate(readings):
             left = x + column_width * index
-            _draw_centered(draw, symbol, (left + 10 * scale, y + 151 * scale), symbols)
-            draw.text((left + 25 * scale, y + 151 * scale), title, "black", font=label, anchor="lm")
+            draw.text((left, y + 164 * scale), title, "black", font=label, anchor="lt")
             _draw_shrunk_to_fit(
                 draw,
-                (left, y + 183 * scale),
+                (left, y + 196 * scale),
                 value,
                 GOOGLE_REGULAR,
                 column_width - 12 * scale,
@@ -84,25 +76,94 @@ class WeatherTrmnlPanel(Panel):
                 anchor="ls",
             )
 
-        draw.line((x, y + 202 * scale, x + width, y + 202 * scale), fill="black")
-        upcoming, code = w.upcoming_weather_code
-        draw.text((x, y + 217 * scale), str(upcoming).upper(), "black", font=label, anchor="lt")
+        draw.line((x, y + 214 * scale, x + width, y + 214 * scale), fill="black")
+        self._draw_footer(draw, (x, y), width, scale)
+        return img
+
+    def _readings(self) -> list[tuple[str, str]]:
+        w = self.weather
+        wind = ("Wind", f"{round(w.wind_speed)} {w.wind_speed_units} {_compass(w.wind_direction)}")
+        if w.period is WeatherPeriod.NOW:
+            return [
+                ("Sunrise", w.sunrise.isoformat("minutes")),
+                ("Sunset", w.sunset.isoformat("minutes")),
+                ("Humidity", f"{w.humidity}{w.humidity_units}"),
+                wind,
+            ]
+        readings = []
+        if w.period is WeatherPeriod.TONIGHT:
+            if w.feels_like is not None:
+                readings.append(("Feels like", f"{round(w.feels_like)}°"))
+        else:
+            readings.append(("Lowest" if w.period is WeatherPeriod.WEEKEND else "Low", f"{round(w.low)}°"))
+        if w.precipitation_probability is not None:
+            readings.append(("Rain", f"{w.precipitation_probability}%"))
+        readings.append(wind)
+        if w.period is WeatherPeriod.TONIGHT:
+            readings.append(("Humidity", f"{w.humidity}{w.humidity_units}"))
+        elif w.period is WeatherPeriod.TOMORROW:
+            readings.append(("Sunset", w.sunset.isoformat("minutes")))
+        return readings
+
+    def _draw_footer(self, draw: ImageDraw.ImageDraw, coord: tuple[float, float], width: float, scale: float) -> None:
+        w = self.weather
+        x, y = coord
+        label = GOOGLE_SEMI.font_variant(size=max(1, round(10 * scale)))
+        if w.period is WeatherPeriod.WEEKEND:
+            for index, day in enumerate(w.days):
+                left = x + index * width / 2
+                draw.text((left, y + 228 * scale), day.date.strftime("%A").upper(), "black", font=label, anchor="lt")
+                _draw_shrunk_to_fit(
+                    draw,
+                    (left, y + 256 * scale),
+                    f"{round(day.high)}° / {round(day.low)}°",
+                    GOOGLE_REGULAR,
+                    width / 2 - 55 * scale,
+                    round(18 * scale),
+                    anchor="ls",
+                )
+                _draw_centered(
+                    draw,
+                    icon_for(day.weather_code, True),
+                    (left + width / 2 - 30 * scale, y + 244 * scale),
+                    METEOCONS.font_variant(size=max(1, round(35 * scale))),
+                )
+            return
+        if w.period is WeatherPeriod.NOW:
+            upcoming, code = w.upcoming_weather_code
+            title = str(upcoming).upper()
+            detail = WEATHER_CODE_DESC.get(code, "Unknown conditions")
+            is_day = upcoming is not Upcoming.TONIGHT
+        else:
+            if w.forecast_date is None:
+                raise ValueError("Forecast pages require a forecast date")
+            date = w.forecast_date
+            title = f"{date:%A} {date.day} {date:%B}".upper()
+            if w.period is WeatherPeriod.TONIGHT:
+                if w.starts_at is None or w.ends_at is None:
+                    raise ValueError("Tonight requires an overnight time window")
+                title += " - OVERNIGHT"
+                detail = f"{w.starts_at:%H:%M} - {w.ends_at:%H:%M}"
+                code, is_day = 0, False
+            else:
+                detail = f"Sunrise {w.sunrise:%H:%M} / Sunset {w.sunset:%H:%M}"
+                code, is_day = 0, True
+        _draw_shrunk_to_fit(draw, (x, y + 228 * scale), title, GOOGLE_SEMI, width - 65 * scale, round(10 * scale))
         _draw_shrunk_to_fit(
             draw,
-            (x, y + 245 * scale),
-            WEATHER_CODE_DESC.get(code, "Unknown conditions"),
+            (x, y + 256 * scale),
+            detail,
             GOOGLE_REGULAR,
             width - 65 * scale,
-            round(19 * scale),
+            round(18 * scale),
             anchor="ls",
         )
         _draw_centered(
             draw,
-            icon_for(code, upcoming is not Upcoming.TONIGHT),
-            (x + width - 22 * scale, y + 234 * scale),
-            METEOCONS.font_variant(size=max(1, round(44 * scale))),
+            icon_for(code, is_day),
+            (x + width - 22 * scale, y + 244 * scale),
+            METEOCONS.font_variant(size=max(1, round(36 * scale))),
         )
-        return img
 
 
 COMPASS_8 = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")

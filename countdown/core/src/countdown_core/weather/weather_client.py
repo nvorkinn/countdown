@@ -5,7 +5,8 @@ from countdown_api.models import Weather as WeatherSection
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
 from countdown_core.notices.location import is_postcode, postcode_coordinates
-from countdown_core.weather.models import ForecastResponse, GeocodingResponse, Upcoming, Weather
+from countdown_core.weather.models import ForecastResponse, GeocodingResponse, Weather
+from countdown_core.weather.weather_forecast import weather_pages
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_credentials.registration import Registration
 
@@ -22,7 +23,7 @@ REFRESH_INTERVAL = dt.timedelta(minutes=30)
 
 
 class WeatherClient(AbstractClient):
-    """Current conditions plus today's outlook from Open-Meteo (keyless, so
+    """A forecast carousel from Open-Meteo (keyless, so
     the config's api_key is unused). The location is geocoded once, on first fetch; with no
     location configured it's the weather at the North Pole."""
 
@@ -34,6 +35,9 @@ class WeatherClient(AbstractClient):
         self._coordinates: tuple[float, float] | None = None
         self._panel: Panel | None = None
         self._last_attempt: dt.datetime | None = None
+        self._utc_offset = dt.timedelta(0)
+        self._pages: tuple[Weather, ...] = ()
+        self._next_page = 0
 
     def _initialise(self) -> None:
         pass
@@ -45,16 +49,29 @@ class WeatherClient(AbstractClient):
     def _update(self) -> Panel:
         """A MessagePanel if Open-Meteo can't find the location. Network and parse failures
         raise, so the registry keeps the last good panel."""
-        if self._last_attempt and dt.datetime.now() - self._last_attempt < REFRESH_INTERVAL:
-            return self._panel
+        now = dt.datetime.now(dt.UTC)
+        elapsed = now - self._last_attempt if self._last_attempt is not None else None
+        date_changed = (
+            bool(self._pages)
+            and self._last_attempt is not None
+            and (now + self._utc_offset).date() != (self._last_attempt + self._utc_offset).date()
+        )
+        if elapsed is None or elapsed >= REFRESH_INTERVAL or date_changed:
+            coordinates = self._geocode() if self.location else NORTH_POLE
+            if coordinates is None:
+                logger.warning(f"Could not find a location matching {self.location!r}")
+                self._panel = self.message_panel("Location not found")
+                self._pages = ()
+            else:
+                forecast = self._fetch_forecast(*coordinates)
+                pages = weather_pages(forecast)
+                self._pages = pages
+                self._utc_offset = dt.timedelta(seconds=forecast.utc_offset_seconds)
+            self._last_attempt = now
 
-        coordinates = self._geocode() if self.location else NORTH_POLE
-        if coordinates is None:
-            logger.warning(f"Could not find a location matching {self.location!r}")
-            self._panel = self.message_panel("Location not found")
-        else:
-            self._panel = WeatherPanel(self._fetch_forecast(*coordinates))
-        self._last_attempt = dt.datetime.now()
+        if self._pages:
+            self._panel = WeatherPanel(self._pages[self._next_page])
+            self._next_page = (self._next_page + 1) % len(self._pages)
         return self._panel
 
     def _geocode(self) -> tuple[float, float] | None:
@@ -71,52 +88,21 @@ class WeatherClient(AbstractClient):
                 self._coordinates = (results[0].latitude, results[0].longitude)
         return self._coordinates
 
-    def _fetch_forecast(self, latitude: float, longitude: float) -> Weather:
+    def _fetch_forecast(self, latitude: float, longitude: float) -> ForecastResponse:
         response = self.session.get(
             FORECAST_URL,
             params={
                 "latitude": latitude,
                 "longitude": longitude,
                 "current": "temperature_2m,weather_code,is_day,relative_humidity_2m,wind_speed_10m,wind_direction_10m",
-                "hourly": "weather_code",
-                "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset",
+                "hourly": "weather_code,temperature_2m,apparent_temperature,relative_humidity_2m,"
+                "wind_speed_10m,wind_direction_10m,precipitation_probability",
+                "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,"
+                "sunrise,sunset,wind_speed_10m_max,wind_direction_10m_dominant",
                 "timezone": "auto",  # so "today" is the location's today, not UTC's
-                "forecast_days": 2,  # tomorrow too, for the outlook after dark
+                "forecast_days": 8,  # includes the next complete weekend even on a Sunday
             },
             timeout=DEFAULT_TIMEOUT,
         )
         response.raise_for_status()
-        forecast = ForecastResponse.model_validate(response.json())
-        return Weather(
-            temperature=forecast.current.temperature,
-            weather_code=forecast.current.weather_code,
-            is_day=forecast.current.is_day,
-            high=forecast.daily.temperature_max[0],
-            low=forecast.daily.temperature_min[0],
-            precipitation_probability=forecast.daily.precipitation_probability_max[0],
-            temperature_units=forecast.current_units.temperature,
-            humidity=forecast.current.humidity,
-            humidity_units=forecast.current_units.humidity,
-            wind_speed=forecast.current.wind_speed,
-            wind_speed_units=forecast.current_units.wind_speed,
-            wind_direction=forecast.current.wind_direction,
-            sunrise=forecast.daily.sunrise[0].time(),
-            sunset=forecast.daily.sunset[0].time(),
-            upcoming_weather_code=_upcoming(forecast),
-        )
-
-
-# When each part of the day starts, and the hour whose weather stands for it.
-AFTERNOON = (12, 15)
-NIGHT = (18, 21)
-
-
-def _upcoming(forecast: ForecastResponse) -> tuple[Upcoming, int]:
-    """The weather in the next part of the day: this afternoon in the morning, tonight in the
-    afternoon, and tomorrow once it's evening."""
-    now = forecast.current.time
-    for part, (starts, hour) in ((Upcoming.THIS_AFTERNOON, AFTERNOON), (Upcoming.TONIGHT, NIGHT)):
-        if now.hour < starts:
-            at = now.replace(hour=hour, minute=0, second=0, microsecond=0)
-            return part, forecast.hourly.weather_code[forecast.hourly.time.index(at)]
-    return Upcoming.TOMORROW, forecast.daily.weather_code[1]
+        return ForecastResponse.model_validate(response.json())

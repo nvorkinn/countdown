@@ -1,5 +1,6 @@
 import asyncio
 import datetime as dt
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 import requests
@@ -10,7 +11,7 @@ from weather_factory import forecast_json
 from countdown_api.models import Weather as WeatherSection
 from countdown_core.notices.location import is_postcode
 from countdown_core.weather import weather_client
-from countdown_core.weather.models import Upcoming, Weather
+from countdown_core.weather.models import Upcoming, Weather, WeatherPeriod
 from countdown_core.weather.weather_client import FORECAST_URL, GEOCODING_URL, WeatherClient
 
 GEOCODING_JSON = {"results": [{"name": "London", "latitude": 51.5, "longitude": -0.12, "country": "United Kingdom"}]}
@@ -53,6 +54,10 @@ def test_update_geocodes_then_fetches_forecast():
     assert "name=London" in geocode_request.url
     assert "latitude=51.5" in forecast_request.url
     assert "longitude=-0.12" in forecast_request.url
+    query = parse_qs(urlparse(forecast_request.url).query)
+    assert query["forecast_days"] == ["8"]
+    assert {"temperature_2m", "apparent_temperature", "precipitation_probability"} <= set(query["hourly"][0].split(","))
+    assert "wind_speed_10m_max" in query["daily"][0].split(",")
 
 
 @pytest.mark.parametrize(
@@ -73,7 +78,7 @@ def test_the_outlook_is_for_the_next_part_of_the_day(time, upcoming):
 
 @responses.activate
 def test_forecast_can_lack_a_precipitation_probability():
-    forecast = {**FORECAST_JSON, "daily": {**FORECAST_JSON["daily"], "precipitation_probability_max": [None]}}
+    forecast = {**FORECAST_JSON, "daily": {**FORECAST_JSON["daily"], "precipitation_probability_max": [None] * 8}}
     responses.add(responses.GET, GEOCODING_URL, json=GEOCODING_JSON)
     responses.add(responses.GET, FORECAST_URL, json=forecast)
 
@@ -101,15 +106,23 @@ def test_unknown_location_says_so():
 
 
 @responses.activate
-def test_repeated_calls_within_refresh_interval_reuse_the_panel():
+def test_each_update_rotates_a_page_without_refetching_the_forecast():
     responses.add(responses.GET, GEOCODING_URL, json=GEOCODING_JSON)
     responses.add(responses.GET, FORECAST_URL, json=FORECAST_JSON)
     client = make_client()
 
-    first = asyncio.run(client.update())
-    second = asyncio.run(client.update())
+    panels = [asyncio.run(client.update()) for _ in range(6)]
 
-    assert second is first
+    assert [panel.weather.period for panel in panels] == [
+        WeatherPeriod.NOW,
+        WeatherPeriod.TONIGHT,
+        WeatherPeriod.TOMORROW,
+        WeatherPeriod.WEEKEND,
+        WeatherPeriod.NOW,
+        WeatherPeriod.TONIGHT,
+    ]
+    assert len({id(panel) for panel in panels}) == len(panels)
+    assert panels[0].weather.period is WeatherPeriod.NOW
     assert len(responses.calls) == 2
 
 
@@ -132,11 +145,90 @@ def test_refetches_after_refresh_interval_without_geocoding_again(monkeypatch):
     asyncio.run(client.update())
     client._last_attempt -= weather_client.REFRESH_INTERVAL + dt.timedelta(seconds=1)
 
-    asyncio.run(client.update())
+    panel = asyncio.run(client.update())
 
+    assert panel.weather.period is WeatherPeriod.TONIGHT
     urls = [call.request.url for call in responses.calls]
     assert sum(url.startswith(GEOCODING_URL) for url in urls) == 1
     assert sum(url.startswith(FORECAST_URL) for url in urls) == 2
+
+
+@pytest.mark.parametrize(
+    ("offset_hours", "local_time", "refresh"),
+    [(-8, "23:59", True), (0, "23:59", True), (14, "23:59", True), (-8, "15:59", False), (14, "13:59", False)],
+)
+@responses.activate
+def test_date_rollover_uses_the_weather_locations_date_without_resetting_the_carousel(
+    offset_hours, local_time, refresh, monkeypatch
+):
+    first_forecast = forecast_json(current={"time": f"2026-01-15T{local_time}"})
+    next_forecast = forecast_json(current={"time": "2026-01-16T00:01"}, start=dt.date(2026, 1, 16))
+    first_forecast["utc_offset_seconds"] = next_forecast["utc_offset_seconds"] = offset_hours * 3600
+    responses.add(responses.GET, FORECAST_URL, json=first_forecast)
+    if refresh:
+        responses.add(responses.GET, FORECAST_URL, json=next_forecast)
+    clock = [
+        dt.datetime.fromisoformat(f"2026-01-15T{local_time}").replace(tzinfo=dt.UTC) - dt.timedelta(hours=offset_hours)
+    ]
+
+    class FrozenDatetime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return clock[0].astimezone(tz)
+
+    monkeypatch.setattr(weather_client.dt, "datetime", FrozenDatetime)
+    client = make_client(location="")
+    first = asyncio.run(client.update())
+    clock[0] += dt.timedelta(minutes=2)
+
+    second = asyncio.run(client.update())
+
+    assert first.weather.period is WeatherPeriod.NOW
+    assert second.weather.period is WeatherPeriod.TONIGHT
+    assert second.weather.forecast_date == dt.date(2026, 1, 16 if refresh else 15)
+    assert len(responses.calls) == (2 if refresh else 1)
+
+
+@pytest.mark.parametrize("failure", ["http", "misaligned", "incomplete"])
+@responses.activate
+def test_failed_refresh_keeps_the_last_good_frame_and_does_not_skip_a_tab(failure):
+    responses.add(responses.GET, FORECAST_URL, json=FORECAST_JSON)
+    if failure == "http":
+        responses.add(responses.GET, FORECAST_URL, status=500)
+    else:
+        broken = forecast_json()
+        if failure == "misaligned":
+            broken["daily"]["temperature_2m_max"].pop()
+        else:
+            for values in broken["daily"].values():
+                del values[2:]
+        responses.add(responses.GET, FORECAST_URL, json=broken)
+    responses.add(responses.GET, FORECAST_URL, json=FORECAST_JSON)
+    client = make_client(location="")
+    first = asyncio.run(client.update())
+    client._last_attempt -= weather_client.REFRESH_INTERVAL
+
+    with pytest.raises(requests.exceptions.RequestException if failure == "http" else ValueError):
+        asyncio.run(client.update())
+
+    assert client._panel is first
+    assert asyncio.run(client.update()).weather.period is WeatherPeriod.TONIGHT
+
+
+@responses.activate
+def test_refreshed_forecast_data_is_used_on_the_next_tab():
+    responses.add(responses.GET, FORECAST_URL, json=FORECAST_JSON)
+    refreshed = forecast_json()
+    refreshed["hourly"]["precipitation_probability"] = [35] * (8 * 24)
+    responses.add(responses.GET, FORECAST_URL, json=refreshed)
+    client = make_client(location="")
+    asyncio.run(client.update())
+    client._last_attempt -= weather_client.REFRESH_INTERVAL
+
+    tonight = asyncio.run(client.update()).weather
+
+    assert tonight.period is WeatherPeriod.TONIGHT
+    assert tonight.precipitation_probability == 35
 
 
 @responses.activate
