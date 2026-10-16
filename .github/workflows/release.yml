@@ -63,8 +63,7 @@ jobs:
 
   build-server-image:
     # countdown-server's image, for renderers run with Docker (countdown/server/deploy/), built from
-    # this release's own wheels. Only the version tag: :latest moves when the release is promoted
-    # (promote-server-image.yml).
+    # this release's own wheels. Tagged with the version and :latest, as every release is the latest.
     needs: build-python
     runs-on: ubuntu-latest
     permissions:
@@ -91,7 +90,9 @@ jobs:
           file: countdown/server/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ env.SERVER_IMAGE }}:${{ github.ref_name }}
+          tags: |
+            ${{ env.SERVER_IMAGE }}:${{ github.ref_name }}
+            ${{ env.SERVER_IMAGE }}:latest
 
   build-orchestrator-image:
     # countdown-orchestrator's image (countdown/orchestrator/Dockerfile), run beside the renderers by

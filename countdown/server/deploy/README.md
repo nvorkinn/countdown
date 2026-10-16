@@ -8,9 +8,7 @@ screen, from the `ghcr.io/nvorkinn/countdown-server` image.
 ## The image
 
 Every release builds it from that release's own wheels and pushes it as
-`ghcr.io/nvorkinn/countdown-server:<tag>`. `:latest` moves when a release is promoted to the
-GitHub release marked latest -- the same release the Pis update to -- so a renderer on `:latest`
-never runs an untested pre-release.
+`ghcr.io/nvorkinn/countdown-server:<tag>` and `:latest`.
 
 To build it locally, from `countdown/`:
 
@@ -51,8 +49,7 @@ needs no token. Without a Fluent Bit listening there it logs a warning each minu
 `release.yml`'s `deploy-renderers` job runs once a release's assets are uploaded. It waits for approval of the
 `deploy-renderers` environment, then runs `deploy.sh <tag>` on the runner against the host's Docker daemon over
 ssh (`DOCKER_HOST=ssh://...`), so the host needs nothing installed but Docker. That pins the orchestrator and
-renderer image to the release, then the orchestrator updates assigned renderers. The release is still a
-pre-release then, so renderers can be ahead of the Pis until it's promoted.
+renderer image to the release, then the orchestrator updates assigned renderers.
 
 Set up once, in the repo's Settings:
 
