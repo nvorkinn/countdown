@@ -1,6 +1,11 @@
+"""The weather panel's four pages (now, tonight, tomorrow and the weekend), worked out from one forecast."""
+
 import datetime as dt
 
 from countdown_core.weather.models import ForecastResponse, Upcoming, Weather, WeatherDay, WeatherPeriod
+
+# The hour whose weather stands for the whole night, when the forecast has it.
+NIGHT_HOUR = 21
 
 
 def weather_pages(forecast: ForecastResponse) -> tuple[Weather, ...]:
@@ -32,10 +37,11 @@ def weather_pages(forecast: ForecastResponse) -> tuple[Weather, ...]:
     end = dt.datetime.combine(tomorrow, dt.time(6))
     hours = [index for index, time in enumerate(hourly.time) if start <= time < end]
     if not hours:
-        raise ValueError("Forecast has no hourly readings for tonight")
+        msg = "Forecast has no hourly readings for tonight"
+        raise ValueError(msg)
     coldest = min(hours, key=lambda index: hourly.temperature[index])
     windiest = max(hours, key=lambda index: hourly.wind_speed[index])
-    representative = next((index for index in hours if hourly.time[index].hour == 21), hours[0])
+    representative = next((index for index in hours if hourly.time[index].hour == NIGHT_HOUR), hours[0])
     tonight = now.model_copy(
         update={
             "period": WeatherPeriod.TONIGHT,
@@ -92,7 +98,8 @@ def weather_pages(forecast: ForecastResponse) -> tuple[Weather, ...]:
     weekend_wind = max(weekend_indices, key=lambda index: daily.wind_speed_max[index])
     weekend_hours = [index for index, time in enumerate(hourly.time) if saturday <= time.date() <= days[-1].date]
     if not weekend_hours:
-        raise ValueError("Forecast has no hourly readings for the weekend")
+        msg = "Forecast has no hourly readings for the weekend"
+        raise ValueError(msg)
     weekend = now.model_copy(
         update={
             "period": WeatherPeriod.WEEKEND,

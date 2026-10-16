@@ -1,15 +1,20 @@
+"""The weather panel's client: the forecast from Open-Meteo, for the configured location."""
+
 import datetime as dt
 import logging
+from typing import TYPE_CHECKING, override
 
-from countdown_api.models import Weather as WeatherSection
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
-from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_
 from countdown_core.notices.location import is_postcode, postcode_coordinates
 from countdown_core.weather.models import ForecastResponse, GeocodingResponse, Weather
 from countdown_core.weather.weather_forecast import weather_pages
 from countdown_core.weather.weather_panel import WeatherPanel
-from countdown_credentials.registration import Registration
+
+if TYPE_CHECKING:
+    from countdown_api.models import Weather as WeatherSection
+    from countdown_core.core.panel import Panel
+    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +29,15 @@ REFRESH_INTERVAL = dt.timedelta(minutes=10)
 
 
 class WeatherClient(AbstractClient):
-    """A forecast carousel from Open-Meteo (keyless, so
-    the config's api_key is unused). The location is geocoded once, on first fetch; with no
-    location configured it's the weather at the North Pole."""
+    """A forecast carousel from Open-Meteo, which is keyless, so the config's api_key is unused.
+
+    The location is geocoded once, on first fetch; with no location configured it's the weather at the North Pole.
+    """
 
     panel_title = N_("Weather")
 
-    def __init__(self, registration: Registration, config: WeatherSection):
+    def __init__(self, registration: Registration, config: WeatherSection) -> None:
+        """`config` is the broker's weather section: the place, or postcode, to forecast for."""
         super().__init__(registration, config)
         self.location = config.location
         self._coordinates: tuple[float, float] | None = None
@@ -40,16 +47,21 @@ class WeatherClient(AbstractClient):
         self._pages: tuple[Weather, ...] = ()
         self._next_page = 0
 
+    @override
     def _initialise(self) -> None:
         pass
 
+    @override
     def needs_refresh(self, new_config: WeatherSection) -> bool:
         # Open-Meteo is keyless, so api_key changing changes nothing.
         return self.location != new_config.location
 
+    @override
     def _update(self) -> Panel:
-        """A MessagePanel if Open-Meteo can't find the location. Network and parse failures
-        raise, so the registry keeps the last good panel."""
+        """Return the next page of the forecast, or a MessagePanel if Open-Meteo can't find the location.
+
+        Network and parse failures raise, so the registry keeps the last good panel.
+        """
         now = dt.datetime.now(dt.UTC)
         elapsed = now - self._last_attempt if self._last_attempt is not None else None
         date_changed = (
@@ -60,7 +72,7 @@ class WeatherClient(AbstractClient):
         if elapsed is None or elapsed >= REFRESH_INTERVAL or date_changed:
             coordinates = self._geocode() if self.location else NORTH_POLE
             if coordinates is None:
-                logger.warning(f"Could not find a location matching {self.location!r}")
+                logger.warning("Could not find a location matching %r", self.location)
                 self._panel = self.message_panel(N_("Location not found"))
                 self._pages = ()
             else:

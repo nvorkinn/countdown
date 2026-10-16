@@ -1,3 +1,7 @@
+"""The weather panel for portrait screens: one page of the forecast, with readings and an outlook."""
+
+from typing import override
+
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
@@ -23,10 +27,12 @@ HEIGHT = 270
 class WeatherTrmnlPanel(Panel):
     """The selected weather period, a quiet readings row, and an outlook on portrait screens."""
 
-    def __init__(self, weather: Weather):
+    def __init__(self, weather: Weather) -> None:
+        """`weather` is the page's readings."""
         super().__init__()
         self.weather = weather
 
+    @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
@@ -37,18 +43,20 @@ class WeatherTrmnlPanel(Panel):
         y = (image_height - HEIGHT * scale) / 2
         width = 430 * scale
         _draw_tabs(draw, w.period, (x, y + 11 * scale), width, scale)
-        _draw_shrunk_to_fit(draw, (x, y + 46 * scale), _caption(w), GOOGLE_SEMI, width, round(10 * scale))
+        _draw_shrunk_to_fit(
+            draw, (x, y + 46 * scale), _caption(w), GOOGLE_SEMI, space=width, optimal_size=round(10 * scale)
+        )
         _draw_temperature(
             draw,
             (x, y + 119 * scale),
             _temperature_text(w),
             w.temperature_units,
-            280 * scale,
-            round(82 * scale),
+            space=280 * scale,
+            optimal_size=round(82 * scale),
         )
         _draw_centered(
             draw,
-            icon_for(w.weather_code, w.is_day),
+            icon_for(w.weather_code, is_day=w.is_day),
             (x + width - 65 * scale, y + 92 * scale),
             METEOCONS.font_variant(size=max(1, round(103 * scale))),
         )
@@ -57,8 +65,8 @@ class WeatherTrmnlPanel(Panel):
             (x, y + 144 * scale),
             _condition(w),
             GOOGLE_REGULAR,
-            width,
-            round(16 * scale),
+            space=width,
+            optimal_size=round(16 * scale),
             anchor="ls",
         )
 
@@ -73,8 +81,8 @@ class WeatherTrmnlPanel(Panel):
                 (left, y + 196 * scale),
                 value,
                 GOOGLE_REGULAR,
-                column_width - 12 * scale,
-                round(19 * scale),
+                space=column_width - 12 * scale,
+                optimal_size=round(19 * scale),
                 anchor="ls",
             )
 
@@ -129,13 +137,13 @@ class WeatherTrmnlPanel(Panel):
                     (left, y + 256 * scale),
                     f"{round(day.high)}° / {round(day.low)}°",
                     GOOGLE_REGULAR,
-                    width / 2 - 55 * scale,
-                    round(18 * scale),
+                    space=width / 2 - 55 * scale,
+                    optimal_size=round(18 * scale),
                     anchor="ls",
                 )
                 _draw_centered(
                     draw,
-                    icon_for(day.weather_code, True),
+                    icon_for(day.weather_code, is_day=True),
                     (left + width / 2 - 30 * scale, y + 244 * scale),
                     METEOCONS.font_variant(size=max(1, round(35 * scale))),
                 )
@@ -147,13 +155,15 @@ class WeatherTrmnlPanel(Panel):
             is_day = upcoming is not Upcoming.TONIGHT
         else:
             if w.forecast_date is None:
-                raise ValueError("Forecast pages require a forecast date")
+                msg = "Forecast pages require a forecast date"
+                raise ValueError(msg)
             date = w.forecast_date
             # Translators: a CLDR date pattern, e.g. "Friday 16 October". Norwegian: "EEEE d. MMMM".
             title = format_date(date, _("EEEE d MMMM")).upper()
             if w.period is WeatherPeriod.TONIGHT:
                 if w.starts_at is None or w.ends_at is None:
-                    raise ValueError("Tonight requires an overnight time window")
+                    msg = "Tonight requires an overnight time window"
+                    raise ValueError(msg)
                 title += " - " + _("OVERNIGHT")
                 detail = f"{format_clock(w.starts_at, clock_format)} - {format_clock(w.ends_at, clock_format)}"
                 code, is_day = 0, False
@@ -162,19 +172,21 @@ class WeatherTrmnlPanel(Panel):
                     sunrise=format_clock(w.sunrise, clock_format), sunset=format_clock(w.sunset, clock_format)
                 )
                 code, is_day = 0, True
-        _draw_shrunk_to_fit(draw, (x, y + 228 * scale), title, GOOGLE_SEMI, width - 65 * scale, round(10 * scale))
+        _draw_shrunk_to_fit(
+            draw, (x, y + 228 * scale), title, GOOGLE_SEMI, space=width - 65 * scale, optimal_size=round(10 * scale)
+        )
         _draw_shrunk_to_fit(
             draw,
             (x, y + 256 * scale),
             detail,
             GOOGLE_REGULAR,
-            width - 65 * scale,
-            round(18 * scale),
+            space=width - 65 * scale,
+            optimal_size=round(18 * scale),
             anchor="ls",
         )
         _draw_centered(
             draw,
-            icon_for(code, is_day),
+            icon_for(code, is_day=is_day),
             (x + width - 22 * scale, y + 244 * scale),
             METEOCONS.font_variant(size=max(1, round(36 * scale))),
         )

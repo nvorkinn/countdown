@@ -10,6 +10,8 @@ SLUG_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]{1,31}")
 
 
 class Status(StrEnum):
+    """Where an assignment is, as the broker and the orchestrator tell each other."""
+
     PENDING = "pending"
     PROVISIONED = "provisioned"
     # The screen has been gone for a day (the broker decides when): the renderer is stopped, not deleted, so it
@@ -23,8 +25,11 @@ class Status(StrEnum):
 
 @dataclass(frozen=True)
 class Assignment:
-    """A screen's renderer, as the broker wants it. `id` is the broker's own key, which doesn't change when
-    a slug does; the slug names the container and its volumes."""
+    """A screen's renderer, as the broker wants it.
+
+    `id` is the broker's own key, which doesn't change when a slug does; the slug names the container and its
+    volumes.
+    """
 
     id: str
     slug: str
@@ -34,4 +39,5 @@ class Assignment:
 
 
 def valid_slug(slug: str) -> bool:
+    """Whether `slug` is safe to name a container and its volumes with (see SLUG_PATTERN)."""
     return SLUG_PATTERN.fullmatch(slug) is not None

@@ -1,10 +1,12 @@
+"""The notice board client: which sources a screen gets, polling them, and ranking what they say."""
+
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, override
 
 from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import AbstractClient
-from countdown_core.departures.departures_client import DeparturesSettings
 from countdown_core.i18n import N_, local_zone
 from countdown_core.notices.calendar import BankHolidaySource, ClockChangeSource
 from countdown_core.notices.entur import EnturSituationsSource
@@ -12,12 +14,15 @@ from countdown_core.notices.floods import FloodWarningsSource
 from countdown_core.notices.location import lookup_postcode
 from countdown_core.notices.met_office import MetOfficeWarningsSource
 from countdown_core.notices.norway import MetAlertsSource, NorwegianHolidaySource, lookup_norwegian_postcode
-from countdown_core.notices.notice import Notice, NoticeSource
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.tfl import TflLineStatusSource, TflRoadSource, TflStationSource
-from countdown_core.system_screens.message_panel import MessagePanel
-from countdown_core.tfl.models import Postcode
-from countdown_credentials.registration import Registration
+
+if TYPE_CHECKING:
+    from countdown_core.departures.departures_client import DeparturesSettings
+    from countdown_core.notices.notice import Notice, NoticeSource
+    from countdown_core.system_screens.message_panel import MessagePanel
+    from countdown_core.tfl.models import Postcode
+    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +35,11 @@ LOCATION_RETRY = timedelta(minutes=10)
 
 @dataclass(frozen=True)
 class NoticeBoardSettings:
-    """What the notice board is configured with: the broker's `notice_board` section, and the departures' stops,
-    whose lines and stations the disruptions are about. Compared by value, so a change to either makes
-    AbstractClient.needs_refresh rebuild the board."""
+    """What the notice board is configured with: the broker's `notice_board` section, and the departures' stops.
+
+    The disruptions are about the stops' lines and stations. Compared by value, so a change to either makes
+    AbstractClient.needs_refresh rebuild the board.
+    """
 
     postcode: str | None
     departures: DeparturesSettings
@@ -46,12 +53,12 @@ class NoticeBoardSettings:
 
 
 class NoticeBoardClient(AbstractClient):
-    """Polls the notice sources, each on its own refresh_interval, and shows what they
-    currently report, most severe first."""
+    """Polls the notice sources, each on its own refresh_interval, and shows what they report, most severe first."""
 
     panel_title = N_("Notices")
 
-    def __init__(self, registration: Registration, config: NoticeBoardSettings):
+    def __init__(self, registration: Registration, config: NoticeBoardSettings) -> None:
+        """Build the sources `config` asks for, for the screen `registration` names."""
         super().__init__(registration, config)
         self.postcode = config.postcode
         self.norwegian = config.country == "NO"
@@ -70,12 +77,15 @@ class NoticeBoardClient(AbstractClient):
         self.fetched: dict[NoticeSource, tuple[datetime, list[Notice]]] = {}
         self.last_tried: dict[NoticeSource, datetime] = {}
 
+    @override
     def _initialise(self) -> None:
         pass  # nothing to set up that update() can't retry on its own
 
     def _default_holidays(self) -> NoticeSource:
-        """The holidays for a screen whose postcode doesn't say where it is: Norway's for a Norwegian postcode or a
-        screen on Norwegian time, otherwise England and Wales's."""
+        """Pick the holidays for a screen whose postcode doesn't say where it is.
+
+        Norway's for a Norwegian postcode or a screen on Norwegian time, otherwise England and Wales's.
+        """
         if self.norwegian or local_zone().key == "Europe/Oslo":
             return NorwegianHolidaySource(self.session)
         return BankHolidaySource(self.session)
@@ -89,12 +99,12 @@ class NoticeBoardClient(AbstractClient):
         lookup = lookup_norwegian_postcode if self.norwegian else lookup_postcode
         try:
             location = lookup(self.session, self.postcode)
-        except Exception as e:
-            logger.warning(f"Couldn't look up the postcode: {type(e).__name__}")
+        except Exception as e:  # noqa: BLE001 -- whatever went wrong, it's tried again after LOCATION_RETRY
+            logger.warning("Couldn't look up the postcode: %s", type(e).__name__)
             return
         if location is None:
             country = "Norwegian" if self.norwegian else "UK"
-            logger.warning(f"The configured postcode isn't a known {country} postcode; no local notices")
+            logger.warning("The configured postcode isn't a known %s postcode; no local notices", country)
             self.postcode = None  # don't keep asking about a postcode that doesn't exist
             self.unknown_postcode = True
             self.sources.append(self._default_holidays())
@@ -102,7 +112,7 @@ class NoticeBoardClient(AbstractClient):
         self.location = location
         if self.norwegian:
             self.sources += [NorwegianHolidaySource(self.session), MetAlertsSource(self.session, location)]
-            logger.info(f"Notice board: location lookup succeeded: {location.admin_district or 'Norway'}")
+            logger.info("Notice board: location lookup succeeded: %s", location.admin_district or "Norway")
             return
         bank_holidays = BankHolidaySource(self.session, location.country)
         met_office = MetOfficeWarningsSource(self.session, location)
@@ -115,8 +125,10 @@ class NoticeBoardClient(AbstractClient):
         # Otherwise a quiet board gives no sign the postcode was placed.
         area = ", ".join(part for part in (location.region or location.country, location.admin_district) if part)
         logger.info(
-            f"Notice board: location lookup succeeded: {area}; Met Office region {met_office.region}, "
-            f"bank holidays for {bank_holidays.division}"
+            "Notice board: location lookup succeeded: %s; Met Office region %s, bank holidays for %s",
+            area,
+            met_office.region,
+            bank_holidays.division,
         )
 
     def _refresh(self, source: NoticeSource, now: datetime) -> None:
@@ -128,8 +140,9 @@ class NoticeBoardClient(AbstractClient):
             self.fetched[source] = (now, source.fetch(now))
         except Exception as e:
             # Keep its last notices (until they go stale); the others carry on regardless.
-            logger.warning(f"{source.name}: {e}", exc_info=True)
+            logger.warning("%s: %s", source.name, e, exc_info=True)
 
+    @override
     def _update(self) -> MessagePanel | NoticeBoardPanel:
         now = datetime.now(UTC)
         self._ensure_location(now)
@@ -138,7 +151,8 @@ class NoticeBoardClient(AbstractClient):
 
         online = [source for source in self.sources if source.needs_network]
         if online and not any(source in self.fetched for source in online):
-            raise RuntimeError("None of the notice sources could be reached")
+            msg = "None of the notice sources could be reached"
+            raise RuntimeError(msg)
 
         order = {source: i for i, source in enumerate(self.sources)}
         active = [
@@ -152,7 +166,8 @@ class NoticeBoardClient(AbstractClient):
             if self.postcode and self.location is None:
                 # The postcode isn't placed yet, so the weather, floods and roads haven't
                 # been checked: "All clear" would be a guess.
-                raise RuntimeError("Couldn't look up the postcode yet")
+                msg = "Couldn't look up the postcode yet"
+                raise RuntimeError(msg)
             if self.unknown_postcode:
                 return self.message_panel(N_("Unknown postcode"))
             return NoticeBoardPanel([])  # all clear: the layout leaves the notices out

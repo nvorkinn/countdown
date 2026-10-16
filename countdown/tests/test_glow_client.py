@@ -21,10 +21,11 @@ BASE_URL = GlowClient.base_url
 
 @pytest.fixture(autouse=True)
 def glowmarkt_api():
-    """GlowClient authenticates and looks up its resource id in initialise(), so
-    tests that call it need these two endpoints -- and anything *else* should fail
-    loudly instead of reaching the real API (which rate-limits fake credentials
-    with a 429)."""
+    """Mock the two endpoints GlowClient's initialise() calls: it authenticates and looks up its resource id.
+
+    Anything *else* should fail loudly instead of reaching the real API (which rate-limits fake credentials with a
+    429).
+    """
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
         rsps.add(responses.POST, f"{BASE_URL}/auth", json={"token": "initial-token"})
         rsps.add(
@@ -80,8 +81,8 @@ def test_get_utc_offset_reads_a_naive_time_in_the_machine_zone(monkeypatch):
     monkeypatch.setenv("TZ", "America/New_York")
     time.tzset()
     try:
-        assert _get_utc_offset(datetime(2026, 1, 1)) == "300"
-        assert _get_utc_offset(datetime(2026, 7, 1)) == "240"
+        assert _get_utc_offset(datetime(2026, 1, 1)) == "300"  # noqa: DTZ001 -- naive on purpose
+        assert _get_utc_offset(datetime(2026, 7, 1)) == "240"  # noqa: DTZ001 -- naive on purpose
     finally:
         monkeypatch.undo()
         time.tzset()
@@ -198,7 +199,7 @@ def test_get_electricity_resource_id_raises_when_missing(monkeypatch):
         MagicMock(return_value=[{"resources": [{"name": "gas consumption", "resourceId": "gas-id"}]}]),
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Could not find a resource"):
         client.get_electricity_resource_id()
 
 
@@ -222,8 +223,10 @@ def test_get_readings_parses_epoch_and_iso_timestamps(glowmarkt_api):
 
 
 def test_get_readings_labels_buckets_as_local_wall_clock(glowmarkt_api):
-    """Glow encodes each bucket's local wall-clock start as if it were UTC: with
-    offset=-60, the 06:00 BST bucket comes back as the epoch for 06:00Z."""
+    """Glow encodes each bucket's local wall-clock start as if it were UTC.
+
+    With offset=-60, the 06:00 BST bucket comes back as the epoch for 06:00Z.
+    """
     bst = timezone(timedelta(hours=1), "BST")
     glowmarkt_api.add(
         responses.GET,
@@ -238,8 +241,10 @@ def test_get_readings_labels_buckets_as_local_wall_clock(glowmarkt_api):
 
 
 def _fake_glow_readings(request):
-    """Mimic Glow: one bucket per period from `from` to `to` (local wall clock),
-    each labelled with its wall-clock start encoded as a UTC epoch."""
+    """Mimic Glow: one bucket per period from `from` to `to` (local wall clock).
+
+    Each is labelled with its wall-clock start encoded as a UTC epoch.
+    """
     params = {k: v[0] for k, v in parse_qs(urlparse(request.url).query).items()}
     start, end = datetime.fromisoformat(params["from"]), datetime.fromisoformat(params["to"])
     period = params["period"]
@@ -266,9 +271,11 @@ BST = timezone(timedelta(hours=1), "BST")
 
 @pytest.fixture
 def clock(monkeypatch):
-    """Freezes GlowClient's idea of now; tests move it by reassigning clock.now.
-    Also puts the process in UK time, since _update() converts now to the
-    machine's zone - otherwise a UTC CI runner never exercises BST."""
+    """Freeze GlowClient's idea of now; tests move it by reassigning clock.now.
+
+    Also puts the process in UK time, since _update() converts now to the machine's zone - otherwise a UTC CI runner
+    never exercises BST.
+    """
     monkeypatch.setenv("TZ", "Europe/London")
     time.tzset()
 
@@ -297,8 +304,10 @@ def _update_page(client: GlowClient, page_index: int):
 
 @pytest.mark.parametrize("page_index", [0, 1])
 def test_refresh_after_the_first_only_fetches_the_open_bucket(glowmarkt_api, clock, page_index):
-    """The regression this guards: cached bucket keys were an hour off the bucket
-    starts _update() walks during BST, so every refresh re-fetched the whole window."""
+    """The regression this guards: cached bucket keys were an hour off during BST.
+
+    They were off the bucket starts _update() walks, so every refresh re-fetched the whole window.
+    """
     glowmarkt_api.add_callback(responses.GET, f"{BASE_URL}/resource/elec-id/readings", callback=_fake_glow_readings)
     client = make_initialised_client()
 
@@ -351,8 +360,10 @@ def test_update_returns_a_panel_and_rotates_through_the_three_pages(monkeypatch)
 
 
 def test_glowmarkt_being_down_at_boot_heals_on_a_later_update(glowmarkt_api, monkeypatch):
-    """The regression this guards: initialise() failing once used to leave resource_id
-    unset forever, so every later poll asked for readings of resource "None"."""
+    """The regression this guards: initialise() failing once used to leave resource_id unset forever.
+
+    So every later poll asked for readings of resource "None".
+    """
     glowmarkt_api.replace(responses.POST, f"{BASE_URL}/auth", status=503)
     client = make_client()
     with pytest.raises(requests.exceptions.RequestException):

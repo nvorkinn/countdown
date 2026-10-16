@@ -1,3 +1,5 @@
+"""The Environment Agency's flood warnings, as the notice board reads them."""
+
 from pydantic import BaseModel, Field
 
 
@@ -11,4 +13,6 @@ class FloodWarning(BaseModel):
 
 
 class FloodWarningsResponse(BaseModel):
+    """The Environment Agency's /flood-monitoring/id/floods: the warnings in force."""
+
     items: list[FloodWarning] = []

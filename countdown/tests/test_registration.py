@@ -8,7 +8,7 @@ import pytest
 import requests
 import responses
 from cryptography.fernet import Fernet
-from test_utils import Sleeps, StopWaiting
+from test_utils import Sleeps, StopWaitingError
 
 from countdown_credentials.credentials_key import KEY_NAME, credentials_key
 from countdown_credentials.registration import (
@@ -228,7 +228,7 @@ def test_a_renderer_claims_with_its_token_and_keeps_its_device_id(broker, sleeps
 
 @pytest.mark.parametrize("token", ["", None])
 def test_a_renderer_cant_register_without_a_claim_token(token):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="only register with a claim token"):
         RendererRegistrar(BROKER_URL, claim_token=token)
 
 
@@ -305,7 +305,7 @@ def test_waits_the_default_without_a_retry_after(broker, sleeps, role, status):
     broker.post(role[1], status=status)
     sleeps.stop_after = 1
 
-    with pytest.raises(StopWaiting):
+    with pytest.raises(StopWaitingError):
         _register(role[0](sleeps))
 
     assert sleeps == [DEFAULT_RETRY_S]
@@ -342,7 +342,7 @@ def test_a_rejected_registration_is_logged_as_an_error(broker, sleeps, role, cap
     broker.post(role[1], status=400, json={"error": "role must be one of renderer, display"})
     sleeps.stop_after = 1
 
-    with caplog.at_level(logging.ERROR), pytest.raises(StopWaiting):
+    with caplog.at_level(logging.ERROR), pytest.raises(StopWaitingError):
         _register(role[0](sleeps))
 
     assert "The broker rejected the registration" in caplog.text
@@ -355,7 +355,7 @@ def test_warns_about_an_unexpected_status(broker, sleeps, role, caplog):
     broker.post(role[1], status=418)
     sleeps.stop_after = 1
 
-    with caplog.at_level(logging.WARNING), pytest.raises(StopWaiting):
+    with caplog.at_level(logging.WARNING), pytest.raises(StopWaitingError):
         _register(role[0](sleeps))
 
     assert f"Unexpected 418 from {role[1]}" in caplog.text

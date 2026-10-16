@@ -139,7 +139,8 @@ def test_metalerts_are_asked_for_in_the_screens_language(api):
     finally:
         i18n.set_locale("en", "Europe/London")
     request = api.calls[0].request
-    assert "lang=no" in request.url and "lat=59.9116" in request.url
+    assert "lang=no" in request.url
+    assert "lat=59.9116" in request.url
     assert request.headers["User-Agent"].startswith("countdown")
 
 
@@ -192,8 +193,10 @@ def test_a_screen_on_oslo_time_without_a_postcode_gets_norways_holidays(oslo_scr
 
 def test_text_is_drawn_in_the_screens_language(tmp_path, monkeypatch):
     (tmp_path / "nb.po").write_text(
-        'msgid ""\nmsgstr ""\n"Content-Type: text/plain; charset=utf-8\\n"\n"Plural-Forms: nplurals=2; plural=(n != 1);\\n"\n\n'
-        'msgid "due"\nmsgstr "nå"\n\nmsgid "{n} min"\nmsgid_plural "{n} mins"\nmsgstr[0] "{n} min"\nmsgstr[1] "{n} min"\n\n'
+        'msgid ""\nmsgstr ""\n"Content-Type: text/plain; charset=utf-8\\n"\n'
+        '"Plural-Forms: nplurals=2; plural=(n != 1);\\n"\n\n'
+        'msgid "due"\nmsgstr "nå"\n\n'
+        'msgid "{n} min"\nmsgid_plural "{n} mins"\nmsgstr[0] "{n} min"\nmsgstr[1] "{n} min"\n\n'
         'msgid "Not translated yet"\nmsgstr ""\n',
         encoding="utf-8",
     )

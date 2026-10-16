@@ -1,10 +1,11 @@
-import logging
+"""TfL's stops and their arrivals, for the departures client."""
 
-import requests
+import logging
+from typing import TYPE_CHECKING
+
 from pydantic import TypeAdapter
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
-from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.models import (
     ArrivalUnion,
@@ -14,6 +15,11 @@ from countdown_core.tfl.models import (
     StopPointUnion,
 )
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
+
+if TYPE_CHECKING:
+    import requests
+
+    from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
 
 logger = logging.getLogger(__name__)
 
@@ -33,18 +39,19 @@ def _find_stop_child(stop: StopPoint, naptan_id: str) -> SingleStopPoint | Metro
 class TflSource:
     """London's stops for the departures client: Tube stations and bus stops, by NaPTAN id."""
 
-    def __init__(self, session: requests.Session, app_key: str = ""):
+    def __init__(self, session: requests.Session, app_key: str = "") -> None:
+        """`session` to ask TfL with; `app_key`, TfL's API key, is sent with every request if set."""
         self.session = session
         self.params = {"app_key": app_key} if app_key else {}
 
     def resolve(self, stop_id: str) -> SingleStopPoint | MetroStopPoint | None:
-        """The stop, or None if it isn't a Tube station or bus stop; raises if TfL can't be asked."""
+        """Look the stop up: None if it isn't a Tube station or bus stop; raises if TfL can't be asked."""
         response = self.session.get(f"{TFL_URL}/StopPoint/{stop_id}", params=self.params, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         return _find_stop_child(TypeAdapter(StopPointUnion).validate_python(response.json()), stop_id)
 
     def panel(self, stop: SingleStopPoint | MetroStopPoint, style: Style) -> AbstractArrivalPanel:
-        """The stop's arrivals, as a panel that groups them by route."""
+        """Fetch the stop's arrivals, as a panel that groups them by route."""
         response = self.session.get(
             f"{TFL_URL}/StopPoint/{stop.naptan_id}/Arrivals", params=self.params, timeout=DEFAULT_TIMEOUT
         )

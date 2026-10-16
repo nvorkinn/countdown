@@ -1,8 +1,11 @@
-"""How DisplayController decides what to send its target: skip, partial or full refresh, what it
-remembers about what's on the screen, and how it copes with a screen that can't take a picture."""
+"""How DisplayController decides what to send its target: skip, partial or full refresh.
+
+Also what it remembers about what's on the screen, and how it copes with a screen that can't take a picture.
+"""
 
 import logging
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from fake_target import FakeTarget
@@ -19,7 +22,9 @@ from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_core.utils.clock import ClockFormat
+
+if TYPE_CHECKING:
+    from countdown_core.utils.clock import ClockFormat
 
 FULL = None  # a full refresh is a paint with no region
 
@@ -47,7 +52,7 @@ LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
 
 
 def show(controller: DisplayController, panels: dict) -> Image.Image:
-    """Shows `panels` on an 800x480 landscape screen, in the layout with room for everything."""
+    """Show `panels` on an 800x480 landscape screen, in the layout with room for everything."""
     return controller.display_screen(panels, LANDSCAPE, frozenset(ClientClasses))
 
 
@@ -118,8 +123,10 @@ def test_the_partial_region_is_byte_aligned_and_covers_the_arrivals(clock, width
     show(controller, frame("red", arrivals_width=width))
 
     x0, _, x1, _ = target.paints[-1]
-    assert x0 % 8 == 0 and x1 % 8 == 0
-    assert x0 <= 5 and x1 >= 5 + width
+    assert x0 % 8 == 0
+    assert x1 % 8 == 0
+    assert x0 <= 5
+    assert x1 >= 5 + width
 
 
 def test_a_change_outside_the_arrivals_is_a_full_refresh(clock):

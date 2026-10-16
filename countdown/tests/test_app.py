@@ -23,7 +23,8 @@ def test_safe_fetch_returns_func_result_on_success():
 
 def test_safe_fetch_returns_fallback_on_request_exception():
     def boom():
-        raise requests.exceptions.ConnectionError("network down")
+        msg = "network down"
+        raise requests.exceptions.ConnectionError(msg)
 
     assert safe_fetch(boom, fallback="fallback") == "fallback"
 
@@ -39,8 +40,10 @@ def test_safe_fetch_returns_fallback_on_validation_error():
 
 
 def test_the_console_script_entry_point_actually_runs_the_app(monkeypatch):
-    """The `countdown-server` script just calls main() without awaiting it, so main() must
-    run the app itself. Every other test drives run() directly and wouldn't notice."""
+    """The `countdown-server` script just calls main() without awaiting it, so main() must run the app itself.
+
+    Every other test drives run() directly and wouldn't notice.
+    """
     ran = []
 
     async def fake_run(make_target):
@@ -78,8 +81,10 @@ def test_logging_defaults_to_info_and_honours_log_level(monkeypatch, env, expect
 
 
 class FakeBroker:
-    """Stands in for BrokerClient: `fetch_failures` are the exceptions to raise, in order,
-    before it starts succeeding."""
+    """Stands in for BrokerClient.
+
+    `fetch_failures` are the exceptions to raise, in order, before it starts succeeding.
+    """
 
     def __init__(self, fetch_failures=()):
         self.fetch_failures = list(fetch_failures)
@@ -153,8 +158,8 @@ REGISTRATION = RendererRegistration("https://broker.example.com", "shh", "device
 
 
 @pytest.fixture
-def booted(monkeypatch):
-    """Runs app.run() with the registration and everything after it faked, recording what it did."""
+def booted(monkeypatch):  # noqa: C901 -- one fixture of small fakes, each counted towards it
+    """Run app.run() with the registration and everything after it faked, recording what it did."""
     monkeypatch.setenv("BROKER_URL", "https://broker.example.com")
     monkeypatch.setenv("CLAIM_TOKEN", "claim-me")
     seen = {"order": []}
@@ -200,7 +205,7 @@ def booted(monkeypatch):
     monkeypatch.setattr(app.signal, "signal", fake_signal)
     seen["handlers"] = {}
 
-    def boot(stop_while_registering=False):
+    def boot(*, stop_while_registering=False):
         seen["stop_while_registering"] = stop_while_registering
         asyncio.run(app.run(make_target))
         return seen

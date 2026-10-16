@@ -59,7 +59,7 @@ def publisher(reader, clients=None, **kwargs) -> OtlpPublisher:
 
 
 def metrics(reader) -> dict[str, list[dict]]:
-    """The latest data points by metric name, each as {attributes..., "value": ...}."""
+    """Get the latest data points by metric name, each as {attributes..., "value": ...}."""
     data = reader.get_metrics_data()
     [resource_metrics] = data.resource_metrics
     [scope_metrics] = resource_metrics.scope_metrics
@@ -238,8 +238,11 @@ def test_by_default_it_exports_protobuf_over_http_to_the_collector(monkeypatch):
 
 
 def test_exiting_is_not_held_up_by_a_collector_that_is_down():
-    """A container gets 10s to stop. Nothing listens on the port here (it's bound and closed to
-    get one that's free), so an export in flight retries until its timeout."""
+    """A container gets 10s to stop.
+
+    Nothing listens on the port here (it's bound and closed to get one that's free), so an export in flight retries
+    until its timeout.
+    """
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -257,7 +260,7 @@ async def main():
 asyncio.run(main())
 """
     started = time.monotonic()
-    subprocess.run([sys.executable, "-c", script], check=True, capture_output=True)
+    subprocess.run([sys.executable, "-c", script], check=True, capture_output=True)  # noqa: S603 -- our own script
 
     assert time.monotonic() - started < otlp_publisher.EXPORT_TIMEOUT_MS / 1000 + 2
 

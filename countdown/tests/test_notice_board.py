@@ -12,6 +12,7 @@ from test_utils import REGISTRATION
 from countdown_api.models import DepartureStop, Tfl
 from countdown_core.core.api_registry import section_for
 from countdown_core.departures.departures_client import DeparturesSettings
+from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.calendar import (
     BANK_HOLIDAYS_URL,
     BankHolidaySource,
@@ -61,7 +62,7 @@ AMBER_AND_YELLOW = b"""<?xml version="1.0" encoding="UTF-8"?>
     <title>Something the Met Office has never said before</title>
     <description>No dates here</description>
   </item>
-</channel></rss>"""
+</channel></rss>"""  # noqa: E501 -- a real feed's lines, which can't be wrapped without changing the text
 
 
 def test_met_office_reads_colour_hazard_and_end_time():
@@ -362,7 +363,10 @@ def test_line_status_shows_a_reason_once_for_routes_sharing_it(api):
             "Severe delays due to a track fault at Brixton.",
         ),
         (
-            "CENTRAL LINE: Saturday 26 September, no service between Marble Arch and Loughton. Replacement buses operate.",
+            (
+                "CENTRAL LINE: Saturday 26 September, no service between Marble Arch and Loughton. "
+                "Replacement buses operate."
+            ),
             "Central",
             "Saturday 26 September, no service between Marble Arch and Loughton.",
         ),
@@ -441,7 +445,7 @@ BANK_HOLIDAYS = {
             {"title": "Boxing Day", "date": "2026-12-28", "notes": "Substitute day", "bunting": True},
         ]
         + (
-            [{"title": "St Andrew’s Day", "date": "2026-11-30", "notes": "", "bunting": True}]
+            [{"title": "St Andrew’s Day", "date": "2026-11-30", "notes": "", "bunting": True}]  # noqa: RUF001 -- the apostrophe gov.uk's bank holidays use
             if division == "scotland"
             else []
         ),
@@ -455,7 +459,7 @@ BANK_HOLIDAYS = {
     [
         (datetime(2026, 11, 24, 12, tzinfo=UTC), None, []),  # Christmas is over a month away
         (datetime(2026, 11, 26, 12, tzinfo=UTC), None, ["Fri 25 Dec: Christmas Day"]),
-        (datetime(2026, 11, 26, 12, tzinfo=UTC), "Scotland", ["Mon 30 Nov: St Andrew’s Day"]),
+        (datetime(2026, 11, 26, 12, tzinfo=UTC), "Scotland", ["Mon 30 Nov: St Andrew’s Day"]),  # noqa: RUF001 -- the apostrophe gov.uk's bank holidays use
         (datetime(2026, 12, 24, 12, tzinfo=UTC), "Wales", ["Tomorrow: Christmas Day"]),
         (datetime(2026, 12, 28, 9, tzinfo=UTC), None, ["Today: Boxing Day (substitute day)"]),
     ],
@@ -547,8 +551,6 @@ def clock(monkeypatch):
         @classmethod
         def now(cls, tz=None):
             return Clock.now
-
-    import countdown_core.notices.notice_board_client as board_module
 
     monkeypatch.setattr(board_module, "datetime", FrozenDatetime)
     return Clock
@@ -670,8 +672,8 @@ def test_board_logs_that_it_resolved_postcode(api, clock, caplog):
         update(client)
 
     assert (
-        "Notice board: location lookup succeeded: London, Southwark; Met Office region se, bank holidays for england-and-wales"
-        in caplog.messages
+        "Notice board: location lookup succeeded: London, Southwark; Met Office region se, "
+        "bank holidays for england-and-wales" in caplog.messages
     )
 
 
@@ -694,7 +696,7 @@ def test_board_retries_a_postcode_lookup_that_failed(api, clock, caplog):
 
     with (
         caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"),
-        pytest.raises(RuntimeError, match="^Couldn't look up the postcode yet$"),
+        pytest.raises(RuntimeError, match=r"^Couldn't look up the postcode yet$"),
     ):
         update(client)
     assert client.location is None

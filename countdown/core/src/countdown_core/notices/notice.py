@@ -1,9 +1,14 @@
+"""What the notice board shows (Notices) and where it gets them from (NoticeSources)."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from enum import IntEnum
+from typing import TYPE_CHECKING
 
-import requests
+if TYPE_CHECKING:
+    from datetime import datetime, timedelta
+
+    import requests
 
 
 class Severity(IntEnum):
@@ -20,6 +25,8 @@ class Severity(IntEnum):
 
 @dataclass(frozen=True)
 class Notice:
+    """One line on the notice board."""
+
     source: str  # shown as a tag in front of the text: "Met Office", "TfL", ...
     severity: Severity
     text: str  # one line; the panel truncates whatever doesn't fit
@@ -28,9 +35,11 @@ class Notice:
 
 
 class NoticeSource(ABC):
-    """One feed the notice board polls. Each source decides for itself what's worth
-    reporting and returns it as Notices; the board handles when to call it, what to do
-    when it fails, and how everything is ranked and drawn."""
+    """One feed the notice board polls.
+
+    Each source decides for itself what's worth reporting and returns it as Notices; the board handles when to call
+    it, what to do when it fails, and how everything is ranked and drawn.
+    """
 
     name: str
     refresh_interval: timedelta
@@ -38,10 +47,13 @@ class NoticeSource(ABC):
     # board doesn't count its answers as proof that anything could be reached.
     needs_network = True
 
-    def __init__(self, session: requests.Session):
+    def __init__(self, session: requests.Session) -> None:
+        """Fetch over `session`, the notice board's retrying one."""
         self.session = session
 
     @abstractmethod
     def fetch(self, now: datetime) -> list[Notice]:
-        """Everything this source currently has to say (empty if all is well). Raises if
-        the feed can't be reached or read, so the board keeps the last good answer."""
+        """Return everything this source currently has to say (empty if all is well).
+
+        Raises if the feed can't be reached or read, so the board keeps the last good answer.
+        """

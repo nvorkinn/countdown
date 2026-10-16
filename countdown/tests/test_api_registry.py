@@ -52,11 +52,12 @@ class FakeClient(AbstractClient):
 
 @pytest.fixture
 def unbuildable_spotify(monkeypatch):
-    """Makes building the Spotify client raise, as a constructor that can't get what it needs would."""
+    """Make building the Spotify client raise, as a constructor that can't get what it needs would."""
 
     def broken(self, registration, config):
         AbstractClient.__init__(self, registration, config)  # so its __del__ can still close the session
-        raise ValueError("can't build")
+        msg = "can't build"
+        raise ValueError(msg)
 
     monkeypatch.setattr(SpotifyClient, "__init__", broken)
 
@@ -90,7 +91,7 @@ def test_weather_rotates_only_when_the_registry_actually_polls_it():
 
 
 def drawn(panels: dict) -> dict:
-    """The panels that aren't MessagePanels standing in for one."""
+    """Keep the panels that aren't MessagePanels standing in for one."""
     return {name: panel for name, panel in panels.items() if not isinstance(panel, MessagePanel)}
 
 
@@ -141,8 +142,10 @@ def test_the_apis_without_a_switch_are_always_on():
     ],
 )
 def test_glowmarkt_is_off_without_both_credentials(credentials):
-    """The broker has no Glowmarkt switch, so the credentials decide. A cleared field can arrive as "" or
-    whitespace as well as null."""
+    """The broker has no Glowmarkt switch, so the credentials decide.
+
+    A cleared field can arrive as "" or whitespace as well as null.
+    """
     assert not is_enabled(Glowmarkt(**{"username": None, "password": None, **credentials}))
 
 
@@ -178,7 +181,8 @@ def test_on_config_update_initialises_new_clients_even_if_one_fails(monkeypatch)
     initialised = []
 
     async def broken(self):
-        raise ConnectionError("down")
+        msg = "down"
+        raise ConnectionError(msg)
 
     async def healthy(self):
         initialised.append(self)
@@ -244,8 +248,10 @@ def test_a_client_that_is_switched_off_is_dropped_with_its_panel():
 
 
 def test_a_change_the_client_says_is_irrelevant_does_not_rebuild_it():
-    """Open-Meteo is keyless, so WeatherClient ignores api_key changes -- rebuilding
-    would only throw away its cached coordinates and forecast."""
+    """Open-Meteo is keyless, so WeatherClient ignores api_key changes.
+
+    Rebuilding would only throw away its cached coordinates and forecast.
+    """
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
     asyncio.run(registry.on_config_update(make_config()))
     weather = registry.clients["weather"]
@@ -435,8 +441,10 @@ def test_available_leaves_out_glowmarkt_when_its_username_is_cleared(username):
 
 
 def test_a_client_missing_what_it_needs_is_not_built_and_comes_back_fresh(monkeypatch):
-    """Clearing Glowmarkt's username removes its client altogether; putting it back builds a
-    new one rather than reviving the old."""
+    """Clearing Glowmarkt's username removes its client altogether.
+
+    Putting it back builds a new one rather than reviving the old.
+    """
     monkeypatch.setattr(GlowClient, "_initialise", lambda self: asyncio.sleep(0))  # no network
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
     with_credentials = make_config(glowmarkt={"username": "me@example.com", "password": "pw"})

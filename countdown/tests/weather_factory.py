@@ -27,8 +27,10 @@ def make_weather(**overrides) -> Weather:
 def forecast_json(
     current: dict | None = None, daily: dict | None = None, start: dt.date = dt.date(2026, 1, 15)
 ) -> dict:
-    """What Open-Meteo answers the forecast request with, on 15 January 2026 at 12:15, with
-    `current` and `daily` replacing those values."""
+    """Build what Open-Meteo answers the forecast request with, on 15 January 2026 at 12:15.
+
+    `current` and `daily` replace those values.
+    """
     days = [start + dt.timedelta(days=offset) for offset in range(8)]
     temperatures = [8.0 if hour < 6 else 14.0 if hour < 18 else 9.0 for _ in days for hour in range(24)]
     return {
