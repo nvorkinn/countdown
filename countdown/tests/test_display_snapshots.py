@@ -602,18 +602,18 @@ def test_oslo_screen_in_norwegian(snapshot):
 
 
 def _rotating_arrivals() -> CombinedArrivalPanel:
-    """Show the first two of three stops: two squares filled, one empty."""
+    """Show the first of three pages of stops: one square filled, two empty."""
     return CombinedArrivalPanel(
         [
             BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS, "hero"),
             TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS, "hero"),
         ],
-        Rotation(frozenset({0, 1}), 3),
+        Rotation(0, 3),
     )
 
 
 def test_rotating_stops_show_which_are_on_screen(snapshot):
-    """A square per configured stop under the arrivals, filled for those shown now."""
+    """A square per page of stops under the arrivals, filled for the one shown now."""
     img = _draw(_panels(_rotating_arrivals()))
     snapshot.assert_matches("screen_arrivals_rotating", img)
 

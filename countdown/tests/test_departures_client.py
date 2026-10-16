@@ -164,12 +164,25 @@ def test_init_stops_is_a_pure_function_returning_resolved_stops(monkeypatch):
     assert client.stops == []  # init_stops does not mutate self
 
 
-def test_next_stop_index_cycles_and_wraps():
+def test_next_page_cycles_and_wraps():
     client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, make_bus_stop("A"), make_metro_stop("B"))
-    assert client._next_stop_index() == 0
-    assert client._next_stop_index() == 1
-    assert client._next_stop_index() == 0
+    client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(5)))
+    client.stops_per_update = 2
+    pages = [client._next_page() for _ in range(4)]
+    assert pages == [
+        ([0, 1], Rotation(0, 3)),
+        ([2, 3], Rotation(1, 3)),
+        ([4], Rotation(2, 3)),  # the last page holds what's left
+        ([0, 1], Rotation(0, 3)),
+    ]
+
+
+def test_next_page_starts_over_when_there_are_fewer_pages_now():
+    client = DeparturesClient(REGISTRATION, make_config())
+    client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(4)))
+    client.stops_per_update = 2
+    client.current_page = 2  # left over from when there were more stops
+    assert client._next_page() == ([0, 1], Rotation(0, 2))
 
 
 def test_update_builds_correct_panels(monkeypatch):
@@ -243,15 +256,15 @@ def test_update_shows_every_stop_in_order_when_they_all_fit(monkeypatch):
     assert _shown_stop_ids(client) == ["490000000", "490000001", "490000002"]
 
 
-def test_update_says_which_stops_are_on_screen_when_they_rotate(monkeypatch):
-    """The window moves a stop at a time: with 3 stops and room for 2, it's 0+1, 2+0, 1+2."""
+def test_update_says_which_page_is_on_screen_when_they_rotate(monkeypatch):
+    """With 3 stops and room for 2 there are two pages: 0+1, then 2 on its own."""
     client = DeparturesClient(REGISTRATION, make_config())
     client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(3)))
     client.stops_per_update = 2
     _no_arrivals(monkeypatch, client)
 
     rotations = [asyncio.run(client.update()).rotation for _ in range(3)]
-    assert rotations == [Rotation(frozenset(s), 3) for s in ({0, 1}, {2, 0}, {1, 2})]
+    assert rotations == [Rotation(0, 2), Rotation(1, 2), Rotation(0, 2)]
 
 
 def test_update_has_no_rotation_when_every_stop_fits(monkeypatch):
@@ -261,25 +274,6 @@ def test_update_has_no_rotation_when_every_stop_fits(monkeypatch):
     _no_arrivals(monkeypatch, client)
 
     assert asyncio.run(client.update()).rotation is None
-
-
-def test_rotation_leaves_out_a_stop_whose_arrivals_failed(monkeypatch):
-    """Its square stays empty, as its departures aren't on screen."""
-    client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(3)))
-    client.stops_per_update = 2
-    response = MagicMock(raise_for_status=MagicMock())
-    response.json.return_value = []
-
-    def get(url, params=None, timeout=None):
-        if "490000001" in url:
-            msg = "down"
-            raise ConnectionError(msg)
-        return response
-
-    monkeypatch.setattr(client.session, "get", get)
-
-    assert asyncio.run(client.update()).rotation == Rotation(frozenset({0}), 3)
 
 
 def test_update_raises_when_no_stops_arrivals_could_be_fetched(monkeypatch):
