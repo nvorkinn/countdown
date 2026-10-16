@@ -8,8 +8,8 @@ from countdown_core.spotify.spotify_styles import STYLES
 if TYPE_CHECKING:
     from PIL import Image
 
+    from countdown_core.core.style import Style
     from countdown_core.spotify.models import Artist, Track
-    from countdown_core.spotify.spotify_panel import Style
     from countdown_core.utils.clock import ClockFormat
 
 

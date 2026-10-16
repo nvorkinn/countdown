@@ -111,7 +111,7 @@ def test_each_client_is_configured_with_its_section_of_the_config():
 
     assert section_for("tfl", config) == DeparturesSettings.from_config(config)
     assert section_for("weather", config) is config.weather
-    assert section_for("spotify", config) is config.spotify
+    assert section_for("spotify", config) == config.spotify
     assert section_for("glowmarkt", config) is config.glowmarkt
     # The notice board's disruptions are for the departures' stops, so it also gets those.
     assert section_for("notice_board", config) == NoticeBoardSettings(
@@ -119,10 +119,31 @@ def test_each_client_is_configured_with_its_section_of_the_config():
     )
 
 
-def test_the_notice_board_is_drawn_in_the_configured_style():
-    config = make_config(notice_board={"postcode": "SE17 3LL", "style": "boxed"})
+def test_every_panel_is_drawn_in_the_configs_one_style():
+    """The shared style wins over each panel's own, which the broker still sends for older screens."""
+    config = make_config(
+        style="card",
+        tfl={"style": "grouped"},
+        spotify={"enabled": True, "style": "airy"},
+        notice_board={"postcode": "SE17 3LL", "style": "hero"},
+    )
 
-    assert section_for("notice_board", config).style == "boxed"
+    assert section_for("tfl", config).style == "card"
+    assert section_for("spotify", config).style == "card"
+    assert section_for("notice_board", config).style == "card"
+
+
+def test_a_broker_without_the_shared_style_leaves_each_panel_on_its_own():
+    """Their old names are drawn as the shared look nearest them: grouped was airy's, boxed goes to card."""
+    config = make_config(
+        tfl={"style": "grouped"},
+        spotify={"enabled": True, "style": "classic"},
+        notice_board={"postcode": "SE17 3LL", "style": "boxed"},
+    )
+
+    assert section_for("tfl", config).style == "airy"
+    assert section_for("spotify", config).style == "hero"
+    assert section_for("notice_board", config).style == "card"
 
 
 def test_only_spotify_has_a_switch_in_the_config():

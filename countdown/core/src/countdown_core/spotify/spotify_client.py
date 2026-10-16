@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
+from countdown_core.core.style import normalise
 from countdown_core.i18n import N_
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_panel import SpotifyPanel
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 
     from countdown_api.models import Spotify
     from countdown_core.core.panel import Panel
-    from countdown_core.spotify.spotify_panel import Style
+    from countdown_core.core.style import Style
     from countdown_credentials.registration import Registration
 
 
@@ -58,9 +59,8 @@ class SpotifyClient(AbstractClient):
 
     @property
     def style(self) -> Style:
-        """The configured style; the retired classic, which a broker that hasn't migrated may still send, is hero."""
-        style = self.config.style
-        return "hero" if style == "classic" else style
+        """The configured style, its old names (classic) mapped onto the shared ones."""
+        return normalise(self.config.style)
 
     def _request(self, method: str, path: str, params: dict[str, str | int] | None = None) -> bytes:
         response = self.session.request(method, f"{self.base_url}{path}", params=params, timeout=DEFAULT_TIMEOUT)

@@ -1,7 +1,7 @@
 """The Spotify area's now playing page: the cover, the track, and what's up next."""
 
 import io
-from typing import TYPE_CHECKING, Literal, override
+from typing import TYPE_CHECKING, override
 
 import requests
 from PIL import Image, ImageOps
@@ -10,12 +10,10 @@ from countdown_core.core.panel import Panel
 from countdown_core.spotify.spotify_styles import STYLES
 
 if TYPE_CHECKING:
+    from countdown_core.core.style import Style
     from countdown_core.spotify.models import Album, Queue
     from countdown_core.spotify.models import Image as AlbumImage
     from countdown_core.utils.clock import ClockFormat
-
-# How the Spotify panel is drawn: the config's spotify.style (see SpotifyClient.style for classic).
-Style = Literal["airy", "hero", "card"]
 
 
 class SpotifyPanel(Panel):

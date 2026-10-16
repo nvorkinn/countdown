@@ -8,7 +8,8 @@ from countdown_core.entur.entur_client import EnturClient, EnturStop
 if TYPE_CHECKING:
     import requests
 
-    from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
+    from countdown_core.core.style import Style
+    from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
 
 # Enough to fill the tallest stop: a hero's big one and a list under it, or a classic row each.
 DEPARTURES_PER_STOP = 12

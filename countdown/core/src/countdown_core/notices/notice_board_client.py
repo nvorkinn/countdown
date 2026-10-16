@@ -18,9 +18,9 @@ from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.tfl import TflLineStatusSource, TflRoadSource, TflStationSource
 
 if TYPE_CHECKING:
+    from countdown_core.core.style import Style
     from countdown_core.departures.departures_client import DeparturesSettings
     from countdown_core.notices.notice import Notice, NoticeSource
-    from countdown_core.notices.notice_styles import NoticeStyle
     from countdown_core.system_screens.message_panel import MessagePanel
     from countdown_core.tfl.models import Postcode
     from countdown_credentials.registration import Registration
@@ -46,8 +46,8 @@ class NoticeBoardSettings:
     departures: DeparturesSettings
     # The postcode's country; None for a broker that predates it, whose postcodes are all British.
     country: str | None = None
-    # How the board is drawn (notice_board.style); a broker that predates it gets hero.
-    style: NoticeStyle = "hero"
+    # How the board is drawn (the config's style, see panel_style); a broker that predates both gets hero.
+    style: Style = "hero"
 
     @property
     def tfl(self) -> Tfl:

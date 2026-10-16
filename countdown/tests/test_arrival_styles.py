@@ -20,7 +20,7 @@ def _buses(count: int, line: str = "36") -> list[BusArrival]:
     ]
 
 
-@pytest.mark.parametrize("style", ["hero", "grouped", "card"])
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_a_stop_with_nothing_due_draws_just_its_header(style):
     img = BusArrivalPanel(STOP, [], style).render(262, 185)
 
@@ -31,7 +31,7 @@ def test_a_stop_with_nothing_due_draws_just_its_header(style):
         assert bottom < 40
 
 
-@pytest.mark.parametrize("style", ["hero", "grouped", "card"])
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_more_departures_than_fit_stop_at_the_bottom_edge(style):
     img = BusArrivalPanel(STOP, _buses(20), style).render(262, 185)
 

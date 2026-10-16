@@ -1,9 +1,12 @@
 """The departures panel for a Norwegian stop."""
 
-from typing import override
+from typing import TYPE_CHECKING, override
 
 from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
-from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Icon, Style
+from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Icon
+
+if TYPE_CHECKING:
+    from countdown_core.core.style import Style
 
 ICON_BY_MODE: dict[TransportMode, Icon] = {
     TransportMode.METRO: "subway",
