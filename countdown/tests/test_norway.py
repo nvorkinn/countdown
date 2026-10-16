@@ -9,7 +9,7 @@ from test_utils import REGISTRATION
 
 from countdown_api.models import DepartureStop
 from countdown_core import i18n
-from countdown_core.departures.departures_client import DeparturesSettings
+from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.entur.entur_client import JOURNEY_PLANNER_URL
 from countdown_core.notices.calendar import ClockChangeSource
 from countdown_core.notices.entur import EnturSituationsSource
@@ -168,8 +168,8 @@ def test_the_clocks_change_in_the_screens_time_zone(oslo_screen):
     assert format_clock(notice.display_time, "12h") == "3:00 AM"
 
 
-def board(postcode: str | None, country: str | None, stops: tuple[DepartureStop, ...] = ()) -> NoticeBoardClient:
-    return NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode, DeparturesSettings(stops), country))
+def board(postcode: str | None, country: str | None) -> NoticeBoardClient:
+    return NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode, country))
 
 
 def test_a_norwegian_postcode_brings_norways_sources(api):
@@ -181,10 +181,17 @@ def test_a_norwegian_postcode_brings_norways_sources(api):
             ]
         },
     )
-    client = board("0150", "NO", (DepartureStop(source="entur", id="NSR:Quay:7333"),))
+    client = board("0150", "NO")
     client._ensure_location(NOW)
     names = [type(source).__name__ for source in client.sources]
-    assert names == ["ClockChangeSource", "EnturSituationsSource", "NorwegianHolidaySource", "MetAlertsSource"]
+    assert names == ["ClockChangeSource", "NorwegianHolidaySource", "MetAlertsSource"]
+
+
+def test_norwegian_stops_bring_their_disruptions_whatever_the_postcode():
+    client = DeparturesClient(REGISTRATION, DeparturesSettings((DepartureStop(source="entur", id="NSR:Quay:7333"),)))
+    [source] = client.notice_sources()
+    assert isinstance(source, EnturSituationsSource)
+    assert source.stop_ids == ["NSR:Quay:7333"]
 
 
 def test_a_screen_on_oslo_time_without_a_postcode_gets_norways_holidays(oslo_screen):

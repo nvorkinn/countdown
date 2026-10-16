@@ -7,17 +7,20 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, override
 
-from countdown_api.models import ConfigResponse, DepartureStop
+from countdown_api.models import ConfigResponse, DepartureStop, Tfl
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.style import panel_style
 from countdown_core.entur.entur_source import EnturSource
 from countdown_core.i18n import N_
+from countdown_core.notices.entur import EnturSituationsSource
+from countdown_core.notices.tfl import TflLineStatusSource, TflStationSource
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
 from countdown_core.tfl.tfl_client import TflSource
 
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
     from countdown_core.core.style import Style
+    from countdown_core.notices.notice import NoticeSource
     from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
     from countdown_credentials.registration import Registration
 
@@ -81,10 +84,26 @@ class DeparturesClient(AbstractClient):
             "tfl": TflSource(self.session, config.tfl_app_key),
             "entur": EnturSource(self.session),
         }
+        self._notice_sources = self._build_notice_sources(config)
         self.stops: list[ResolvedStop] = []
         self.current_stop = 0
         # Set by the layout (ApiRegistry.show_stops).
         self.stops_per_update = 2
+
+    def _build_notice_sources(self, config: DeparturesSettings) -> list[NoticeSource]:
+        """Build the disruption sources for the stops: TfL's line status and stations, and Entur's situations."""
+        sources: list[NoticeSource] = []
+        if tfl_stops := config.stop_ids("tfl"):
+            tfl = Tfl(app_key=config.tfl_app_key, stop_ids=tfl_stops)
+            sources += [TflLineStatusSource(self.session, tfl), TflStationSource(self.session, tfl)]
+        if entur_stops := config.stop_ids("entur"):
+            sources.append(EnturSituationsSource(self.session, entur_stops))
+        return sources
+
+    @override
+    def notice_sources(self) -> list[NoticeSource]:
+        """Return the disruptions at the configured stops and on their lines."""
+        return self._notice_sources
 
     @override
     def _initialise(self) -> None:

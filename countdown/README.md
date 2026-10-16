@@ -63,7 +63,9 @@ one broken API never takes the others down.
 status and station disruptions for the configured stops, Met Office warnings,
 Environment Agency flood alerts and TfL road incidents near the owner's postcode
 (looked up with postcodes.io), and bank holidays and clock changes. Each source
-has its own refresh interval. A failing source keeps its last notices for a
+has its own refresh interval. The board's own sources are about the postcode's place; the disruptions at the stops
+come from the departures client, as every client can hand the board notice sources about what it shows
+(`AbstractClient.notice_sources`, passed on by the registry). A failing source keeps its last notices for a
 while (at least an hour) before they're dropped. Notices are ranked by severity, and planned works only fill rows left
 over.
 

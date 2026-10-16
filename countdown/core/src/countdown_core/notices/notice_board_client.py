@@ -9,17 +9,17 @@ from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.i18n import N_, local_zone
 from countdown_core.notices.calendar import BankHolidaySource, ClockChangeSource
-from countdown_core.notices.entur import EnturSituationsSource
 from countdown_core.notices.floods import FloodWarningsSource
 from countdown_core.notices.location import lookup_postcode
 from countdown_core.notices.met_office import MetOfficeWarningsSource
 from countdown_core.notices.norway import MetAlertsSource, NorwegianHolidaySource, lookup_norwegian_postcode
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
-from countdown_core.notices.tfl import TflLineStatusSource, TflRoadSource, TflStationSource
+from countdown_core.notices.tfl import TflRoadSource
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from countdown_core.core.style import Style
-    from countdown_core.departures.departures_client import DeparturesSettings
     from countdown_core.notices.notice import Notice, NoticeSource
     from countdown_core.system_screens.message_panel import MessagePanel
     from countdown_core.tfl.models import Postcode
@@ -36,27 +36,33 @@ LOCATION_RETRY = timedelta(minutes=10)
 
 @dataclass(frozen=True)
 class NoticeBoardSettings:
-    """What the notice board is configured with: the broker's `notice_board` section, and the departures' stops.
+    """What the notice board is configured with: the broker's `notice_board` section, and the TfL app key.
 
-    The disruptions are about the stops' lines and stations. Compared by value, so a change to either makes
-    AbstractClient.needs_refresh rebuild the board.
+    The board's own sources are about the postcode's place; the disruptions at the stops come from the departures
+    client (see use_client_sources). Compared by value, so a change makes AbstractClient.needs_refresh rebuild the
+    board.
     """
 
     postcode: str | None
-    departures: DeparturesSettings
     # The postcode's country; None for a broker that predates it, whose postcodes are all British.
     country: str | None = None
     # How the board is drawn (the config's style, see panel_style); a broker that predates both gets hero.
     style: Style = "hero"
+    # For the road incidents near the postcode, which TfL reports.
+    tfl_app_key: str = ""
 
     @property
     def tfl(self) -> Tfl:
-        """The TfL stops alone, for the TfL disruption sources."""
-        return Tfl(app_key=self.departures.tfl_app_key, stop_ids=self.departures.stop_ids("tfl"))
+        """The app key as the TfL sources take it."""
+        return Tfl(app_key=self.tfl_app_key, stop_ids=[])
 
 
 class NoticeBoardClient(AbstractClient):
-    """Polls the notice sources, each on its own refresh_interval, and shows what they report, most severe first."""
+    """Polls the notice sources, each on its own refresh_interval, and shows what they report, most severe first.
+
+    Its own sources are about the postcode's place (holidays, weather warnings, floods, roads); the other clients
+    hand it theirs, about what they show (the departures' disruptions at their stops).
+    """
 
     panel_title = N_("Notices")
 
@@ -68,10 +74,8 @@ class NoticeBoardClient(AbstractClient):
         self.sources: list[NoticeSource] = [ClockChangeSource(self.session)]
         if not config.postcode:
             self.sources.append(self._default_holidays())
-        if config.tfl.stop_ids:
-            self.sources += [TflLineStatusSource(self.session, config.tfl), TflStationSource(self.session, config.tfl)]
-        if entur_stops := config.departures.stop_ids("entur"):
-            self.sources.append(EnturSituationsSource(self.session, entur_stops))
+        # The other clients' sources, given by the registry (use_client_sources).
+        self.client_sources: list[NoticeSource] = []
         self.tfl_config = config.tfl
         self.style = config.style
         # Location-based sources are added once the postcode is looked up (_ensure_location).
@@ -84,6 +88,16 @@ class NoticeBoardClient(AbstractClient):
     @override
     def _initialise(self) -> None:
         pass  # nothing to set up that update() can't retry on its own
+
+    def use_client_sources(self, sources: Iterable[NoticeSource]) -> None:
+        """Poll `sources`, the other clients' notice sources, from now on, in place of the ones given before.
+
+        A source that's no longer given takes its notices with it; one given again keeps them.
+        """
+        self.client_sources = list(sources)
+        kept = set(self.client_sources) | set(self.sources)
+        self.fetched = {source: answer for source, answer in self.fetched.items() if source in kept}
+        self.last_tried = {source: when for source, when in self.last_tried.items() if source in kept}
 
     def _default_holidays(self) -> NoticeSource:
         """Pick the holidays for a screen whose postcode doesn't say where it is.
@@ -150,15 +164,17 @@ class NoticeBoardClient(AbstractClient):
     def _update(self) -> MessagePanel | NoticeBoardPanel:
         now = datetime.now(UTC)
         self._ensure_location(now)
-        for source in self.sources:
+        # The other clients' first, so their disruptions rank above the place's notices of the same severity.
+        sources = self.client_sources + self.sources
+        for source in sources:
             self._refresh(source, now)
 
-        online = [source for source in self.sources if source.needs_network]
+        online = [source for source in sources if source.needs_network]
         if online and not any(source in self.fetched for source in online):
             msg = "None of the notice sources could be reached"
             raise RuntimeError(msg)
 
-        order = {source: i for i, source in enumerate(self.sources)}
+        order = {source: i for i, source in enumerate(sources)}
         active = [
             (notice, order[source])
             for source, (fetched_at, notices) in self.fetched.items()
