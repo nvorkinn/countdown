@@ -1,11 +1,12 @@
 import asyncio
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
 import requests
 import responses
 from config_factory import make_config
-from PIL import Image
+from PIL import Image, ImageDraw
 from test_utils import REGISTRATION
 
 from countdown_api.models import Tfl
@@ -23,6 +24,7 @@ from countdown_core.notices.notice_board_client import NoticeBoardClient, Notice
 from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
 from countdown_core.notices.tfl import TFL_URL, TflLineStatusSource, TflRoadSource, TflStationSource
 from countdown_core.tfl.models import Postcode
+from countdown_core.utils.clock import format_clock
 
 NOW = datetime(2026, 9, 25, 12, 0, tzinfo=UTC)
 SOUTHWARK = Postcode(
@@ -65,12 +67,15 @@ def test_met_office_reads_colour_hazard_and_end_time():
     notices = parse_warnings(AMBER_AND_YELLOW, NOW)
 
     assert [(n.severity, n.text) for n in notices] == [
-        (Severity.WARNING, "Amber warning: wind until Fri 21:00"),
-        (Severity.INFO, "Yellow warning: rain until Sat 09:00"),
+        (Severity.WARNING, "Amber warning: wind until Fri"),
+        (Severity.INFO, "Yellow warning: rain until Sat"),
         (Severity.WARNING, "Something the Met Office has never said before"),
     ]
     assert notices[0].valid_until == datetime(2026, 9, 25, 20, 0, tzinfo=UTC)  # 21:00 BST
+    assert notices[0].display_time == notices[0].valid_until
+    assert notices[0].display_time.hour == 21
     assert notices[2].valid_until is None
+    assert notices[2].display_time is None
 
 
 def test_met_office_warning_into_january_read_in_december_ends_next_year():
@@ -85,6 +90,75 @@ def test_met_office_warning_into_january_read_in_december_ends_next_year():
 
 def test_met_office_empty_feed_has_no_notices():
     assert parse_warnings(b"<rss><channel><title>Met Office warnings</title></channel></rss>", NOW) == []
+
+
+@pytest.mark.parametrize(
+    ("now", "hour_24", "hour_12"),
+    [
+        (datetime(2026, 10, 24, 18, tzinfo=UTC), "02:00", "2:00 AM"),
+        (datetime(2027, 3, 27, 18, tzinfo=UTC), "01:00", "1:00 AM"),
+    ],
+)
+@pytest.mark.parametrize("width", [262, 470, 790])
+def test_cached_notice_clocks_reformat_without_rewriting_feed_text(now, hour_24, hour_12, width, monkeypatch):
+    warnings = parse_warnings(AMBER_AND_YELLOW, NOW)
+    reminders = ClockChangeSource(requests.Session()).fetch(now)
+    free_text = "Works at 18:00"
+    notices = [*warnings[:2], *reminders, Notice("TfL", Severity.INFO, free_text)]
+    expiries = [n.valid_until for n in notices]
+    panel = NoticeBoardPanel(notices)
+    texts = []
+    original = ImageDraw.ImageDraw.text
+
+    def record(draw, xy, text, *args, font=None, anchor=None, **kwargs):
+        if anchor == "lm":
+            left, top, right, bottom = draw.textbbox(xy, text, font=font, anchor=anchor)
+            assert 4 <= left < right <= width - 4
+            assert 4 <= top < bottom <= 200 - 4
+            texts.append(text)
+        return original(draw, xy, text, *args, font=font, anchor=anchor, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
+    first = panel.render(width, 200)
+    if width >= 470:
+        assert any(text.endswith("21:00") for text in texts)
+        assert any(text.endswith("09:00") for text in texts)
+        assert any(text.endswith(hour_24) for text in texts)
+    legacy_notices = [
+        replace(n, text=f"{n.text} {format_clock(n.display_time)}", display_time=None) if n.display_time else n
+        for n in notices
+    ]
+    assert first.tobytes() == NoticeBoardPanel(legacy_notices).render(width, 200).tobytes()
+    texts.clear()
+
+    panel.render(width, 200, clock_format="12h")
+    assert any(text.endswith("9:00 PM") for text in texts)
+    assert any(text.endswith("9:00 AM") for text in texts)
+    assert any(text.endswith(hour_12) for text in texts)
+    assert free_text in texts
+    assert [n.valid_until for n in notices] == expiries
+    assert first.tobytes() == panel.render(width, 200).tobytes()
+
+
+@pytest.mark.parametrize(
+    ("hhmm", "expected"),
+    [("0007", "12:07 AM"), ("1207", "12:07 PM")],
+)
+def test_warning_expiry_midnight_and_noon_are_formatted_when_drawn(hhmm, expected, monkeypatch):
+    feed = f"""<rss><channel><item><title>Yellow warning of rain affecting London</title>
+        <description>valid from 0000 Fri 25 Sep to {hhmm} Sat 26 Sep</description></item></channel></rss>""".encode()
+    [notice] = parse_warnings(feed, NOW)
+    texts = []
+    original = ImageDraw.ImageDraw.text
+
+    def record(draw, xy, text, *args, **kwargs):
+        texts.append(text)
+        return original(draw, xy, text, *args, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
+    NoticeBoardPanel([notice]).render(790, 100, clock_format="12h")
+
+    assert f"Yellow warning: rain until Sat {expected}" in texts
 
 
 @pytest.mark.parametrize(
@@ -418,16 +492,16 @@ def test_bank_holidays_are_downloaded_once_a_day(api):
     ("now", "expected"),
     [
         (datetime(2026, 9, 25, 12, tzinfo=UTC), []),  # a month out
-        (datetime(2026, 10, 20, 12, tzinfo=UTC), ["Clocks go back an hour on Sun 25 Oct, at 2am"]),
-        (datetime(2026, 10, 24, 18, tzinfo=UTC), ["Clocks go back an hour tonight, at 2am"]),
+        (datetime(2026, 10, 20, 12, tzinfo=UTC), ["Clocks go back an hour on Sun 25 Oct, at 02:00"]),
+        (datetime(2026, 10, 24, 18, tzinfo=UTC), ["Clocks go back an hour tonight, at 02:00"]),
         (datetime(2026, 10, 25, 3, tzinfo=UTC), []),  # already changed
-        (datetime(2027, 3, 22, 12, tzinfo=UTC), ["Clocks go forward an hour on Sun 28 Mar, at 1am"]),
+        (datetime(2027, 3, 22, 12, tzinfo=UTC), ["Clocks go forward an hour on Sun 28 Mar, at 01:00"]),
     ],
 )
 def test_clock_change_is_mentioned_in_the_week_before(now, expected):
     notices = ClockChangeSource(requests.Session()).fetch(now)
 
-    assert [n.text for n in notices] == expected
+    assert [f"{n.text} {format_clock(n.display_time)}" for n in notices] == expected
     assert all(n.severity == Severity.REMINDER for n in notices)
 
 

@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 from countdown_core.core.panel import Panel
 from countdown_core.tfl.arrival_styles import STYLES
 from countdown_core.tfl.models import ArrivalUnion
+from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import UBUNTU_BOLD, UBUNTU_CONDENSED, UBUNTU_MEDIUM, truncate_to_fit
 
 # How a stop's departures are drawn: the config's tfl.style.
@@ -73,7 +74,7 @@ class AbstractArrivalPanel(Panel, ABC):
     @abstractmethod
     def _destination(arrival: ArrivalUnion) -> str: ...
 
-    def render(self, image_width, image_height) -> Image.Image:
+    def render(self, image_width, image_height, *, clock_format: ClockFormat = "24h") -> Image.Image:
         if self.style != "classic":
             return STYLES[self.style](self, image_width, image_height)
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))

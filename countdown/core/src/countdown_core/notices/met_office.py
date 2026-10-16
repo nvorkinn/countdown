@@ -121,8 +121,8 @@ def parse_warnings(feed: bytes, now: datetime) -> list[Notice]:
         else:
             text, severity = title, Severity.WARNING
         if valid_until is not None:
-            text += f" until {valid_until:%a %H:%M}"
-        notices.append(Notice("Met Office", severity, text, valid_until))
+            text += f" until {valid_until:%a}"
+        notices.append(Notice("Met Office", severity, text, valid_until, display_time=valid_until))
     return notices
 
 

@@ -4,6 +4,7 @@ from math import ceil, floor, log10
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
+from countdown_core.utils.clock import ClockFormat, format_clock
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI
 
 TITLE_FONT = GOOGLE_SEMI.font_variant(size=16)
@@ -25,7 +26,7 @@ GRID_DOT_SPACING = 4  # gridlines are dotted - there's no grey on the e-paper
 PAGES = [
     {
         "title": "Last 24 hours (kWh)",
-        "label_fn": lambda iso: datetime.fromisoformat(iso).strftime("%H:%M"),
+        "label_fn": None,
     },
     {
         "title": "Last 31 days (kWh)",
@@ -44,7 +45,7 @@ class EnergyPanel(Panel):
         self.page_index = page_index
         self.readings = readings
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         """A bar chart of one page's readings ({"start": iso-string, "kwh": float} dicts).
         Bars on whole-pixel edges and 1-bit text, so there's nothing grey to dither."""
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
@@ -58,7 +59,13 @@ class EnergyPanel(Panel):
             draw.text((image_width / 2, image_height / 2), "No data", "black", font=NO_DATA_FONT, anchor="mm")
             return img
 
-        labels = [page["label_fn"](row["start"]) for row in self.readings]
+        label_fn = page["label_fn"]
+        labels = [
+            label_fn(row["start"])
+            if label_fn is not None
+            else format_clock(datetime.fromisoformat(row["start"]), clock_format)
+            for row in self.readings
+        ]
         values = [row["kwh"] for row in self.readings]
 
         step, axis_max = self._y_scale(max(values))

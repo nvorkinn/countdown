@@ -11,6 +11,7 @@ from countdown_core.core.panel import Panel
 from countdown_core.rendering.layout import Box, Frame, Layout
 from countdown_core.rendering.screen import Canvas
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
+from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import GAP
 
 # Where every variant puts the arrivals panel, the part of the screen that changes every
@@ -39,45 +40,67 @@ class ClassicLayout(Layout):
     SHOWS_ENERGY = False
 
     @override
-    def render(self, panels: dict[str, Panel], canvas: Canvas) -> Frame:
+    def render(self, panels: dict[str, Panel], canvas: Canvas, *, clock_format: ClockFormat = "24h") -> Frame:
         img = Image.new("RGBA", canvas.size, (255, 255, 255, 255))
         spotify_room = SPOTIFY_HEIGHT + GAP if self.SHOWS_SPOTIFY else 0
         notices_room = canvas.height - self.ARRIVALS_HEIGHT - 3 * GAP - spotify_room
         notices_height, spare = self._fit_notices(panels, notices_room)
-        arrivals_box = self._draw_top_row(img, panels, canvas, self.ARRIVALS_HEIGHT + spare)
+        arrivals_box = self._draw_top_row(img, panels, canvas, self.ARRIVALS_HEIGHT + spare, clock_format)
 
         width = self._column_width(canvas, arrivals_box)
         bottom = canvas.height - GAP
         if notices_height:
             bottom -= notices_height
-            self._place(img, panels[ClientClasses.NOTICE_BOARD.api_name], GAP, bottom, width, notices_height)
+            self._place(
+                img,
+                panels[ClientClasses.NOTICE_BOARD.api_name],
+                GAP,
+                bottom,
+                width,
+                notices_height,
+                clock_format=clock_format,
+            )
             bottom -= GAP
         if self.SHOWS_SPOTIFY:
             spotify_panel = panels[ClientClasses.SPOTIFY.api_name]
-            self._place(img, spotify_panel, GAP, bottom - SPOTIFY_HEIGHT, width, SPOTIFY_HEIGHT)
+            self._place(
+                img, spotify_panel, GAP, bottom - SPOTIFY_HEIGHT, width, SPOTIFY_HEIGHT, clock_format=clock_format
+            )
         if self.SHOWS_ENERGY:
             x, y = GAP + width + GAP, GAP + self.ARRIVALS_HEIGHT + GAP
             energy_panel = panels[ClientClasses.GLOWMARKT.api_name]
-            self._place(img, energy_panel, x, y, canvas.width - x - GAP, canvas.height - y - GAP)
+            self._place(
+                img, energy_panel, x, y, canvas.width - x - GAP, canvas.height - y - GAP, clock_format=clock_format
+            )
         return Frame(img, arrivals_box)
 
     def _column_width(self, canvas: Canvas, arrivals_box: Box) -> int:
         """How wide Spotify and the notices are drawn."""
         return canvas.width - 2 * GAP
 
-    def _draw_top_row(self, img: Image.Image, panels: dict[str, Panel], canvas: Canvas, height: int) -> Box:
+    def _draw_top_row(
+        self, img: Image.Image, panels: dict[str, Panel], canvas: Canvas, height: int, clock_format: ClockFormat
+    ) -> Box:
         """The arrivals, `height` tall, with the weather beside them, at the same place in every
         variant so the arrivals' partial refreshes keep working. Returns the arrivals' box."""
         arrival_panel = panels[ClientClasses.TFL.api_name]
         arrivals_width = canvas.width if isinstance(arrival_panel, CombinedArrivalPanel) else ARRIVALS_MESSAGE_WIDTH
         x, y = ARRIVALS_ORIGIN
-        arrivals = self._place(img, arrival_panel, x, y, arrivals_width, height)
+        arrivals = self._place(img, arrival_panel, x, y, arrivals_width, height, clock_format=clock_format)
         arrivals_box = (x, y, x + arrivals.size[0], y + arrivals.size[1])
 
         weather_x = arrivals_box[2] + GAP
         weather_height = self.ARRIVALS_HEIGHT if self.SHOWS_ENERGY else height
         weather_panel = panels[ClientClasses.WEATHER.api_name]
-        self._place(img, weather_panel, weather_x, y, canvas.width - weather_x - GAP, weather_height)
+        self._place(
+            img,
+            weather_panel,
+            weather_x,
+            y,
+            canvas.width - weather_x - GAP,
+            weather_height,
+            clock_format=clock_format,
+        )
         return arrivals_box
 
 

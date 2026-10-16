@@ -2,6 +2,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
 from countdown_core.spotify.spotify_panel import truncate_to_fit
+from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS
 from countdown_core.weather.models import Weather, WeatherPeriod
 
@@ -13,7 +14,7 @@ class WeatherPanel(Panel):
         super().__init__()
         self.weather = weather
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"
