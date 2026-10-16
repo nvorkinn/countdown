@@ -187,8 +187,8 @@ def _mock_forecast() -> None:
         FORECAST_URL,
         json=forecast_json(
             current={"temperature_2m": -20.0, "weather_code": 45, "is_day": 0},
-            daily={"temperature_2m_max": [-7.8, -8.0], "temperature_2m_min": [-20.1, -21.0]}
-            | {"precipitation_probability_max": [None, None]},
+            daily={"temperature_2m_max": [-7.8] + [-8.0] * 7, "temperature_2m_min": [-20.1] + [-21.0] * 7}
+            | {"precipitation_probability_max": [None] * 8},
         ),
     )
 

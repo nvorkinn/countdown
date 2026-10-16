@@ -1,8 +1,9 @@
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
+from countdown_core.spotify.spotify_panel import truncate_to_fit
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS
-from countdown_core.weather.models import Weather
+from countdown_core.weather.models import Weather, WeatherPeriod
 
 FALLBACK_ICON = ")"  # "N/A"
 
@@ -26,31 +27,31 @@ class WeatherPanel(Panel):
         width = min(image_width - 32 * scale, 310 * scale)
         x = (image_width - width) / 2
         y = (image_height - 185 * scale) / 2
-        label = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
-        draw.text((x, y + 16 * scale), "NOW", "black", font=label, anchor="lt")
+        _draw_tabs(draw, weather.period, (x, y + 11 * scale), width, scale)
+        _draw_shrunk_to_fit(draw, (x, y + 44 * scale), _caption(weather), GOOGLE_SEMI, width, round(9 * scale))
 
         icon_size = round(min(80 * scale, width * 0.28))
         _draw_temperature(
             draw,
-            (x, y + 93 * scale),
-            f"{weather.temperature:.1f}",
+            (x, y + 101 * scale),
+            _temperature_text(weather, decimals=1),
             weather.temperature_units,
             width - icon_size - 18 * scale,
-            round(64 * scale),
+            round(52 * scale),
         )
         _draw_centered(
             draw,
             icon_for(weather.weather_code, weather.is_day),
-            (x + width - icon_size / 2, y + 65 * scale),
+            (x + width - icon_size / 2, y + 80 * scale),
             METEOCONS.font_variant(size=max(1, icon_size)),
         )
         _draw_shrunk_to_fit(
             draw,
-            (image_width / 2, y + 116 * scale),
-            WEATHER_CODE_DESC.get(weather.weather_code, "Unknown conditions"),
+            (image_width / 2, y + 124 * scale),
+            _condition(weather),
             GOOGLE_REGULAR,
             width,
-            round(15 * scale),
+            round(13 * scale),
             anchor="mm",
         )
 
@@ -65,34 +66,32 @@ class WeatherPanel(Panel):
         width = image_width - 2 * x
         current_width = width * 0.49
         weather = self.weather
-        label = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
-        draw.text((x, y + 8 * scale), "NOW", "black", font=label, anchor="lt")
-        icon_size = round(42 * scale)
+        _draw_tabs(draw, weather.period, (x, y + 5 * scale), width, scale)
+        icon_size = round(31 * scale)
         _draw_temperature(
             draw,
-            (x, y + 49 * scale),
-            f"{weather.temperature:.1f}",
+            (x, y + 64 * scale),
+            _temperature_text(weather, decimals=1),
             weather.temperature_units,
-            current_width - icon_size - 18 * scale,
-            round(42 * scale),
+            119 * scale,
+            round(34 * scale),
         )
         _draw_centered(
             draw,
             icon_for(weather.weather_code, weather.is_day),
-            (x + current_width - icon_size / 2, y + 29 * scale),
+            (x + current_width - icon_size / 2, y + 53 * scale),
             METEOCONS.font_variant(size=max(1, icon_size)),
         )
-        _draw_shrunk_to_fit(
-            draw,
-            (x, y + 66 * scale),
-            WEATHER_CODE_DESC.get(weather.weather_code, "Unknown conditions"),
-            GOOGLE_REGULAR,
-            current_width,
-            round(14 * scale),
-            anchor="ls",
+        detail_font = GOOGLE_REGULAR.font_variant(size=max(1, round(11 * scale)))
+        draw.text(
+            (x + 128 * scale, y + 57 * scale),
+            truncate_to_fit(_condition(weather), detail_font, current_width - icon_size - 142 * scale),
+            "black",
+            font=detail_font,
+            anchor="lm",
         )
         gutter = 28 * scale
-        self._draw_readings(draw, (x + current_width + gutter, y + 22 * scale), width - current_width - gutter, scale)
+        self._draw_readings(draw, (x + current_width + gutter, y + 35 * scale), width - current_width - gutter, scale)
 
     def _draw_readings(self, draw: ImageDraw.ImageDraw, coord: tuple[float, float], width: float, scale: float) -> None:
         weather = self.weather
@@ -107,13 +106,78 @@ class WeatherPanel(Panel):
             draw.text((center, y), title, "black", font=label, anchor="mt")
             _draw_shrunk_to_fit(
                 draw,
-                (center, y + 30 * scale),
+                (center, y + 29 * scale),
                 value,
                 GOOGLE_REGULAR,
                 column_width - 8 * scale,
-                round(20 * scale),
+                round(18 * scale),
                 anchor="ms",
             )
+
+
+def _draw_tabs(
+    draw: ImageDraw.ImageDraw,
+    selected: WeatherPeriod,
+    coord: tuple[float, float],
+    width: float,
+    scale: float,
+) -> None:
+    labels = [period.value.upper() for period in WeatherPeriod]
+    font = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
+    padding, gap, height = 13 * scale, 8 * scale, 25 * scale
+    if sum(font.getlength(label) + 2 * padding for label in labels) + 3 * gap > width:
+        labels = ["NOW", "NIGHT", "TMRW", "WKND"]
+        font = GOOGLE_SEMI.font_variant(size=max(1, round(10 * scale)))
+        padding, gap, height = 7 * scale, 4 * scale, 21 * scale
+    x, y = coord
+    for period, label in zip(WeatherPeriod, labels, strict=True):
+        tab_width = font.getlength(label) + 2 * padding
+        active = period is selected
+        if active:
+            draw.rounded_rectangle((x, y, x + tab_width, y + height), radius=height / 2, fill="black")
+        draw.text(
+            (x + tab_width / 2, y + height / 2),
+            label,
+            "white" if active else "black",
+            font=font,
+            anchor="mm",
+        )
+        x += tab_width + gap
+
+
+def _caption(weather: Weather) -> str:
+    if weather.period is WeatherPeriod.WEEKEND:
+        if len(weather.days) != 2:
+            raise ValueError("The weekend page needs Saturday and Sunday readings")
+        first, last = weather.days
+        dates = (
+            f"{first.date.day}-{last.date.day} {last.date:%b}"
+            if first.date.month == last.date.month
+            else f"{first.date.day} {first.date:%b} - {last.date.day} {last.date:%b}"
+        )
+        return f"DAYTIME HIGHS / {dates.upper()}"
+    return {
+        WeatherPeriod.NOW: "CURRENT CONDITIONS",
+        WeatherPeriod.TONIGHT: "OVERNIGHT LOW",
+        WeatherPeriod.TOMORROW: "DAYTIME HIGH",
+    }[weather.period]
+
+
+def _temperature_text(weather: Weather, decimals: int = 0) -> str:
+    if weather.period is WeatherPeriod.WEEKEND:
+        if len(weather.days) != 2:
+            raise ValueError("The weekend page needs Saturday and Sunday readings")
+        low, high = min(round(day.high) for day in weather.days), max(round(day.high) for day in weather.days)
+        return f"{low}–{high}" if low != high else str(high)
+    if weather.period is WeatherPeriod.NOW and decimals:
+        return f"{weather.temperature:.{decimals}f}"
+    return str(round(weather.temperature))
+
+
+def _condition(weather: Weather) -> str:
+    if weather.period is WeatherPeriod.WEEKEND and len({day.weather_code for day in weather.days}) > 1:
+        return "Mixed skies"
+    return WEATHER_CODE_DESC.get(weather.weather_code, "Unknown conditions")
 
 
 def _draw_temperature(

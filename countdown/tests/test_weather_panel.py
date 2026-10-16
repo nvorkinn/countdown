@@ -1,10 +1,12 @@
+import datetime as dt
 from itertools import combinations
 
 import pytest
 from PIL import ImageDraw
-from weather_factory import make_weather
+from weather_factory import forecast_json, make_weather
 
-from countdown_core.weather.models import Upcoming
+from countdown_core.weather.models import ForecastResponse, Upcoming, WeatherPeriod
+from countdown_core.weather.weather_forecast import weather_pages
 from countdown_core.weather.weather_panel import FALLBACK_ICON, ICON_MAP, WEATHER_CODE_DESC, WeatherPanel, icon_for
 from countdown_core.weather.weather_trmnl_panel import HEIGHT, WeatherTrmnlPanel, _compass
 
@@ -20,6 +22,25 @@ def drawn_text(monkeypatch):
 
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
     return calls
+
+
+def _assert_clear_text(calls, size):
+    width, height = size
+    for text, (left, top, right, bottom), _ in calls:
+        assert 4 <= left < right <= width - 4, text
+        assert 4 <= top < bottom <= height - 4, text
+    for first, second in combinations(calls, 2):
+        _, (left_a, top_a, right_a, bottom_a), _ = first
+        _, (left_b, top_b, right_b, bottom_b), _ = second
+        assert right_a <= left_b or right_b <= left_a or bottom_a <= top_b or bottom_b <= top_a, (
+            first,
+            second,
+        )
+
+
+@pytest.fixture
+def forecast_weather():
+    return {page.period: page for page in weather_pages(ForecastResponse.model_validate(forecast_json()))}
 
 
 @pytest.mark.parametrize("code", [0, 1, 2])
@@ -135,20 +156,9 @@ def test_weather_readings_have_clear_edges_and_never_overlap(panel_type, size, c
         upcoming_weather_code=(Upcoming.THIS_AFTERNOON, code),
     )
     img = panel_type(weather).render(*size)
-    width, height = size
-
     assert img.size == size
     assert set(img.getchannel("A").get_flattened_data()) == {0, 255}
-    for text, (left, top, right, bottom), _ in drawn_text:
-        assert 4 <= left < right <= width - 4, text
-        assert 4 <= top < bottom <= height - 4, text
-    for first, second in combinations(drawn_text, 2):
-        _, (left_a, top_a, right_a, bottom_a), _ = first
-        _, (left_b, top_b, right_b, bottom_b), _ = second
-        assert right_a <= left_b or right_b <= left_a or bottom_a <= top_b or bottom_b <= top_a, (
-            first,
-            second,
-        )
+    _assert_clear_text(drawn_text, size)
 
 
 @pytest.mark.parametrize(
@@ -166,9 +176,9 @@ def test_short_wide_panels_reflow_instead_of_miniaturizing_everything(drawn_text
     WeatherPanel(make_weather()).render(528, 76)
     sizes = {text: font_size for text, _, font_size in drawn_text}
 
-    assert sizes["14.2"] >= 40
+    assert sizes["14.2"] >= 32
     assert sizes["LOW"] >= 11
-    assert sizes["40%"] >= 20
+    assert sizes["40%"] >= 18
 
 
 @pytest.mark.parametrize("probability", [None, 0, 100])
@@ -202,6 +212,120 @@ def test_unknown_current_and_upcoming_weather_are_explicit(drawn_text):
     assert texts.count(FALLBACK_ICON) == 2
 
 
+@pytest.mark.parametrize(("panel_type", "size"), PANEL_SIZES)
+@pytest.mark.parametrize("period", [WeatherPeriod.TONIGHT, WeatherPeriod.TOMORROW, WeatherPeriod.WEEKEND])
+@pytest.mark.parametrize("code", [0, 99, 1234])
+def test_forecast_tabs_and_readings_never_overlap(panel_type, size, period, code, forecast_weather, drawn_text):
+    base = forecast_weather[period]
+    weather = base.model_copy(
+        update={
+            "temperature": -123.4,
+            "temperature_units": "°F",
+            "weather_code": code,
+            "low": -130,
+            "high": 100,
+            "feels_like": -123,
+            "precipitation_probability": 100,
+            "humidity": 100,
+            "wind_speed": 123,
+            "wind_speed_units": "mp/h",
+            "days": tuple(
+                day.model_copy(update={"high": 100 + index * 10, "low": -130, "weather_code": code})
+                for index, day in enumerate(base.days)
+            ),
+        }
+    )
+    image = panel_type(weather).render(*size)
+
+    assert image.size == size
+    assert set(image.getchannel("A").get_flattened_data()) == {0, 255}
+    _assert_clear_text(drawn_text, size)
+
+
+@pytest.mark.parametrize("period", list(WeatherPeriod))
+@pytest.mark.parametrize(
+    ("panel_type", "size", "labels"),
+    [
+        (WeatherTrmnlPanel, (470, HEIGHT), ["NOW", "TONIGHT", "TOMORROW", "WEEKEND"]),
+        (WeatherPanel, (242, 185), ["NOW", "NIGHT", "TMRW", "WKND"]),
+        (WeatherPanel, (528, 76), ["NOW", "TONIGHT", "TOMORROW", "WEEKEND"]),
+    ],
+)
+def test_only_the_selected_tab_has_a_filled_pill(panel_type, size, labels, period, forecast_weather, monkeypatch):
+    white_text = []
+    original = ImageDraw.ImageDraw.text
+
+    def record(draw, xy, text, fill=None, **kwargs):
+        if fill == "white":
+            white_text.append(text)
+        return original(draw, xy, text, fill=fill, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
+    panel_type(forecast_weather[period]).render(*size)
+
+    assert white_text == [labels[list(WeatherPeriod).index(period)]]
+
+
+@pytest.mark.parametrize(
+    ("period", "expected"),
+    [
+        (WeatherPeriod.TONIGHT, {"OVERNIGHT LOW", "8", "Feels like", "6°", "65%", "18:00 - 06:00"}),
+        (WeatherPeriod.TOMORROW, {"DAYTIME HIGH", "17", "8°", "10%", "FRIDAY 16 JANUARY"}),
+        (WeatherPeriod.WEEKEND, {"15–17", "Mixed skies", "SATURDAY", "SUNDAY", "17° / 9°", "15° / 8°"}),
+    ],
+)
+def test_forecast_readings_match_the_selected_period(period, expected, forecast_weather, drawn_text):
+    WeatherTrmnlPanel(forecast_weather[period]).render(470, HEIGHT)
+
+    assert expected <= {text for text, _, _ in drawn_text}
+
+
+@pytest.mark.parametrize(
+    ("period", "condition"),
+    [(WeatherPeriod.TONIGHT, "Slight rain"), (WeatherPeriod.WEEKEND, "Mixed skies")],
+)
+def test_short_wide_forecasts_keep_a_readable_condition(period, condition, forecast_weather, drawn_text):
+    WeatherPanel(forecast_weather[period]).render(528, 76)
+
+    assert condition in {text for text, _, _ in drawn_text}
+
+
+@pytest.mark.parametrize("probability", [None, 0])
+@pytest.mark.parametrize("period", [WeatherPeriod.TONIGHT, WeatherPeriod.TOMORROW, WeatherPeriod.WEEKEND])
+def test_optional_rain_readings_reflow_on_forecast_pages(probability, period, forecast_weather, drawn_text):
+    weather = forecast_weather[period].model_copy(update={"precipitation_probability": probability})
+    WeatherTrmnlPanel(weather).render(470, HEIGHT)
+    texts = {text for text, _, _ in drawn_text}
+
+    if probability is None:
+        assert "Rain" not in texts
+    else:
+        assert {"Rain", "0%"} <= texts
+    _assert_clear_text(drawn_text, (470, HEIGHT))
+
+
+def test_weekend_dates_show_both_months_when_needed(drawn_text):
+    weather = weather_pages(ForecastResponse.model_validate(forecast_json(start=dt.date(2026, 1, 31))))[3]
+    WeatherTrmnlPanel(weather).render(470, HEIGHT)
+
+    assert "DAYTIME HIGHS / 31 JAN - 1 FEB" in {text for text, _, _ in drawn_text}
+
+
+def test_rendering_a_page_does_not_advance_the_carousel(forecast_weather):
+    panel = WeatherPanel(forecast_weather[WeatherPeriod.TONIGHT])
+    frames = [panel.render(242, 185).tobytes() for _ in range(3)]
+
+    assert frames[0] == frames[1] == frames[2]
+    assert panel.weather.period is WeatherPeriod.TONIGHT
+
+
+def test_an_incomplete_weekend_is_an_explicit_error(forecast_weather):
+    weather = forecast_weather[WeatherPeriod.WEEKEND].model_copy(update={"days": ()})
+
+    with pytest.raises(ValueError, match="Saturday and Sunday"):
+        WeatherPanel(weather).render(242, 185)
+
+
 @pytest.mark.parametrize(
     ("name", "panel_type", "size", "overrides"),
     [
@@ -232,3 +356,17 @@ def test_unknown_current_and_upcoming_weather_are_explicit(drawn_text):
 )
 def test_weather_layout_snapshots(snapshot, name, panel_type, size, overrides):
     snapshot.assert_matches(name, panel_type(make_weather(**overrides)).render(*size), threshold=0.01)
+
+
+@pytest.mark.parametrize("period", [WeatherPeriod.TONIGHT, WeatherPeriod.TOMORROW, WeatherPeriod.WEEKEND])
+@pytest.mark.parametrize(
+    ("layout", "panel_type", "size"),
+    [
+        ("portrait", WeatherTrmnlPanel, (470, HEIGHT)),
+        ("compact", WeatherPanel, (242, 185)),
+        ("inline", WeatherPanel, (528, 76)),
+    ],
+)
+def test_forecast_layout_snapshots(snapshot, period, layout, panel_type, size, forecast_weather):
+    image = panel_type(forecast_weather[period]).render(*size)
+    snapshot.assert_matches(f"weather_carousel_{period.value.lower()}_{layout}", image, threshold=0.01)
