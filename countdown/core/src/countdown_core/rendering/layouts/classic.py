@@ -1,8 +1,7 @@
 """The dashboard as it has always looked on an 800x480 screen hung landscape: the arrivals and
-weather along the top, and below them whichever of the notices, Spotify and the energy chart
+weather along the top, and below them whichever of Spotify, the notices and the energy chart
 the device can show. One variant per combination of Spotify and Glowmarkt."""
 
-from abc import abstractmethod
 from typing import override
 
 from PIL import Image
@@ -25,108 +24,95 @@ SPOTIFY_HEIGHT = 120
 
 
 class ClassicLayout(Layout):
+    """Bottom up, in the column below the arrivals (the whole width without the energy chart):
+    the notices, only as tall as their rows, then Spotify. The arrivals take the rest, so
+    fewer notices mean more departures."""
+
     layout_id = "classic"
     canvases = frozenset({Canvas(800, 480)})
 
+    # The arrivals' height when the notices fill all the room they may have.
     ARRIVALS_HEIGHT = 185
+    SHOWS_SPOTIFY = False
+    # The energy chart goes under the weather, which then keeps its height while the
+    # arrivals grow beside it.
+    SHOWS_ENERGY = False
 
     @override
     def render(self, panels: dict[str, Panel], canvas: Canvas) -> Frame:
         img = Image.new("RGBA", canvas.size, (255, 255, 255, 255))
-        arrivals_box, below_top_row = self._draw_top_row(img, panels, canvas)
-        self._draw_below(img, panels, canvas, arrivals_box, below_top_row)
+        spotify_room = SPOTIFY_HEIGHT + GAP if self.SHOWS_SPOTIFY else 0
+        notices_room = canvas.height - self.ARRIVALS_HEIGHT - 3 * GAP - spotify_room
+        notices_height, spare = self._fit_notices(panels, notices_room)
+        arrivals_box = self._draw_top_row(img, panels, canvas, self.ARRIVALS_HEIGHT + spare)
+
+        width = self._column_width(canvas, arrivals_box)
+        bottom = canvas.height - GAP
+        if notices_height:
+            bottom -= notices_height
+            self._place(img, panels[ClientClasses.NOTICE_BOARD.api_name], GAP, bottom, width, notices_height)
+            bottom -= GAP
+        if self.SHOWS_SPOTIFY:
+            spotify_panel = panels[ClientClasses.SPOTIFY.api_name]
+            self._place(img, spotify_panel, GAP, bottom - SPOTIFY_HEIGHT, width, SPOTIFY_HEIGHT)
+        if self.SHOWS_ENERGY:
+            x, y = GAP + width + GAP, GAP + self.ARRIVALS_HEIGHT + GAP
+            energy_panel = panels[ClientClasses.GLOWMARKT.api_name]
+            self._place(img, energy_panel, x, y, canvas.width - x - GAP, canvas.height - y - GAP)
         return Frame(img, arrivals_box)
 
-    @abstractmethod
-    def _draw_below(
-        self, img: Image.Image, panels: dict[str, Panel], canvas: Canvas, arrivals_box: Box, below_top_row: int
-    ) -> None:
-        """What goes under the arrivals and weather: the part the variants differ in."""
+    def _column_width(self, canvas: Canvas, arrivals_box: Box) -> int:
+        """How wide Spotify and the notices are drawn."""
+        return canvas.width - 2 * GAP
 
-    def _draw_top_row(self, img: Image.Image, panels: dict[str, Panel], canvas: Canvas) -> tuple[Box, int]:
-        """The arrivals and weather, the same in every variant so the arrivals' partial
-        refreshes keep working. Returns the arrivals' box and the y below the row."""
+    def _draw_top_row(self, img: Image.Image, panels: dict[str, Panel], canvas: Canvas, height: int) -> Box:
+        """The arrivals, `height` tall, with the weather beside them, at the same place in every
+        variant so the arrivals' partial refreshes keep working. Returns the arrivals' box."""
         arrival_panel = panels[ClientClasses.TFL.api_name]
         arrivals_width = canvas.width if isinstance(arrival_panel, CombinedArrivalPanel) else ARRIVALS_MESSAGE_WIDTH
         x, y = ARRIVALS_ORIGIN
-        arrivals = self._place(img, arrival_panel, x, y, arrivals_width, self.ARRIVALS_HEIGHT)
+        arrivals = self._place(img, arrival_panel, x, y, arrivals_width, height)
         arrivals_box = (x, y, x + arrivals.size[0], y + arrivals.size[1])
 
         weather_x = arrivals_box[2] + GAP
+        weather_height = self.ARRIVALS_HEIGHT if self.SHOWS_ENERGY else height
         weather_panel = panels[ClientClasses.WEATHER.api_name]
-        self._place(img, weather_panel, weather_x, y, canvas.width - weather_x - GAP, arrivals.size[1])
-        return arrivals_box, arrivals_box[3] + GAP
+        self._place(img, weather_panel, weather_x, y, canvas.width - weather_x - GAP, weather_height)
+        return arrivals_box
 
 
 class SpotifyGlowLayout(ClassicLayout):
-    """Everything: the notices above Spotify on the left, the energy chart on the right."""
+    """Everything: the notices below Spotify on the left, the energy chart on the right."""
 
     requires = frozenset({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT})
+    SHOWS_SPOTIFY = True
+    SHOWS_ENERGY = True
 
     @override
-    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row):
-        spotify_y = canvas.height - SPOTIFY_HEIGHT - GAP
-        spotify = self._place(
-            img, panels[ClientClasses.SPOTIFY.api_name], GAP, spotify_y, SPOTIFY_WIDTH, SPOTIFY_HEIGHT
-        )
-
-        notices_panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
-        if notices_panel is not None:
-            self._place(img, notices_panel, GAP, below_top_row, spotify.size[0], spotify_y - GAP - below_top_row)
-
-        energy_x = GAP + spotify.size[0] + GAP
-        self._place(
-            img,
-            panels[ClientClasses.GLOWMARKT.api_name],
-            energy_x,
-            below_top_row,
-            canvas.width - energy_x - GAP,
-            canvas.height - below_top_row - GAP,
-        )
+    def _column_width(self, canvas, arrivals_box):
+        return SPOTIFY_WIDTH
 
 
 class SpotifyLayout(ClassicLayout):
-    """No energy chart (Glowmarkt isn't set up): the notices and Spotify both take the
-    full width below the arrivals and weather, so notices get longer lines."""
+    """No energy chart (Glowmarkt isn't set up): Spotify and the notices both take the full
+    width below the arrivals and weather, so notices get longer lines."""
 
     requires = frozenset({ClientClasses.SPOTIFY})
     excludes = frozenset({ClientClasses.GLOWMARKT})
-
-    @override
-    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row):
-        width = canvas.width - 2 * GAP
-        spotify_y = canvas.height - SPOTIFY_HEIGHT - GAP
-        self._place(img, panels[ClientClasses.SPOTIFY.api_name], GAP, spotify_y, width, SPOTIFY_HEIGHT)
-
-        notices_panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
-        if notices_panel is not None:
-            self._place(img, notices_panel, GAP, below_top_row, width, spotify_y - GAP - below_top_row)
+    SHOWS_SPOTIFY = True
 
 
 class GlowLayout(ClassicLayout):
-    """No Spotify: two columns below the top row -- the notices under the arrivals, the
-    energy chart under the weather."""
+    """No Spotify: two columns below the weather and the top of the arrivals -- the notices
+    under the arrivals, the energy chart under the weather."""
 
     requires = frozenset({ClientClasses.GLOWMARKT})
     excludes = frozenset({ClientClasses.SPOTIFY})
+    SHOWS_ENERGY = True
 
     @override
-    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row):
-        notices_panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
-        notices_width = arrivals_box[2] - arrivals_box[0]
-        if notices_panel is not None:
-            height = canvas.height - below_top_row - GAP
-            self._place(img, notices_panel, GAP, below_top_row, notices_width, height)
-
-        energy_x = GAP + notices_width + GAP
-        self._place(
-            img,
-            panels[ClientClasses.GLOWMARKT.api_name],
-            energy_x,
-            below_top_row,
-            canvas.width - energy_x - GAP,
-            canvas.height - below_top_row - GAP,
-        )
+    def _column_width(self, canvas, arrivals_box):
+        return arrivals_box[2] - arrivals_box[0]
 
 
 class BaseLayout(ClassicLayout):
@@ -136,13 +122,6 @@ class BaseLayout(ClassicLayout):
     excludes = frozenset({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT})
     stops_shown = 4
     ARRIVALS_HEIGHT = 185 * 2
-
-    @override
-    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row):
-        notices_panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
-        if notices_panel is not None:
-            width, height = canvas.width - 2 * GAP, canvas.height - below_top_row - GAP
-            self._place(img, notices_panel, GAP, below_top_row, width, height)
 
 
 # The first is what's drawn if no variant fits (never, while the four cover every combination).
