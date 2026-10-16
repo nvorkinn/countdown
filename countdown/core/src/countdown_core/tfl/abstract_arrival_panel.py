@@ -5,10 +5,9 @@ from typing import Literal
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
-from countdown_core.spotify.spotify_panel import truncate_to_fit
 from countdown_core.tfl.arrival_styles import STYLES
 from countdown_core.tfl.models import ArrivalUnion
-from countdown_core.utils.utils import UBUNTU_BOLD, UBUNTU_CONDENSED, UBUNTU_MEDIUM
+from countdown_core.utils.utils import UBUNTU_BOLD, UBUNTU_CONDENSED, UBUNTU_MEDIUM, truncate_to_fit
 
 # How a stop's departures are drawn: the config's tfl.style.
 Style = Literal["classic", "hero", "grouped", "card"]

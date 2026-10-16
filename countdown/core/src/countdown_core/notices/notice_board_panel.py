@@ -2,8 +2,7 @@ from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.notices.notice import Notice, Severity
-from countdown_core.spotify.spotify_panel import truncate_to_fit
-from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI
+from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, truncate_to_fit
 
 TITLE_FONT = GOOGLE_SEMI.font_variant(size=16)
 SOURCE_FONT = GOOGLE_SEMI

@@ -1,19 +1,30 @@
 import io
+from typing import Literal
 
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageOps
 
 from countdown_core.core.panel import Panel
 from countdown_core.spotify.models import Album, Artist, Queue
 from countdown_core.spotify.models import Image as AlbumImage
-from countdown_core.utils.utils import UBUNTU_BOLD_20, UBUNTU_MEDIUM_15, UBUNTU_MEDIUM_20
+from countdown_core.spotify.spotify_styles import STYLES
+from countdown_core.utils.utils import UBUNTU_BOLD_20, UBUNTU_MEDIUM_15, UBUNTU_MEDIUM_20, truncate_to_fit
+
+# How the Spotify panel is drawn: the config's spotify.style.
+Style = Literal["classic", "airy", "hero", "card"]
 
 
 class SpotifyPanel(Panel):
-    def __init__(self, queue: Queue) -> None:
+    def __init__(self, queue: Queue, style: Style = "classic") -> None:
         self.queue = queue
+        self.style = style
 
     def render(self, image_width: int, image_height: int) -> Image.Image:
+        if self.style != "classic":
+            album = self.queue.currently_playing.album
+            return STYLES[self.style].now(
+                self.queue, lambda size: _contrasty(_create_album_image_panel(album, size)), image_width, image_height
+            )
         album_image_panel = _create_album_image_panel(self.queue.currently_playing.album, image_height)
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
@@ -55,17 +66,6 @@ class SpotifyPanel(Panel):
         return img
 
 
-def truncate_to_fit(text: str, font: ImageFont.BaseImageFont, max_width: int) -> str:
-    """Truncates text with an ellipsis if it exceeds max_width pixels."""
-    if font.getlength(text) <= max_width:
-        return text
-
-    while text and font.getlength(text + "…") > max_width:
-        text = text[:-1]
-
-    return text + "…"
-
-
 def _create_album_image_panel(album: Album, height: int) -> Image.Image:
     """Downloads the album's art (see _pick_image) and scales it down to `height`. A local
     file has no art at all: that gets an empty (0-wide) image."""
@@ -76,6 +76,16 @@ def _create_album_image_panel(album: Album, height: int) -> Image.Image:
     converted = Image.open(io.BytesIO(response.content)).convert("RGBA")
     converted.thumbnail((height, height))
     return converted
+
+
+def _contrasty(art: Image.Image) -> Image.Image:
+    """The cover in grey with its contrast stretched, so it still reads once it's dithered to
+    black and white rather than turning to an even speckle."""
+    if not art.size[0]:
+        return art
+    grey = ImageOps.autocontrast(art.convert("L"), cutoff=2)
+    grey.putalpha(art.getchannel("A"))
+    return grey.convert("RGBA")
 
 
 def _pick_image(images: list[AlbumImage], height: int) -> AlbumImage:
