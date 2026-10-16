@@ -5,8 +5,7 @@ from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.spotify.models import Artist, TopResponse, Track
-from countdown_core.spotify.spotify_panel import truncate_to_fit
-from countdown_core.utils.utils import UBUNTU_MEDIUM_15
+from countdown_core.utils.utils import UBUNTU_MEDIUM_15, truncate_to_fit
 
 T = TypeVar("T", Artist, Track)
 

@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
-from countdown_core.spotify.spotify_panel import truncate_to_fit
-from countdown_core.utils.utils import ROUNDEL, fitted_font, google_symbols
+from countdown_core.utils.utils import ROUNDEL, fitted_font, google_symbols, truncate_to_fit
 
 if TYPE_CHECKING:
     from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel

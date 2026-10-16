@@ -8,7 +8,7 @@ import io
 import pytest
 import responses
 from fake_target import FakeTarget
-from PIL import Image
+from PIL import Image, ImageDraw
 from weather_factory import make_weather
 
 # `countdown_core` must be imported before any display.* module, or it's a circular import.
@@ -24,9 +24,12 @@ from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.rendering.screen import DEFAULT_CANVAS
-from countdown_core.spotify.models import Queue
+from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.spotify.spotify_panel import SpotifyPanel
+from countdown_core.spotify.spotify_top_artists_panel import SpotifyTopArtistsPanel
+from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
+from countdown_core.spotify.spotify_top_tracks_panel import SpotifyTopTracksPanel
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
@@ -427,3 +430,60 @@ def test_arrival_styles_on_a_portrait_screen(snapshot, style):
     """Narrower stops, and taller ones without Spotify."""
     img = _draw_portrait(_panels(_styled_arrivals(style)), EVERYTHING - {ClientClasses.SPOTIFY})
     snapshot.assert_matches(f"screen_portrait_arrivals_{style}", img)
+
+
+SPOTIFY_STYLES = ["classic", "airy", "hero", "card"]
+
+
+def _cover_art_bytes() -> bytes:
+    """A low-contrast gradient with a disc on it: the styles stretch its contrast, so the
+    disc still shows once the screen dithers it."""
+    img = Image.new("RGB", (300, 300))
+    draw = ImageDraw.Draw(img)
+    for y in range(300):
+        draw.line((0, y, 300, y), fill=(150 - y // 5, 110, 90 + y // 6))
+    draw.ellipse((70, 50, 230, 210), fill=(190, 170, 120))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _spotify_page(page: str, style: str) -> Panel:
+    if page == "now":
+        queue = SPOTIFY_QUEUE.model_copy(deep=True)
+        queue.currently_playing.album.images[0].height = queue.currently_playing.album.images[0].width = 300
+        return SpotifyPanel(queue, style)
+    tracks = [
+        _track("Pink + White", "Frank Ocean", "Blonde"),
+        _track("Dreams", "Fleetwood Mac", "Rumours"),
+        _track("Around The World", "Daft Punk", "Homework"),
+        _track("Midnight City", "M83", "Hurry Up, We're Dreaming"),
+        _track("Holocene", "Bon Iver", "Bon Iver, Bon Iver"),
+    ]
+    artists = ["Daft Punk", "Frank Ocean", "Fleetwood Mac", "Radiohead", "Little Simz"]
+    return SpotifyTopPanel(
+        "4 weeks",
+        SpotifyTopTracksPanel(TopResponse[Track].model_validate({"items": tracks})),
+        SpotifyTopArtistsPanel(TopResponse[Artist].model_validate({"items": [{"name": a} for a in artists]})),
+        style,
+    )
+
+
+@responses.activate
+@pytest.mark.parametrize("page", ["now", "top"])
+@pytest.mark.parametrize("style", SPOTIFY_STYLES)
+def test_spotify_styles(snapshot, style, page):
+    """Each look the config's spotify.style can pick, on both of Spotify's pages, beside
+    the energy chart."""
+    responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
+    img = _draw(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
+    snapshot.assert_matches(f"screen_spotify_{style}_{page}", img)
+
+
+@responses.activate
+@pytest.mark.parametrize("page", ["now", "top"])
+@pytest.mark.parametrize("style", SPOTIFY_STYLES[1:])
+def test_spotify_styles_on_a_portrait_screen(snapshot, style, page):
+    responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
+    img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
+    snapshot.assert_matches(f"screen_portrait_spotify_{style}_{page}", img)

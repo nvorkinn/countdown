@@ -63,7 +63,7 @@ class SpotifyClient(AbstractClient):
         queue = Queue.model_validate_json(self._request("GET", "/api/spotify/queue"))
         if queue.currently_playing is None:
             return None
-        return SpotifyPanel(queue)
+        return SpotifyPanel(queue, self.config.style)
 
     def update_top(self, page_config: TopPageConfig) -> Panel:
         params = {**page_config.params, "limit": 5}
@@ -71,7 +71,7 @@ class SpotifyClient(AbstractClient):
         top_tracks_panel = SpotifyTopTracksPanel(TopResponse[Track].model_validate_json(top_tracks_bytes))
         top_artists_bytes = self._request("GET", "/api/spotify/top/artists", params=params)
         top_artists_panel = SpotifyTopArtistsPanel(TopResponse[Artist].model_validate_json(top_artists_bytes))
-        return SpotifyTopPanel(page_config.period, top_tracks_panel, top_artists_panel)
+        return SpotifyTopPanel(page_config.period, top_tracks_panel, top_artists_panel, self.config.style)
 
 
 PAGES: tuple[PageConfig, ...] = (
