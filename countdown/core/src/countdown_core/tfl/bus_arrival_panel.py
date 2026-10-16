@@ -2,9 +2,10 @@
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
+from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
 
 if TYPE_CHECKING:
+    from countdown_core.core.style import Style
     from countdown_core.tfl.models import BusArrival, SingleStopPoint
 
 

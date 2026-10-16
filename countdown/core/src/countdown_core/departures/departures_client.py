@@ -5,10 +5,11 @@ Each stop is asked of its own source and drawn the same way.
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, cast, override
+from typing import TYPE_CHECKING, Any, Protocol, override
 
 from countdown_api.models import ConfigResponse, DepartureStop
 from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.core.style import panel_style
 from countdown_core.entur.entur_source import EnturSource
 from countdown_core.i18n import N_
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
@@ -16,7 +17,8 @@ from countdown_core.tfl.tfl_client import TflSource
 
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
-    from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
+    from countdown_core.core.style import Style
+    from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
     from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
@@ -30,11 +32,6 @@ class StopSource[S](Protocol):
 
     def panel(self, stop: S, style: Style) -> AbstractArrivalPanel:
         """Fetch the stop's departures; raises if they can't be fetched."""
-
-
-def _retire_classic(style: str) -> Style:
-    """Draw the retired classic style, which a broker that hasn't migrated may still send, as hero."""
-    return "hero" if style == "classic" else cast("Style", style)
 
 
 @dataclass(frozen=True)
@@ -53,9 +50,10 @@ class DeparturesSettings:
     def from_config(cls, config: ConfigResponse) -> DeparturesSettings:
         """Read the settings from the broker's config, from whichever of its sections it has."""
         if config.departures is not None:
-            return cls(tuple(config.departures.stops), _retire_classic(config.departures.style), config.tfl.app_key)
+            style = panel_style(config, config.departures.style)
+            return cls(tuple(config.departures.stops), style, config.tfl.app_key)
         stops = tuple(DepartureStop(source="tfl", id=stop_id) for stop_id in config.tfl.stop_ids)
-        return cls(stops, _retire_classic(config.tfl.style), config.tfl.app_key)
+        return cls(stops, panel_style(config, config.tfl.style), config.tfl.app_key)
 
     def stop_ids(self, source: str) -> list[str]:
         """Return the ids of the stops from one source, in order."""

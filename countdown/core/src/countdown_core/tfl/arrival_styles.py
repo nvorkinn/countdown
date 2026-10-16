@@ -1,4 +1,4 @@
-"""The looks a stop's departures can have (the config's departures.style).
+"""The looks a stop's departures can have (the config's style).
 
 Each draws the whole stop, header included, into `width` x `height`, on a transparent background.
 """
@@ -116,7 +116,7 @@ def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     return img
 
 
-def grouped(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
+def airy(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     """Draw a row per route, with its next departure big on the right and the ones after under it."""
     img, d = _canvas(width, height)
     # A bus or tram stop's letter, or a metro or railway platform's number.
@@ -209,6 +209,6 @@ def card(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
 
 STYLES: dict[str, Callable[[AbstractArrivalPanel, int, int], Image.Image]] = {
     "hero": hero,
-    "grouped": grouped,
+    "airy": airy,
     "card": card,
 }

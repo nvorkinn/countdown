@@ -10,10 +10,9 @@ from countdown_core.tfl.arrival_styles import STYLES
 if TYPE_CHECKING:
     from PIL import Image
 
+    from countdown_core.core.style import Style
     from countdown_core.utils.clock import ClockFormat
 
-# How a stop's departures are drawn: the config's departures.style (see DeparturesSettings.from_config for classic).
-Style = Literal["hero", "grouped", "card"]
 # What the styles that show one draw beside a stop's name.
 Icon = Literal["bus", "subway", "tram", "train", "ferry"]
 

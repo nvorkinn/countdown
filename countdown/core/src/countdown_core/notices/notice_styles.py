@@ -1,15 +1,15 @@
-"""The looks the notice board can have (the config's notice_board.style).
+"""The looks the notice board can have (the config's style).
 
-airy, hero and card match the Spotify styles of the same name; boxed is card's square-cornered cousin. A style only
+airy, hero and card match the Spotify styles of the same name. A style only
 draws the chrome round the rows (the title, the count, any frame) and says how much room that takes; the panel draws
 the rows inside it, the same in every style.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from countdown_core.i18n import _, ngettext
-from countdown_core.tfl.arrival_styles import BOLD, MEDIUM, SANS_SEMI
+from countdown_core.tfl.arrival_styles import MEDIUM, SANS_SEMI
 from countdown_core.utils.utils import fitted_font, google_symbols
 
 if TYPE_CHECKING:
@@ -17,11 +17,10 @@ if TYPE_CHECKING:
 
     from PIL import ImageDraw
 
-NoticeStyle = Literal["airy", "hero", "card", "boxed"]
+    from countdown_core.core.style import Style as SharedStyle
 
 CAMPAIGN = chr(0xEF49)  # Material Symbols "campaign", a megaphone
 CARD_BAR = 28  # as tall as Spotify card's title bar
-BOXED_BAR = 20  # as tall as the stops' black header bar
 
 
 def _count(n: int) -> str:
@@ -54,17 +53,6 @@ def _card(d: ImageDraw.ImageDraw, width: int, height: int, count: int) -> None:
     d.text((width - 11, 14), _count(count), "white", fitted_font(SANS_SEMI, 13), anchor="rm")
 
 
-def _boxed(d: ImageDraw.ImageDraw, width: int, height: int, count: int) -> None:
-    """Draw a square box under a black title bar, with the count in a white box on it like a stop's letter."""
-    d.rectangle((0, 0, width - 1, height - 1), fill="white", outline="black", width=2)
-    d.rectangle((0, 0, width - 1, BOXED_BAR), fill="black")
-    d.text((10, BOXED_BAR // 2), _("Notices"), "white", fitted_font(SANS_SEMI, 14), anchor="lm")
-    number, font = str(count), fitted_font(BOLD, 14)
-    box_width = max(21, round(font.getlength(number)) + 10)
-    d.rectangle((width - 9 - box_width, 3, width - 9, BOXED_BAR - 3), fill="white")
-    d.text((width - 9 - box_width / 2, BOXED_BAR // 2), number, "black", font, anchor="mm")
-
-
 @dataclass(frozen=True)
 class Style:
     """A style's chrome, and the room it leaves the rows: `top` above them, `bottom` below, `inset` either side."""
@@ -75,9 +63,8 @@ class Style:
     inset: int
 
 
-STYLES: dict[NoticeStyle, Style] = {
+STYLES: dict[SharedStyle, Style] = {
     "airy": Style(_airy, top=24, bottom=2, inset=0),
     "hero": Style(_hero, top=32, bottom=2, inset=0),
     "card": Style(_card, top=CARD_BAR + 4, bottom=6, inset=8),
-    "boxed": Style(_boxed, top=BOXED_BAR + 4, bottom=6, inset=8),
 }

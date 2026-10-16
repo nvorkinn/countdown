@@ -435,9 +435,9 @@ def _styled_arrivals(style: str) -> CombinedArrivalPanel:
     )
 
 
-@pytest.mark.parametrize("style", ["hero", "grouped", "card"])
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_arrival_styles(snapshot, style):
-    """Each look the config's tfl.style can pick, on a busy bus stop and station."""
+    """Each look the config's style can pick, on a busy bus stop and station."""
     img = _draw(_panels(_styled_arrivals(style)))
     snapshot.assert_matches(f"screen_arrivals_{style}", img)
 
@@ -445,7 +445,7 @@ def test_arrival_styles(snapshot, style):
 FEW_NOTICES = NoticeBoardPanel(NOTICES.notices[1:3])
 
 
-def _many_route_arrivals() -> CombinedArrivalPanel:
+def _many_route_arrivals(style: str = "hero") -> CombinedArrivalPanel:
     """More routes than the stops have room for, so the room the notices leave shows."""
     more_buses = [
         BusArrival(naptanId="490000123W", lineName=line, timeToStation=minutes * 60, modeName="bus", destinationName=to)
@@ -459,8 +459,8 @@ def _many_route_arrivals() -> CombinedArrivalPanel:
     ]
     return CombinedArrivalPanel(
         [
-            BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS + more_buses),
-            TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS + more_trains),
+            BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS + more_buses, style),
+            TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS + more_trains, style),
         ]
     )
 
@@ -488,33 +488,30 @@ def test_portrait_screen_with_few_notices(snapshot):
     snapshot.assert_matches("screen_portrait_few_notices", _draw_portrait(panels))
 
 
-# The Spotify style each notice board style is drawn beside: the one it matches.
-NOTICE_STYLE_SPOTIFY = {"airy": "airy", "hero": "hero", "card": "card", "boxed": "hero"}
-
-
 @responses.activate
 @pytest.mark.parametrize("style", list(NOTICE_STYLES))
-def test_notice_styles(snapshot, style):
-    """Each look the config's notice_board.style can pick, below the Spotify style it matches."""
+def test_every_panel_in_one_style(snapshot, style):
+    """Each look the config's style can pick, on every panel at once: the stops, Spotify and the notices."""
     responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    spotify = SpotifyPanel(SPOTIFY_QUEUE, NOTICE_STYLE_SPOTIFY[style])
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, style)
     notices = NoticeBoardPanel(NOTICES.notices, style)
     snapshot.assert_matches(
-        f"screen_notices_{style}", _draw(_panels(_many_route_arrivals(), spotify=spotify, notices=notices))
+        f"screen_style_{style}", _draw(_panels(_many_route_arrivals(style), spotify=spotify, notices=notices))
     )
 
 
 @responses.activate
 @pytest.mark.parametrize("style", list(NOTICE_STYLES))
-def test_notice_styles_on_a_portrait_screen(snapshot, style):
+def test_every_panel_in_one_style_on_a_portrait_screen(snapshot, style):
+    """As the config page shows each style."""
     responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    spotify = SpotifyPanel(SPOTIFY_QUEUE, NOTICE_STYLE_SPOTIFY[style])
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, style)
     notices = NoticeBoardPanel(FEW_NOTICES.notices, style)
-    img = _draw_portrait(_panels(_many_route_arrivals(), spotify=spotify, notices=notices))
-    snapshot.assert_matches(f"screen_portrait_notices_{style}", img)
+    img = _draw_portrait(_panels(_many_route_arrivals(style), spotify=spotify, notices=notices))
+    snapshot.assert_matches(f"screen_portrait_style_{style}", img)
 
 
-@pytest.mark.parametrize("style", ["hero", "grouped", "card"])
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_arrival_styles_on_a_portrait_screen(snapshot, style):
     """Narrower stops, and taller ones without Spotify."""
     img = _draw_portrait(_panels(_styled_arrivals(style)), EVERYTHING - {ClientClasses.SPOTIFY})
@@ -554,7 +551,7 @@ BUSY_TRAM_DEPARTURES = _entur_departures(
 )
 
 
-@pytest.mark.parametrize("style", ["hero", "grouped", "card"])
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_oslo_stops_in_every_style(snapshot, style):
     """Entur's stops look like London's: a platform's code where a bus stop has its letter, and its mode's icon."""
     panel = CombinedArrivalPanel(
@@ -669,7 +666,7 @@ def _spotify_page(page: str, style: str) -> Panel:
 @pytest.mark.parametrize("page", ["now", "top"])
 @pytest.mark.parametrize("style", SPOTIFY_STYLES)
 def test_spotify_styles(snapshot, style, page):
-    """Each look the config's spotify.style can pick, on both of Spotify's pages, beside the energy chart."""
+    """Each look the config's style can pick, on both of Spotify's pages, beside the energy chart."""
     responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
     img = _draw(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
     snapshot.assert_matches(f"screen_spotify_{style}_{page}", img)
@@ -712,7 +709,7 @@ def test_landscape_screen_in_12_hour_time(snapshot):
     snapshot.assert_matches("screen_12h_landscape", img)
 
 
-@pytest.mark.parametrize("style", ["hero", "grouped", "card"])
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_arrival_countdown_durations_do_not_use_the_clock_preference(style):
     panel = _styled_arrivals(style)
 

@@ -1,15 +1,18 @@
 """How the notice board is drawn."""
 
-from typing import override
+from typing import TYPE_CHECKING, override
 
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
 from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_styles import STYLES, NoticeStyle
+from countdown_core.notices.notice_styles import STYLES
 from countdown_core.utils.clock import ClockFormat, format_clock
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, truncate_to_fit
+
+if TYPE_CHECKING:
+    from countdown_core.core.style import Style
 
 SOURCE_FONT = GOOGLE_SEMI
 TEXT_FONT = GOOGLE_REGULAR
@@ -23,7 +26,7 @@ SOURCE_GAP = 6  # between the source tag and the text
 class NoticeBoardPanel(Panel):
     """The notice board: its style's title and frame, then a row per notice, the most severe first."""
 
-    def __init__(self, notices: list[Notice], style: NoticeStyle = "hero") -> None:
+    def __init__(self, notices: list[Notice], style: Style = "hero") -> None:
         """`notices` already ranked, most important first; `style`: how to draw the board round them."""
         self.notices = notices
         self.style = style

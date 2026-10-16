@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from countdown_api.models import ConfigResponse, Glowmarkt, Spotify
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
+from countdown_core.core.style import panel_style
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.i18n import N_, set_locale
@@ -47,7 +48,8 @@ def section_for(name: str, config: ConfigResponse) -> object:
     """Return what the API `name` is configured with: its section of the broker's config.
 
     The departures' is its `departures` section (or, from an older broker, `tfl`). The notice board's also carries
-    the departures, as its disruptions are about their stops (so the broker needn't send them twice).
+    the departures, as its disruptions are about their stops (so the broker needn't send them twice). Every panel
+    that has a style gets the config's shared one (see panel_style).
     """
     if name == ClientClasses.TFL.api_name:
         return DeparturesSettings.from_config(config)
@@ -55,9 +57,11 @@ def section_for(name: str, config: ConfigResponse) -> object:
         return NoticeBoardSettings(
             postcode=config.notice_board.postcode,
             country=config.notice_board.country,
-            style=config.notice_board.style,
+            style=panel_style(config, config.notice_board.style),
             departures=DeparturesSettings.from_config(config),
         )
+    if name == ClientClasses.SPOTIFY.api_name:
+        return config.spotify.model_copy(update={"style": panel_style(config, config.spotify.style)})
     return getattr(config, name)
 
 
