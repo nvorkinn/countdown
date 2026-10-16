@@ -21,6 +21,18 @@ class NoticeBoardPanel(Panel):
         """`notices` already ranked, most important first."""
         self.notices = notices
 
+    @staticmethod
+    def _top() -> int:
+        """Where the first row starts, below the title."""
+        return PADDING + TITLE_FONT.getbbox("Notices")[3] + TITLE_GAP
+
+    def fitted_height(self, max_height: int) -> int:
+        """A row per notice, or nothing at all when there are none. At `max_height` the
+        rows that don't fit are counted on the last one."""
+        if not self.notices:
+            return 0
+        return min(max_height, self._top() + len(self.notices) * ROW_HEIGHT + PADDING)
+
     def render(self, image_width: int, image_height: int) -> Image.Image:
         """One notice per row: a severity marker, the source and as much of the text as
         fits. If there are more current notices than rows, the last row says how many
@@ -30,7 +42,7 @@ class NoticeBoardPanel(Panel):
         draw.fontmode = "1"
 
         draw.text((PADDING, PADDING), "Notices", "black", font=TITLE_FONT)
-        top = PADDING + TITLE_FONT.getbbox("Notices")[3] + TITLE_GAP
+        top = self._top()
         rows = max(1, (image_height - PADDING - top) // ROW_HEIGHT)
 
         current = [n for n in self.notices if n.severity != Severity.PLANNED]

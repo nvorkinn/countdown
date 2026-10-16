@@ -7,6 +7,7 @@ from PIL import Image
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.panel import Panel
 from countdown_core.rendering.screen import Canvas
+from countdown_core.utils.utils import GAP
 
 Box = tuple[int, int, int, int]
 
@@ -41,6 +42,15 @@ class Layout(ABC):
     @abstractmethod
     def render(self, panels: dict[str, Panel], canvas: Canvas) -> Frame:
         """The whole screen, from a panel for every API (a MessagePanel where one has nothing)."""
+
+    @staticmethod
+    def _fit_notices(panels: dict[str, Panel], room: int) -> tuple[int, int]:
+        """How tall to draw the notices: only as tall as their rows, up to `room` (0 leaves
+        them out: none to show, or no notice board). And how much of `room`, with the gap
+        above it, that leaves spare for the arrivals."""
+        panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
+        height = 0 if panel is None else panel.fitted_height(room)
+        return height, room - height if height else room + GAP
 
     @staticmethod
     def _place(img: Image.Image, panel: Panel, x: int, y: int, width: int, height: int) -> Image.Image:

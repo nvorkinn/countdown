@@ -15,6 +15,8 @@ from countdown_core.core import display as display_module
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.display import FULL_REFRESH_INTERVAL_S, DisplayController
 from countdown_core.core.panel import Panel
+from countdown_core.notices.notice_board_panel import NoticeBoardPanel
+from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
 FULL = None  # a full refresh is a paint with no region
@@ -200,6 +202,14 @@ def test_with_nothing_to_show_it_says_so_instead_of_a_blank_screen(clock):
 
     show(controller, {})  # and it doesn't keep repainting it
     assert target.paints == [FULL]
+
+
+def test_messages_and_an_empty_notice_board_are_still_nothing_to_show(clock):
+    """The empty board is "all clear", not something to show."""
+    panels = {api.api_name: MessagePanel("Title", "Not yet") for api in ClientClasses}
+    panels[ClientClasses.NOTICE_BOARD.api_name] = NoticeBoardPanel([])
+
+    assert show(DisplayController(FakeTarget()), panels) == show(DisplayController(FakeTarget()), {})
 
 
 def test_the_pairing_screen_is_one_full_paint_and_resets_what_is_remembered(clock):

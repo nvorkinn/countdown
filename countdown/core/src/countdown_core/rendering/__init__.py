@@ -30,9 +30,10 @@ def layout_for(screen: Screen, available: frozenset[ClientClasses]) -> tuple[Lay
 
 
 def render(panels: dict[str, Panel], screen: Screen, available: frozenset[ClientClasses]) -> Frame:
-    """The frame for `screen`, upright as the viewer sees it. If every panel is a MessagePanel,
-    it's the "nothing to show yet" screen instead of a layout full of messages."""
-    if all(isinstance(panel, MessagePanel) for panel in panels.values()):
+    """The frame for `screen`, upright as the viewer sees it. If every panel is a MessagePanel
+    (or has nothing to draw), it's the "nothing to show yet" screen instead of a layout full
+    of messages."""
+    if all(isinstance(panel, MessagePanel) or not panel.fitted_height(1) for panel in panels.values()):
         return Frame(EmptyPanel().render(*canvas_for(screen).size))
     layout, canvas = layout_for(screen, available)
     logger.debug(f"Drawing {type(layout).__name__} on {canvas}")
