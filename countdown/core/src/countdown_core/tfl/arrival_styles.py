@@ -53,6 +53,11 @@ def _minutes(minutes: int) -> str:
     return _("due") if minutes == 0 else str(minutes)
 
 
+def _unit(minutes: int, unit: str) -> str:
+    """Return the unit after a time, e.g. "min"; none after "due"."""
+    return "" if minutes == 0 else unit
+
+
 def _later(minutes: tuple[int, ...]) -> str:
     """Show the next two after the first, e.g. "then 9, 14 min"; empty if there are none."""
     return _("then {times} min").format(times=", ".join(map(str, minutes[1:3]))) if len(minutes) > 1 else ""
@@ -80,9 +85,9 @@ def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     d.text(
         (badge_width / 2, y + 20), first.badge, "white", _shrunk(first.badge, BOLD, 22, badge_width - 6), anchor="mm"
     )
-    unit, unit_font, number_font = _("min"), fitted_font(MEDIUM, 13), fitted_font(BOLD, 40)
+    unit, unit_font, number_font = _unit(first.minutes[0], _("min")), fitted_font(MEDIUM, 13), fitted_font(BOLD, 40)
     number = _minutes(first.minutes[0])
-    number_right = width - unit_font.getlength(unit) - 4
+    number_right = width - (unit_font.getlength(unit) + 4 if unit else 0)
     d.text((number_right, y + 38), number, "black", number_font, anchor="rs")
     d.text((width, y + 38), unit, "black", unit_font, anchor="rs")
     room = number_right - number_font.getlength(number) - badge_width - 16
@@ -102,7 +107,7 @@ def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
             break
         d.rounded_rectangle((0, y, 38, y + 20), 4, outline="black", width=2)
         d.text((19, y + 10), departure.badge, "black", _shrunk(departure.badge, BOLD, 13, 32), anchor="mm")
-        eta = f"{_minutes(departure.minutes[0])} {_('min')}"
+        eta = " ".join(filter(None, (_minutes(departure.minutes[0]), _unit(departure.minutes[0], _("min")))))
         d.text((width, y + 10), eta, "black", time_font, anchor="rm")
         room = width - time_font.getlength(eta) - 54
         d.text(
@@ -130,15 +135,15 @@ def airy(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     d.line((0, 24, width, 24), fill="black", width=2)
 
     number_font, unit_font, small = fitted_font(BOLD, 26), fitted_font(REGULAR, 11), fitted_font(REGULAR, 11)
-    unit_width = unit_font.getlength(_("min")) + 3
     y = 32
     for departure in panel.departures:
         if y + 31 > height:
             break
         d.rectangle((0, y, 3, y + 30), fill="black")
-        number = _minutes(departure.minutes[0])
+        number, unit = _minutes(departure.minutes[0]), _unit(departure.minutes[0], _("min"))
+        unit_width = unit_font.getlength(unit) + 3 if unit else 0
         number_left = width - unit_width - number_font.getlength(number)
-        d.text((width, y + 28), _("min"), "black", unit_font, anchor="rs")
+        d.text((width, y + 28), unit, "black", unit_font, anchor="rs")
         d.text((width - unit_width, y + 28), number, "black", number_font, anchor="rs")
         if panel.is_tube:
             # Every train on a line has the same badge: the destination leads instead.
@@ -192,10 +197,13 @@ def card(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
                 d.point((dot, y - 3), fill="black")
         d.text((10, y + 12), departure.badge, "black", _shrunk(departure.badge, BOLD, 16, 40), anchor="lm")
         number = _minutes(departure.minutes[0])
-        d.text((width - 32, y + 12), number, "black", number_font, anchor="rm")
-        # Translators: short for minutes, after a number in a narrow column ("4 m").
-        d.text((width - 10, y + 15), _("m"), "black", unit_font, anchor="rm")
-        room = width - 32 - number_font.getlength(number) - 62
+        # "due" has no unit after it, so it takes the unit's column too.
+        number_right = width - 32 if departure.minutes[0] else width - 10
+        d.text((number_right, y + 12), number, "black", number_font, anchor="rm")
+        if departure.minutes[0]:
+            # Translators: short for minutes, after a number in a narrow column ("4 m").
+            d.text((width - 10, y + 15), _("m"), "black", unit_font, anchor="rm")
+        room = number_right - number_font.getlength(number) - 62
         d.text(
             (56, y + 12),
             truncate_to_fit(departure.destination, destination_font, room),
