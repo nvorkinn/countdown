@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: countdown VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-16 17:04+0000\n"
+"POT-Creation-Date: 2026-10-16 17:11+0000\n"
 "PO-Revision-Date: 2026-10-16 16:50+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nb\n"
@@ -20,470 +20,466 @@ msgstr ""
 
 #, python-brace-format
 msgid "+{count} more"
-msgstr ""
+msgstr "+{count} til"
 
 msgid "12 months"
-msgstr ""
+msgstr "12 måneder"
 
 msgid "4 weeks"
-msgstr ""
+msgstr "4 uker"
 
 #. Translators: the notice board with nothing on it: no warnings, disruptions
 #. or reminders to show.
 msgid "All clear"
-msgstr ""
+msgstr "Ingen varsler"
 
 #, python-brace-format
 msgid "Amber warning: {hazard}"
-msgstr ""
+msgstr "Gult farevarsel: {hazard}"
 
 msgid "Arrivals"
-msgstr ""
+msgstr "Ankomster"
 
 msgid "Ascension Day"
-msgstr ""
+msgstr "Kristi himmelfartsdag"
 
 msgid "Bank holiday"
-msgstr ""
+msgstr "Offentlig fridag"
 
 msgid "Boxing Day"
-msgstr ""
+msgstr "2. juledag"
 
 #, python-brace-format
 msgid "Bus {route}"
-msgstr ""
+msgstr "{route}-bussen"
 
 msgid "Buses"
-msgstr ""
+msgstr "Busser"
 
 msgid "CURRENT CONDITIONS"
-msgstr ""
+msgstr "VÆRET NÅ"
 
 msgid "Christmas Day"
-msgstr ""
+msgstr "1. juledag"
 
 msgid "Clear sky"
-msgstr ""
+msgstr "Skyfritt"
 
 msgid "Clocks"
-msgstr ""
+msgstr "Klokker"
 
 #, python-brace-format
 msgid "Clocks go back an hour {when}, at {time12}"
-msgstr ""
+msgstr "Klokken stilles tilbake en time {when}, kl. {time12}"
 
 #. Translators: {when} is "tonight" or "on Sun 25 Oct". The time is there as
 #. {time12} ("1am") and as {time24}
 #. ("01:00"): use whichever suits.
 #, python-brace-format
 msgid "Clocks go forward an hour {when}, at {time12}"
-msgstr ""
+msgstr "Klokken stilles frem en time {when}, kl. {time12}"
 
 msgid "Constitution Day"
-msgstr ""
+msgstr "Grunnlovsdag"
 
 msgid "Could not connect"
-msgstr ""
+msgstr "Tilkobling feilet"
 
 msgid "DAYTIME HIGH"
-msgstr ""
+msgstr "MAKS DAGSTEMPERATUR"
 
 #, python-brace-format
 msgid "DAYTIME HIGHS / {dates}"
-msgstr ""
+msgstr "MAKS DAGSTEMPERATUR / {dates}"
 
 msgid "Dense drizzle"
-msgstr ""
+msgstr "Tett yr"
 
 msgid "Dense freezing drizzle"
-msgstr ""
+msgstr "Tett underkjølt yr"
 
 msgid "Depositing rime fog"
-msgstr ""
+msgstr "Rimtåke"
 
 #, python-brace-format
 msgid "Device: {device}"
-msgstr ""
+msgstr "Enhet: {device}"
 
 msgid "E"
-msgstr ""
+msgstr "Ø"
 
 #. Translators: a CLDR date pattern (EEE weekday, d day, MMM month), e.g. "Fri
 #. 16 Oct". Norwegian: "EEE d. MMM".
 msgid "EEE d MMM"
-msgstr ""
+msgstr "EEE d. MMM"
 
 #. Translators: a CLDR date pattern, e.g. "Friday 16 October". Norwegian: "EEEE
 #. d. MMMM".
 msgid "EEEE d MMMM"
-msgstr ""
+msgstr "EEEE d. MMMM"
 
 msgid "Easter Monday"
-msgstr ""
+msgstr "2. påskedag"
 
 msgid "Easter Sunday"
-msgstr ""
+msgstr "1. påskedag"
 
 msgid "Energy"
-msgstr ""
+msgstr "Energi"
 
 msgid "Feels like"
-msgstr ""
+msgstr "Føles som"
 
 msgid "Flood alert"
-msgstr ""
+msgstr "Flomvarsel"
 
 msgid "Flood warning"
-msgstr ""
+msgstr "Flomfare"
 
 msgid "Floods"
-msgstr ""
+msgstr "Flom"
 
 msgid "Fog"
-msgstr ""
+msgstr "Tåke"
 
 #, python-brace-format
 msgid "Go to {site}"
-msgstr ""
+msgstr "Gå til {site}"
 
 msgid "Good Friday"
-msgstr ""
+msgstr "Langfredag"
 
 msgid "HIGH"
-msgstr ""
+msgstr "HØY"
 
 msgid "Heavy freezing rain"
-msgstr ""
+msgstr "Kraftig underkjølt regn"
 
 msgid "Heavy rain"
-msgstr ""
+msgstr "Kraftig regn"
 
 msgid "Heavy snow showers"
-msgstr ""
+msgstr "Kraftige snøbyger"
 
 msgid "Heavy snowfall"
-msgstr ""
+msgstr "Kraftig snøfall"
 
 msgid "Humidity"
-msgstr ""
+msgstr "Luftfuktighet"
 
 #, python-brace-format
 msgid "LAST {period}"
-msgstr ""
+msgstr "SISTE {period}"
 
 msgid "LOW"
-msgstr ""
+msgstr "LAV"
 
 msgid "Labour Day"
-msgstr ""
+msgstr "Arbeidernes dag"
 
 msgid "Last 24 hours (kWh)"
-msgstr ""
+msgstr "Siste 24 timer (kWh)"
 
 msgid "Last 31 days (kWh)"
-msgstr ""
+msgstr "Siste 31 dager (kWh)"
 
 msgid "Light drizzle"
-msgstr ""
+msgstr "Lett yr"
 
 msgid "Light freezing drizzle"
-msgstr ""
+msgstr "Lett underkjølt yr"
 
 msgid "Light freezing rain"
-msgstr ""
+msgstr "Lett underkjølt regn"
 
 #, python-brace-format
 msgid "Line {line}"
-msgstr ""
+msgstr "Linje {line}"
 
 msgid "Location not found"
-msgstr ""
+msgstr "Sted ikke funnet"
 
 msgid "Low"
-msgstr ""
+msgstr "Lav"
 
 msgid "Lowest"
-msgstr ""
+msgstr "Lavest"
 
 msgid "Mainly clear"
-msgstr ""
+msgstr "Stort sett klart"
 
 msgid "Maundy Thursday"
-msgstr ""
+msgstr "Skjærtorsdag"
 
 msgid "Mixed skies"
-msgstr ""
+msgstr "Varierende skydekke"
 
 msgid "Moderate drizzle"
-msgstr ""
+msgstr "Moderat yr"
 
 msgid "Moderate rain"
-msgstr ""
+msgstr "Moderat regn"
 
 msgid "Moderate rain showers"
-msgstr ""
+msgstr "Moderate regnbyger"
 
 msgid "Moderate snowfall"
-msgstr ""
+msgstr "Moderat snøfall"
 
 #. Translators: compass points, for the wind direction (Norwegian: Ø for east,
 #. V for west).
 msgid "N"
-msgstr ""
+msgstr "N"
 
 msgid "NE"
-msgstr ""
+msgstr "NØ"
 
 msgid "NEXT"
-msgstr ""
+msgstr "NESTE"
 
 msgid "NIGHT"
-msgstr ""
+msgstr "NATT"
 
 msgid "NOW"
-msgstr ""
+msgstr "NÅ"
 
 msgid "NOW PLAYING"
-msgstr ""
+msgstr "SPILLER NÅ"
 
 msgid "NW"
-msgstr ""
+msgstr "NV"
 
 msgid "Needs configuring"
-msgstr ""
+msgstr "Må konfigureres"
 
 msgid "New Year's Day"
-msgstr ""
+msgstr "Første nyttårsdag"
 
 msgid "Not configured"
-msgstr ""
+msgstr "Ikke konfigurert"
 
 msgid "Nothing playing on:"
-msgstr ""
+msgstr "Ingenting spilles på:"
 
 msgid "Nothing to show yet"
-msgstr ""
+msgstr "Ingenting å vise ennå"
 
 msgid "Notices"
-msgstr ""
+msgstr "Varsler"
 
 msgid "Now"
-msgstr ""
+msgstr "Nå"
 
 msgid "Now playing"
-msgstr ""
+msgstr "Spiller nå"
 
 msgid "OVERNIGHT"
-msgstr ""
+msgstr "NATTEN"
 
 msgid "OVERNIGHT LOW"
-msgstr ""
+msgstr "LAVESTE NATTEMPERATUR"
 
 #, python-brace-format
 msgid "Orange warning: {hazard}"
-msgstr ""
+msgstr "Oransje farevarsel: {hazard}"
 
 msgid "Overcast"
-msgstr ""
+msgstr "Overskyet"
 
 msgid "Partly cloudy"
-msgstr ""
+msgstr "Delvis overskyet"
 
 #, python-brace-format
 msgid "Platform {letter}"
-msgstr ""
+msgstr "Plattform {letter}"
 
 msgid "Public holiday"
-msgstr ""
+msgstr "Helligdag"
 
 msgid "RAIN"
-msgstr ""
+msgstr "REGN"
 
 msgid "Rain"
-msgstr ""
+msgstr "Regn"
 
 #, python-brace-format
 msgid "Red warning: {hazard}"
-msgstr ""
+msgstr "Rødt farevarsel: {hazard}"
 
 msgid "Roads"
-msgstr ""
+msgstr "Veier"
 
 msgid "S"
-msgstr ""
+msgstr "S"
 
 msgid "SE"
-msgstr ""
+msgstr "SØ"
 
 msgid "SW"
-msgstr ""
+msgstr "SV"
 
 msgid "Set up this display"
-msgstr ""
+msgstr "Sett opp denne skjermen"
 
 msgid "Severe flood warning"
-msgstr ""
+msgstr "Alvorlig flomfare"
 
 msgid "Slight rain"
-msgstr ""
+msgstr "Lett regn"
 
 msgid "Slight rain showers"
-msgstr ""
+msgstr "Lette regnbyger"
 
 msgid "Slight snow showers"
-msgstr ""
+msgstr "Lette snøbyger"
 
 msgid "Slight snowfall"
-msgstr ""
+msgstr "Lett snøfall"
 
 msgid "Snow grains"
-msgstr ""
+msgstr "Snøkorn"
 
 msgid "Spotify"
-msgstr ""
+msgstr "Spotify"
 
 #, python-brace-format
 msgid "Stop {letter}"
-msgstr ""
+msgstr "Holdeplass {letter}"
 
 msgid "Sunrise"
-msgstr ""
+msgstr "Soloppgang"
 
 #, python-brace-format
 msgid "Sunrise {sunrise} / Sunset {sunset}"
-msgstr ""
+msgstr "Soloppgang {sunrise} / Solnedgang {sunset}"
 
 msgid "Sunset"
-msgstr ""
+msgstr "Solnedgang"
 
 msgid "TMRW"
-msgstr ""
+msgstr "I MRGN"
 
 msgid "This afternoon"
-msgstr ""
+msgstr "I ettermiddag"
 
 msgid "This year (kWh)"
-msgstr ""
+msgstr "I år (kWh)"
 
 msgid "Thunderstorm"
-msgstr ""
+msgstr "Tordenvær"
 
 msgid "Thunderstorm with heavy hail"
-msgstr ""
+msgstr "Tordenvær med kraftig hagl"
 
 msgid "Thunderstorm with slight hail"
-msgstr ""
+msgstr "Tordenvær med lett hagl"
 
 msgid "Today"
-msgstr ""
+msgstr "I dag"
 
 msgid "Tomorrow"
-msgstr ""
+msgstr "I morgen"
 
 msgid "Tonight"
-msgstr ""
+msgstr "I kveld"
 
 msgid "Top artists"
-msgstr ""
+msgstr "Toppartister"
 
 msgid "Top artists:"
-msgstr ""
+msgstr "Toppartister:"
 
 msgid "Top tracks"
-msgstr ""
+msgstr "Topplåter"
 
 msgid "Top tracks:"
-msgstr ""
+msgstr "Topplåter:"
 
 msgid "UP NEXT"
-msgstr ""
+msgstr "NESTE"
 
 msgid "Unknown postcode"
-msgstr ""
+msgstr "Ukjent postnummer"
 
 #, python-brace-format
 msgid "Up next: {track}"
-msgstr ""
+msgstr "Neste: {track}"
 
 msgid "Violent rain showers"
-msgstr ""
+msgstr "Voldsomme regnbyger"
 
 msgid "W"
-msgstr ""
+msgstr "V"
 
 msgid "WKND"
-msgstr ""
+msgstr "HELG"
 
 msgid "Waiting for your first bus times"
-msgstr ""
+msgstr "Venter på de første busstidene"
 
 msgid "Weather"
-msgstr ""
+msgstr "Været"
 
 msgid "Weekend"
-msgstr ""
+msgstr "Helg"
 
 msgid "Whit Monday"
-msgstr ""
+msgstr "Andre pinsedag"
 
 msgid "Whit Sunday"
-msgstr ""
+msgstr "Første pinsedag"
 
 msgid "Wind"
-msgstr ""
+msgstr "Vind"
 
 #, python-brace-format
 msgid "Yellow warning: {hazard}"
-msgstr ""
+msgstr "Gult farevarsel: {hazard}"
 
 #, python-brace-format
 msgid "Your Spotify over the last {period}:"
-msgstr ""
+msgstr "Din Spotify de siste {period}:"
 
 msgid "and enter this code:"
-msgstr ""
+msgstr "og skriv inn denne koden:"
 
 msgid "and weather to arrive"
-msgstr ""
+msgstr "og på værmeldingen"
 
 msgid "d MMM"
-msgstr ""
+msgstr "d. MMM"
 
 msgid "due"
-msgstr ""
+msgstr "nå"
 
 #. Translators: short for minutes, after a number in a narrow column ("4 m").
 msgid "m"
-msgstr ""
+msgstr "m"
 
 msgid "min"
-msgstr ""
+msgstr "min"
 
 #, python-brace-format
 msgid "on {day}"
-msgstr ""
+msgstr "på {day}"
 
 #, python-brace-format
 msgid "then {times} min"
-msgstr ""
+msgstr "deretter {times} min"
 
 msgid "tonight"
-msgstr ""
+msgstr "i kveld"
 
 #, python-brace-format
 msgid "until {day} {time}"
-msgstr ""
+msgstr "til {day} {time}"
 
 #, python-brace-format
 msgid "{line} line"
-msgstr ""
+msgstr "{line}-linjen"
 
 #, python-brace-format
 msgid "{n} min"
 msgid_plural "{n} mins"
-msgstr[0] ""
-msgstr[1] ""
-
-#~ msgid "title"
-#~ msgstr ""
-
+msgstr[0] "{n} min"
+msgstr[1] "{n} min"

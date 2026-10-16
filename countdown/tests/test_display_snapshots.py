@@ -23,6 +23,7 @@ from countdown_core.entur.entur_arrival_panel import EnturArrivalPanel
 from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.glow.glow_client import GlowClient
+from countdown_core.i18n import set_locale
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
@@ -477,6 +478,29 @@ def test_oslo_stops_in_every_style(snapshot, style):
         ]
     )
     snapshot.assert_matches(f"screen_oslo_arrivals_{style}", _draw(_panels(panel)))
+
+
+def test_oslo_screen_in_norwegian(snapshot):
+    """The whole screen in Norwegian, with Norway's notices: Nikolai's translations, drawn."""
+    set_locale("nb", "Europe/Oslo")
+    try:
+        panel = CombinedArrivalPanel(
+            [
+                EnturArrivalPanel(MAJORSTUEN, BUSY_METRO_DEPARTURES, "classic"),
+                EnturArrivalPanel(FROGNER_PLASS, BUSY_TRAM_DEPARTURES, "classic"),
+            ]
+        )
+        notices = NoticeBoardPanel(
+            [
+                Notice("MET", Severity.WARNING, "Oransje farevarsel: kraftig vind til fre. 21:00"),
+                Notice("Linje 12", Severity.INFO, "Trikken kjører ikke mellom Majorstuen og Frogner plass."),
+                Notice("Helligdag", Severity.REMINDER, "I morgen: Grunnlovsdag"),
+            ]
+        )
+        img = _draw(_panels(panel, notices=notices))
+    finally:
+        set_locale("en", "Europe/London")
+    snapshot.assert_matches("screen_oslo_norwegian", img)
 
 
 SPOTIFY_STYLES = ["classic", "airy", "hero", "card"]
