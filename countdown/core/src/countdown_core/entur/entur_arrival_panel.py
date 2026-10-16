@@ -1,12 +1,9 @@
 """The departures panel for a Norwegian stop."""
 
-from typing import TYPE_CHECKING, override
+from typing import override
 
 from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
 from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Icon, Style
-
-if TYPE_CHECKING:
-    from PIL import Image, ImageDraw
 
 ICON_BY_MODE: dict[TransportMode, Icon] = {
     TransportMode.METRO: "subway",
@@ -22,7 +19,7 @@ class EnturArrivalPanel(AbstractArrivalPanel):
     A row per line and destination, and the platform's code where a London stop has its letter.
     """
 
-    def __init__(self, stop: EnturStop, departures: list[EnturDeparture], style: Style = "classic") -> None:
+    def __init__(self, stop: EnturStop, departures: list[EnturDeparture], style: Style = "hero") -> None:
         """Draw `departures` from `stop` in the given departures style."""
         super().__init__(departures, style)
         self.stop = stop
@@ -59,9 +56,3 @@ class EnturArrivalPanel(AbstractArrivalPanel):
     @override
     def _destination(departure: EnturDeparture) -> str:
         return departure.destination
-
-    @override
-    def add_header(self, img: Image.Image, draw: ImageDraw.ImageDraw) -> None:
-        draw.text((7, 10), self.stop_name, "white", font_size=15, anchor="lm")
-        if self.stop_letter:
-            draw.text((img.size[0] - 9, 10), self.stop_letter, "white", anchor="rm", stroke_width=0.2)

@@ -1,4 +1,4 @@
-"""The looks a stop's departures can have besides classic (the config's tfl.style).
+"""The looks a stop's departures can have (the config's departures.style).
 
 Each draws the whole stop, header included, into `width` x `height`, on a transparent background.
 """
