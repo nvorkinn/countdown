@@ -172,7 +172,7 @@ def test_next_page_cycles_and_wraps():
     assert pages == [
         ([0, 1], Rotation(0, 3)),
         ([2, 3], Rotation(1, 3)),
-        ([4, 0], Rotation(2, 3)),  # the last page topped up from the start
+        ([4], Rotation(2, 3)),  # the last page holds what's left
         ([0, 1], Rotation(0, 3)),
     ]
 
@@ -257,7 +257,7 @@ def test_update_shows_every_stop_in_order_when_they_all_fit(monkeypatch):
 
 
 def test_update_says_which_page_is_on_screen_when_they_rotate(monkeypatch):
-    """With 3 stops and room for 2 there are two pages: 0+1, then 2 topped up with 0."""
+    """With 3 stops and room for 2 there are two pages: 0+1, then 2 on its own."""
     client = DeparturesClient(REGISTRATION, make_config())
     client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(3)))
     client.stops_per_update = 2

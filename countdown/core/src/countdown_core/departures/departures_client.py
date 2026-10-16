@@ -139,8 +139,8 @@ class DeparturesClient(AbstractClient):
     def _next_page(self) -> tuple[list[int], Rotation]:
         """Return the indexes of the stops on the next page, and which page it is; then move on past it.
 
-        Page k starts at stop k * stops_per_update. The last page is topped up from the first
-        stops so the screen stays full: 3 stops 2 at a time are pages 0+1 and 2+0.
+        Pages are fixed: page k is stops k * stops_per_update onwards, and the last one holds
+        what's left. 5 stops 2 at a time are pages 0+1, 2+3 and 4.
         """
         if not self.stops:
             msg = "No stops initialised"
@@ -148,7 +148,7 @@ class DeparturesClient(AbstractClient):
         pages = ceil(len(self.stops) / self.stops_per_update)
         page = self.current_page % pages  # the stops or the layout may have changed since
         start = page * self.stops_per_update
-        indexes = [(start + i) % len(self.stops) for i in range(self.stops_per_update)]
+        indexes = list(range(start, min(start + self.stops_per_update, len(self.stops))))
         self.current_page = (page + 1) % pages
         return indexes, Rotation(page, pages)
 
