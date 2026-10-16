@@ -119,6 +119,12 @@ def test_each_client_is_configured_with_its_section_of_the_config():
     )
 
 
+def test_the_notice_board_is_drawn_in_the_configured_style():
+    config = make_config(notice_board={"postcode": "SE17 3LL", "style": "boxed"})
+
+    assert section_for("notice_board", config).style == "boxed"
+
+
 def test_only_spotify_has_a_switch_in_the_config():
     assert is_enabled(Spotify(enabled=True))
     assert not is_enabled(Spotify(enabled=False))

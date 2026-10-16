@@ -7,15 +7,13 @@ from PIL import Image, ImageDraw
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
 from countdown_core.notices.notice import Notice, Severity
+from countdown_core.notices.notice_styles import STYLES, NoticeStyle
 from countdown_core.utils.clock import ClockFormat, format_clock
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, truncate_to_fit
 
-TITLE_FONT = GOOGLE_SEMI.font_variant(size=16)
 SOURCE_FONT = GOOGLE_SEMI
 TEXT_FONT = GOOGLE_REGULAR
 
-PADDING = 4  # blank border round the whole panel
-TITLE_GAP = 6  # between the title and the first notice
 ROW_HEIGHT = 22
 MARKER_SIZE = 14  # the square severity marker at the start of each row
 MARKER_GAP = 6  # between the marker and the source tag
@@ -23,16 +21,12 @@ SOURCE_GAP = 6  # between the source tag and the text
 
 
 class NoticeBoardPanel(Panel):
-    """The notice board: a title, then a row per notice, the most severe first."""
+    """The notice board: its style's title and frame, then a row per notice, the most severe first."""
 
-    def __init__(self, notices: list[Notice]) -> None:
-        """`notices` already ranked, most important first."""
+    def __init__(self, notices: list[Notice], style: NoticeStyle = "hero") -> None:
+        """`notices` already ranked, most important first; `style`: how to draw the board round them."""
         self.notices = notices
-
-    @staticmethod
-    def _top() -> int:
-        """Where the first row starts, below the title."""
-        return PADDING + TITLE_FONT.getbbox(_("Notices"))[3] + TITLE_GAP
+        self.style = style
 
     @override
     def fitted_height(self, max_height: int) -> int:
@@ -42,22 +36,23 @@ class NoticeBoardPanel(Panel):
         """
         if not self.notices:
             return 0
-        return min(max_height, self._top() + len(self.notices) * ROW_HEIGHT + PADDING)
+        style = STYLES[self.style]
+        return min(max_height, style.top + len(self.notices) * ROW_HEIGHT + style.bottom)
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
-        """Draw one notice per row: a severity marker, the source and as much of the text as fits.
+        """Draw the style's chrome, then one notice per row: a severity marker, the source and as much text as fits.
 
         If there are more current notices than rows, the last row says how many didn't fit.
         """
+        style = STYLES[self.style]
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"
+        style.draw(draw, image_width, image_height, len(self.notices))
 
-        draw.text((PADDING, PADDING), _("Notices"), "black", font=TITLE_FONT)
-        top = self._top()
-        rows = max(1, (image_height - PADDING - top) // ROW_HEIGHT)
-
+        left, right = style.inset, image_width - style.inset
+        rows = max(1, (image_height - style.top - style.bottom) // ROW_HEIGHT)
         current = [n for n in self.notices if n.severity != Severity.PLANNED]
         planned = [n for n in self.notices if n.severity == Severity.PLANNED]
         if len(current) > rows:
@@ -66,18 +61,20 @@ class NoticeBoardPanel(Panel):
             # Planned works only fill the rows left over, and don't count as "more".
             shown, more = current + planned[: rows - len(current)], 0
         for i, notice in enumerate(shown):
-            self._draw_row(draw, notice, top + i * ROW_HEIGHT, image_width, clock_format)
+            self._draw_row(draw, notice, style.top + i * ROW_HEIGHT, (left, right), clock_format)
         if more:
-            y = top + len(shown) * ROW_HEIGHT + ROW_HEIGHT // 2
-            draw.text((PADDING, y), _("+{count} more").format(count=more), "black", font=TEXT_FONT, anchor="lm")
+            y = style.top + len(shown) * ROW_HEIGHT + ROW_HEIGHT // 2
+            draw.text((left, y), _("+{count} more").format(count=more), "black", font=TEXT_FONT, anchor="lm")
         return img
 
     @staticmethod
     def _draw_row(
-        draw: ImageDraw.ImageDraw, notice: Notice, y: int, image_width: int, clock_format: ClockFormat
+        draw: ImageDraw.ImageDraw, notice: Notice, y: int, span: tuple[int, int], clock_format: ClockFormat
     ) -> None:
+        """Draw `notice`'s row with its top at `y`, between the x coordinates `span`."""
+        left, right = span
         middle = y + ROW_HEIGHT // 2
-        box = (PADDING, middle - MARKER_SIZE // 2, PADDING + MARKER_SIZE - 1, middle + MARKER_SIZE // 2 - 1)
+        box = (left, middle - MARKER_SIZE // 2, left + MARKER_SIZE - 1, middle + MARKER_SIZE // 2 - 1)
         centre = ((box[0] + box[2] + 1) / 2, middle)
         if notice.severity == Severity.SEVERE:
             draw.rectangle(box, fill="black")
@@ -95,10 +92,10 @@ class NoticeBoardPanel(Panel):
             r = 3
             draw.ellipse((centre[0] - r, middle - r, centre[0] + r - 1, middle + r - 1), outline="black")
 
-        x = PADDING + MARKER_SIZE + MARKER_GAP
+        x = left + MARKER_SIZE + MARKER_GAP
         draw.text((x, middle), notice.source, "black", font=SOURCE_FONT, anchor="lm")
         x += round(SOURCE_FONT.getlength(notice.source)) + SOURCE_GAP
-        available = image_width - PADDING - x
+        available = right - x
         suffix = ""
         if notice.display_time is not None:
             suffix = f" {format_clock(notice.display_time, clock_format)}"

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: countdown VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-16 17:18+0000\n"
+"POT-Creation-Date: 2026-10-16 18:27+0000\n"
 "PO-Revision-Date: 2026-10-16 16:50+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nb\n"
@@ -234,6 +234,9 @@ msgstr "NESTE"
 msgid "NIGHT"
 msgstr "NATT"
 
+msgid "NOTICES"
+msgstr "VARSLER"
+
 msgid "NOW"
 msgstr "NÅ"
 
@@ -457,3 +460,10 @@ msgstr "til {day}"
 #, python-brace-format
 msgid "{line} line"
 msgstr "{line}-linjen"
+
+#, python-brace-format
+msgid "{n} notice"
+msgid_plural "{n} notices"
+msgstr[0] "{n} varsel"
+msgstr[1] "{n} varsler"
+

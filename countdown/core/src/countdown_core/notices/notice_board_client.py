@@ -20,6 +20,7 @@ from countdown_core.notices.tfl import TflLineStatusSource, TflRoadSource, TflSt
 if TYPE_CHECKING:
     from countdown_core.departures.departures_client import DeparturesSettings
     from countdown_core.notices.notice import Notice, NoticeSource
+    from countdown_core.notices.notice_styles import NoticeStyle
     from countdown_core.system_screens.message_panel import MessagePanel
     from countdown_core.tfl.models import Postcode
     from countdown_credentials.registration import Registration
@@ -45,6 +46,8 @@ class NoticeBoardSettings:
     departures: DeparturesSettings
     # The postcode's country; None for a broker that predates it, whose postcodes are all British.
     country: str | None = None
+    # How the board is drawn (notice_board.style); a broker that predates it gets hero.
+    style: NoticeStyle = "hero"
 
     @property
     def tfl(self) -> Tfl:
@@ -70,6 +73,7 @@ class NoticeBoardClient(AbstractClient):
         if entur_stops := config.departures.stop_ids("entur"):
             self.sources.append(EnturSituationsSource(self.session, entur_stops))
         self.tfl_config = config.tfl
+        self.style = config.style
         # Location-based sources are added once the postcode is looked up (_ensure_location).
         self.location: Postcode | None = None
         self.location_tried: datetime | None = None
@@ -170,6 +174,6 @@ class NoticeBoardClient(AbstractClient):
                 raise RuntimeError(msg)
             if self.unknown_postcode:
                 return self.message_panel(N_("Unknown postcode"))
-            return NoticeBoardPanel([])  # all clear: the layout leaves the notices out
+            return NoticeBoardPanel([], self.style)  # all clear: the layout leaves the notices out
         active.sort(key=lambda pair: (pair[0].severity, pair[1]))
-        return NoticeBoardPanel([notice for notice, _ in active])
+        return NoticeBoardPanel([notice for notice, _ in active], self.style)
