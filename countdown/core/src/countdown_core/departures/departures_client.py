@@ -5,6 +5,7 @@ Each stop is asked of its own source and drawn the same way.
 
 import logging
 from dataclasses import dataclass
+from math import ceil
 from typing import TYPE_CHECKING, Any, Protocol, override
 
 from countdown_api.models import ConfigResponse, DepartureStop, Tfl
@@ -86,7 +87,7 @@ class DeparturesClient(AbstractClient):
         }
         self._notice_sources = self._build_notice_sources(config)
         self.stops: list[ResolvedStop] = []
-        self.current_stop = 0
+        self.current_page = 0
         # Set by the layout (ApiRegistry.show_stops).
         self.stops_per_update = 2
 
@@ -135,39 +136,43 @@ class DeparturesClient(AbstractClient):
                 resolved.append(ResolvedStop(stop.id, source, info))
         return resolved
 
-    def _next_stop_index(self) -> int:
-        """Return the index of the next stop to show, and move on past it."""
+    def _next_page(self) -> tuple[list[int], Rotation]:
+        """Return the indexes of the stops on the next page, and which page it is; then move on past it.
+
+        Page k starts at stop k * stops_per_update. The last page is topped up from the first
+        stops so the screen stays full: 3 stops 2 at a time are pages 0+1 and 2+0.
+        """
         if not self.stops:
             msg = "No stops initialised"
             raise ValueError(msg)
-        index = self.current_stop
-        self.current_stop = (self.current_stop + 1) % len(self.stops)
-        return index
+        pages = ceil(len(self.stops) / self.stops_per_update)
+        page = self.current_page % pages  # the stops or the layout may have changed since
+        start = page * self.stops_per_update
+        indexes = [(start + i) % len(self.stops) for i in range(self.stops_per_update)]
+        self.current_page = (page + 1) % pages
+        return indexes, Rotation(page, pages)
 
     @override
     def _update(self) -> Panel:
         if not self.stops:
             return self.message_panel(N_("Needs configuring"))
-        # All of them, in order, when they fit; otherwise the next page of them.
-        rotating = len(self.stops) > self.stops_per_update
-        if rotating:
-            to_fetch = [self._next_stop_index() for _ in range(self.stops_per_update)]
+        # All of them, in order, when they fit; otherwise the next page of them, with the
+        # squares under the stops saying which page it is.
+        rotation = None
+        if len(self.stops) > self.stops_per_update:
+            to_fetch, rotation = self._next_page()
         else:
             to_fetch = list(range(len(self.stops)))
         panels = []
-        shown: set[int] = set()
         for index in to_fetch:
             resolved = self.stops[index]
             try:
                 # The panels group them by route, keeping the later ones for the styles that show them.
                 panels.append(resolved.source.panel(resolved.stop, self.config.style))
-                shown.add(index)
             except Exception:
                 logger.exception("Error fetching departures for %s", resolved.id)
         if not panels:
             # Raised rather than shown, so the registry keeps the last good departures.
             msg = f"Could not fetch departures for any of {len(to_fetch)} stops"
             raise RuntimeError(msg)
-        # Only when they rotate: then the squares under the stops say which are on screen.
-        rotation = Rotation(frozenset(shown), len(self.stops)) if rotating else None
         return CombinedArrivalPanel(panels, rotation)

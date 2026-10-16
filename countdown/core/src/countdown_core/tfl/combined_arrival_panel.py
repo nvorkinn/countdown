@@ -16,7 +16,7 @@ STOP_WIDTH = 262  # the widest a stop gets; a narrower panel (a portrait screen)
 COLUMNS = 2
 COLUMN_GAP = 19  # between two stops side by side, the divider in its middle
 
-# The rotation marker under the stops: a square per configured stop, filled for those on
+# The rotation marker under the stops: a square per page of stops, filled for the one on
 # screen. Squares on whole pixels, since small circles come out ragged on the 1-bit panel.
 ROTATION_STRIP = 16  # taken from the bottom of the panel's height
 SQUARE = 7
@@ -25,10 +25,10 @@ SQUARE_GAP = 6
 
 @dataclass(frozen=True)
 class Rotation:
-    """Where the stops on screen are among all the configured ones, when they don't all fit."""
+    """Which page of the configured stops is on screen, when they don't all fit on one."""
 
-    shown: frozenset[int]  # indexes into the configured stops
-    total: int
+    page: int  # from 0
+    pages: int
 
 
 class CombinedArrivalPanel(Panel):
@@ -74,12 +74,12 @@ class CombinedArrivalPanel(Panel):
     @staticmethod
     def _draw_rotation(draw: ImageDraw.ImageDraw, rotation: Rotation, stops_width: int, top: int) -> None:
         """Draw the squares, centred under the stops in the strip below them."""
-        row_width = rotation.total * (SQUARE + SQUARE_GAP) - SQUARE_GAP
+        row_width = rotation.pages * (SQUARE + SQUARE_GAP) - SQUARE_GAP
         x = (stops_width - row_width) // 2
         y = top + (ROTATION_STRIP - SQUARE) // 2 + 1
-        for i in range(rotation.total):
+        for i in range(rotation.pages):
             box = (x, y, x + SQUARE - 1, y + SQUARE - 1)
-            if i in rotation.shown:
+            if i == rotation.page:
                 draw.rectangle(box, fill="black")
             else:
                 draw.rectangle(box, outline="black", width=1)
