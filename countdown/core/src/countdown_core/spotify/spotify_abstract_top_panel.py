@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.spotify.models import Artist, TopResponse, Track
+from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import UBUNTU_MEDIUM_15, truncate_to_fit
 
 T = TypeVar("T", Artist, Track)
@@ -15,7 +16,7 @@ class AbstractSpotifyTopSubPanel(Panel):
         self.header = header
         self.top_response = top_response
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         draw.font = UBUNTU_MEDIUM_15

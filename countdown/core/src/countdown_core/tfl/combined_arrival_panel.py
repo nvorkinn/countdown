@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
+from countdown_core.utils.clock import ClockFormat
 
 STOP_WIDTH = 262  # the widest a stop gets; a narrower panel (a portrait screen) narrows them
 COLUMNS = 2
@@ -15,7 +16,7 @@ class CombinedArrivalPanel(Panel):
         super().__init__()
         self.arrival_panels = arrival_panels
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         # The layout decides the height; the stops share it, a row at a time.
@@ -29,7 +30,7 @@ class CombinedArrivalPanel(Panel):
                 x += 9
                 draw.line((x, 10, x, img.size[1]), fill="gray", width=1)
                 x += 10
-            rendered = panel.render(stop_width, stop_height)
+            rendered = panel.render(stop_width, stop_height, clock_format=clock_format)
             img.paste(rendered, (x, y), rendered)
             x += rendered.size[0]
             if idx % COLUMNS == COLUMNS - 1:

@@ -15,7 +15,9 @@ from countdown_core.core import display as display_module
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.display import FULL_REFRESH_INTERVAL_S, DisplayController
 from countdown_core.core.panel import Panel
+from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
+from countdown_core.utils.clock import ClockFormat
 
 FULL = None  # a full refresh is a paint with no region
 
@@ -26,7 +28,7 @@ class Solid(Panel):
     def __init__(self, color: str, size: tuple[int, int]):
         self.color, self.size = color, size
 
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         return Image.new("RGBA", self.size, self.color)
 
 
@@ -86,6 +88,23 @@ def test_only_the_arrivals_changing_is_a_partial_refresh_of_just_their_area(cloc
 
     # arrivals sit at (5, 5), 300x185; x rounded out to whole bytes
     assert target.paints == [(0, 5, 312, 190)]
+
+
+def test_clock_switches_repaint_fully_and_subsequent_arrivals_still_refresh_partially(clock):
+    target = FakeTarget()
+    controller = DisplayController(target)
+    panels = frame()
+    panels["glowmarkt"] = EnergyPanel(
+        [{"start": f"2026-09-25T{hour:02d}:00:00+01:00", "kwh": 1} for hour in (0, 12)], 0
+    )
+    controller.display_screen(panels, LANDSCAPE, frozenset(ClientClasses), clock_format="12h")
+    panels["tfl"] = Solid("red", (300, 185))
+    controller.display_screen(panels, LANDSCAPE, frozenset(ClientClasses), clock_format="12h")
+    show(controller, panels)
+    panels["tfl"] = Solid("black", (300, 185))
+    show(controller, panels)
+
+    assert target.paints == [FULL, (0, 5, 312, 190), FULL, (0, 5, 312, 190)]
 
 
 @pytest.mark.parametrize("width", [300, 301, 307, 250])

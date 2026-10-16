@@ -114,9 +114,11 @@ class ClockChangeSource(NoticeSource):
         before = (change - timedelta(microseconds=1)).astimezone(UK_TIME)
         after = change.astimezone(UK_TIME)
         direction = "forward" if after.utcoffset() > before.utcoffset() else "back"
-        # Said in the time it is just before the change: "1am" in March, "2am" in October.
-        at = f"{(change.astimezone(UK_TIME) - (after.utcoffset() - before.utcoffset())):%-I%p}".lower()
+        # Said in the time it is just before the change: 01:00 in March, 02:00 in October.
+        at = change.astimezone(UK_TIME) - (after.utcoffset() - before.utcoffset())
         today = now.astimezone(UK_TIME).date()
         day = before.date()
         when = "tonight" if day in (today, today + timedelta(days=1)) else f"on {_when(day, today)}"
-        return [Notice("Clocks", Severity.REMINDER, f"Clocks go {direction} an hour {when}, at {at}", change)]
+        return [
+            Notice("Clocks", Severity.REMINDER, f"Clocks go {direction} an hour {when}, at", change, display_time=at)
+        ]

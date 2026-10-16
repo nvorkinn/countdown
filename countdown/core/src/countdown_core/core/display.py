@@ -11,6 +11,7 @@ from countdown_core.rendering import layout_for, render, to_native
 from countdown_core.rendering.layout import Frame
 from countdown_core.rendering.screen import canvas_for
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
+from countdown_core.utils.clock import ClockFormat
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +44,16 @@ class DisplayController:
         return layout.stops_shown
 
     def display_screen(
-        self, panels: dict[str, Panel], screen: Screen, available: frozenset[ClientClasses]
+        self,
+        panels: dict[str, Panel],
+        screen: Screen,
+        available: frozenset[ClientClasses],
+        *,
+        clock_format: ClockFormat = "24h",
     ) -> Image.Image:
         """Draws `panels` in the layout for `screen` and what the device can show (`available`),
         and paints the picture. Returns it, upright as the viewer sees it."""
-        frame = render(panels, screen, available)
+        frame = render(panels, screen, available, clock_format=clock_format)
         self._show(to_native(frame, screen))
         return frame.image
 

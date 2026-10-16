@@ -7,6 +7,7 @@ from PIL import Image
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.panel import Panel
 from countdown_core.rendering.screen import Canvas
+from countdown_core.utils.clock import ClockFormat
 
 Box = tuple[int, int, int, int]
 
@@ -39,13 +40,22 @@ class Layout(ABC):
         return self.requires <= available and not self.excludes & available
 
     @abstractmethod
-    def render(self, panels: dict[str, Panel], canvas: Canvas) -> Frame:
+    def render(self, panels: dict[str, Panel], canvas: Canvas, *, clock_format: ClockFormat = "24h") -> Frame:
         """The whole screen, from a panel for every API (a MessagePanel where one has nothing)."""
 
     @staticmethod
-    def _place(img: Image.Image, panel: Panel, x: int, y: int, width: int, height: int) -> Image.Image:
+    def _place(
+        img: Image.Image,
+        panel: Panel,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        *,
+        clock_format: ClockFormat = "24h",
+    ) -> Image.Image:
         """Renders `panel` and pastes it at (x, y). Returns what was rendered, since some
         panels (the arrivals) choose their own size."""
-        rendered = panel.render(width, height)
+        rendered = panel.render(width, height, clock_format=clock_format)
         img.paste(rendered, (x, y), rendered)
         return rendered

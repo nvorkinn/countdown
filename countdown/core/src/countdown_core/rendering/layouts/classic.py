@@ -12,6 +12,7 @@ from countdown_core.core.panel import Panel
 from countdown_core.rendering.layout import Box, Frame, Layout
 from countdown_core.rendering.screen import Canvas
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
+from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import GAP
 
 # Where every variant puts the arrivals panel, the part of the screen that changes every
@@ -31,30 +32,48 @@ class ClassicLayout(Layout):
     ARRIVALS_HEIGHT = 185
 
     @override
-    def render(self, panels: dict[str, Panel], canvas: Canvas) -> Frame:
+    def render(self, panels: dict[str, Panel], canvas: Canvas, *, clock_format: ClockFormat = "24h") -> Frame:
         img = Image.new("RGBA", canvas.size, (255, 255, 255, 255))
-        arrivals_box, below_top_row = self._draw_top_row(img, panels, canvas)
-        self._draw_below(img, panels, canvas, arrivals_box, below_top_row)
+        arrivals_box, below_top_row = self._draw_top_row(img, panels, canvas, clock_format)
+        self._draw_below(img, panels, canvas, arrivals_box, below_top_row, clock_format)
         return Frame(img, arrivals_box)
 
     @abstractmethod
     def _draw_below(
-        self, img: Image.Image, panels: dict[str, Panel], canvas: Canvas, arrivals_box: Box, below_top_row: int
+        self,
+        img: Image.Image,
+        panels: dict[str, Panel],
+        canvas: Canvas,
+        arrivals_box: Box,
+        below_top_row: int,
+        clock_format: ClockFormat,
     ) -> None:
         """What goes under the arrivals and weather: the part the variants differ in."""
 
-    def _draw_top_row(self, img: Image.Image, panels: dict[str, Panel], canvas: Canvas) -> tuple[Box, int]:
+    def _draw_top_row(
+        self, img: Image.Image, panels: dict[str, Panel], canvas: Canvas, clock_format: ClockFormat
+    ) -> tuple[Box, int]:
         """The arrivals and weather, the same in every variant so the arrivals' partial
         refreshes keep working. Returns the arrivals' box and the y below the row."""
         arrival_panel = panels[ClientClasses.TFL.api_name]
         arrivals_width = canvas.width if isinstance(arrival_panel, CombinedArrivalPanel) else ARRIVALS_MESSAGE_WIDTH
         x, y = ARRIVALS_ORIGIN
-        arrivals = self._place(img, arrival_panel, x, y, arrivals_width, self.ARRIVALS_HEIGHT)
+        arrivals = self._place(
+            img, arrival_panel, x, y, arrivals_width, self.ARRIVALS_HEIGHT, clock_format=clock_format
+        )
         arrivals_box = (x, y, x + arrivals.size[0], y + arrivals.size[1])
 
         weather_x = arrivals_box[2] + GAP
         weather_panel = panels[ClientClasses.WEATHER.api_name]
-        self._place(img, weather_panel, weather_x, y, canvas.width - weather_x - GAP, arrivals.size[1])
+        self._place(
+            img,
+            weather_panel,
+            weather_x,
+            y,
+            canvas.width - weather_x - GAP,
+            arrivals.size[1],
+            clock_format=clock_format,
+        )
         return arrivals_box, arrivals_box[3] + GAP
 
 
@@ -64,15 +83,29 @@ class SpotifyGlowLayout(ClassicLayout):
     requires = frozenset({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT})
 
     @override
-    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row):
+    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row, clock_format):
         spotify_y = canvas.height - SPOTIFY_HEIGHT - GAP
         spotify = self._place(
-            img, panels[ClientClasses.SPOTIFY.api_name], GAP, spotify_y, SPOTIFY_WIDTH, SPOTIFY_HEIGHT
+            img,
+            panels[ClientClasses.SPOTIFY.api_name],
+            GAP,
+            spotify_y,
+            SPOTIFY_WIDTH,
+            SPOTIFY_HEIGHT,
+            clock_format=clock_format,
         )
 
         notices_panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
         if notices_panel is not None:
-            self._place(img, notices_panel, GAP, below_top_row, spotify.size[0], spotify_y - GAP - below_top_row)
+            self._place(
+                img,
+                notices_panel,
+                GAP,
+                below_top_row,
+                spotify.size[0],
+                spotify_y - GAP - below_top_row,
+                clock_format=clock_format,
+            )
 
         energy_x = GAP + spotify.size[0] + GAP
         self._place(
@@ -82,6 +115,7 @@ class SpotifyGlowLayout(ClassicLayout):
             below_top_row,
             canvas.width - energy_x - GAP,
             canvas.height - below_top_row - GAP,
+            clock_format=clock_format,
         )
 
 
@@ -93,14 +127,30 @@ class SpotifyLayout(ClassicLayout):
     excludes = frozenset({ClientClasses.GLOWMARKT})
 
     @override
-    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row):
+    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row, clock_format):
         width = canvas.width - 2 * GAP
         spotify_y = canvas.height - SPOTIFY_HEIGHT - GAP
-        self._place(img, panels[ClientClasses.SPOTIFY.api_name], GAP, spotify_y, width, SPOTIFY_HEIGHT)
+        self._place(
+            img,
+            panels[ClientClasses.SPOTIFY.api_name],
+            GAP,
+            spotify_y,
+            width,
+            SPOTIFY_HEIGHT,
+            clock_format=clock_format,
+        )
 
         notices_panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
         if notices_panel is not None:
-            self._place(img, notices_panel, GAP, below_top_row, width, spotify_y - GAP - below_top_row)
+            self._place(
+                img,
+                notices_panel,
+                GAP,
+                below_top_row,
+                width,
+                spotify_y - GAP - below_top_row,
+                clock_format=clock_format,
+            )
 
 
 class GlowLayout(ClassicLayout):
@@ -111,12 +161,12 @@ class GlowLayout(ClassicLayout):
     excludes = frozenset({ClientClasses.SPOTIFY})
 
     @override
-    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row):
+    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row, clock_format):
         notices_panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
         notices_width = arrivals_box[2] - arrivals_box[0]
         if notices_panel is not None:
             height = canvas.height - below_top_row - GAP
-            self._place(img, notices_panel, GAP, below_top_row, notices_width, height)
+            self._place(img, notices_panel, GAP, below_top_row, notices_width, height, clock_format=clock_format)
 
         energy_x = GAP + notices_width + GAP
         self._place(
@@ -126,6 +176,7 @@ class GlowLayout(ClassicLayout):
             below_top_row,
             canvas.width - energy_x - GAP,
             canvas.height - below_top_row - GAP,
+            clock_format=clock_format,
         )
 
 
@@ -138,11 +189,11 @@ class BaseLayout(ClassicLayout):
     ARRIVALS_HEIGHT = 185 * 2
 
     @override
-    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row):
+    def _draw_below(self, img, panels, canvas, arrivals_box, below_top_row, clock_format):
         notices_panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
         if notices_panel is not None:
             width, height = canvas.width - 2 * GAP, canvas.height - below_top_row - GAP
-            self._place(img, notices_panel, GAP, below_top_row, width, height)
+            self._place(img, notices_panel, GAP, below_top_row, width, height, clock_format=clock_format)
 
 
 # The first is what's drawn if no variant fits (never, while the four cover every combination).

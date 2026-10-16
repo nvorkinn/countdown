@@ -13,6 +13,7 @@ from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLa
 from countdown_core.rendering.layouts.classic_portrait import BasePortraitLayout, SpotifyPortraitLayout
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
+from countdown_core.utils.clock import ClockFormat
 
 EVERYTHING = frozenset(ClientClasses)
 PORTRAIT = Canvas(480, 800)
@@ -88,7 +89,7 @@ def test_portrait_arrivals_are_the_volatile_part():
 
 
 class _SolidPanel(Panel):
-    def render(self, image_width: int, image_height: int) -> Image.Image:
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         return Image.new("RGBA", (image_width, image_height), "black")
 
 
@@ -106,7 +107,7 @@ def test_a_canvas_no_layout_draws_on_falls_back_to_the_default_with_one_warning(
 class _Solid(Layout):
     canvases = frozenset({DEFAULT_CANVAS})
 
-    def render(self, panels: dict[str, Panel], canvas: Canvas) -> Frame:
+    def render(self, panels: dict[str, Panel], canvas: Canvas, *, clock_format: ClockFormat = "24h") -> Frame:
         return Frame(Image.new("RGBA", canvas.size))
 
 
