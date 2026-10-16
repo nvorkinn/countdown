@@ -89,7 +89,7 @@ def main() -> int:
     parser.add_argument("--weather", default="", help="weather location")
     parser.add_argument("--postcode", default="", help="the notice board's postcode")
     parser.add_argument("--stops", nargs="*", default=[], help="TfL NaPTAN stop ids, in order")
-    parser.add_argument("--interval", type=int, default=15, help="seconds between updates")
+    parser.add_argument("--interval", type=int, default=20, help="seconds between updates")
     parser.add_argument("--orientation", choices=("horizontal", "vertical"), default="horizontal")
     parser.add_argument("--width", type=int, default=800)
     parser.add_argument("--height", type=int, default=480)

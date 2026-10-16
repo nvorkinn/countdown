@@ -66,7 +66,7 @@ class FailedClient(AbstractClient):
     """Stands in for a client whose constructor raised, so the failure shows as an error status
     (and in HA) instead of the client silently being missing. Rebuilt when its config changes."""
 
-    poll_interval = timedelta(hours=1)
+    poll_interval = timedelta(minutes=10)
 
     def __init__(self, registration: Registration, config: object, error: Exception):
         super().__init__(registration, config)

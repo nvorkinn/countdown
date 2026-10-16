@@ -22,7 +22,7 @@ class FloodWarningsSource(NoticeSource):
     elsewhere the feed just has nothing to report."""
 
     name = "Flood warnings"
-    refresh_interval = timedelta(minutes=15)
+    refresh_interval = timedelta(minutes=10)
 
     def __init__(self, session, location: Postcode):
         super().__init__(session)

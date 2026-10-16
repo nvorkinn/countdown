@@ -88,7 +88,7 @@ class NorwegianHolidaySource(NoticeSource):
     here, so it needs no network."""
 
     name = "Public holidays"
-    refresh_interval = timedelta(hours=1)  # so "Tomorrow" becomes "Today" on time
+    refresh_interval = timedelta(minutes=10)  # so "Tomorrow" becomes "Today" on time
     needs_network = False
 
     def fetch(self, now: datetime) -> list[Notice]:
@@ -150,7 +150,7 @@ class MetAlertsSource(NoticeSource):
     """MET Norway's weather warnings for the postcode's location, in the screen's language."""
 
     name = "MET weather warnings"
-    refresh_interval = timedelta(minutes=15)
+    refresh_interval = timedelta(minutes=10)
 
     def __init__(self, session, location: Postcode):
         super().__init__(session)

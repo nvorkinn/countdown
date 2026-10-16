@@ -60,7 +60,7 @@ class BankHolidaySource(NoticeSource):
     away. England and Wales unless the postcode says otherwise."""
 
     name = "Bank holidays"
-    refresh_interval = timedelta(hours=1)  # so "Tomorrow" becomes "Today" on time
+    refresh_interval = timedelta(minutes=10)  # so "Tomorrow" becomes "Today" on time
 
     def __init__(self, session, country: str | None = None):
         super().__init__(session)
@@ -115,7 +115,7 @@ class ClockChangeSource(NoticeSource):
     """A reminder in the week before the clocks go forward or back, in the screen's time zone. Needs no network."""
 
     name = "Clock change"
-    refresh_interval = timedelta(hours=1)
+    refresh_interval = timedelta(minutes=10)
     needs_network = False
 
     def fetch(self, now: datetime) -> list[Notice]:

@@ -20,7 +20,7 @@ FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 NORTH_POLE = (90.0, 0.0)
 
 # Forecasts move slowly.
-REFRESH_INTERVAL = dt.timedelta(minutes=30)
+REFRESH_INTERVAL = dt.timedelta(minutes=10)
 
 
 class WeatherClient(AbstractClient):

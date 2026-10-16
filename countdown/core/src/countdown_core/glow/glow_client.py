@@ -26,7 +26,7 @@ def _get_utc_offset(now: datetime | None = None) -> str:
 class GlowClient(AbstractClient):
     # update() runs every minute to rotate the page; each page only asks Glow for fresh
     # readings this often and redraws from cache otherwise.
-    refresh_intervals = {0: timedelta(minutes=30), 1: timedelta(hours=3), 2: timedelta(hours=12)}
+    refresh_intervals = {0: timedelta(minutes=10), 1: timedelta(minutes=10), 2: timedelta(minutes=10)}
     panel_title = N_("Energy")
     base_url = "https://api.glowmarkt.com/api/v0-1"
     app_id = "b0f1b774-a586-4f72-9edd-27ead8aa7a8d"
