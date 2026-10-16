@@ -442,6 +442,16 @@ def test_arrival_styles(snapshot, style):
     snapshot.assert_matches(f"screen_arrivals_{style}", img)
 
 
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_arrival_styles_with_departures_due(snapshot, style):
+    """A departure that's due says "due", with no "min" after it."""
+    # The next 36 and 185, and the next Morden train.
+    buses = [a.model_copy(update={"time_to_station": 0}) for a in BUSY_BUS_ARRIVALS[:2]] + BUSY_BUS_ARRIVALS[2:]
+    trains = [BUSY_TUBE_ARRIVALS[0].model_copy(update={"time_to_station": 0}), *BUSY_TUBE_ARRIVALS[1:]]
+    panel = CombinedArrivalPanel([BusArrivalPanel(BUS_STOP, buses, style), TubeArrivalPanel(TUBE_STOP, trains, style)])
+    snapshot.assert_matches(f"screen_arrivals_due_{style}", _draw(_panels(panel)))
+
+
 FEW_NOTICES = NoticeBoardPanel(NOTICES.notices[1:3])
 
 
