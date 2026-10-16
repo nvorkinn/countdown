@@ -1,11 +1,14 @@
 from math import floor
+from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import FONTS_DIR, IMAGES_DIR, UBUNTU_BOLD
+
+if TYPE_CHECKING:
+    from countdown_core.utils.clock import ClockFormat
 
 TITLE = ImageFont.truetype(str(FONTS_DIR / "Ubuntu-Medium.ttf"), 28)
 
@@ -13,7 +16,8 @@ TITLE = ImageFont.truetype(str(FONTS_DIR / "Ubuntu-Medium.ttf"), 28)
 class MessagePanel(Panel):
     """Stands in for a panel with nothing to draw, so its area is never blank. Shows
     `message` with `logo` (a file in images/) if given, else `title`. Both are English, marked with N_(), and
-    drawn in the screen's language."""
+    drawn in the screen's language.
+    """
 
     def __init__(self, title: str, message: str, logo: str | None = None):
         self.title = title

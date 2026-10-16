@@ -52,7 +52,8 @@ GOOGLE_SEMI = ImageFont.truetype(str(FONTS_DIR / "GoogleSans-SemiBold.ttf"), 14)
 @functools.cache
 def google_symbols() -> ImageFont.FreeTypeFont:
     """Material Symbols, downloaded on first use rather than at import, so importing
-    countdown_core (the app at boot, every test) never needs the network."""
+    countdown_core (the app at boot, every test) never needs the network.
+    """
     return _cached_font(
         "https://github.com/google/material-design-icons/raw/refs/heads/master/variablefont/MaterialSymbolsOutlined%5BFILL,GRAD,opsz,wght%5D.ttf",
         "MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf",

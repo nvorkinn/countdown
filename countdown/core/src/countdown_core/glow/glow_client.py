@@ -1,24 +1,29 @@
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
 
-from countdown_api.models import Glowmarkt
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.glow.models import Entity, Readings
 from countdown_core.i18n import N_
-from countdown_credentials.registration import Registration
+
+if TYPE_CHECKING:
+    from countdown_api.models import Glowmarkt
+    from countdown_credentials.registration import Registration
 
 
 def _get_utc_offset(now: datetime | None = None) -> str:
     """Glow's offset param: minutes to add to local time to get UTC, so BST is "-60".
-    An aware `now` keeps its own zone; a naive or missing one is taken as local time."""
+    An aware `now` keeps its own zone; a naive or missing one is taken as local time.
+    """
     # Evaluated per call, not as a default argument: that would freeze the offset at
     # import time, wrong for a long-running device after the clocks change.
     now = now or datetime.now()
     utc_offset = (now if now.tzinfo else now.astimezone()).utcoffset()
     if utc_offset is None:
-        raise ValueError("Could not find a UTC offset")
+        msg = "Could not find a UTC offset"
+        raise ValueError(msg)
     # total_seconds(), not .seconds: a negative timedelta keeps a positive .seconds.
     return str(round(-utc_offset.total_seconds() / 60))
 
@@ -85,7 +90,8 @@ class GlowClient(AbstractClient):
         for resource in entities[0].resources:
             if resource.name == "electricity consumption":
                 return resource.resourceId
-        raise ValueError("Could not find a resource with name 'electricity consumption'")
+        msg = "Could not find a resource with name 'electricity consumption'"
+        raise ValueError(msg)
 
     def _update(self) -> EnergyPanel:
         current = datetime.now().astimezone()
@@ -161,23 +167,23 @@ class GlowClient(AbstractClient):
         if page_index == 0:
             window_start = current - timedelta(hours=24)
             return window_start, "PT1H", timedelta(hours=1)
-        elif page_index == 1:
+        if page_index == 1:
             window_start = current - timedelta(days=31)
             return window_start, "P1D", timedelta(days=1)
-        elif page_index == 2:
+        if page_index == 2:
             window_start = current.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
             return window_start, "P1M", timedelta()  # months handled specially below
-        else:
-            raise ValueError(f"page_index must be 0, 1 or 2 - got {page_index}")
+        msg = f"page_index must be 0, 1 or 2 - got {page_index}"
+        raise ValueError(msg)
 
     def _truncate(self, dt: datetime, period: str) -> datetime:
         """Round a datetime down to the start of its bucket."""
         if period == "PT1H":
             return dt.replace(minute=0, second=0, microsecond=0)
-        elif period == "P1D":
+        if period == "P1D":
             return dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        else:  # period == "P1M"
-            return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # period == "P1M"
+        return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     def _next_bucket_start(self, dt: datetime, period: str, bucket_delta: timedelta):
         """Step forward one bucket; months aren't a fixed timedelta."""

@@ -239,7 +239,8 @@ def test_by_default_it_exports_protobuf_over_http_to_the_collector(monkeypatch):
 
 def test_exiting_is_not_held_up_by_a_collector_that_is_down():
     """A container gets 10s to stop. Nothing listens on the port here (it's bound and closed to
-    get one that's free), so an export in flight retries until its timeout."""
+    get one that's free), so an export in flight retries until its timeout.
+    """
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]

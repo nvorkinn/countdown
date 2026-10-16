@@ -3,7 +3,8 @@ that come out of it. A Registrar does the registering, and is the one place that
 CREDENTIALS_FILE. What it hands back, a Registration, never changes: everything else talks to the
 broker through a session whose `auth` is a Registration's `auth`, so the bearer secret is set in one place.
 
-Until it's registered, a client has nothing to do but wait, so register() only returns once it is."""
+Until it's registered, a client has nothing to do but wait, so register() only returns once it is.
+"""
 
 import asyncio
 import json
@@ -11,15 +12,17 @@ import logging
 import os
 import secrets
 from abc import ABC, abstractmethod
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import override
+from typing import TYPE_CHECKING, override
 
 import requests
 from cryptography.fernet import Fernet, InvalidToken
 
 from countdown_credentials.credentials_key import credentials_key
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +68,8 @@ class RendererRegistration(Registration):
 
 class Registrar[R: Registration](ABC):
     """Registers the device as one role, and keeps its credentials in `credentials_file`. A new secret
-    is saved before it's ever sent, so retrying a registration never makes a second identity."""
+    is saved before it's ever sent, so retrying a registration never makes a second identity.
+    """
 
     role: str
     path = "/api/devices/register"
@@ -152,7 +156,8 @@ class Registrar[R: Registration](ABC):
             data = json.loads(self._cipher.decrypt(raw))
         except InvalidToken as e:
             # Not starting a new identity over an unreadable file: that would orphan the device on the broker.
-            raise RuntimeError(f"{self.credentials_file} wasn't encrypted with this device's credentials key") from e
+            msg = f"{self.credentials_file} wasn't encrypted with this device's credentials key"
+            raise RuntimeError(msg) from e
         self._device_secret = data.get("device_secret", "")
         self._device_id = data.get("device_id")
 
@@ -174,14 +179,16 @@ class Registrar[R: Registration](ABC):
 class RendererRegistrar(Registrar[RendererRegistration]):
     """Whatever draws the frames. The orchestrator starts it for one screen and gives it that screen's
     claim token, which it sends with its secret to POST /api/renderers/claim. The broker answers 201 with
-    the device_id on the first claim, and 200 on a repeat with the same secret (the token is then ignored)."""
+    the device_id on the first claim, and 200 on a repeat with the same secret (the token is then ignored).
+    """
 
     role = "renderer"
     path = "/api/renderers/claim"
 
     def __init__(self, broker_url: str, claim_token: str, **kwargs):
         if not claim_token:
-            raise ValueError("A renderer can only register with a claim token")
+            msg = "A renderer can only register with a claim token"
+            raise ValueError(msg)
         self.claim_token = claim_token
         super().__init__(broker_url, **kwargs)
 
@@ -209,7 +216,8 @@ class RendererRegistrar(Registrar[RendererRegistration]):
 class DisplayRegistrar(Registrar[Registration]):
     """A thin screen that only fetches finished frames. Registers on every boot (the broker allows
     it) and doesn't wait to be matched: until it is, its frame polls answer 202. It never needs
-    its device_id."""
+    its device_id.
+    """
 
     role = "display"
 

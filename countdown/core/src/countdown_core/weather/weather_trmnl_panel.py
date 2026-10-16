@@ -147,13 +147,15 @@ class WeatherTrmnlPanel(Panel):
             is_day = upcoming is not Upcoming.TONIGHT
         else:
             if w.forecast_date is None:
-                raise ValueError("Forecast pages require a forecast date")
+                msg = "Forecast pages require a forecast date"
+                raise ValueError(msg)
             date = w.forecast_date
             # Translators: a CLDR date pattern, e.g. "Friday 16 October". Norwegian: "EEEE d. MMMM".
             title = format_date(date, _("EEEE d MMMM")).upper()
             if w.period is WeatherPeriod.TONIGHT:
                 if w.starts_at is None or w.ends_at is None:
-                    raise ValueError("Tonight requires an overnight time window")
+                    msg = "Tonight requires an overnight time window"
+                    raise ValueError(msg)
                 title += " - " + _("OVERNIGHT")
                 detail = f"{format_clock(w.starts_at, clock_format)} - {format_clock(w.ends_at, clock_format)}"
                 code, is_day = 0, False

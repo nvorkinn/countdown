@@ -5,17 +5,20 @@ Every text the screen shows is English in the code and translated as it's drawn,
 the next frame. Mark a text with `_()` where it's drawn, or with `N_()` where it's defined and drawn elsewhere (then
 `_()` it there). The translations are gettext catalogues, locale/<language>.po, read as they are, so editing one
 needs no build step; anything not translated yet is drawn in English. `sh dev/update_translations.sh` gathers the
-texts and brings the catalogues in line with them (see the README)."""
+texts and brings the catalogues in line with them (see the README).
+"""
 
-from datetime import date
 from functools import cache
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
 from babel import Locale
 from babel.dates import format_date as babel_format_date
 from babel.messages.pofile import read_po
+
+if TYPE_CHECKING:
+    from datetime import date
 
 Language = Literal["en", "nb"]
 LOCALE_DIR = Path(__file__).resolve().parent / "locale"
@@ -43,7 +46,8 @@ def local_zone() -> ZoneInfo:
 @cache
 def _catalogue(language: Language) -> dict[str | tuple[str, str], str | tuple[str, ...]]:
     """The language's translations, by English text (a (singular, plural) pair for a plural). Empty for English
-    or a language with no catalogue."""
+    or a language with no catalogue.
+    """
     path = LOCALE_DIR / f"{language}.po"
     if language == "en" or not path.exists():
         return {}
@@ -60,7 +64,8 @@ def _(text: str) -> str:
 
 def ngettext(singular: str, plural: str, n: int) -> str:
     """The singular or plural form for `n`, in the screen's language, e.g. ngettext("{n} min", "{n} mins", 3).
-    Doesn't format: call .format(n=n) on what it returns."""
+    Doesn't format: call .format(n=n) on what it returns.
+    """
     forms = _catalogue(_language).get((singular, plural))
     if isinstance(forms, tuple) and all(forms):
         return forms[_plural_index(_language, n)]
@@ -74,7 +79,8 @@ def _plural_index(language: Language, n: int) -> int:
 
 def N_(text: str) -> str:  # noqa: N802 -- gettext's name for it
     """Marks `text` for translation without translating it: for texts defined in one place and drawn in another,
-    which translates them with _()."""
+    which translates them with _().
+    """
     return text
 
 

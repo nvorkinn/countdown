@@ -1,8 +1,12 @@
-from PIL import Image, ImageDraw
+from typing import TYPE_CHECKING
 
 from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
-from countdown_core.tfl.models import MetroStopPoint, TubeArrival
 from countdown_core.utils.utils import ROUNDEL
+
+if TYPE_CHECKING:
+    from PIL import Image, ImageDraw
+
+    from countdown_core.tfl.models import MetroStopPoint, TubeArrival
 
 
 class TubeArrivalPanel(AbstractArrivalPanel):

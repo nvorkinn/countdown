@@ -1,10 +1,10 @@
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import AbstractClient
-from countdown_core.departures.departures_client import DeparturesSettings
 from countdown_core.i18n import N_, local_zone
 from countdown_core.notices.calendar import BankHolidaySource, ClockChangeSource
 from countdown_core.notices.entur import EnturSituationsSource
@@ -12,12 +12,15 @@ from countdown_core.notices.floods import FloodWarningsSource
 from countdown_core.notices.location import lookup_postcode
 from countdown_core.notices.met_office import MetOfficeWarningsSource
 from countdown_core.notices.norway import MetAlertsSource, NorwegianHolidaySource, lookup_norwegian_postcode
-from countdown_core.notices.notice import Notice, NoticeSource
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.tfl import TflLineStatusSource, TflRoadSource, TflStationSource
-from countdown_core.system_screens.message_panel import MessagePanel
-from countdown_core.tfl.models import Postcode
-from countdown_credentials.registration import Registration
+
+if TYPE_CHECKING:
+    from countdown_core.departures.departures_client import DeparturesSettings
+    from countdown_core.notices.notice import Notice, NoticeSource
+    from countdown_core.system_screens.message_panel import MessagePanel
+    from countdown_core.tfl.models import Postcode
+    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +35,8 @@ LOCATION_RETRY = timedelta(minutes=15)
 class NoticeBoardSettings:
     """What the notice board is configured with: the broker's `notice_board` section, and the departures' stops,
     whose lines and stations the disruptions are about. Compared by value, so a change to either makes
-    AbstractClient.needs_refresh rebuild the board."""
+    AbstractClient.needs_refresh rebuild the board.
+    """
 
     postcode: str | None
     departures: DeparturesSettings
@@ -47,7 +51,8 @@ class NoticeBoardSettings:
 
 class NoticeBoardClient(AbstractClient):
     """Polls the notice sources, each on its own refresh_interval, and shows what they
-    currently report, most severe first."""
+    currently report, most severe first.
+    """
 
     panel_title = N_("Notices")
 
@@ -75,7 +80,8 @@ class NoticeBoardClient(AbstractClient):
 
     def _default_holidays(self) -> NoticeSource:
         """The holidays for a screen whose postcode doesn't say where it is: Norway's for a Norwegian postcode or a
-        screen on Norwegian time, otherwise England and Wales's."""
+        screen on Norwegian time, otherwise England and Wales's.
+        """
         if self.norwegian or local_zone().key == "Europe/Oslo":
             return NorwegianHolidaySource(self.session)
         return BankHolidaySource(self.session)
@@ -138,7 +144,8 @@ class NoticeBoardClient(AbstractClient):
 
         online = [source for source in self.sources if source.needs_network]
         if online and not any(source in self.fetched for source in online):
-            raise RuntimeError("None of the notice sources could be reached")
+            msg = "None of the notice sources could be reached"
+            raise RuntimeError(msg)
 
         order = {source: i for i, source in enumerate(self.sources)}
         active = [
@@ -152,7 +159,8 @@ class NoticeBoardClient(AbstractClient):
             if self.postcode and self.location is None:
                 # The postcode isn't placed yet, so the weather, floods and roads haven't
                 # been checked: "All clear" would be a guess.
-                raise RuntimeError("Couldn't look up the postcode yet")
+                msg = "Couldn't look up the postcode yet"
+                raise RuntimeError(msg)
             if self.unknown_postcode:
                 return self.message_panel(N_("Unknown postcode"))
             return NoticeBoardPanel([])  # all clear: the layout leaves the notices out

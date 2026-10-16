@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 from math import ceil
+from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
-from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
-from countdown_core.utils.clock import ClockFormat
+
+if TYPE_CHECKING:
+    from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
+    from countdown_core.utils.clock import ClockFormat
 
 STOP_WIDTH = 262  # the widest a stop gets; a narrower panel (a portrait screen) narrows them
 COLUMNS = 2

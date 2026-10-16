@@ -1,11 +1,15 @@
+from typing import TYPE_CHECKING
+
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_, _, format_date
 from countdown_core.spotify.spotify_panel import truncate_to_fit
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS
 from countdown_core.weather.models import Weather, WeatherPeriod
+
+if TYPE_CHECKING:
+    from countdown_core.utils.clock import ClockFormat
 
 FALLBACK_ICON = ")"  # "N/A"
 
@@ -151,7 +155,8 @@ def _draw_tabs(
 def _caption(weather: Weather) -> str:
     if weather.period is WeatherPeriod.WEEKEND:
         if len(weather.days) != 2:
-            raise ValueError("The weekend page needs Saturday and Sunday readings")
+            msg = "The weekend page needs Saturday and Sunday readings"
+            raise ValueError(msg)
         first, last = weather.days
         # Translators: a CLDR date pattern, e.g. "17 Oct". Norwegian: "d. MMM".
         dates = (
@@ -172,7 +177,8 @@ def _caption(weather: Weather) -> str:
 def _temperature_text(weather: Weather, decimals: int = 0) -> str:
     if weather.period is WeatherPeriod.WEEKEND:
         if len(weather.days) != 2:
-            raise ValueError("The weekend page needs Saturday and Sunday readings")
+            msg = "The weekend page needs Saturday and Sunday readings"
+            raise ValueError(msg)
         low, high = min(round(day.high) for day in weather.days), max(round(day.high) for day in weather.days)
         return f"{low}–{high}" if low != high else str(high)
     if weather.period is WeatherPeriod.NOW and decimals:
@@ -230,7 +236,8 @@ def icon_for(weather_code: int, is_day: bool) -> str:
 
 def _draw_centered(draw: ImageDraw.ImageDraw, glyph: str, center: tuple[float, float], font: ImageFont.FreeTypeFont):
     """Centre the glyph's actual ink on `center` -- the font's own ascender/descender
-    box (what anchor="mm" uses) isn't where these icons visually sit."""
+    box (what anchor="mm" uses) isn't where these icons visually sit.
+    """
     left, top, right, bottom = draw.textbbox((0, 0), glyph, font=font)
     draw.text(
         (center[0] - (left + right) / 2, center[1] - (top + bottom) / 2),

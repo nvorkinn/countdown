@@ -1,6 +1,7 @@
 """The key that keeps the device credentials file encrypted at rest. Under systemd it can be handed to the service
 as a credential (LoadCredential=), so it never lives next to the file; a container gets it as a Docker secret. Anywhere else (a dev machine) one is made in the user's config directory, so the file is
-never written unencrypted."""
+never written unencrypted.
+"""
 
 import os
 from pathlib import Path

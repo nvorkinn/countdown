@@ -1,17 +1,22 @@
+from typing import TYPE_CHECKING
+
 import requests
 
 from countdown_api.clients import ApiConfigClient, ApiError
-from countdown_api.models import ConfigResponse
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
-from countdown_core.core.panel import Panel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_credentials.device_name import device_name_from_env
-from countdown_credentials.registration import RendererRegistration
+
+if TYPE_CHECKING:
+    from countdown_api.models import ConfigResponse
+    from countdown_core.core.panel import Panel
+    from countdown_credentials.registration import RendererRegistration
 
 
 def _device_name() -> str | None:
     """X-Device-Name is cosmetic on the broker side, so it's sent on every call (a rename
-    shows on the next poll) but never allowed to fail a request."""
+    shows on the next poll) but never allowed to fail a request.
+    """
     try:
         return device_name_from_env()
     except ValueError:
@@ -20,7 +25,8 @@ def _device_name() -> str | None:
 
 class BrokerClient(AbstractClient):
     """Talks to auth-broker (https://github.com/nvorkinn/auth-broker) for the device's config,
-    as the device `registration` registered."""
+    as the device `registration` registered.
+    """
 
     def __init__(self, registration: RendererRegistration):
         super().__init__(registration)
@@ -36,7 +42,8 @@ class BrokerClient(AbstractClient):
 
     def get_config(self) -> ConfigResponse:
         """The config, as the contract says it is: a response that doesn't match it (a missing section, an
-        interval that isn't positive) raises a pydantic ValidationError, which callers treat as a bad config."""
+        interval that isn't positive) raises a pydantic ValidationError, which callers treat as a bad config.
+        """
         try:
             return self._config_api.get(x_device_name=_device_name())
         except ApiError as error:
@@ -45,7 +52,8 @@ class BrokerClient(AbstractClient):
 
     def get_pairing_code_panel(self, config: ConfigResponse) -> PairingCodePanel:
         """Wraps the config's pairing_code as a panel, flagging whether it changed since
-        the last check."""
+        the last check.
+        """
         is_same = self._cache_and_compare("pairing_code", config.pairing_code)
         return PairingCodePanel(config.pairing_code, self.device_id, has_changed=not is_same)
 
@@ -54,6 +62,7 @@ class BrokerClient(AbstractClient):
 
     def fetch_app_config(self) -> tuple[ConfigResponse, PairingCodePanel]:
         """The config and pairing status in one go, for boot. Raises rather than falling
-        back if the broker can't be reached or the config is invalid."""
+        back if the broker can't be reached or the config is invalid.
+        """
         config = self.get_config()
         return config, self.get_pairing_code_panel(config)

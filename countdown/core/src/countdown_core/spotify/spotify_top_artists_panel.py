@@ -1,8 +1,10 @@
-from typing import override
+from typing import TYPE_CHECKING, override
 
 from countdown_core.i18n import N_
-from countdown_core.spotify.models import Artist, TopResponse
 from countdown_core.spotify.spotify_abstract_top_panel import AbstractSpotifyTopSubPanel
+
+if TYPE_CHECKING:
+    from countdown_core.spotify.models import Artist, TopResponse
 
 
 class SpotifyTopArtistsPanel(AbstractSpotifyTopSubPanel):

@@ -72,7 +72,8 @@ def test_find_stop_child_not_found_returns_none():
 
 def test_construction_never_touches_the_network():
     """__init__ must be cheap and unable to fail -- stop resolution is deferred to
-    first use, so a flaky TfL API can never prevent a DeparturesClient from being built."""
+    first use, so a flaky TfL API can never prevent a DeparturesClient from being built.
+    """
     client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"], "app-key"))
     assert client.stops == []
     assert client.sources["tfl"].params == {"app_key": "app-key"}
@@ -135,7 +136,8 @@ def test_initialise_carries_on_when_only_some_stops_resolve(monkeypatch):
 
     def fake_get(url, params=None, timeout=None):
         if "940GZZLUKNG" not in url:
-            raise ConnectionError("no such stop")
+            msg = "no such stop"
+            raise ConnectionError(msg)
         response = MagicMock()
         response.json.return_value = METRO_STOP_JSON
         return response
@@ -270,7 +272,8 @@ def test_rotation_leaves_out_a_stop_whose_arrivals_failed(monkeypatch):
 
     def get(url, params=None, timeout=None):
         if "490000001" in url:
-            raise ConnectionError("down")
+            msg = "down"
+            raise ConnectionError(msg)
         return response
 
     monkeypatch.setattr(client.session, "get", get)
@@ -284,7 +287,8 @@ def test_update_raises_when_no_stops_arrivals_could_be_fetched(monkeypatch):
     client.stops = tfl_stops(client, make_bus_stop())
 
     def failing_get(url, params=None, timeout=None):
-        raise ConnectionError("network is down")
+        msg = "network is down"
+        raise ConnectionError(msg)
 
     monkeypatch.setattr(client.session, "get", failing_get)
 

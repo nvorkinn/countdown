@@ -18,7 +18,8 @@ MAX_BACKOFF_S = 300
 def run() -> None:
     """The `countdown-orchestrator` console script: runs on the renderers' host, polling the broker for
     screens that need a renderer. BROKER_URL, ORCHESTRATOR_TOKEN and RENDERER_IMAGE are required (no defaults:
-    crash loudly rather than talk to, or run, something baked in)."""
+    crash loudly rather than talk to, or run, something baked in).
+    """
     configure_logging()
     broker_url = os.environ["BROKER_URL"]
     broker = OrchestratorBroker(broker_url, os.environ["ORCHESTRATOR_TOKEN"])

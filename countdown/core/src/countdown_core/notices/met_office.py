@@ -2,12 +2,15 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
-from countdown_core.tfl.models import Postcode
+
+if TYPE_CHECKING:
+    from countdown_core.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +95,8 @@ def region_for(location: Postcode) -> str:
 def _valid_until(description: str, now: datetime) -> datetime | None:
     """The end of a warning's validity, from the "valid from ... to 2100 Wed 25 Sep" in
     its description. The feed leaves the year out, so it's this year's date unless that's
-    long gone (a warning into January, read in December)."""
+    long gone (a warning into January, read in December).
+    """
     match = VALID_TO_PATTERN.search(description)
     if not match:
         return None
@@ -111,7 +115,8 @@ def _valid_until(description: str, now: datetime) -> datetime | None:
 def parse_warnings(feed: bytes, now: datetime) -> list[Notice]:
     """The feed's items as Notices. Reads the colour and hazard out of titles like "Amber
     warning of wind affecting London & South East England"; a title in any other shape is
-    shown as it is rather than dropped."""
+    shown as it is rather than dropped.
+    """
     notices = []
     for item in ET.fromstring(feed).iter("item"):
         title = (item.findtext("title") or "").strip()

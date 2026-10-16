@@ -1,21 +1,24 @@
 """The classic dashboard on a screen hung portrait (480x800), top to bottom: the weather, two
 stops side by side, Spotify, and the notices, only as tall as their rows so the stops get the
 rest. Without Spotify the stops and notices share its room. There's no energy chart: Glowmarkt
-is left out on portrait."""
+is left out on portrait.
+"""
 
-from typing import override
+from typing import TYPE_CHECKING, override
 
 from PIL import Image
 
 from countdown_core.core.api_registry import ClientClasses
-from countdown_core.core.panel import Panel
 from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.screen import Canvas
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import GAP
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_core.weather.weather_trmnl_panel import HEIGHT as WEATHER_HEIGHT
 from countdown_core.weather.weather_trmnl_panel import WeatherTrmnlPanel
+
+if TYPE_CHECKING:
+    from countdown_core.core.panel import Panel
+    from countdown_core.utils.clock import ClockFormat
 
 SPOTIFY_HEIGHT = 120
 

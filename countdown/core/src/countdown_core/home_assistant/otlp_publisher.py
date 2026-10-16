@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from collections.abc import Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING
 
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.metrics import CallbackOptions, Observation
@@ -11,6 +11,9 @@ from opentelemetry.sdk.resources import HOST_NAME, SERVICE_NAME, Resource
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
 from countdown_core.home_assistant.device_status import DeviceStatus
 from countdown_credentials.device_name import device_name_from_env
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,8 @@ class OtlpPublisher:
     time the SDK exports (every EXPORT_INTERVAL_MS, or on publish_soon()). `clients` is empty
     until ApiRegistry points it at its own dict, so rebuilt clients are picked up automatically.
 
-    `reader` is for tests; by default metrics go to METRICS_URL."""
+    `reader` is for tests; by default metrics go to METRICS_URL.
+    """
 
     def __init__(
         self,
@@ -55,7 +59,8 @@ class OtlpPublisher:
     def start(self) -> None:
         """Starts exporting, from inside the event loop: now rather than a minute from now, so a
         device still waiting on the broker shows up at once; the SDK takes it from there. Nothing
-        is exported, and no thread runs, until this is called."""
+        is exported, and no thread runs, until this is called.
+        """
         reader = self._reader or PeriodicExportingMetricReader(
             OTLPMetricExporter(endpoint=METRICS_URL, timeout=EXPORT_TIMEOUT_MS // 1000),
             export_interval_millis=EXPORT_INTERVAL_MS,
@@ -77,7 +82,8 @@ class OtlpPublisher:
 
     def publish_soon(self) -> None:
         """Exports now rather than at the next interval, e.g. for a new stage. From inside the
-        event loop; the export itself runs in a thread. Does nothing before start()."""
+        event loop; the export itself runs in a thread. Does nothing before start().
+        """
         if self._provider is None:
             return
         task = asyncio.create_task(asyncio.to_thread(self._flush))

@@ -1,16 +1,18 @@
 import io
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import requests
 from PIL import Image, ImageDraw, ImageOps
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
-from countdown_core.spotify.models import Album, Artist, Queue
-from countdown_core.spotify.models import Image as AlbumImage
 from countdown_core.spotify.spotify_styles import STYLES
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import UBUNTU_BOLD_20, UBUNTU_MEDIUM_15, UBUNTU_MEDIUM_20, truncate_to_fit
+
+if TYPE_CHECKING:
+    from countdown_core.spotify.models import Album, Artist, Queue
+    from countdown_core.spotify.models import Image as AlbumImage
+    from countdown_core.utils.clock import ClockFormat
 
 # How the Spotify panel is drawn: the config's spotify.style.
 Style = Literal["classic", "airy", "hero", "card"]
@@ -70,7 +72,8 @@ class SpotifyPanel(Panel):
 
 def _create_album_image_panel(album: Album, height: int) -> Image.Image:
     """Downloads the album's art (see _pick_image) and scales it down to `height`. A local
-    file has no art at all: that gets an empty (0-wide) image."""
+    file has no art at all: that gets an empty (0-wide) image.
+    """
     if not album.images:
         return Image.new("RGBA", (0, height))
     response = requests.get(str(_pick_image(album.images, height).url), timeout=10)
@@ -82,7 +85,8 @@ def _create_album_image_panel(album: Album, height: int) -> Image.Image:
 
 def _contrasty(art: Image.Image) -> Image.Image:
     """The cover in grey with its contrast stretched, so it still reads once it's dithered to
-    black and white rather than turning to an even speckle."""
+    black and white rather than turning to an even speckle.
+    """
     if not art.size[0]:
         return art
     grey = ImageOps.autocontrast(art.convert("L"), cutoff=2)
@@ -92,7 +96,8 @@ def _contrasty(art: Image.Image) -> Image.Image:
 
 def _pick_image(images: list[AlbumImage], height: int) -> AlbumImage:
     """The smallest image at least `height` tall, for thumbnail() to scale down (it never
-    scales up, so a smaller one would stay small); the tallest if none is tall enough."""
+    scales up, so a smaller one would stay small); the tallest if none is tall enough.
+    """
     tall_enough = [image for image in images if image.height >= height]
     if tall_enough:
         return min(tall_enough, key=lambda image: image.height)

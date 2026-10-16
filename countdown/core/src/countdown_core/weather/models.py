@@ -56,7 +56,8 @@ class HourlyForecast(BaseModel):
             self.precipitation_probability,
         )
         if any(len(values) != len(self.time) for values in columns):
-            raise ValueError("Hourly forecast columns must have one value per timestamp")
+            msg = "Hourly forecast columns must have one value per timestamp"
+            raise ValueError(msg)
         return self
 
 
@@ -86,7 +87,8 @@ class DailyForecast(BaseModel):
             self.wind_direction_dominant,
         )
         if any(len(values) != len(self.time) for values in columns):
-            raise ValueError("Daily forecast columns must have one value per date")
+            msg = "Daily forecast columns must have one value per date"
+            raise ValueError(msg)
         return self
 
 

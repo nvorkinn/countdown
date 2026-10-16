@@ -48,7 +48,8 @@ class EnergyPanel(Panel):
 
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         """A bar chart of one page's readings ({"start": iso-string, "kwh": float} dicts).
-        Bars on whole-pixel edges and 1-bit text, so there's nothing grey to dither."""
+        Bars on whole-pixel edges and 1-bit text, so there's nothing grey to dither.
+        """
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"
@@ -96,7 +97,8 @@ class EnergyPanel(Panel):
     def _y_scale(peak: float) -> tuple[float, float]:
         """A round tick step (1, 2, 2.5 or 5 times a power of ten) giving about
         TARGET_Y_TICKS intervals, and the axis top: the first tick at or above the
-        tallest bar."""
+        tallest bar.
+        """
         if peak <= 0:
             return 1.0, 1.0
         rough = peak / TARGET_Y_TICKS

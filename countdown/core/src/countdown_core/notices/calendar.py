@@ -42,7 +42,8 @@ def _one_month_after(day: date) -> date:
             return date(year, month, d)
         except ValueError:
             continue
-    raise AssertionError("every month has a 28th")
+    msg = "every month has a 28th"
+    raise AssertionError(msg)
 
 
 def when(day: date, today: date) -> str:
@@ -57,7 +58,8 @@ def when(day: date, today: date) -> str:
 
 class BankHolidaySource(NoticeSource):
     """The next bank holiday for the device's part of the UK, once it's less than a month
-    away. England and Wales unless the postcode says otherwise."""
+    away. England and Wales unless the postcode says otherwise.
+    """
 
     name = "Bank holidays"
     refresh_interval = timedelta(hours=1)  # so "Tomorrow" becomes "Today" on time
@@ -93,7 +95,8 @@ class BankHolidaySource(NoticeSource):
 
 def next_clock_change(now: datetime, zone: ZoneInfo) -> datetime | None:
     """When the clocks in `zone` next change within CLOCK_CHANGE_NOTICE, as a UTC instant (the
-    changes always happen on the hour), or None if they don't."""
+    changes always happen on the hour), or None if they don't.
+    """
     hour = now.astimezone(ZoneInfo("UTC")).replace(minute=0, second=0, microsecond=0)
     offset = hour.astimezone(zone).utcoffset()
     for _hour in range(int(CLOCK_CHANGE_NOTICE / timedelta(hours=1)) + 1):

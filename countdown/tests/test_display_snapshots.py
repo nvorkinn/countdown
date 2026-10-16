@@ -1,9 +1,11 @@
 """Visual regression tests for the composed display screen: each scenario builds panels
 from representative data (no HTTP mocking -- see test_e2e_render_cycle.py) and compares
-the render against a golden image in tests/images/. See the README for the workflow."""
+the render against a golden image in tests/images/. See the README for the workflow.
+"""
 
 import datetime as dt
 import io
+from typing import TYPE_CHECKING
 
 import pytest
 import responses
@@ -12,12 +14,11 @@ from PIL import Image, ImageChops, ImageDraw
 from weather_factory import forecast_json, make_weather
 
 # `countdown_core` must be imported before any display.* module, or it's a circular import.
-import countdown_core  # noqa: F401, I001
+import countdown_core
 import countdown_core.glow.energy_panel
 from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.display import DisplayController
-from countdown_core.core.panel import Panel
 from countdown_core.departures.departures_client import DeparturesClient
 from countdown_core.entur.entur_arrival_panel import EnturArrivalPanel
 from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
@@ -43,6 +44,9 @@ from countdown_core.weather.models import ForecastResponse, WeatherPeriod
 from countdown_core.weather.weather_client import WeatherClient
 from countdown_core.weather.weather_forecast import weather_pages
 from countdown_core.weather.weather_panel import WeatherPanel
+
+if TYPE_CHECKING:
+    from countdown_core.core.panel import Panel
 
 _CONTROLLER = DisplayController(FakeTarget())
 EVERYTHING = frozenset(ClientClasses)
@@ -144,7 +148,8 @@ SPOTIFY_QUEUE_LAST_TRACK = SPOTIFY_QUEUE.model_copy(update={"queue": []})
 
 def _album_art_bytes() -> bytes:
     """The album's only image, and a small one: thumbnail() never scales up, so it
-    stays 64x64 in the 120px-high panel."""
+    stays 64x64 in the 120px-high panel.
+    """
     buf = io.BytesIO()
     Image.new("RGB", (64, 64), (30, 30, 30)).save(buf, format="PNG")
     return buf.getvalue()
@@ -198,7 +203,8 @@ def _panels(
     notices: Panel = NOTICES,
 ) -> dict[str, Panel]:
     """What ApiRegistry.update_all() hands the layout: a panel
-    for every API, a MessagePanel where one has nothing to show."""
+    for every API, a MessagePanel where one has nothing to show.
+    """
     return {
         ClientClasses.TFL.api_name: arrivals,
         ClientClasses.GLOWMARKT.api_name: energy,
@@ -231,7 +237,8 @@ def test_screen_without_weather_data_yet(snapshot):
 
 def test_screen_without_energy_panel(snapshot):
     """Glowmarkt not set up (the common case for a gifted device): no energy column, and
-    the notices and Spotify take the full width instead."""
+    the notices and Spotify take the full width instead.
+    """
     img = _draw(_panels(_bus_only_arrivals(), energy=GlowClient.message_panel("Not configured")), NO_GLOWMARKT)
     snapshot.assert_matches("screen_no_energy", img)
 
@@ -279,7 +286,8 @@ def test_empty_screen_stays_clear_of_the_screen_edges():
 
 def test_screen_with_no_panels_at_all_says_there_is_nothing_to_show(snapshot):
     """First cycle after boot, a paired device nobody's set up yet, or every API failing:
-    a message saying so, not a blank white screen that looks broken (or a crash)."""
+    a message saying so, not a blank white screen that looks broken (or a crash).
+    """
     img = _draw({})
     assert img.size == DEFAULT_CANVAS.size
     # Text-only and large: CI renders it ~1% differently from macOS.
@@ -303,7 +311,8 @@ def test_screen_with_spotify_playing_the_last_queued_track(snapshot):
 
 def test_weather_panel_rainy_night(snapshot):
     """A different code and the night variant, at the shorter height the panel gets
-    while a Spotify track is playing."""
+    while a Spotify track is playing.
+    """
     panel = WeatherPanel(
         make_weather(temperature=8.6, weather_code=63, is_day=False, high=11, low=6, precipitation_probability=85)
     )
@@ -580,7 +589,8 @@ def test_rotating_stops_on_a_portrait_screen(snapshot):
 
 def test_rotation_squares_are_part_of_the_arrivals_panel():
     """The layouts make the arrivals' partial-refresh box from the panel's rendered size, so
-    the squares, in the strip at the bottom of it, are repainted along with the stops."""
+    the squares, in the strip at the bottom of it, are repainted along with the stops.
+    """
     rendered = _rotating_arrivals().render(800, 185)
     assert rendered.size[1] > 185 - ROTATION_STRIP
     assert ImageChops.difference(
@@ -594,7 +604,8 @@ SPOTIFY_STYLES = ["classic", "airy", "hero", "card"]
 
 def _cover_art_bytes() -> bytes:
     """A low-contrast gradient with a disc on it: the styles stretch its contrast, so the
-    disc still shows once the screen dithers it."""
+    disc still shows once the screen dithers it.
+    """
     img = Image.new("RGB", (300, 300))
     draw = ImageDraw.Draw(img)
     for y in range(300):
@@ -631,7 +642,8 @@ def _spotify_page(page: str, style: str) -> Panel:
 @pytest.mark.parametrize("style", SPOTIFY_STYLES)
 def test_spotify_styles(snapshot, style, page):
     """Each look the config's spotify.style can pick, on both of Spotify's pages, beside
-    the energy chart."""
+    the energy chart.
+    """
     responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
     img = _draw(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
     snapshot.assert_matches(f"screen_spotify_{style}_{page}", img)

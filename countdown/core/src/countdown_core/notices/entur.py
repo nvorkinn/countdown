@@ -1,5 +1,6 @@
 """Disruptions at the Norwegian stops the screen shows departures for: Entur's situation messages (Ruter's and every
-other operator's), on the stops themselves and on the lines leaving them."""
+other operator's), on the stops themselves and on the lines leaving them.
+"""
 
 import logging
 from datetime import datetime, timedelta
@@ -51,7 +52,8 @@ def _until(situation: dict[str, Any]) -> datetime | None:
 
 class EnturSituationsSource(NoticeSource):
     """One notice per situation, tagged with the stop or the line it's about, said once however many departures it
-    affects."""
+    affects.
+    """
 
     name = "Entur disruptions"
     refresh_interval = timedelta(minutes=5)

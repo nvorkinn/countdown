@@ -8,7 +8,8 @@ from test_utils import highlight_diff, images_equal
 @pytest.fixture(autouse=True)
 def isolated_cwd(tmp_path, monkeypatch):
     """Run every test in an empty temp directory (device-local files like
-    .auth_broker_device land there), with the app's env vars cleared."""
+    .auth_broker_device land there), with the app's env vars cleared.
+    """
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("BROKER_URL", raising=False)
     # Where a key is made when the device wasn't given one.

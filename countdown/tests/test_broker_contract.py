@@ -2,7 +2,8 @@
 
 countdown_api (https://github.com/nvorkinn/countdown-api) provides the client and contract that auth-broker
 implements, and the app reads the contract's own ConfigResponse. Nothing here talks to a broker: these fail when
-the contract and the client built from it stop agreeing with what the app sends and relies on."""
+the contract and the client built from it stop agreeing with what the app sends and relies on.
+"""
 
 from importlib.resources import files
 
@@ -28,7 +29,8 @@ def test_the_spec_describes_the_config_endpoint():
 @responses.activate
 def test_the_headers_the_client_really_sends_are_the_ones_the_spec_declares(isolated_cwd, monkeypatch):
     """Authorization isn't a header parameter (the spec declares it as a security scheme); every other header the
-    broker is sent on purpose must be declared, and a required one must be there."""
+    broker is sent on purpose must be declared, and a required one must be there.
+    """
     from config_factory import broker_payload
 
     monkeypatch.setenv("DEVICE_NAME", "camilla")

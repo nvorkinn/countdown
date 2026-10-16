@@ -1,10 +1,13 @@
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _
 from countdown_core.notices.models import FloodWarningsResponse
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
-from countdown_core.tfl.models import Postcode
+
+if TYPE_CHECKING:
+    from countdown_core.tfl.models import Postcode
 
 FLOODS_URL = "https://environment.data.gov.uk/flood-monitoring/id/floods"
 RADIUS_KM = 5
@@ -19,7 +22,8 @@ SEVERITY_BY_LEVEL = {
 
 class FloodWarningsSource(NoticeSource):
     """Environment Agency flood alerts and warnings near the postcode. England only:
-    elsewhere the feed just has nothing to report."""
+    elsewhere the feed just has nothing to report.
+    """
 
     name = "Flood warnings"
     refresh_interval = timedelta(minutes=15)

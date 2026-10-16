@@ -1,15 +1,18 @@
 import datetime as dt
 import logging
+from typing import TYPE_CHECKING
 
-from countdown_api.models import Weather as WeatherSection
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
-from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_
 from countdown_core.notices.location import is_postcode, postcode_coordinates
 from countdown_core.weather.models import ForecastResponse, GeocodingResponse, Weather
 from countdown_core.weather.weather_forecast import weather_pages
 from countdown_core.weather.weather_panel import WeatherPanel
-from countdown_credentials.registration import Registration
+
+if TYPE_CHECKING:
+    from countdown_api.models import Weather as WeatherSection
+    from countdown_core.core.panel import Panel
+    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +29,8 @@ REFRESH_INTERVAL = dt.timedelta(minutes=30)
 class WeatherClient(AbstractClient):
     """A forecast carousel from Open-Meteo (keyless, so
     the config's api_key is unused). The location is geocoded once, on first fetch; with no
-    location configured it's the weather at the North Pole."""
+    location configured it's the weather at the North Pole.
+    """
 
     panel_title = N_("Weather")
 
@@ -49,7 +53,8 @@ class WeatherClient(AbstractClient):
 
     def _update(self) -> Panel:
         """A MessagePanel if Open-Meteo can't find the location. Network and parse failures
-        raise, so the registry keeps the last good panel."""
+        raise, so the registry keeps the last good panel.
+        """
         now = dt.datetime.now(dt.UTC)
         elapsed = now - self._last_attempt if self._last_attempt is not None else None
         date_changed = (

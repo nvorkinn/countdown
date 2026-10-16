@@ -1,19 +1,22 @@
 """The departures panel: every stop the owner picked, London's and Norway's alike, each asked of its own source and
-drawn the same way."""
+drawn the same way.
+"""
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from countdown_api.models import ConfigResponse, DepartureStop
 from countdown_core.core.abstract_client import AbstractClient
-from countdown_core.core.panel import Panel
 from countdown_core.entur.entur_source import EnturSource
 from countdown_core.i18n import N_
-from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
 from countdown_core.tfl.tfl_client import TflSource
-from countdown_credentials.registration import Registration
+
+if TYPE_CHECKING:
+    from countdown_core.core.panel import Panel
+    from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
+    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,8 @@ class StopSource(Protocol):
 @dataclass(frozen=True)
 class DeparturesSettings:
     """What the departures panel is configured with: the broker's `departures` section, or, from a broker that
-    predates it, its `tfl` one. Compared by value, so a change makes AbstractClient.needs_refresh rebuild it."""
+    predates it, its `tfl` one. Compared by value, so a change makes AbstractClient.needs_refresh rebuild it.
+    """
 
     stops: tuple[DepartureStop, ...]
     style: Style = "classic"
@@ -75,7 +79,8 @@ class DeparturesClient(AbstractClient):
             return
         resolved = self.init_stops(self.config.stops)
         if self.config.stops and not resolved:
-            raise RuntimeError(f"None of the {len(self.config.stops)} configured stops could be resolved")
+            msg = f"None of the {len(self.config.stops)} configured stops could be resolved"
+            raise RuntimeError(msg)
         self.stops = resolved
 
     def init_stops(self, stops: tuple[DepartureStop, ...] | list[DepartureStop]) -> list[ResolvedStop]:
@@ -99,7 +104,8 @@ class DeparturesClient(AbstractClient):
     def _next_stop_index(self) -> int:
         """The index of the next stop to show."""
         if not self.stops:
-            raise ValueError("No stops initialised")
+            msg = "No stops initialised"
+            raise ValueError(msg)
         index = self.current_stop
         self.current_stop = (self.current_stop + 1) % len(self.stops)
         return index
@@ -125,7 +131,8 @@ class DeparturesClient(AbstractClient):
                 logger.exception(f"Error fetching departures for {resolved.id}: {e}")
         if not panels:
             # Raised rather than shown, so the registry keeps the last good departures.
-            raise RuntimeError(f"Could not fetch departures for any of {len(to_fetch)} stops")
+            msg = f"Could not fetch departures for any of {len(to_fetch)} stops"
+            raise RuntimeError(msg)
         # Only when they rotate: then the squares under the stops say which are on screen.
         rotation = Rotation(frozenset(shown), len(self.stops)) if rotating else None
         return CombinedArrivalPanel(panels, rotation)

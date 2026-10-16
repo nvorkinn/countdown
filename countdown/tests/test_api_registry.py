@@ -56,7 +56,8 @@ def unbuildable_spotify(monkeypatch):
 
     def broken(self, registration, config):
         AbstractClient.__init__(self, registration, config)  # so its __del__ can still close the session
-        raise ValueError("can't build")
+        msg = "can't build"
+        raise ValueError(msg)
 
     monkeypatch.setattr(SpotifyClient, "__init__", broken)
 
@@ -142,7 +143,8 @@ def test_the_apis_without_a_switch_are_always_on():
 )
 def test_glowmarkt_is_off_without_both_credentials(credentials):
     """The broker has no Glowmarkt switch, so the credentials decide. A cleared field can arrive as "" or
-    whitespace as well as null."""
+    whitespace as well as null.
+    """
     assert not is_enabled(Glowmarkt(**{"username": None, "password": None, **credentials}))
 
 
@@ -178,7 +180,8 @@ def test_on_config_update_initialises_new_clients_even_if_one_fails(monkeypatch)
     initialised = []
 
     async def broken(self):
-        raise ConnectionError("down")
+        msg = "down"
+        raise ConnectionError(msg)
 
     async def healthy(self):
         initialised.append(self)
@@ -245,7 +248,8 @@ def test_a_client_that_is_switched_off_is_dropped_with_its_panel():
 
 def test_a_change_the_client_says_is_irrelevant_does_not_rebuild_it():
     """Open-Meteo is keyless, so WeatherClient ignores api_key changes -- rebuilding
-    would only throw away its cached coordinates and forecast."""
+    would only throw away its cached coordinates and forecast.
+    """
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
     asyncio.run(registry.on_config_update(make_config()))
     weather = registry.clients["weather"]
@@ -436,7 +440,8 @@ def test_available_leaves_out_glowmarkt_when_its_username_is_cleared(username):
 
 def test_a_client_missing_what_it_needs_is_not_built_and_comes_back_fresh(monkeypatch):
     """Clearing Glowmarkt's username removes its client altogether; putting it back builds a
-    new one rather than reviving the old."""
+    new one rather than reviving the old.
+    """
     monkeypatch.setattr(GlowClient, "_initialise", lambda self: asyncio.sleep(0))  # no network
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
     with_credentials = make_config(glowmarkt={"username": "me@example.com", "password": "pw"})

@@ -1,10 +1,9 @@
 import logging
+from typing import TYPE_CHECKING
 
-import requests
 from pydantic import TypeAdapter
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
-from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.models import (
     ArrivalUnion,
@@ -14,6 +13,11 @@ from countdown_core.tfl.models import (
     StopPointUnion,
 )
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
+
+if TYPE_CHECKING:
+    import requests
+
+    from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
 
 logger = logging.getLogger(__name__)
 

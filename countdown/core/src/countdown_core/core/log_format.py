@@ -1,6 +1,7 @@
 """One JSON object per log line, with the field names VictoriaLogs reads: `_msg` and `level`. The container's
 log driver stamps each line with its time, and the host's collector adds the service name, so neither is here.
-A traceback stays inside its record (`exception`) instead of becoming a line of its own."""
+A traceback stays inside its record (`exception`) instead of becoming a line of its own.
+"""
 
 import json
 import logging

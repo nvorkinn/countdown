@@ -1,22 +1,27 @@
-from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from countdown_api.models import Spotify
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
-from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_top_artists_panel import SpotifyTopArtistsPanel
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_core.spotify.spotify_top_tracks_panel import SpotifyTopTracksPanel
-from countdown_credentials.registration import Registration
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from countdown_api.models import Spotify
+    from countdown_core.core.panel import Panel
+    from countdown_credentials.registration import Registration
 
 
 @dataclass(frozen=True)
 class PageConfig:
     """One of the pages the Spotify area rotates through. A page with nothing to show
-    (update_function returns None) gives way to the next one."""
+    (update_function returns None) gives way to the next one.
+    """
 
     update_function: Callable[[SpotifyClient, PageConfig], Panel | None]
 
@@ -30,7 +35,8 @@ class TopPageConfig(PageConfig):
 
 class SpotifyClient(AbstractClient):
     """Now playing and top tracks/artists, via auth-broker, which calls Spotify server-side
-    so this device never holds a token. Authenticates as the device `registration` registered."""
+    so this device never holds a token. Authenticates as the device `registration` registered.
+    """
 
     panel_title = N_("Spotify")
     panel_logo = "spotify_logo.png"

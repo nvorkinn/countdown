@@ -4,14 +4,17 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from enum import StrEnum, auto
+from typing import TYPE_CHECKING
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
-from countdown_core.core.panel import Panel
 from countdown_core.system_screens.message_panel import MessagePanel
-from countdown_credentials.registration import Registration
+
+if TYPE_CHECKING:
+    from countdown_core.core.panel import Panel
+    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +40,8 @@ class AbstractClient(ABC):
 
     _initialise() and _update() are blocking and run in a worker thread, so they must not
     touch anything main-thread-only: build the panel's data there and leave rendering
-    (Pillow, SPI) to the display."""
+    (Pillow, SPI) to the display.
+    """
 
     poll_interval: timedelta = timedelta(minutes=1)
     # Title/logo for a MessagePanel standing in for this client's panel.
@@ -59,7 +63,8 @@ class AbstractClient(ABC):
 
     async def initialise(self) -> None:
         """Runs _initialise() and tracks the outcome in self.status (ERROR, re-raised, on
-        failure). A disabled client makes no calls."""
+        failure). A disabled client makes no calls.
+        """
         if self.is_disabled():
             return
         self.status = ClientStatus.INITIALISING
@@ -99,7 +104,8 @@ class AbstractClient(ABC):
 
     def needs_refresh(self, new_config: object) -> bool:
         """Whether `new_config` means this client must be rebuilt. Defaults to any change;
-        override to keep state (tokens, caches) across changes that don't affect it."""
+        override to keep state (tokens, caches) across changes that don't affect it.
+        """
         return self.config != new_config
 
     def is_disabled(self) -> bool:
@@ -114,7 +120,8 @@ class AbstractClient(ABC):
     async def update(self) -> Panel | None:
         """Polls the API and returns its panel, initialising first if not yet CONNECTED.
         last_updated is stamped even when that fails, so the retry waits a full
-        poll_interval (Glowmarkt rate-limits bad logins)."""
+        poll_interval (Glowmarkt rate-limits bad logins).
+        """
         if self.is_disabled():
             panel = None
         else:
@@ -142,7 +149,8 @@ class AbstractClient(ABC):
 
     def _cache_and_compare(self, endpoint: str, data: object) -> bool:
         """True if the last call to the same endpoint returned the same data. Always False
-        the first time an endpoint is seen, even if that value is None."""
+        the first time an endpoint is seen, even if that value is None.
+        """
         is_first_time = endpoint not in self.cache
         cached = self.cache.get(endpoint)
         self.cache[endpoint] = data

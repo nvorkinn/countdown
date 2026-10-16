@@ -2,9 +2,10 @@
 
 import contextlib
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from countdown_orchestrator.models import Assignment
+if TYPE_CHECKING:
+    from countdown_orchestrator.models import Assignment
 
 # On every container the orchestrator makes, so it only ever touches (and lists) its own.
 MANAGED_LABEL = "countdown.managed"
@@ -31,7 +32,8 @@ class Runtime(Protocol):
 
     def ensure(self, assignment: Assignment) -> None:
         """Makes the renderer if it doesn't exist, from the current image (replacing the container, never its
-        volumes, if it is from an older one), and starts it if it isn't running. Safe to repeat."""
+        volumes, if it is from an older one), and starts it if it isn't running. Safe to repeat.
+        """
         ...
 
     def stop(self, slug: str) -> None:
@@ -46,7 +48,8 @@ class Runtime(Protocol):
 class DockerRuntime:
     """One container per renderer, from the countdown-server image, shaped like the services in
     server/deploy/docker-compose.yml: host networking (for the host's Fluent Bit) and a volume each for the
-    identity and its key."""
+    identity and its key.
+    """
 
     def __init__(
         self,

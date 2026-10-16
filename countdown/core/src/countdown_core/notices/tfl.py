@@ -3,15 +3,18 @@ import logging
 import re
 from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
+from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
 
-from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import _
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.tfl.models import DisruptedPoint, Line, Postcode, RoadDisruption, StopPointUnion
 from countdown_core.tfl.tfl_client import _find_stop_child
+
+if TYPE_CHECKING:
+    from countdown_api.models import Tfl
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +118,8 @@ class TflLineStatusSource(TflSource):
 def _headline(reason: str | None, line_name: str) -> str:
     """The first sentence of a status reason (the rest never fits), without the line name
     it usually starts with ("CENTRAL LINE: ..."). A location prefix, like a bus diversion's
-    "WATERLOO ROAD, Southwark:", is kept."""
+    "WATERLOO ROAD, Southwark:", is kept.
+    """
     text = " ".join((reason or "").split())
     prefix, colon, rest = text.partition(":")
     lowered = prefix.lower()
@@ -169,7 +173,8 @@ def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 class TflRoadSource(TflSource):
     """Serious and severe road incidents (collisions, closures, burst water mains) near
-    the postcode. London only: TfL doesn't know about roads anywhere else."""
+    the postcode. London only: TfL doesn't know about roads anywhere else.
+    """
 
     name = "TfL roads"
     refresh_interval = timedelta(minutes=10)

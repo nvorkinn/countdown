@@ -136,7 +136,8 @@ def test_one_failing_assignment_doesnt_stop_the_others():
     class Flaky(FakeRuntime):
         def ensure(self, assignment):
             if assignment.slug == "bad":
-                raise RuntimeError("no image")
+                msg = "no image"
+                raise RuntimeError(msg)
             super().ensure(assignment)
 
     broker = FakeBroker(_assignment("bad", id_="1"), _assignment("good", id_="2"))
@@ -154,7 +155,8 @@ def test_one_failing_assignment_doesnt_stop_the_others():
 def test_a_failure_already_reported_isnt_reported_again():
     class Broken(FakeRuntime):
         def ensure(self, assignment):
-            raise RuntimeError("no image")
+            msg = "no image"
+            raise RuntimeError(msg)
 
     broker = FakeBroker(_assignment(status=Status.FAILED))
 
@@ -166,11 +168,13 @@ def test_a_failure_already_reported_isnt_reported_again():
 def test_a_broker_error_while_reporting_a_failure_doesnt_escape():
     class Broken(FakeRuntime):
         def ensure(self, assignment):
-            raise RuntimeError("no image")
+            msg = "no image"
+            raise RuntimeError(msg)
 
     class DownBroker(FakeBroker):
         def report(self, assignment, status, detail=""):
-            raise ConnectionError("down")
+            msg = "down"
+            raise ConnectionError(msg)
 
     reconcile(DownBroker(_assignment()), Broken())
 
@@ -390,7 +394,8 @@ def test_an_outdated_renderer_is_replaced_but_keeps_its_volumes():
 @pytest.mark.parametrize("existing", ["outdated", None], ids=["on an old image", "gone"])
 def test_a_renderer_made_again_for_a_claimed_screen_still_gets_a_claim_token(existing):
     """The broker has cleared the token by then, but a renderer won't start without one (it is ignored once the
-    renderer has claimed: its identity is in its volumes), so what it gets must be a value, not an unset variable."""
+    renderer has claimed: its identity is in its volumes), so what it gets must be a value, not an unset variable.
+    """
     client = FakeDocker(FakeContainer("running") if existing else None)
     if existing:
         client.container.labels[IMAGE_LABEL] = "ghcr.io/x/countdown-server:0"

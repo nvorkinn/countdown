@@ -5,14 +5,15 @@ orchestrator, and the screen (VS Code) can use the same broker. See "Running it 
 
 It reads the slug's assignment the way the orchestrator does (read-only: it doesn't report a status), and keeps
 its claim token for the renderer. Only run it against a broker that has no orchestrator watching it, or the
-orchestrator starts a container for the assignment and claims the screen first."""
+orchestrator starts a container for the assignment and claims the screen first.
+"""
 
 import argparse
 import os
 import subprocess
 import sys
 from pathlib import Path
-from xml.etree import ElementTree
+from xml.etree import ElementTree as ET
 
 from countdown_orchestrator.broker import OrchestratorBroker
 
@@ -28,7 +29,8 @@ CLAIMED = "already-claimed"
 
 def write_env(broker_url: str, slug: str, claim_token: str, **extra: str) -> dict[str, str]:
     """Writes dev/.env (owner-only: the claim token is a credential) and makes the working directories. Returns
-    the variables written."""
+    the variables written.
+    """
     values = {
         "BROKER_URL": broker_url,
         "DEVICE_NAME": slug,
@@ -56,7 +58,8 @@ def add_pycharm_arguments(parser: argparse.ArgumentParser) -> None:
 def write_pycharm_config(args: argparse.Namespace, slug: str, env: dict[str, str]) -> Path | None:
     """Writes .idea/runConfigurations/countdown_server_<slug>.xml: `countdown_server.main` with these variables and
     dev/renderer as its working directory, so it only has to be run or debugged. Does nothing with --no-pycharm.
-    The file holds the variables (the claim token, say), and .idea/ is git-ignored."""
+    The file holds the variables (the claim token, say), and .idea/ is git-ignored.
+    """
     if args.no_pycharm:
         return None
     if args.idea_dir:
@@ -73,18 +76,18 @@ def write_pycharm_config(args: argparse.Namespace, slug: str, env: dict[str, str
         working_directory = Path("$PROJECT_DIR$") / working_directory.relative_to(project_dir)
 
     name = f"countdown-server ({slug})"
-    component = ElementTree.Element("component", name="ProjectRunConfigurationManager")
-    configuration = ElementTree.SubElement(
+    component = ET.Element("component", name="ProjectRunConfigurationManager")
+    configuration = ET.SubElement(
         component,
         "configuration",
         {"default": "false", "name": name, "type": "PythonConfigurationType", "factoryName": "Python"},
     )
-    ElementTree.SubElement(configuration, "module", name=args.module)
-    ElementTree.SubElement(configuration, "option", name="INTERPRETER_OPTIONS", value="")
-    ElementTree.SubElement(configuration, "option", name="PARENT_ENVS", value="true")
-    envs = ElementTree.SubElement(configuration, "envs")
+    ET.SubElement(configuration, "module", name=args.module)
+    ET.SubElement(configuration, "option", name="INTERPRETER_OPTIONS", value="")
+    ET.SubElement(configuration, "option", name="PARENT_ENVS", value="true")
+    envs = ET.SubElement(configuration, "envs")
     for key, value in env.items():
-        ElementTree.SubElement(envs, "env", name=key, value=value)
+        ET.SubElement(envs, "env", name=key, value=value)
     options = {
         "SDK_HOME": "",
         "WORKING_DIRECTORY": str(working_directory),
@@ -100,13 +103,13 @@ def write_pycharm_config(args: argparse.Namespace, slug: str, env: dict[str, str
         "INPUT_FILE": "",
     }
     for key, value in options.items():
-        ElementTree.SubElement(configuration, "option", name=key, value=value)
-    ElementTree.SubElement(configuration, "method", v="2")
-    ElementTree.indent(component)
+        ET.SubElement(configuration, "option", name=key, value=value)
+    ET.SubElement(configuration, "method", v="2")
+    ET.indent(component)
 
     path = idea_dir / "runConfigurations" / f"countdown_server_{slug.replace('-', '_')}.xml"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(ElementTree.tostring(component, encoding="unicode") + "\n")
+    path.write_text(ET.tostring(component, encoding="unicode") + "\n")
     path.chmod(0o600)
     print(f"Wrote the PyCharm run configuration {name!r}: {path}")
     return path

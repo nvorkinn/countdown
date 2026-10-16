@@ -1,15 +1,18 @@
 from math import floor
+from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
-from countdown_core.spotify.spotify_panel import Style
 from countdown_core.spotify.spotify_styles import STYLES
-from countdown_core.spotify.spotify_top_artists_panel import SpotifyTopArtistsPanel
-from countdown_core.spotify.spotify_top_tracks_panel import SpotifyTopTracksPanel
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import UBUNTU_MEDIUM_15
+
+if TYPE_CHECKING:
+    from countdown_core.spotify.spotify_panel import Style
+    from countdown_core.spotify.spotify_top_artists_panel import SpotifyTopArtistsPanel
+    from countdown_core.spotify.spotify_top_tracks_panel import SpotifyTopTracksPanel
+    from countdown_core.utils.clock import ClockFormat
 
 
 class SpotifyTopPanel(Panel):

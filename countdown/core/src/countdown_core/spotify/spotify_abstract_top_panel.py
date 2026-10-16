@@ -1,13 +1,15 @@
 from abc import abstractmethod
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
 from countdown_core.spotify.models import Artist, TopResponse, Track
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import UBUNTU_MEDIUM_15, truncate_to_fit
+
+if TYPE_CHECKING:
+    from countdown_core.utils.clock import ClockFormat
 
 T = TypeVar("T", Artist, Track)
 

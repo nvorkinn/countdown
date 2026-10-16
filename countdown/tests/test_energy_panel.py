@@ -3,6 +3,7 @@ import pytest
 from PIL import ImageDraw
 
 from countdown_core.glow.energy_panel import EnergyPanel
+import itertools
 
 
 @pytest.mark.parametrize(
@@ -56,7 +57,7 @@ def test_hourly_chart_labels_fit_and_never_overlap_or_drop_the_period(clock_form
         assert 0 <= top < bottom <= 196
         assert size == 12
         assert text.endswith((" AM", " PM")) if clock_format == "12h" else len(text) == 5
-    assert all(first[1][2] + 8 <= second[1][0] for first, second in zip(labels, labels[1:], strict=False))
+    assert all(first[1][2] + 8 <= second[1][0] for first, second in itertools.pairwise(labels))
     assert [row["start"] for row in readings] == timestamps
 
 

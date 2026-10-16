@@ -1,9 +1,13 @@
+from typing import TYPE_CHECKING
+
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import fitted_font, width_scale
+
+if TYPE_CHECKING:
+    from countdown_core.utils.clock import ClockFormat
 
 # Letters are white on black squares; if thin white strokes fill in on the real panel,
 # switch this to "Ubuntu-Medium.ttf".
@@ -18,7 +22,8 @@ GAP = 12
 
 class PairingCodePanel(Panel):
     """Shown full-screen while a device isn't paired yet. has_changed says whether the code
-    differs from the last check, so an unchanged screen isn't repainted."""
+    differs from the last check, so an unchanged screen isn't repainted.
+    """
 
     def __init__(self, pairing_code: str | None, device_id: str, has_changed: bool):
         super().__init__()

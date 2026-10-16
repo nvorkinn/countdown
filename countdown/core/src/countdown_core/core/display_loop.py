@@ -2,16 +2,19 @@ import asyncio
 import logging
 import time
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import pydantic
 import requests
 
-from countdown_api.models import ConfigResponse
-from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core.api_registry import API_NAMES, ApiRegistry
-from countdown_core.core.display import DisplayController
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
-from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
+
+if TYPE_CHECKING:
+    from countdown_api.models import ConfigResponse
+    from countdown_core.config_server.broker_client import BrokerClient
+    from countdown_core.core.display import DisplayController
+    from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,8 @@ def safe_fetch(func, fallback):
 
 class DisplayLoop:
     """The refresh loop: each cycle shows the pairing screen or the dashboard, then
-    re-reads the config from the broker."""
+    re-reads the config from the broker.
+    """
 
     def __init__(
         self,
@@ -92,8 +96,9 @@ class DisplayLoop:
 
     async def refresh_broker_config(self) -> None:
         """Re-reads the config every cycle (the broker has no change-timestamp), which also
-        keeps the pairing code current."""
-        fetched = safe_fetch(lambda: self.broker.get_config(), None)
+        keeps the pairing code current.
+        """
+        fetched = safe_fetch(self.broker.get_config, None)
         if fetched is None:
             return
 
@@ -106,5 +111,6 @@ class DisplayLoop:
 
     def _fit_stops_to_layout(self) -> None:
         """The config decides the layout, and the layout decides how many stops are on screen
-        at once. Call after every on_config_update(), since that may have rebuilt the TfL client."""
+        at once. Call after every on_config_update(), since that may have rebuilt the TfL client.
+        """
         self.api_reg.show_stops(self.display.stops_shown(self.config.screen, self.api_reg.available()))

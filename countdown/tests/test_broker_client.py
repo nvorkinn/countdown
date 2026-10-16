@@ -1,4 +1,5 @@
 import asyncio
+from typing import TYPE_CHECKING
 
 import pytest
 import requests
@@ -6,11 +7,13 @@ import responses
 from config_factory import broker_payload, make_config
 from pydantic import ValidationError
 
-from countdown_api.models import ConfigResponse
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core import app
 from countdown_credentials import device_name
 from countdown_credentials.registration import RendererRegistration
+
+if TYPE_CHECKING:
+    from countdown_api.models import ConfigResponse
 
 BROKER_URL = "https://broker.example.com"
 CONFIG_URL = f"{BROKER_URL}/api/config"
@@ -89,7 +92,8 @@ def test_get_config_sends_device_name_header_from_hostname_when_device_name_unse
 @responses.activate
 def test_get_config_omits_device_name_header_when_unresolvable(isolated_cwd, monkeypatch):
     """Never allowed to fail the request itself -- a dev box with an unresolvable
-    hostname and no DEVICE_NAME just doesn't send the (purely cosmetic) header."""
+    hostname and no DEVICE_NAME just doesn't send the (purely cosmetic) header.
+    """
     monkeypatch.setattr(device_name.socket, "gethostname", lambda: "")
     client = _initialised_client()
     responses.add(responses.GET, CONFIG_URL, json=broker_payload())
@@ -126,7 +130,8 @@ def test_get_config_parses_response(isolated_cwd):
 @responses.activate
 def test_get_config_accepts_null_glowmarkt_credentials(isolated_cwd):
     """The common case: a device whose owner hasn't set up Glowmarkt on the
-    broker. Sent as null, not omitted -- must parse, not raise."""
+    broker. Sent as null, not omitted -- must parse, not raise.
+    """
     client = _initialised_client()
     responses.add(
         responses.GET,
@@ -144,7 +149,8 @@ def test_get_config_accepts_null_glowmarkt_credentials(isolated_cwd):
 @responses.activate
 def test_get_config_ignores_a_field_a_newer_broker_adds(isolated_cwd):
     """The compatibility policy: the broker may add fields (to the response, or to a section) without breaking
-    a renderer that predates them."""
+    a renderer that predates them.
+    """
     client = _initialised_client()
     payload = broker_payload()
     payload["a_field_from_the_future"] = {"anything": 1}
@@ -158,7 +164,8 @@ def test_get_config_ignores_a_field_a_newer_broker_adds(isolated_cwd):
 def test_get_config_rejects_a_value_the_contract_does_not_list(isolated_cwd):
     """The other half of the policy: a value outside the contract (here a third screen orientation) is invalid,
     so the config is rejected and the caller keeps the one it has. Widening a list of allowed values is a
-    breaking change for the broker to make deliberately (see API_VERSION in auth-broker's contract.py)."""
+    breaking change for the broker to make deliberately (see API_VERSION in auth-broker's contract.py).
+    """
     client = _initialised_client()
     payload = broker_payload()
     payload["screen"] = {**payload["screen"], "orientation": "diagonal"}
@@ -249,7 +256,8 @@ def test_fetch_app_config_uses_real_broker_response(isolated_cwd):
 @responses.activate
 def test_fetch_app_config_raises_when_broker_unreachable(isolated_cwd):
     """No empty fallback: with no config there's nothing sensible to run, so the caller
-    (app.wait_for_config) retries."""
+    (app.wait_for_config) retries.
+    """
     client = _initialised_client("test-device", "test-secret")
     # /config deliberately left unmocked -- responses raises ConnectionError for it.
 
@@ -278,7 +286,8 @@ def test_fetch_app_config_raises_when_response_is_invalid(isolated_cwd):
 )
 def test_a_bad_status_from_the_broker_is_an_http_error_the_caller_retries_on(isolated_cwd, status, body):
     """app.wait_for_config retries on requests' RequestException; the generated client raises its own ApiError,
-    so get_config turns it back into the exception callers already handle, keeping the response."""
+    so get_config turns it back into the exception callers already handle, keeping the response.
+    """
     client = _initialised_client("test-device", "test-secret")
     responses.add(
         responses.GET, CONFIG_URL, **({"json": body} if isinstance(body, dict) else {"body": body}), status=status
@@ -294,7 +303,8 @@ def test_a_bad_status_from_the_broker_is_an_http_error_the_caller_retries_on(iso
 @responses.activate
 def test_a_gateway_error_that_does_not_recover_is_still_a_request_exception(isolated_cwd):
     """The session retries 502/503/504 itself (abstract_client) and gives up with RetryError, before the
-    generated client sees a status. Callers catch RequestException, so a broker that is restarting is retried."""
+    generated client sees a status. Callers catch RequestException, so a broker that is restarting is retried.
+    """
     client = _initialised_client("test-device", "test-secret")
     responses.add(responses.GET, CONFIG_URL, body="<html><body>Bad Gateway</body></html>", status=502)
 
@@ -319,7 +329,8 @@ def test_a_failed_fetch_does_not_mark_the_pairing_code_as_seen(isolated_cwd):
 @responses.activate
 def test_the_boot_loop_retries_through_a_bad_status_instead_of_crashing(isolated_cwd):
     """The real BrokerClient through the real app.wait_for_config: the broker answers 404 once (say it is being
-    redeployed), then the config. The renderer must wait and try again, not die at startup."""
+    redeployed), then the config. The renderer must wait and try again, not die at startup.
+    """
     client = _initialised_client("test-device", "test-secret")
     responses.add(responses.GET, CONFIG_URL, json={"error": "not found"}, status=404)
     responses.add(responses.GET, CONFIG_URL, json=broker_payload(pairing_code="ABC123"))

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-from countdown_api.models import Screen
+if TYPE_CHECKING:
+    from countdown_api.models import Screen
 
 Orientation = Literal["horizontal", "vertical"]
 
@@ -9,7 +10,8 @@ Orientation = Literal["horizontal", "vertical"]
 @dataclass(frozen=True)
 class Canvas:
     """What a layout draws on, upright as the viewer sees it. Layouts are registered by
-    this alone: a portrait layout is just a 480x800 one."""
+    this alone: a portrait layout is just a 480x800 one.
+    """
 
     width: int
     height: int
@@ -28,12 +30,14 @@ DEFAULT_CANVAS = Canvas(800, 480)
 
 def canvas_for(screen: Screen) -> Canvas:
     """The canvas for the screen in the config. The device always reports the panel's size
-    the same way round, however it's hung, so the orientation decides which side is long."""
+    the same way round, however it's hung, so the orientation decides which side is long.
+    """
     long, short = max(screen.width, screen.height), min(screen.width, screen.height)
     return Canvas(long, short) if screen.orientation == "horizontal" else Canvas(short, long)
 
 
 def native_size(screen: Screen) -> tuple[int, int]:
     """The size of the panel's own picture: landscape, as the e-paper's buffer (and the broker's
-    frame) is laid out, however the screen is hung."""
+    frame) is laid out, however the screen is hung.
+    """
     return max(screen.width, screen.height), min(screen.width, screen.height)

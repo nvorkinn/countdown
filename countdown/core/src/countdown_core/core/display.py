@@ -1,17 +1,20 @@
 import logging
 import time
+from typing import TYPE_CHECKING
 
 from PIL import Image, ImageChops
 
-from countdown_api.models import Screen
-from countdown_core.core.api_registry import ClientClasses
-from countdown_core.core.panel import Panel
-from countdown_core.core.targets import DisplayTarget
 from countdown_core.rendering import layout_for, render, to_native
 from countdown_core.rendering.layout import Frame
 from countdown_core.rendering.screen import canvas_for
-from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_core.utils.clock import ClockFormat
+
+if TYPE_CHECKING:
+    from countdown_api.models import Screen
+    from countdown_core.core.api_registry import ClientClasses
+    from countdown_core.core.panel import Panel
+    from countdown_core.core.targets import DisplayTarget
+    from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
+    from countdown_core.utils.clock import ClockFormat
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +25,8 @@ FULL_REFRESH_INTERVAL_S = 600
 
 class DisplayController:
     """Draws the screen and gets it onto the panel. The layout is looked up again for every
-    frame and never kept; what is kept is what's on the panel, to decide how to refresh it."""
+    frame and never kept; what is kept is what's on the panel, to decide how to refresh it.
+    """
 
     def __init__(self, target: DisplayTarget):
         self.target = target
@@ -52,14 +56,16 @@ class DisplayController:
         clock_format: ClockFormat = "24h",
     ) -> Image.Image:
         """Draws `panels` in the layout for `screen` and what the device can show (`available`),
-        and paints the picture. Returns it, upright as the viewer sees it."""
+        and paints the picture. Returns it, upright as the viewer sees it.
+        """
         frame = render(panels, screen, available, clock_format=clock_format)
         self._show(to_native(frame, screen))
         return frame.image
 
     def _show(self, frame: Frame) -> None:
         """Paints `frame` only if the picture changed: a partial refresh if only its volatile
-        part changed, otherwise a full one."""
+        part changed, otherwise a full one.
+        """
         img = frame.image
         content = img.convert("RGB")
         changed = ImageChops.difference(self._shown, content).getbbox() if self._shown is not None else None
@@ -84,7 +90,8 @@ class DisplayController:
     @staticmethod
     def _partial_region(changed, volatile) -> tuple[int, int, int, int] | None:
         """The byte-aligned box to partially refresh, or None if something outside the
-        volatile part changed (or there's nothing to compare with)."""
+        volatile part changed (or there's nothing to compare with).
+        """
         if changed is None or volatile is None:
             return None
         ax0, ay0, ax1, ay1 = volatile
@@ -94,7 +101,8 @@ class DisplayController:
 
     def _paint_whole_screen(self, img: Image.Image) -> bool:
         """For the screens that replace the picture outright (pairing code, checklist). False
-        if there's no screen to paint on."""
+        if there's no screen to paint on.
+        """
         # So the next dashboard is painted in full even if it matches the last one.
         self._shown = None
         self._pending = img
@@ -105,7 +113,8 @@ class DisplayController:
 
     def repaint_pending(self) -> None:
         """Retries a whole-screen picture that couldn't be painted, so it appears once the
-        panel does."""
+        panel does.
+        """
         if self._pending is not None:
             self._paint_whole_screen(self._pending)
 

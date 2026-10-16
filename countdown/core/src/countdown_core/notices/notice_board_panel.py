@@ -30,7 +30,8 @@ class NoticeBoardPanel(Panel):
 
     def fitted_height(self, max_height: int) -> int:
         """A row per notice, or nothing at all when there are none. At `max_height` the
-        rows that don't fit are counted on the last one."""
+        rows that don't fit are counted on the last one.
+        """
         if not self.notices:
             return 0
         return min(max_height, self._top() + len(self.notices) * ROW_HEIGHT + PADDING)
@@ -38,7 +39,8 @@ class NoticeBoardPanel(Panel):
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         """One notice per row: a severity marker, the source and as much of the text as
         fits. If there are more current notices than rows, the last row says how many
-        didn't fit."""
+        didn't fit.
+        """
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"

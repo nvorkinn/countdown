@@ -24,7 +24,8 @@ class FakeClient(AbstractClient):
         self.initialise_calls += 1
         if self.initialise_failures:
             self.initialise_failures -= 1
-            raise ConnectionError("API down")
+            msg = "API down"
+            raise ConnectionError(msg)
 
     def _update(self):
         self.update_calls += 1
@@ -120,12 +121,14 @@ def test_failed_reinitialisation_raises_skips_the_update_and_waits_a_full_poll_i
 
 def test_a_failing_update_does_not_trigger_reinitialisation():
     """Only a client that never got connected re-initialises; a connected one that has
-    a bad poll (a blip, a 500) just tries again next time."""
+    a bad poll (a blip, a 500) just tries again next time.
+    """
     client = FakeClient()
     asyncio.run(client.update())
 
     def failing_update():
-        raise ConnectionError("blip")
+        msg = "blip"
+        raise ConnectionError(msg)
 
     client._update = failing_update
     with pytest.raises(ConnectionError):
@@ -169,7 +172,8 @@ def test_the_hooks_run_in_a_worker_thread_not_on_the_event_loop():
 
 def test_several_clients_are_really_polled_concurrently():
     """Both hooks wait at a barrier that only opens if they run at the same time; run one
-    after the other, the first would time out."""
+    after the other, the first would time out.
+    """
     barrier = threading.Barrier(2, timeout=5)
 
     class Waits(FakeClient):

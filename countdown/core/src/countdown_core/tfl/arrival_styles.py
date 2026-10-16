@@ -1,7 +1,7 @@
 """The looks a stop's departures can have besides classic (the config's tfl.style). Each draws
-the whole stop, header included, into `width` x `height`, on a transparent background."""
+the whole stop, header included, into `width` x `height`, on a transparent background.
+"""
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
@@ -10,6 +10,8 @@ from countdown_core.i18n import _
 from countdown_core.utils.utils import ROUNDEL, fitted_font, google_symbols, truncate_to_fit
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
 
 BOLD = "Ubuntu-Bold.ttf"
@@ -157,7 +159,8 @@ def grouped(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image
 
 def card(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     """The stop in a rounded card: a black title bar, then a row per route with its minutes
-    lined up in a column on the right."""
+    lined up in a column on the right.
+    """
     img, d = _canvas(width, height)
     d.rounded_rectangle((0, 0, width - 1, height - 1), 10, fill="white", outline="black", width=2)
     d.rounded_rectangle((0, 0, width - 1, 30), 10, fill="black")

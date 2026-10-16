@@ -1,17 +1,22 @@
 """The looks the Spotify panel can have besides classic (the config's spotify.style), each to
 match the bus/tube style of the same name. A style draws both pages: what's playing, and the
-top tracks and artists. Each draws into `width` x `height`, on a transparent background."""
+top tracks and artists. Each draws into `width` x `height`, on a transparent background.
+"""
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import timedelta
+from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.i18n import N_, _
-from countdown_core.spotify.models import Artist, Queue, Track
 from countdown_core.tfl.arrival_styles import BOLD, MEDIUM, REGULAR, SANS, SANS_SEMI, _canvas, _shrunk
 from countdown_core.utils.utils import fitted_font, google_symbols, truncate_to_fit
+
+if TYPE_CHECKING:
+    from datetime import timedelta
+
+    from countdown_core.spotify.models import Artist, Queue, Track
 
 # Material Symbols glyphs
 NOTE = chr(0xE405)
@@ -48,7 +53,8 @@ def _track_and_by(
     by_font: ImageFont.FreeTypeFont,
 ) -> None:
     """`name` from the left and, when there is one, `by` against the right, smaller. The
-    artist gets at most 40% of the row, so a long one can't squeeze the name out."""
+    artist gets at most 40% of the row, so a long one can't squeeze the name out.
+    """
     if by:
         by = truncate_to_fit(by, by_font, (right - left) * 0.4)
         d.text((right, y + 1), by, "black", by_font, anchor="rm")

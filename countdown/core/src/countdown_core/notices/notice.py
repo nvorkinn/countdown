@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from enum import IntEnum
+from typing import TYPE_CHECKING
 
-import requests
+if TYPE_CHECKING:
+    from datetime import datetime, timedelta
+
+    import requests
 
 
 class Severity(IntEnum):
@@ -30,7 +33,8 @@ class Notice:
 class NoticeSource(ABC):
     """One feed the notice board polls. Each source decides for itself what's worth
     reporting and returns it as Notices; the board handles when to call it, what to do
-    when it fails, and how everything is ranked and drawn."""
+    when it fails, and how everything is ranked and drawn.
+    """
 
     name: str
     refresh_interval: timedelta
@@ -44,4 +48,5 @@ class NoticeSource(ABC):
     @abstractmethod
     def fetch(self, now: datetime) -> list[Notice]:
         """Everything this source currently has to say (empty if all is well). Raises if
-        the feed can't be reached or read, so the board keeps the last good answer."""
+        the feed can't be reached or read, so the board keeps the last good answer.
+        """

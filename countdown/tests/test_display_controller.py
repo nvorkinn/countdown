@@ -1,8 +1,10 @@
 """How DisplayController decides what to send its target: skip, partial or full refresh, what it
-remembers about what's on the screen, and how it copes with a screen that can't take a picture."""
+remembers about what's on the screen, and how it copes with a screen that can't take a picture.
+"""
 
 import logging
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from fake_target import FakeTarget
@@ -19,7 +21,9 @@ from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_core.utils.clock import ClockFormat
+
+if TYPE_CHECKING:
+    from countdown_core.utils.clock import ClockFormat
 
 FULL = None  # a full refresh is a paint with no region
 

@@ -3,7 +3,8 @@ DisplayLoop.run(), against HTTP mocked with `responses`, through to a rendered i
 
 `asyncio.sleep` is replaced by a fake that raises after N calls (see _run_cycles()). Most
 tests leave the broker's /config unmocked, so refreshing the config fails and is swallowed,
-and the loop carries on with the config it was built with."""
+and the loop carries on with the config it was built with.
+"""
 
 import asyncio
 import datetime
@@ -148,7 +149,8 @@ def _build_loop(config: ConfigResponse, monkeypatch, pairing_code: str | None = 
 
 def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]:
     """Records the panels dict of every frame drawn (and its layout, in `layouts`). The frame
-    is still drawn and shown for real, so the whole render path is exercised too."""
+    is still drawn and shown for real, so the whole render path is exercised too.
+    """
     seen: list[dict] = []
     original = display_module.render
 
@@ -164,7 +166,8 @@ def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]
 
 def _run_cycles(loop: DisplayLoop, monkeypatch, cycles: int = 1) -> None:
     """Runs exactly `cycles` refresh cycles: the loop sleeps once after each, and the
-    fake sleep stops it there (before the broker config refresh, on the last one)."""
+    fake sleep stops it there (before the broker config refresh, on the last one).
+    """
     sleeps: list[float] = []
 
     async def fake_sleep(seconds: float) -> None:
@@ -226,7 +229,8 @@ def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch):
 @responses.activate
 def test_full_render_cycle_skips_glowmarkt_when_credentials_empty(isolated_cwd, monkeypatch):
     """The common case: Glowmarkt never set up. No glowmarkt.com endpoint is mocked, so
-    any call to it would fail and show in the call count below."""
+    any call to it would fail and show in the call count below.
+    """
     config = make_config()
     config.interval = 1
     config.tfl.stop_ids = ["490000123W"]
@@ -322,7 +326,8 @@ def test_one_api_being_down_does_not_stop_the_others_reaching_the_screen(isolate
 @responses.activate
 def test_later_cycles_reuse_client_state_and_keep_slow_panels_on_screen(isolated_cwd, monkeypatch):
     """Clients live for the whole run: on the second cycle Glowmarkt and TfL aren't due
-    yet, so they aren't called again, but their last panels are still drawn."""
+    yet, so they aren't called again, but their last panels are still drawn.
+    """
     config = _make_config()
     config.tfl.stop_ids = ["490000123W", "940GZZLUKNG", "490000456X", "940GZZLUABC"]
     _mock_tfl_and_glowmarkt(
@@ -355,7 +360,8 @@ def test_later_cycles_reuse_client_state_and_keep_slow_panels_on_screen(isolated
 @responses.activate
 def test_run_shows_pairing_screen_and_skips_normal_display_while_unpaired(isolated_cwd, monkeypatch):
     """While a pairing code is active, run() shouldn't fetch anything or paint the
-    normal screen (nothing is mocked, so any request would fail)."""
+    normal screen (nothing is mocked, so any request would fail).
+    """
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
     shown = _spy_on_frames(monkeypatch)
     pairing_screens = []
@@ -376,7 +382,8 @@ def test_run_shows_pairing_screen_and_skips_normal_display_while_unpaired(isolat
 @responses.activate
 def test_run_only_repaints_pairing_screen_when_code_changes(isolated_cwd, monkeypatch):
     """An unchanged pairing code isn't repainted. /config is mocked here (always the same
-    code), so each cycle really re-derives the panel through BrokerClient's cache."""
+    code), so each cycle really re-derives the panel through BrokerClient's cache.
+    """
     responses.add(
         responses.GET,
         f"{TEST_BROKER_URL}/api/config",
@@ -415,7 +422,8 @@ def test_refresh_broker_config_applies_the_new_interval_and_pairing_state(isolat
 @responses.activate
 def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isolated_cwd, monkeypatch):
     """The device boots with nothing set up; the owner then adds a stop on the broker.
-    Cycle 2 must pick that up without a restart."""
+    Cycle 2 must pick that up without a restart.
+    """
     _mock_tfl({"490000123W": BUS_STOP_JSON}, {"490000123W": BUS_ARRIVALS_JSON})
     new_config = _app_config_json()
     new_config["tfl"]["stop_ids"] = ["490000123W"]
@@ -512,7 +520,8 @@ def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orie
 def test_the_layout_follows_what_the_config_lets_the_device_show(isolated_cwd, monkeypatch):
     """Boots with Glowmarkt set up but not Spotify (GlowLayout); the owner then removes
     Glowmarkt's credentials on the broker, and the next cycle drops the energy column
-    (BaseLayout, with neither). The screen is hung landscape: those are its layouts."""
+    (BaseLayout, with neither). The screen is hung landscape: those are its layouts.
+    """
     _mock_tfl_and_glowmarkt({}, {})
     landscape = {"orientation": "horizontal", "width": 800, "height": 480}
     responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=broker_payload(interval=1, screen=landscape))

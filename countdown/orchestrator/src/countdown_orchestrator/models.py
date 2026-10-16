@@ -24,7 +24,8 @@ class Status(StrEnum):
 @dataclass(frozen=True)
 class Assignment:
     """A screen's renderer, as the broker wants it. `id` is the broker's own key, which doesn't change when
-    a slug does; the slug names the container and its volumes."""
+    a slug does; the slug names the container and its volumes.
+    """
 
     id: str
     slug: str

@@ -13,7 +13,8 @@ each encrypted with a key of its own beside it, plus dev/.env and a PyCharm run 
 and start the screen with dev/screen as its working directory.
 
 It writes the broker's tables directly, so it only runs against the schema revision it was written for. Run it
-against a local broker only: there's no orchestrator to race, and the broker's secrets are throwaway."""
+against a local broker only: there's no orchestrator to race, and the broker's secrets are throwaway.
+"""
 
 import argparse
 import hashlib
@@ -57,7 +58,8 @@ def timestamp() -> str:
 
 def write_identity(role: str, secret: str, device_id: str | None) -> None:
     """The file a registrar keeps (see countdown_credentials.registration.Registrar._save), encrypted with a new
-    key for this process. A renderer with its device_id is already registered: it makes no claim."""
+    key for this process. A renderer with its device_id is already registered: it makes no claim.
+    """
     directory = DEV_DIR / role
     key_file = directory / KEY_HOME / KEY_PATH
     key_file.parent.mkdir(parents=True, exist_ok=True)

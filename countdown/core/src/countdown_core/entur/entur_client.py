@@ -1,17 +1,20 @@
 """Departures anywhere in Norway (Ruter in Oslo, and every other operator), from Entur's Journey Planner GraphQL
 API. One query shape serves every mode: bus, tram, metro, rail and ferry. Entur needs no key, only an ET-Client-Name
-header naming the app (https://developer.entur.org/pages-intro-authentication)."""
+header naming the app (https://developer.entur.org/pages-intro-authentication).
+"""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import requests
 from pydantic import BaseModel, Field
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
+
+if TYPE_CHECKING:
+    import requests
 
 JOURNEY_PLANNER_URL = "https://api.entur.io/journey-planner/v3/graphql"
 HEADERS = {"ET-Client-Name": "nvorkinn-countdown"}

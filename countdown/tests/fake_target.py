@@ -1,6 +1,9 @@
-from PIL import Image
+from typing import TYPE_CHECKING
 
 from countdown_core.core.targets import DisplayTarget, Region
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 
 class FakeTarget(DisplayTarget):
@@ -14,7 +17,8 @@ class FakeTarget(DisplayTarget):
 
     def paint(self, img: Image.Image, region: Region | None = None) -> bool:
         if self.fail:
-            raise RuntimeError("the screen failed midway")
+            msg = "the screen failed midway"
+            raise RuntimeError(msg)
         if not self.accepts:
             return False
         self.paints.append(region)

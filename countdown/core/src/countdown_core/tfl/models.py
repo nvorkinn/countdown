@@ -34,7 +34,8 @@ class BusArrival(Arrival):
     def trim_destination(cls, value: str) -> str:
         """TfL often qualifies a destination after a comma (a road or landmark), which
         doesn't fit on the panel and isn't needed to tell buses apart. Keeps the whole
-        name if there's nothing before the comma."""
+        name if there's nothing before the comma.
+        """
         return value.split(",", 1)[0].strip() or value.strip()
 
 
@@ -132,7 +133,8 @@ class Line(BaseModel):
 
 class DisruptedPoint(BaseModel):
     """One entry from TfL's /StopPoint/{ids}/Disruption: lifts out of order, closed
-    entrances, no step-free access and the like."""
+    entrances, no step-free access and the like.
+    """
 
     common_name: str = Field(alias="commonName")
     description: str

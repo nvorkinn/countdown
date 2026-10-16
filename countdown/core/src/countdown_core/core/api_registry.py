@@ -2,19 +2,22 @@ import asyncio
 import logging
 from datetime import timedelta
 from enum import Enum
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfoNotFoundError
 
 from countdown_api.models import ConfigResponse, Glowmarkt, Spotify
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
-from countdown_core.core.panel import Panel
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.glow.glow_client import GlowClient
-from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.i18n import N_, set_locale
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.weather.weather_client import WeatherClient
-from countdown_credentials.registration import Registration
+
+if TYPE_CHECKING:
+    from countdown_core.core.panel import Panel
+    from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
+    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +41,8 @@ API_NAMES = [member.api_name for member in ClientClasses]
 def section_for(name: str, config: ConfigResponse) -> object:
     """What the API `name` is configured with: its section of the broker's config. The departures' is its
     `departures` section (or, from an older broker, `tfl`). The notice board's also carries the departures, as its
-    disruptions are about their stops (so the broker needn't send them twice)."""
+    disruptions are about their stops (so the broker needn't send them twice).
+    """
     if name == ClientClasses.TFL.api_name:
         return DeparturesSettings.from_config(config)
     if name == ClientClasses.NOTICE_BOARD.api_name:
@@ -52,7 +56,8 @@ def section_for(name: str, config: ConfigResponse) -> object:
 
 def is_enabled(section: object) -> bool:
     """Whether the broker's config switches the API on. Only Spotify has a switch; Glowmarkt is on when both
-    credentials are there (a cleared field can arrive as "" or whitespace as well as null); the rest are always on."""
+    credentials are there (a cleared field can arrive as "" or whitespace as well as null); the rest are always on.
+    """
     match section:
         case Spotify():
             return section.enabled
@@ -64,7 +69,8 @@ def is_enabled(section: object) -> bool:
 
 class FailedClient(AbstractClient):
     """Stands in for a client whose constructor raised, so the failure shows as an error status
-    (and in HA) instead of the client silently being missing. Rebuilt when its config changes."""
+    (and in HA) instead of the client silently being missing. Rebuilt when its config changes.
+    """
 
     poll_interval = timedelta(hours=1)
 
@@ -97,7 +103,8 @@ class ApiRegistry:
         """Brings the clients in line with `config`, rebuilding only those whose
         needs_refresh() says so. Failures are logged, not raised, so one broken API
         doesn't take the others down. A new language or time zone rebuilds every client, as some put their
-        texts together as they fetch (the notices)."""
+        texts together as they fetch (the notices).
+        """
         locale = (config.language, config.timezone)
         if locale != self.locale:
             try:
@@ -138,7 +145,8 @@ class ApiRegistry:
 
     async def update_all(self) -> dict[str, Panel]:
         """Polls the clients that are due and returns a panel for every API. A client that
-        isn't due, or that raised, keeps its last panel."""
+        isn't due, or that raised, keeps its last panel.
+        """
         due = [(api_name, client.update()) for api_name, client in self.clients.items() if client.is_due]
         outcomes = await asyncio.gather(*[coro for _, coro in due], return_exceptions=True)
 
@@ -151,7 +159,8 @@ class ApiRegistry:
 
     def available(self) -> frozenset[ClientClasses]:
         """The APIs that get an area on the screen. A failing client still counts, so its
-        area says "Could not connect" rather than vanishing."""
+        area says "Could not connect" rather than vanishing.
+        """
         return frozenset(
             member
             for member in ClientClasses
@@ -160,7 +169,8 @@ class ApiRegistry:
 
     def show_stops(self, count: int) -> None:
         """Tells the departures client how many stops the layout has room for. Call after every
-        on_config_update(), since that may have rebuilt the client."""
+        on_config_update(), since that may have rebuilt the client.
+        """
         departures = self.clients.get(ClientClasses.TFL.api_name)
         if isinstance(departures, DeparturesClient):
             departures.stops_per_update = count

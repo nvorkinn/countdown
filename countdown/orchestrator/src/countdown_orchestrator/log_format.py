@@ -1,6 +1,7 @@
 """One JSON object per log line, with the field names VictoriaLogs reads: `_msg` and `level`. The container's
 log driver stamps each line with its time, and the host's collector adds the service name, so neither is here.
-Matches the renderer's (countdown_core.core.log_format): the orchestrator's image installs only this package."""
+Matches the renderer's (countdown_core.core.log_format): the orchestrator's image installs only this package.
+"""
 
 import json
 import logging

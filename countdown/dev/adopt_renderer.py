@@ -9,7 +9,8 @@ already matched with the screen: nothing changes on the broker, and there's no c
 
 Two renderers must never run as one device, so before you start yours, stop the orchestrator (it restarts a
 stopped renderer within seconds) and then the renderer: `docker stop <orchestrator> renderer-<slug>`. When you're
-done, start them again."""
+done, start them again.
+"""
 
 import argparse
 import json

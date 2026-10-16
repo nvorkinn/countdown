@@ -5,10 +5,10 @@ import signal
 import sys
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import requests
 
-from countdown_api.models import ConfigResponse
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core.api_registry import API_NAMES, ApiRegistry
 from countdown_core.core.display import DisplayController
@@ -17,8 +17,11 @@ from countdown_core.core.log_format import configure_logging
 from countdown_core.core.targets import DisplayTarget
 from countdown_core.home_assistant.device_status import DeviceStatus
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
-from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_credentials.registration import RendererRegistrar, RendererRegistration
+
+if TYPE_CHECKING:
+    from countdown_api.models import ConfigResponse
+    from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +36,8 @@ MakeTarget = Callable[[RendererRegistration], DisplayTarget]
 def main(make_target: MakeTarget) -> None:
     """Called by the console script (countdown_server), passing the `make_target` that knows where
     its frames go. Must stay sync: the generated wrapper never awaits, so an `async def` here would
-    exit 1 without running anything."""
+    exit 1 without running anything.
+    """
     configure_logging()
     asyncio.run(run(make_target))
 

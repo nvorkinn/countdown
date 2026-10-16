@@ -1,5 +1,7 @@
-from datetime import datetime, time
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from datetime import datetime, time
 
 type ClockFormat = Literal["12h", "24h"]
 
@@ -13,4 +15,5 @@ def format_clock(value: datetime | time, clock_format: ClockFormat = "24h") -> s
             period = "AM" if value.hour < 12 else "PM"
             return f"{value.hour % 12 or 12}:{value.minute:02d} {period}"
         case _:
-            raise ValueError(f"Unknown clock format: {clock_format}")
+            msg = f"Unknown clock format: {clock_format}"
+            raise ValueError(msg)

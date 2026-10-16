@@ -4,7 +4,8 @@ from countdown_api import models as wire
 def broker_payload(**overrides) -> dict:
     """What GET /api/config returns: complete and valid for the broker's contract (built from the generated
     models, so it can't drift from it). A section given as a dict is merged into the typical one, anything else
-    replaces it, e.g. broker_payload(interval=20, tfl={"stop_ids": ["940GZZLUKNG"]})."""
+    replaces it, e.g. broker_payload(interval=20, tfl={"stop_ids": ["940GZZLUKNG"]}).
+    """
     typical = wire.ConfigResponse(
         device_id="device-123",
         interval=15,
@@ -24,5 +25,6 @@ def broker_payload(**overrides) -> dict:
 
 def make_config(**overrides) -> wire.ConfigResponse:
     """A complete, typical config, as the app gets it from the broker. Sections are overridden as for
-    broker_payload, e.g. make_config(tfl={"stop_ids": ["940GZZLUKNG"]})."""
+    broker_payload, e.g. make_config(tfl={"stop_ids": ["940GZZLUKNG"]}).
+    """
     return wire.ConfigResponse.model_validate(broker_payload(**overrides))

@@ -1,7 +1,10 @@
-from PIL import Image, ImageDraw
+from typing import TYPE_CHECKING
 
 from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
 from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Icon, Style
+
+if TYPE_CHECKING:
+    from PIL import Image, ImageDraw
 
 ICON_BY_MODE: dict[TransportMode, Icon] = {
     TransportMode.METRO: "subway",
@@ -13,7 +16,8 @@ ICON_BY_MODE: dict[TransportMode, Icon] = {
 
 class EnturArrivalPanel(AbstractArrivalPanel):
     """A Norwegian stop's departures, drawn like a London bus stop's: a row per line and destination, and the
-    platform's code where a London stop has its letter."""
+    platform's code where a London stop has its letter.
+    """
 
     def __init__(self, stop: EnturStop, departures: list[EnturDeparture], style: Style = "classic"):
         super().__init__(departures, style)

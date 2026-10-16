@@ -1,14 +1,16 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _, ngettext
 from countdown_core.tfl.arrival_styles import STYLES
-from countdown_core.utils.clock import ClockFormat
 from countdown_core.utils.utils import UBUNTU_BOLD, UBUNTU_CONDENSED, UBUNTU_MEDIUM, truncate_to_fit
+
+if TYPE_CHECKING:
+    from countdown_core.utils.clock import ClockFormat
 
 # How a stop's departures are drawn: the config's departures.style.
 Style = Literal["classic", "hero", "grouped", "card"]
@@ -45,7 +47,8 @@ class Departures:
 
 class AbstractArrivalPanel(Panel, ABC):
     """One stop's departures, one Departures per route (and, on the tube, per destination),
-    the soonest route first. Subclasses adapt a source's stops and arrivals (TfL's, Entur's) to it."""
+    the soonest route first. Subclasses adapt a source's stops and arrivals (TfL's, Entur's) to it.
+    """
 
     def __init__(self, arrivals: list[Arrival], style: Style = "classic"):
         super().__init__()
@@ -102,7 +105,8 @@ class AbstractArrivalPanel(Panel, ABC):
 
     @abstractmethod
     def add_header(self, img: Image.Image, draw: ImageDraw.ImageDraw) -> None:
-        raise NotImplementedError("Subclasses must implement the add_header method.")
+        msg = "Subclasses must implement the add_header method."
+        raise NotImplementedError(msg)
 
     def _create_panel_for_arrivals(self, max_x: int, max_y: int) -> Image.Image:
         img = Image.new("RGBA", (max_x, max_y), (255, 255, 255, 0))
