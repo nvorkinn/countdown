@@ -17,9 +17,14 @@ REGULAR = "Ubuntu-Regular.ttf"
 SANS = "GoogleSans-Regular.ttf"
 SANS_SEMI = "GoogleSans-SemiBold.ttf"
 
-# Material Symbols glyphs
-BUS = chr(0xE530)
-SUBWAY = chr(0xE56F)
+# Material Symbols glyphs, by AbstractArrivalPanel.icon
+ICONS = {
+    "bus": chr(0xE530),  # directions_bus
+    "subway": chr(0xE56F),  # subway
+    "tram": chr(0xE571),  # tram
+    "train": chr(0xE570),  # train
+    "ferry": chr(0xE532),  # directions_boat
+}
 
 
 def _canvas(width: int, height: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
@@ -50,8 +55,8 @@ def _later(minutes: tuple[int, ...]) -> str:
 def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     """The next departure big, so it reads from across the room; the rest in a list below."""
     img, d = _canvas(width, height)
-    # Header: a bus or train, the stop's name, its letter in a circle, and a rule.
-    d.text((0, 11), SUBWAY if panel.is_tube else BUS, "black", google_symbols().font_variant(size=22), anchor="lm")
+    # Header: the stop's mode (a bus, a train...), its name, its letter in a circle, and a rule.
+    d.text((0, 11), ICONS[panel.icon], "black", google_symbols().font_variant(size=22), anchor="lm")
     letter_width = 26 if panel.stop_letter else 0
     name = truncate_to_fit(panel.stop_name, fitted_font(SANS_SEMI, 17), width - 26 - letter_width)
     d.text((26, 11), name, "black", fitted_font(SANS_SEMI, 17), anchor="lm")

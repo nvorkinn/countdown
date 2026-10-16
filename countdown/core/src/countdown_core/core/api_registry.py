@@ -6,11 +6,11 @@ from enum import Enum
 from countdown_api.models import ConfigResponse, Glowmarkt, Spotify
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
 from countdown_core.core.panel import Panel
+from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.spotify.spotify_client import SpotifyClient
-from countdown_core.tfl.tfl_client import TflClient
 from countdown_core.weather.weather_client import WeatherClient
 from countdown_credentials.registration import Registration
 
@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 class ClientClasses(Enum):
     NOTICE_BOARD = ("notice_board", NoticeBoardClient)
     GLOWMARKT = ("glowmarkt", GlowClient)
-    TFL = ("tfl", TflClient)
+    # Departures from every source; named for the broker's first section, which the layouts still go by.
+    TFL = ("tfl", DeparturesClient)
     WEATHER = ("weather", WeatherClient)
     SPOTIFY = ("spotify", SpotifyClient)
 
@@ -33,11 +34,17 @@ API_NAMES = [member.api_name for member in ClientClasses]
 
 
 def section_for(name: str, config: ConfigResponse) -> object:
-    """What the API `name` is configured with: its section of the broker's config. The notice board's also
-    carries the `tfl` section, as its TfL disruptions are about the arrivals' stops (so the broker needn't send
-    them twice)."""
+    """What the API `name` is configured with: its section of the broker's config. The departures' is its
+    `departures` section (or, from an older broker, `tfl`). The notice board's also carries the departures, as its
+    disruptions are about their stops (so the broker needn't send them twice)."""
+    if name == ClientClasses.TFL.api_name:
+        return DeparturesSettings.from_config(config)
     if name == ClientClasses.NOTICE_BOARD.api_name:
-        return NoticeBoardSettings(postcode=config.notice_board.postcode, tfl=config.tfl)
+        return NoticeBoardSettings(
+            postcode=config.notice_board.postcode,
+            country=config.notice_board.country,
+            departures=DeparturesSettings.from_config(config),
+        )
     return getattr(config, name)
 
 
@@ -136,11 +143,11 @@ class ApiRegistry:
         )
 
     def show_stops(self, count: int) -> None:
-        """Tells the TfL client how many stops the layout has room for. Call after every
+        """Tells the departures client how many stops the layout has room for. Call after every
         on_config_update(), since that may have rebuilt the client."""
-        tfl = self.clients.get(ClientClasses.TFL.api_name)
-        if isinstance(tfl, TflClient):
-            tfl.stops_per_update = count
+        departures = self.clients.get(ClientClasses.TFL.api_name)
+        if isinstance(departures, DeparturesClient):
+            departures.stops_per_update = count
 
     def _panel_for(self, member: ClientClasses) -> Panel:
         """The API's last panel, or a MessagePanel saying why there isn't one."""

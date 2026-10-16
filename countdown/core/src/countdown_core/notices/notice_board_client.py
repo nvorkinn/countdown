@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.departures.departures_client import DeparturesSettings
 from countdown_core.notices.calendar import BankHolidaySource, ClockChangeSource
 from countdown_core.notices.floods import FloodWarningsSource
 from countdown_core.notices.location import lookup_postcode
@@ -26,12 +27,19 @@ LOCATION_RETRY = timedelta(minutes=15)
 
 @dataclass(frozen=True)
 class NoticeBoardSettings:
-    """What the notice board is configured with: the broker's `notice_board` postcode, and its `tfl` section, for
-    the stops whose lines and stations the TfL disruptions are about. Compared by value, so a change to either
-    makes AbstractClient.needs_refresh rebuild the board."""
+    """What the notice board is configured with: the broker's `notice_board` section, and the departures' stops,
+    whose lines and stations the disruptions are about. Compared by value, so a change to either makes
+    AbstractClient.needs_refresh rebuild the board."""
 
     postcode: str | None
-    tfl: Tfl
+    departures: DeparturesSettings
+    # The postcode's country; None for a broker that predates it, whose postcodes are all British.
+    country: str | None = None
+
+    @property
+    def tfl(self) -> Tfl:
+        """The TfL stops alone, for the TfL disruption sources."""
+        return Tfl(app_key=self.departures.tfl_app_key, stop_ids=self.departures.stop_ids("tfl"))
 
 
 class NoticeBoardClient(AbstractClient):
