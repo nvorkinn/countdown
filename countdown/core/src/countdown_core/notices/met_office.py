@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
+from countdown_core.i18n import N_, _, format_date
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.tfl.models import Postcode
 
@@ -66,6 +67,11 @@ SCOTTISH_REGION_BY_COUNCIL = {
 UK_REGION = "UK"
 
 SEVERITY_BY_COLOUR = {"red": Severity.SEVERE, "amber": Severity.WARNING, "yellow": Severity.INFO}
+WARNING_BY_COLOUR = {
+    "red": N_("Red warning: {hazard}"),
+    "amber": N_("Amber warning: {hazard}"),
+    "yellow": N_("Yellow warning: {hazard}"),
+}
 TITLE_PATTERN = re.compile(r"^(Red|Amber|Yellow) warning of (.+?) affecting", re.IGNORECASE)
 # e.g. "valid from 0600 Wed 25 Sep to 2100 Wed 25 Sep"
 VALID_TO_PATTERN = re.compile(r"\bto (\d{4}) \w{3} (\d{1,2}) (\w{3})\b")
@@ -116,12 +122,14 @@ def parse_warnings(feed: bytes, now: datetime) -> list[Notice]:
         match = TITLE_PATTERN.match(title)
         if match:
             colour, hazard = match.group(1).lower(), match.group(2).lower()
-            text = f"{colour.capitalize()} warning: {hazard}"
+            text = _(WARNING_BY_COLOUR[colour]).format(hazard=hazard)
             severity = SEVERITY_BY_COLOUR[colour]
         else:
             text, severity = title, Severity.WARNING
         if valid_until is not None:
-            text += f" until {valid_until:%a %H:%M}"
+            text += " " + _("until {day} {time}").format(
+                day=format_date(valid_until.date(), "EEE"), time=f"{valid_until:%H:%M}"
+            )
         notices.append(Notice("Met Office", severity, text, valid_until))
     return notices
 

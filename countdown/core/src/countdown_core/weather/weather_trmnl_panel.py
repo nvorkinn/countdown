@@ -1,6 +1,7 @@
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import N_, _, format_date
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS
 from countdown_core.weather.models import Upcoming, Weather, WeatherPeriod
 from countdown_core.weather.weather_panel import (
@@ -82,27 +83,27 @@ class WeatherTrmnlPanel(Panel):
 
     def _readings(self) -> list[tuple[str, str]]:
         w = self.weather
-        wind = ("Wind", f"{round(w.wind_speed)} {w.wind_speed_units} {_compass(w.wind_direction)}")
+        wind = (_("Wind"), f"{round(w.wind_speed)} {w.wind_speed_units} {_compass(w.wind_direction)}")
         if w.period is WeatherPeriod.NOW:
             return [
-                ("Sunrise", w.sunrise.isoformat("minutes")),
-                ("Sunset", w.sunset.isoformat("minutes")),
-                ("Humidity", f"{w.humidity}{w.humidity_units}"),
+                (_("Sunrise"), w.sunrise.isoformat("minutes")),
+                (_("Sunset"), w.sunset.isoformat("minutes")),
+                (_("Humidity"), f"{w.humidity}{w.humidity_units}"),
                 wind,
             ]
         readings = []
         if w.period is WeatherPeriod.TONIGHT:
             if w.feels_like is not None:
-                readings.append(("Feels like", f"{round(w.feels_like)}°"))
+                readings.append((_("Feels like"), f"{round(w.feels_like)}°"))
         else:
-            readings.append(("Lowest" if w.period is WeatherPeriod.WEEKEND else "Low", f"{round(w.low)}°"))
+            readings.append((_("Lowest") if w.period is WeatherPeriod.WEEKEND else _("Low"), f"{round(w.low)}°"))
         if w.precipitation_probability is not None:
-            readings.append(("Rain", f"{w.precipitation_probability}%"))
+            readings.append((_("Rain"), f"{w.precipitation_probability}%"))
         readings.append(wind)
         if w.period is WeatherPeriod.TONIGHT:
-            readings.append(("Humidity", f"{w.humidity}{w.humidity_units}"))
+            readings.append((_("Humidity"), f"{w.humidity}{w.humidity_units}"))
         elif w.period is WeatherPeriod.TOMORROW:
-            readings.append(("Sunset", w.sunset.isoformat("minutes")))
+            readings.append((_("Sunset"), w.sunset.isoformat("minutes")))
         return readings
 
     def _draw_footer(self, draw: ImageDraw.ImageDraw, coord: tuple[float, float], width: float, scale: float) -> None:
@@ -112,7 +113,9 @@ class WeatherTrmnlPanel(Panel):
         if w.period is WeatherPeriod.WEEKEND:
             for index, day in enumerate(w.days):
                 left = x + index * width / 2
-                draw.text((left, y + 228 * scale), day.date.strftime("%A").upper(), "black", font=label, anchor="lt")
+                draw.text(
+                    (left, y + 228 * scale), format_date(day.date, "EEEE").upper(), "black", font=label, anchor="lt"
+                )
                 _draw_shrunk_to_fit(
                     draw,
                     (left, y + 256 * scale),
@@ -131,22 +134,25 @@ class WeatherTrmnlPanel(Panel):
             return
         if w.period is WeatherPeriod.NOW:
             upcoming, code = w.upcoming_weather_code
-            title = str(upcoming).upper()
-            detail = WEATHER_CODE_DESC.get(code, "Unknown conditions")
+            title = _(upcoming).upper()
+            detail = _(WEATHER_CODE_DESC.get(code, N_("Unknown conditions")))
             is_day = upcoming is not Upcoming.TONIGHT
         else:
             if w.forecast_date is None:
                 raise ValueError("Forecast pages require a forecast date")
             date = w.forecast_date
-            title = f"{date:%A} {date.day} {date:%B}".upper()
+            # Translators: a CLDR date pattern, e.g. "Friday 16 October". Norwegian: "EEEE d. MMMM".
+            title = format_date(date, _("EEEE d MMMM")).upper()
             if w.period is WeatherPeriod.TONIGHT:
                 if w.starts_at is None or w.ends_at is None:
                     raise ValueError("Tonight requires an overnight time window")
-                title += " - OVERNIGHT"
+                title += " - " + _("OVERNIGHT")
                 detail = f"{w.starts_at:%H:%M} - {w.ends_at:%H:%M}"
                 code, is_day = 0, False
             else:
-                detail = f"Sunrise {w.sunrise:%H:%M} / Sunset {w.sunset:%H:%M}"
+                detail = _("Sunrise {sunrise} / Sunset {sunset}").format(
+                    sunrise=f"{w.sunrise:%H:%M}", sunset=f"{w.sunset:%H:%M}"
+                )
                 code, is_day = 0, True
         _draw_shrunk_to_fit(draw, (x, y + 228 * scale), title, GOOGLE_SEMI, width - 65 * scale, round(10 * scale))
         _draw_shrunk_to_fit(
@@ -166,8 +172,9 @@ class WeatherTrmnlPanel(Panel):
         )
 
 
-COMPASS_8 = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+# Translators: compass points, for the wind direction (Norwegian: Ø for east, V for west).
+COMPASS_8 = (N_("N"), N_("NE"), N_("E"), N_("SE"), N_("S"), N_("SW"), N_("W"), N_("NW"))
 
 
 def _compass(deg: float) -> str:
-    return COMPASS_8[round(deg / 45) % 8]
+    return _(COMPASS_8[round(deg / 45) % 8])

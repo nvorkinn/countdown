@@ -9,6 +9,7 @@ from countdown_api.models import ConfigResponse, DepartureStop
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.panel import Panel
 from countdown_core.entur.entur_source import EnturSource
+from countdown_core.i18n import N_
 from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel, Style
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.tfl.tfl_client import TflSource
@@ -54,7 +55,7 @@ class ResolvedStop:
 
 
 class DeparturesClient(AbstractClient):
-    panel_title = "Arrivals"
+    panel_title = N_("Arrivals")
 
     def __init__(self, registration: Registration, config: DeparturesSettings):
         """Never touches the network: stops are resolved in _initialise()."""
@@ -104,7 +105,7 @@ class DeparturesClient(AbstractClient):
 
     def _update(self) -> Panel:
         if not self.stops:
-            return self.message_panel("Needs configuring")
+            return self.message_panel(N_("Needs configuring"))
         # All of them, in order, when they fit; otherwise the next page of them.
         if len(self.stops) <= self.stops_per_update:
             to_fetch = list(self.stops)

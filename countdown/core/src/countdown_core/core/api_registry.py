@@ -2,6 +2,7 @@ import asyncio
 import logging
 from datetime import timedelta
 from enum import Enum
+from zoneinfo import ZoneInfoNotFoundError
 
 from countdown_api.models import ConfigResponse, Glowmarkt, Spotify
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
@@ -9,6 +10,7 @@ from countdown_core.core.panel import Panel
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
+from countdown_core.i18n import N_, set_locale
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.weather.weather_client import WeatherClient
@@ -88,11 +90,25 @@ class ApiRegistry:
         self.pub = publisher
         self.pub.clients = self.clients
         self.status = publisher.device_status
+        # The language and time zone the clients were built for; a change rebuilds them all (see on_config_update).
+        self.locale: tuple[str, str] | None = None
 
     async def on_config_update(self, config: ConfigResponse) -> None:
         """Brings the clients in line with `config`, rebuilding only those whose
         needs_refresh() says so. Failures are logged, not raised, so one broken API
-        doesn't take the others down."""
+        doesn't take the others down. A new language or time zone rebuilds every client, as some put their
+        texts together as they fetch (the notices)."""
+        locale = (config.language, config.timezone)
+        if locale != self.locale:
+            try:
+                set_locale(*locale)
+            except ZoneInfoNotFoundError, ValueError:
+                logger.warning(f"Unknown time zone {config.timezone!r}; using Europe/London")
+                set_locale(config.language, "Europe/London")
+            if self.locale is not None:
+                for name in list(self.clients):
+                    self._drop(name)
+            self.locale = locale
         to_initialise: dict[str, AbstractClient] = {}
         for member in ClientClasses:
             name, clazz = member.value
@@ -154,5 +170,5 @@ class ApiRegistry:
         name, clazz = member.value
         client = self.clients.get(name)
         if client is None or client.is_disabled():
-            return clazz.message_panel("Not configured")
-        return self.panels.get(name) or clazz.message_panel("Could not connect")
+            return clazz.message_panel(N_("Not configured"))
+        return self.panels.get(name) or clazz.message_panel(N_("Could not connect"))

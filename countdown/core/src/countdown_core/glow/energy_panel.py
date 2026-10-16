@@ -4,6 +4,7 @@ from math import ceil, floor, log10
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import N_, _, format_date
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI
 
 TITLE_FONT = GOOGLE_SEMI.font_variant(size=16)
@@ -24,16 +25,16 @@ GRID_DOT_SPACING = 4  # gridlines are dotted - there's no grey on the e-paper
 
 PAGES = [
     {
-        "title": "Last 24 hours (kWh)",
+        "title": N_("Last 24 hours (kWh)"),
         "label_fn": lambda iso: datetime.fromisoformat(iso).strftime("%H:%M"),
     },
     {
-        "title": "Last 31 days (kWh)",
-        "label_fn": lambda iso: datetime.fromisoformat(iso).strftime("%d %b"),
+        "title": N_("Last 31 days (kWh)"),
+        "label_fn": lambda iso: format_date(datetime.fromisoformat(iso), "dd MMM"),
     },
     {
-        "title": "This year (kWh)",
-        "label_fn": lambda iso: datetime.fromisoformat(iso).strftime("%b"),
+        "title": N_("This year (kWh)"),
+        "label_fn": lambda iso: format_date(datetime.fromisoformat(iso), "MMM"),
     },
 ]
 
@@ -52,7 +53,8 @@ class EnergyPanel(Panel):
         draw.fontmode = "1"
         page = PAGES[self.page_index]
 
-        draw.text((PADDING, PADDING), page["title"], "black", font=TITLE_FONT)
+        title = page["title"]
+        draw.text((PADDING, PADDING), _(title), "black", font=TITLE_FONT)
 
         if not self.readings:
             draw.text((image_width / 2, image_height / 2), "No data", "black", font=NO_DATA_FONT, anchor="mm")

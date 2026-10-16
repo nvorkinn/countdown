@@ -118,7 +118,7 @@ class EnturClient:
     def __init__(self, session: requests.Session):
         self.session = session
 
-    def _query(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+    def query(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         response = self.session.post(
             JOURNEY_PLANNER_URL,
             json={"query": query, "variables": variables},
@@ -135,7 +135,7 @@ class EnturClient:
         variables: dict[str, Any] = {"id": stop_id, "numberOfDepartures": departures}
         if now is not None:
             variables["startTime"] = now.isoformat()
-        data = self._query(_QUAY_QUERY if _is_quay(stop_id) else _STOP_PLACE_QUERY, variables)
+        data = self.query(_QUAY_QUERY if _is_quay(stop_id) else _STOP_PLACE_QUERY, variables)
         stop = data.get("quay" if _is_quay(stop_id) else "stopPlace")
         return stop if isinstance(stop, dict) else None
 

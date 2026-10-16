@@ -5,6 +5,7 @@ from typing import Literal, Protocol
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import _, ngettext
 from countdown_core.tfl.arrival_styles import STYLES
 from countdown_core.utils.utils import UBUNTU_BOLD, UBUNTU_CONDENSED, UBUNTU_MEDIUM, truncate_to_fit
 
@@ -140,10 +141,6 @@ class AbstractArrivalPanel(Panel, ABC):
 
     @staticmethod
     def _get_time_text(minutes: int) -> str:
-        match minutes:
-            case 0:
-                return "due"
-            case 1:
-                return "1 min"
-            case _:
-                return f"{minutes} mins"
+        if minutes == 0:
+            return _("due")
+        return ngettext("{n} min", "{n} mins", minutes).format(n=minutes)

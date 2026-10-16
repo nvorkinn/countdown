@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from countdown_api.models import Spotify
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import N_
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_top_artists_panel import SpotifyTopArtistsPanel
@@ -31,7 +32,7 @@ class SpotifyClient(AbstractClient):
     """Now playing and top tracks/artists, via auth-broker, which calls Spotify server-side
     so this device never holds a token. Authenticates as the device `registration` registered."""
 
-    panel_title = "Spotify"
+    panel_title = N_("Spotify")
     panel_logo = "spotify_logo.png"
 
     def __init__(self, registration: Registration, config: Spotify):
@@ -56,7 +57,7 @@ class SpotifyClient(AbstractClient):
             panel = page_config.update_function(self, page_config)
             if panel:
                 return panel
-        return self.message_panel("Nothing playing on:")
+        return self.message_panel(N_("Nothing playing on:"))
 
     def update_player(self, _page_config: PageConfig) -> Panel | None:
         """What's playing and what's up next, or None if nothing is playing."""
@@ -76,7 +77,7 @@ class SpotifyClient(AbstractClient):
 
 PAGES: tuple[PageConfig, ...] = (
     PageConfig(SpotifyClient.update_player),
-    TopPageConfig(SpotifyClient.update_top, {"time_range": "long_term"}, "12 months"),
+    TopPageConfig(SpotifyClient.update_top, {"time_range": "long_term"}, N_("12 months")),
     PageConfig(SpotifyClient.update_player),
-    TopPageConfig(SpotifyClient.update_top, {"time_range": "short_term"}, "4 weeks"),
+    TopPageConfig(SpotifyClient.update_top, {"time_range": "short_term"}, N_("4 weeks")),
 )

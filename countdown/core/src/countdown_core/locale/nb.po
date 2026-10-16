@@ -1,0 +1,487 @@
+# Norwegian Bokmål translations for countdown.
+# Copyright (C) 2026 Nikolai Vorkinn
+# This file is distributed under the same license as the countdown project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: countdown VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-10-16 16:50+0000\n"
+"PO-Revision-Date: 2026-10-16 16:50+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: nb\n"
+"Language-Team: nb <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#, python-brace-format
+msgid "+{count} more"
+msgstr ""
+
+msgid "12 months"
+msgstr ""
+
+msgid "4 weeks"
+msgstr ""
+
+msgid "All clear"
+msgstr ""
+
+#, python-brace-format
+msgid "Amber warning: {hazard}"
+msgstr ""
+
+msgid "Arrivals"
+msgstr ""
+
+msgid "Ascension Day"
+msgstr ""
+
+msgid "Bank holiday"
+msgstr ""
+
+msgid "Boxing Day"
+msgstr ""
+
+#, python-brace-format
+msgid "Bus {route}"
+msgstr ""
+
+msgid "Buses"
+msgstr ""
+
+msgid "CURRENT CONDITIONS"
+msgstr ""
+
+msgid "Christmas Day"
+msgstr ""
+
+msgid "Clear sky"
+msgstr ""
+
+msgid "Clocks"
+msgstr ""
+
+#, python-brace-format
+msgid "Clocks go back an hour {when}, at {time12}"
+msgstr ""
+
+#. Translators: {when} is "tonight" or "on Sun 25 Oct". The time is there as
+#. {time12} ("1am") and as {time24}
+#. ("01:00"): use whichever suits.
+#, python-brace-format
+msgid "Clocks go forward an hour {when}, at {time12}"
+msgstr ""
+
+msgid "Constitution Day"
+msgstr ""
+
+msgid "Could not connect"
+msgstr ""
+
+msgid "DAYTIME HIGH"
+msgstr ""
+
+#, python-brace-format
+msgid "DAYTIME HIGHS / {dates}"
+msgstr ""
+
+msgid "Dense drizzle"
+msgstr ""
+
+msgid "Dense freezing drizzle"
+msgstr ""
+
+msgid "Depositing rime fog"
+msgstr ""
+
+#, python-brace-format
+msgid "Device: {device}"
+msgstr ""
+
+msgid "E"
+msgstr ""
+
+#. Translators: a CLDR date pattern (EEE weekday, d day, MMM month), e.g. "Fri
+#. 16 Oct". Norwegian: "EEE d. MMM".
+msgid "EEE d MMM"
+msgstr ""
+
+#. Translators: a CLDR date pattern, e.g. "Friday 16 October". Norwegian: "EEEE
+#. d. MMMM".
+msgid "EEEE d MMMM"
+msgstr ""
+
+msgid "Easter Monday"
+msgstr ""
+
+msgid "Easter Sunday"
+msgstr ""
+
+msgid "Energy"
+msgstr ""
+
+msgid "Feels like"
+msgstr ""
+
+msgid "Flood alert"
+msgstr ""
+
+msgid "Flood warning"
+msgstr ""
+
+msgid "Floods"
+msgstr ""
+
+msgid "Fog"
+msgstr ""
+
+#, python-brace-format
+msgid "Go to {site}"
+msgstr ""
+
+msgid "Good Friday"
+msgstr ""
+
+msgid "HIGH"
+msgstr ""
+
+msgid "Heavy freezing rain"
+msgstr ""
+
+msgid "Heavy rain"
+msgstr ""
+
+msgid "Heavy snow showers"
+msgstr ""
+
+msgid "Heavy snowfall"
+msgstr ""
+
+msgid "Humidity"
+msgstr ""
+
+#, python-brace-format
+msgid "LAST {period}"
+msgstr ""
+
+msgid "LOW"
+msgstr ""
+
+msgid "Labour Day"
+msgstr ""
+
+msgid "Last 24 hours (kWh)"
+msgstr ""
+
+msgid "Last 31 days (kWh)"
+msgstr ""
+
+msgid "Light drizzle"
+msgstr ""
+
+msgid "Light freezing drizzle"
+msgstr ""
+
+msgid "Light freezing rain"
+msgstr ""
+
+#, python-brace-format
+msgid "Line {line}"
+msgstr ""
+
+msgid "Location not found"
+msgstr ""
+
+msgid "Low"
+msgstr ""
+
+msgid "Lowest"
+msgstr ""
+
+msgid "Mainly clear"
+msgstr ""
+
+msgid "Maundy Thursday"
+msgstr ""
+
+msgid "Mixed skies"
+msgstr ""
+
+msgid "Moderate drizzle"
+msgstr ""
+
+msgid "Moderate rain"
+msgstr ""
+
+msgid "Moderate rain showers"
+msgstr ""
+
+msgid "Moderate snowfall"
+msgstr ""
+
+#. Translators: compass points, for the wind direction (Norwegian: Ø for east,
+#. V for west).
+msgid "N"
+msgstr ""
+
+msgid "NE"
+msgstr ""
+
+msgid "NEXT"
+msgstr ""
+
+msgid "NIGHT"
+msgstr ""
+
+msgid "NOW"
+msgstr ""
+
+msgid "NOW PLAYING"
+msgstr ""
+
+msgid "NW"
+msgstr ""
+
+msgid "Needs configuring"
+msgstr ""
+
+msgid "New Year's Day"
+msgstr ""
+
+msgid "Not configured"
+msgstr ""
+
+msgid "Nothing playing on:"
+msgstr ""
+
+msgid "Nothing to show yet"
+msgstr ""
+
+msgid "Notices"
+msgstr ""
+
+msgid "Now"
+msgstr ""
+
+msgid "Now playing"
+msgstr ""
+
+msgid "OVERNIGHT"
+msgstr ""
+
+msgid "OVERNIGHT LOW"
+msgstr ""
+
+#, python-brace-format
+msgid "Orange warning: {hazard}"
+msgstr ""
+
+msgid "Overcast"
+msgstr ""
+
+msgid "Partly cloudy"
+msgstr ""
+
+#, python-brace-format
+msgid "Platform {letter}"
+msgstr ""
+
+msgid "Public holiday"
+msgstr ""
+
+msgid "RAIN"
+msgstr ""
+
+msgid "Rain"
+msgstr ""
+
+#, python-brace-format
+msgid "Red warning: {hazard}"
+msgstr ""
+
+msgid "Roads"
+msgstr ""
+
+msgid "S"
+msgstr ""
+
+msgid "SE"
+msgstr ""
+
+msgid "SW"
+msgstr ""
+
+msgid "Set up this display"
+msgstr ""
+
+msgid "Severe flood warning"
+msgstr ""
+
+msgid "Slight rain"
+msgstr ""
+
+msgid "Slight rain showers"
+msgstr ""
+
+msgid "Slight snow showers"
+msgstr ""
+
+msgid "Slight snowfall"
+msgstr ""
+
+msgid "Snow grains"
+msgstr ""
+
+msgid "Spotify"
+msgstr ""
+
+#, python-brace-format
+msgid "Stop {letter}"
+msgstr ""
+
+msgid "Sunrise"
+msgstr ""
+
+#, python-brace-format
+msgid "Sunrise {sunrise} / Sunset {sunset}"
+msgstr ""
+
+msgid "Sunset"
+msgstr ""
+
+msgid "TMRW"
+msgstr ""
+
+msgid "This afternoon"
+msgstr ""
+
+msgid "This year (kWh)"
+msgstr ""
+
+msgid "Thunderstorm"
+msgstr ""
+
+msgid "Thunderstorm with heavy hail"
+msgstr ""
+
+msgid "Thunderstorm with slight hail"
+msgstr ""
+
+msgid "Today"
+msgstr ""
+
+msgid "Tomorrow"
+msgstr ""
+
+msgid "Tonight"
+msgstr ""
+
+msgid "Top artists"
+msgstr ""
+
+msgid "Top artists:"
+msgstr ""
+
+msgid "Top tracks"
+msgstr ""
+
+msgid "Top tracks:"
+msgstr ""
+
+msgid "UP NEXT"
+msgstr ""
+
+msgid "Unknown postcode"
+msgstr ""
+
+#, python-brace-format
+msgid "Up next: {track}"
+msgstr ""
+
+msgid "Violent rain showers"
+msgstr ""
+
+msgid "W"
+msgstr ""
+
+msgid "WKND"
+msgstr ""
+
+msgid "Waiting for your first bus times"
+msgstr ""
+
+msgid "Weather"
+msgstr ""
+
+msgid "Weekend"
+msgstr ""
+
+msgid "Whit Monday"
+msgstr ""
+
+msgid "Whit Sunday"
+msgstr ""
+
+msgid "Wind"
+msgstr ""
+
+#, python-brace-format
+msgid "Yellow warning: {hazard}"
+msgstr ""
+
+#, python-brace-format
+msgid "Your Spotify over the last {period}:"
+msgstr ""
+
+msgid "and enter this code:"
+msgstr ""
+
+msgid "and weather to arrive"
+msgstr ""
+
+msgid "d MMM"
+msgstr ""
+
+msgid "due"
+msgstr ""
+
+#. Translators: short for minutes, after a number in a narrow column ("4 m").
+msgid "m"
+msgstr ""
+
+msgid "min"
+msgstr ""
+
+#, python-brace-format
+msgid "on {day}"
+msgstr ""
+
+#, python-brace-format
+msgid "then {times} min"
+msgstr ""
+
+msgid "tonight"
+msgstr ""
+
+#, python-brace-format
+msgid "until {day} {time}"
+msgstr ""
+
+#, python-brace-format
+msgid "{line} line"
+msgstr ""
+
+#, python-brace-format
+msgid "{n} min"
+msgid_plural "{n} mins"
+msgstr[0] ""
+msgstr[1] ""
+
+#~ msgid "title"
+#~ msgstr ""
+

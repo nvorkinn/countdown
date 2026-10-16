@@ -4,6 +4,7 @@ import logging
 from countdown_api.models import Weather as WeatherSection
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import N_
 from countdown_core.notices.location import is_postcode, postcode_coordinates
 from countdown_core.weather.models import ForecastResponse, GeocodingResponse, Weather
 from countdown_core.weather.weather_forecast import weather_pages
@@ -27,7 +28,7 @@ class WeatherClient(AbstractClient):
     the config's api_key is unused). The location is geocoded once, on first fetch; with no
     location configured it's the weather at the North Pole."""
 
-    panel_title = "Weather"
+    panel_title = N_("Weather")
 
     def __init__(self, registration: Registration, config: WeatherSection):
         super().__init__(registration, config)
@@ -60,7 +61,7 @@ class WeatherClient(AbstractClient):
             coordinates = self._geocode() if self.location else NORTH_POLE
             if coordinates is None:
                 logger.warning(f"Could not find a location matching {self.location!r}")
-                self._panel = self.message_panel("Location not found")
+                self._panel = self.message_panel(N_("Location not found"))
                 self._pages = ()
             else:
                 forecast = self._fetch_forecast(*coordinates)

@@ -3,6 +3,7 @@ from math import floor
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import _
 from countdown_core.spotify.spotify_panel import Style
 from countdown_core.spotify.spotify_styles import STYLES
 from countdown_core.spotify.spotify_top_artists_panel import SpotifyTopArtistsPanel
@@ -32,7 +33,12 @@ class SpotifyTopPanel(Panel):
         draw.font = UBUNTU_MEDIUM_15
         draw.fontmode = "1"
 
-        draw.text((image_width / 2, 0), f"Your Spotify over the last {self.period}:", "black", anchor="ma")
+        draw.text(
+            (image_width / 2, 0),
+            _("Your Spotify over the last {period}:").format(period=_(self.period)),
+            "black",
+            anchor="ma",
+        )
         x = 0
         for sub_panel in self.sub_panels:
             panel = sub_panel.render(floor(image_width / 2), image_height)

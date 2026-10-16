@@ -6,6 +6,7 @@ from countdown_api.models import Glowmarkt
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.glow.models import Entity, Readings
+from countdown_core.i18n import N_
 from countdown_credentials.registration import Registration
 
 
@@ -26,7 +27,7 @@ class GlowClient(AbstractClient):
     # update() runs every minute to rotate the page; each page only asks Glow for fresh
     # readings this often and redraws from cache otherwise.
     refresh_intervals = {0: timedelta(minutes=30), 1: timedelta(hours=3), 2: timedelta(hours=12)}
-    panel_title = "Energy"
+    panel_title = N_("Energy")
     base_url = "https://api.glowmarkt.com/api/v0-1"
     app_id = "b0f1b774-a586-4f72-9edd-27ead8aa7a8d"
     resource_id = None

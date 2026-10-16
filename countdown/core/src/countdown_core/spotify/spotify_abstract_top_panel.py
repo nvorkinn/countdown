@@ -4,6 +4,7 @@ from typing import TypeVar
 from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
+from countdown_core.i18n import _
 from countdown_core.spotify.models import Artist, TopResponse, Track
 from countdown_core.utils.utils import UBUNTU_MEDIUM_15, truncate_to_fit
 
@@ -21,7 +22,7 @@ class AbstractSpotifyTopSubPanel(Panel):
         draw.font = UBUNTU_MEDIUM_15
         draw.fontmode = "1"
 
-        draw.text((0, 0), self.header, "black")
+        draw.text((0, 0), _(self.header), "black")
         y = 20
         for idx, row in enumerate(self.top_response.items):
             draw.text((0, y), truncate_to_fit(self.format_line(idx, row), UBUNTU_MEDIUM_15, image_width - 10), "black")

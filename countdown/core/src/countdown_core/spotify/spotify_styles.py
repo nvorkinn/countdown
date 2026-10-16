@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from PIL import Image, ImageDraw, ImageFont
 
+from countdown_core.i18n import N_, _
 from countdown_core.spotify.models import Artist, Queue, Track
 from countdown_core.tfl.arrival_styles import BOLD, MEDIUM, REGULAR, SANS, SANS_SEMI, _canvas, _shrunk
 from countdown_core.utils.utils import fitted_font, google_symbols, truncate_to_fit
@@ -19,6 +20,10 @@ SKIP_NEXT = chr(0xE044)
 
 # The cover at a given size: a square, or 0 wide if the track has none (a local file).
 AlbumArt = Callable[[int], Image.Image]
+
+
+# The headings of the two top lists, by kind.
+TOP = {"tracks": N_("Top tracks"), "artists": N_("Top artists")}
 
 
 def _artists(track: Track) -> str:
@@ -70,7 +75,7 @@ def airy_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     x = cover.size[0] + 18 if cover.size[0] else 0
     room = width - x
     label = fitted_font(SANS_SEMI, 11)
-    d.text((x, 12), "NOW PLAYING", "black", label, anchor="lm")
+    d.text((x, 12), _("NOW PLAYING"), "black", label, anchor="lm")
     d.text((width, 12), _length(track.duration_ms), "black", label, anchor="rm")
     title = _shrunk(track.name, SANS, 32, room)
     d.text((x, 48), truncate_to_fit(track.name, title, room), "black", title, anchor="ls")
@@ -84,8 +89,8 @@ def airy_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     )
     if queue.queue:
         d.line((x, 86, width, 86), fill="black")
-        d.text((x, 104), "UP NEXT", "black", label, anchor="lm")
-        next_x = x + label.getlength("UP NEXT") + 10
+        d.text((x, 104), _("UP NEXT"), "black", label, anchor="lm")
+        next_x = x + label.getlength(_("UP NEXT")) + 10
         up_next, body = queue.queue[0], fitted_font(SANS, 15)
         text = truncate_to_fit(f"{up_next.name} · {_artists(up_next)}", body, width - next_x)
         d.text((next_x, 104), text, "black", body, anchor="lm")
@@ -101,9 +106,9 @@ def airy_top(period: str, tracks: list[Track], artists: list[Artist], width: int
     for i, (kind, rows) in enumerate(_columns(tracks, artists)):
         left = i * (column + gap)
         right = left + column
-        d.text((left, 8), f"TOP {kind.upper()}", "black", label, anchor="lm")
+        d.text((left, 8), _(TOP[kind]).upper(), "black", label, anchor="lm")
         if i == 1:
-            d.text((right, 8), f"LAST {period.upper()}", "black", label, anchor="rm")
+            d.text((right, 8), _("LAST {period}").format(period=_(period)).upper(), "black", label, anchor="rm")
         d.line((left, 19, right, 19), fill="black")
         y = 31
         for rank, (name, by) in enumerate(rows, 1):
@@ -132,7 +137,7 @@ def hero_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     img.paste(cover, (0, 0), cover)
     x = cover.size[0] + 14 if cover.size[0] else 0
     room = width - x
-    _hero_header(d, x, width, NOTE, "Now playing", _length(track.duration_ms))
+    _hero_header(d, x, width, NOTE, _("Now playing"), _length(track.duration_ms))
     title = _shrunk(track.name, BOLD, 26, room)
     d.text((x, 47), truncate_to_fit(track.name, title, room), "black", title, anchor="lm")
     subtitle = fitted_font(REGULAR, 14)
@@ -146,7 +151,7 @@ def hero_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     if queue.queue:
         y = 92
         d.rounded_rectangle((x, y, x + 46, y + 20), 4, outline="black", width=2)
-        d.text((x + 23, y + 10), "NEXT", "black", fitted_font(BOLD, 12), anchor="mm")
+        d.text((x + 23, y + 10), _("NEXT"), "black", fitted_font(BOLD, 12), anchor="mm")
         up_next = queue.queue[0]
         _track_and_by(
             d, y + 10, x + 54, width, up_next.name, _artists(up_next), fitted_font(MEDIUM, 14), fitted_font(BOLD, 14)
@@ -162,7 +167,7 @@ def hero_top(period: str, tracks: list[Track], artists: list[Artist], width: int
     for i, (kind, rows) in enumerate(_columns(tracks, artists)):
         left = round(i * (column + gap))
         right = round(left + column)
-        _hero_header(d, left, right, NOTE if kind == "tracks" else MIC, f"Top {kind}", period if i == 1 else "")
+        _hero_header(d, left, right, NOTE if kind == "tracks" else MIC, _(TOP[kind]), _(period) if i == 1 else "")
         if not rows:
             continue
         # Number one big, in a black badge like the next departure's route.
@@ -177,7 +182,7 @@ def hero_top(period: str, tracks: list[Track], artists: list[Artist], width: int
             by_font = fitted_font(REGULAR, 12)
             d.text((left + 48, y + 31), truncate_to_fit(by, by_font, room), "black", by_font, anchor="lm")
         # Two to five under it, two to a line, each with its rank in an outlined badge.
-        for n, (name, _) in enumerate(rows[1:5]):
+        for n, (name, _by) in enumerate(rows[1:5]):
             cell_x = left + (n % 2) * (column / 2 + 2)
             cell_y = 84 + (n // 2) * 19
             if cell_y + 16 > height:
@@ -211,7 +216,7 @@ def _card(d: ImageDraw.ImageDraw, left: int, right: int, height: int, icon: str,
 def card_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Image:
     img, d = _canvas(width, height)
     track = queue.currently_playing
-    _card(d, 0, width, height, NOTE, "Now playing", _length(track.duration_ms))
+    _card(d, 0, width, height, NOTE, _("Now playing"), _length(track.duration_ms))
     cover = art(height - CARD_BAR - 14)
     img.paste(cover, (8, CARD_BAR + 7), cover)
     x = 8 + cover.size[0] + 12 if cover.size[0] else 10
@@ -244,7 +249,7 @@ def card_top(period: str, tracks: list[Track], artists: list[Artist], width: int
     for i, (kind, rows) in enumerate(_columns(tracks, artists)):
         left = round(i * (column + gap))
         right = round(left + column)
-        _card(d, left, right, height, NOTE if kind == "tracks" else MIC, f"Top {kind}", period)
+        _card(d, left, right, height, NOTE if kind == "tracks" else MIC, _(TOP[kind]), _(period))
         y = CARD_BAR + 13
         for rank, (name, by) in enumerate(rows, 1):
             if y + 7 > height - 2:

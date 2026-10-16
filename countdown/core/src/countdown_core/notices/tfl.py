@@ -8,6 +8,7 @@ from pydantic import TypeAdapter
 
 from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
+from countdown_core.i18n import _
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.tfl.models import DisruptedPoint, Line, Postcode, RoadDisruption, StopPointUnion
 from countdown_core.tfl.tfl_client import _find_stop_child
@@ -94,7 +95,7 @@ class TflLineStatusSource(TflSource):
                 current = [p for p in status.validity_periods if p.from_date <= now <= p.to_date]
                 if status.validity_periods and not current:
                     continue  # e.g. a planned closure later this week
-                tag = f"Bus {line.name}" if line.mode_name == "bus" else line.name
+                tag = _("Bus {route}").format(route=line.name) if line.mode_name == "bus" else line.name
                 headline = _headline(status.reason, line.name)
                 text = headline or status.description
                 key = headline or (tag, status.description)
@@ -106,7 +107,7 @@ class TflLineStatusSource(TflSource):
                         None if None in (valid_until, seen.valid_until) else max(valid_until, seen.valid_until)
                     )
                     if seen.source != tag:
-                        tag = "Buses" if line.mode_name == "bus" else "TfL"
+                        tag = _("Buses") if line.mode_name == "bus" else "TfL"
                 notices[key] = Notice(tag, severity, text, valid_until)
         return list(notices.values())
 
@@ -189,7 +190,7 @@ class TflRoadSource(TflSource):
             self._get("/Road/all/Disruption", severities=",".join(ROAD_SEVERITY))
         )
         return [
-            Notice("Roads", ROAD_SEVERITY[d.severity], f"{d.category}: {d.comments}", d.end_date_time)
+            Notice(_("Roads"), ROAD_SEVERITY[d.severity], f"{d.category}: {d.comments}", d.end_date_time)
             for d in disruptions
             if d.severity in ROAD_SEVERITY and self._is_nearby(d)
         ]
