@@ -113,9 +113,9 @@ def test_each_client_is_configured_with_its_section_of_the_config():
     assert section_for("weather", config) is config.weather
     assert section_for("spotify", config) == config.spotify
     assert section_for("glowmarkt", config) is config.glowmarkt
-    # The notice board's disruptions are for the departures' stops, so it also gets those.
+    # The notice board also gets the TfL key, for the road incidents near the postcode.
     assert section_for("notice_board", config) == NoticeBoardSettings(
-        postcode="SE17 3LL", departures=DeparturesSettings.from_config(config)
+        postcode="SE17 3LL", tfl_app_key=config.tfl.app_key
     )
 
 
@@ -193,6 +193,50 @@ def test_on_config_update_registers_the_enabled_clients():
         "weather": WeatherClient,
         "spotify": SpotifyClient,
     }
+
+
+def source_names(registry: ApiRegistry) -> list[str]:
+    return [type(source).__name__ for source in registry.clients["notice_board"].client_sources]
+
+
+def test_the_notice_board_polls_the_departures_disruptions_for_their_stops():
+    config = make_config(departures={"stops": [{"source": "entur", "id": "NSR:StopPlace:58366"}]})
+    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
+
+    asyncio.run(registry.on_config_update(config))
+
+    assert registry.clients["notice_board"].client_sources == registry.clients["tfl"].notice_sources()
+    assert source_names(registry) == ["EnturSituationsSource"]
+
+
+def test_new_stops_change_the_disruptions_without_rebuilding_the_notice_board():
+    """Norway's disruptions go with Norway's stops, and the board keeps its postcode's place."""
+    norway = make_config(
+        notice_board={"postcode": "SE17 3LL", "country": "GB"},
+        departures={"stops": [{"source": "entur", "id": "NSR:StopPlace:58366"}]},
+    )
+    london = make_config(
+        notice_board={"postcode": "SE17 3LL", "country": "GB"},
+        departures={"stops": [{"source": "tfl", "id": "940GZZLUKNG"}]},
+    )
+    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
+    asyncio.run(registry.on_config_update(norway))
+    board = registry.clients["notice_board"]
+
+    asyncio.run(registry.on_config_update(london))
+
+    assert registry.clients["notice_board"] is board
+    assert source_names(registry) == ["TflLineStatusSource", "TflStationSource"]
+
+
+def test_a_rebuilt_notice_board_gets_the_departures_disruptions_too():
+    stops = {"stops": [{"source": "tfl", "id": "940GZZLUKNG"}]}
+    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
+    asyncio.run(registry.on_config_update(make_config(departures=stops, notice_board={"postcode": "0150"})))
+
+    asyncio.run(registry.on_config_update(make_config(departures=stops, notice_board={"postcode": "SE17 3LL"})))
+
+    assert source_names(registry) == ["TflLineStatusSource", "TflStationSource"]
 
 
 def test_on_config_update_skips_disabled_clients():

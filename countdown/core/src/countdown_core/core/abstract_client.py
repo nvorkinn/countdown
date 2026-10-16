@@ -16,6 +16,7 @@ from countdown_core.system_screens.message_panel import MessagePanel
 
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
+    from countdown_core.notices.notice import NoticeSource
     from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
@@ -116,6 +117,14 @@ class AbstractClient(ABC):
         Defaults to any change; override to keep state (tokens, caches) across changes that don't affect it.
         """
         return self.config != new_config
+
+    def notice_sources(self) -> list[NoticeSource]:
+        """Return the sources of notices about what this client shows, for the notice board to poll and rank.
+
+        None by default; the departures give their stops' disruptions. Built with the client, so a rebuild gives new
+        ones.
+        """
+        return []
 
     def is_disabled(self) -> bool:
         """Whether the client is switched off, and so makes no calls."""

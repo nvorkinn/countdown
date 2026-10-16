@@ -48,8 +48,8 @@ def section_for(name: str, config: ConfigResponse) -> object:
     """Return what the API `name` is configured with: its section of the broker's config.
 
     The departures' is its `departures` section (or, from an older broker, `tfl`). The notice board's also carries
-    the departures, as its disruptions are about their stops (so the broker needn't send them twice). Every panel
-    that has a style gets the config's shared one (see panel_style).
+    the TfL app key, for the road incidents near the postcode. Every panel that has a style gets the config's shared
+    one (see panel_style).
     """
     if name == ClientClasses.TFL.api_name:
         return DeparturesSettings.from_config(config)
@@ -58,7 +58,7 @@ def section_for(name: str, config: ConfigResponse) -> object:
             postcode=config.notice_board.postcode,
             country=config.notice_board.country,
             style=panel_style(config, config.notice_board.style),
-            departures=DeparturesSettings.from_config(config),
+            tfl_app_key=config.tfl.app_key,
         )
     if name == ClientClasses.SPOTIFY.api_name:
         return config.spotify.model_copy(update={"style": panel_style(config, config.spotify.style)})
@@ -142,10 +142,19 @@ class ApiRegistry:
                     logger.exception("Error building %s client", name)
                     self.clients[name] = FailedClient(self.registration, client_config, e)
 
+        self._share_notice_sources()
         outcomes = await asyncio.gather(*[c.initialise() for c in to_initialise.values()], return_exceptions=True)
         for name, outcome in zip(to_initialise, outcomes, strict=True):
             if isinstance(outcome, Exception):
                 logger.error("Error initialising %s: %s", name, outcome, exc_info=outcome)
+
+    def _share_notice_sources(self) -> None:
+        """Hand the notice board the other clients' notice sources, which a rebuild of any of them replaces."""
+        board = self.clients.get(ClientClasses.NOTICE_BOARD.api_name)
+        if isinstance(board, NoticeBoardClient):
+            board.use_client_sources(
+                source for client in self.clients.values() if client is not board for source in client.notice_sources()
+            )
 
     def _apply_locale(self, config: ConfigResponse) -> None:
         """Switch to the config's language and time zone, dropping every client if they changed."""

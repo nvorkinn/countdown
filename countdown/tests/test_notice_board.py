@@ -9,9 +9,8 @@ from config_factory import make_config
 from PIL import Image, ImageDraw
 from test_utils import REGISTRATION
 
-from countdown_api.models import DepartureStop, Tfl
+from countdown_api.models import Tfl
 from countdown_core.core.api_registry import section_for
-from countdown_core.departures.departures_client import DeparturesSettings
 from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.calendar import (
     BANK_HOLIDAYS_URL,
@@ -557,13 +556,12 @@ def clock(monkeypatch):
     return Clock
 
 
-def board_settings(postcode: str | None = None, stop_ids: list[str] | None = None) -> NoticeBoardSettings:
-    stops = tuple(DepartureStop(source="tfl", id=stop_id) for stop_id in stop_ids or [])
-    return NoticeBoardSettings(postcode=postcode, departures=DeparturesSettings(stops))
+def board_settings(postcode: str | None = None) -> NoticeBoardSettings:
+    return NoticeBoardSettings(postcode=postcode)
 
 
 def board_with(*sources: NoticeSource) -> NoticeBoardClient:
-    client = NoticeBoardClient(REGISTRATION, board_settings(stop_ids=["940GZZLUKNG"]))
+    client = NoticeBoardClient(REGISTRATION, board_settings())
     client.sources = list(sources)
     return client
 
@@ -584,6 +582,30 @@ def test_board_ranks_by_severity_then_source_order(clock):
 
     assert isinstance(panel, NoticeBoardPanel)
     assert panel.notices == [severe, amber, minor, alert]
+
+
+def test_board_ranks_the_other_clients_notices_with_its_own(clock):
+    """Theirs come first, so a delay at the stops ranks above the place's notices of the same severity."""
+    alert = Notice("Floods", Severity.INFO, "Flood alert: Effra")
+    minor = Notice("TfL", Severity.INFO, "Victoria: Minor Delays")
+    client = board_with(FakeSource("ea", [alert]))
+    client.use_client_sources([FakeSource("tfl", [minor])])
+
+    assert update(client).notices == [minor, alert]
+
+
+def test_board_drops_the_notices_of_a_client_source_it_is_no_longer_given(clock):
+    old = FakeSource("entur", [Notice("Line 5", Severity.WARNING, "Bus for metro")])
+    new = FakeSource("tfl", [])
+    client = board_with()
+    client.use_client_sources([old])
+    update(client)
+
+    client.use_client_sources([new])
+    clock.now += timedelta(minutes=1)  # before the old one's notices would go stale
+
+    assert update(client).notices == []
+    assert old not in client.fetched
 
 
 def test_board_is_empty_when_nothing_is_reported(clock):
@@ -709,32 +731,28 @@ def test_board_retries_a_postcode_lookup_that_failed(api, clock, caplog):
 # --- Config ----------------------------------------------------------------------
 
 
-def test_notice_board_gets_the_tfl_stops_and_the_brokers_postcode():
-    config = make_config(tfl={"stop_ids": ["940GZZLUKNG"]}, notice_board={"postcode": "SE17 3LL"})
+def test_notice_board_gets_the_brokers_postcode_and_the_tfl_key():
+    config = make_config(tfl={"app_key": "key", "stop_ids": ["940GZZLUKNG"]}, notice_board={"postcode": "SE17 3LL"})
 
     settings = section_for("notice_board", config)
 
-    assert settings.tfl.stop_ids == ["940GZZLUKNG"]
     assert settings.postcode == "SE17 3LL"
+    assert settings.tfl == Tfl(app_key="key", stop_ids=[])
 
 
 def test_notice_board_has_no_postcode_unless_the_broker_sends_one():
-    settings = section_for("notice_board", make_config(tfl={"stop_ids": ["940GZZLUKNG"]}))
-
-    assert settings.postcode is None
-    assert settings.tfl.stop_ids == ["940GZZLUKNG"]
+    assert section_for("notice_board", make_config()).postcode is None
 
 
-def test_a_change_to_either_the_postcode_or_the_stops_changes_the_notice_boards_settings():
-    """AbstractClient.needs_refresh compares them, so the board is rebuilt for either."""
+def test_a_change_to_the_postcode_but_not_the_stops_changes_the_notice_boards_settings():
+    """AbstractClient.needs_refresh compares them; the stops' disruptions come from the departures client instead."""
 
     def settings_for(stop_id: str, postcode: str) -> NoticeBoardSettings:
         return section_for(
             "notice_board", make_config(tfl={"stop_ids": [stop_id]}, notice_board={"postcode": postcode})
         )
 
-    assert settings_for("a", "SE17 3LL") == settings_for("a", "SE17 3LL")
-    assert settings_for("a", "SE17 3LL") != settings_for("b", "SE17 3LL")
+    assert settings_for("a", "SE17 3LL") == settings_for("b", "SE17 3LL")
     assert settings_for("a", "SE17 3LL") != settings_for("a", "E1 6AN")
 
 
