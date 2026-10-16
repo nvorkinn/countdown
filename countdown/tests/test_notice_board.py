@@ -6,7 +6,7 @@ import pytest
 import requests
 import responses
 from config_factory import make_config
-from PIL import ImageDraw
+from PIL import Image, ImageDraw
 from test_utils import REGISTRATION
 
 from countdown_api.models import Tfl
@@ -21,9 +21,8 @@ from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.met_office import MetOfficeWarningsSource, parse_warnings, region_for
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
-from countdown_core.notices.notice_board_panel import NoticeBoardPanel
+from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
 from countdown_core.notices.tfl import TFL_URL, TflLineStatusSource, TflRoadSource, TflStationSource
-from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.tfl.models import Postcode
 from countdown_core.utils.clock import format_clock
 
@@ -582,11 +581,13 @@ def test_board_ranks_by_severity_then_source_order(clock):
     assert panel.notices == [severe, amber, minor, alert]
 
 
-def test_board_says_all_clear_when_nothing_is_reported(clock):
+def test_board_is_empty_when_nothing_is_reported(clock):
+    """All clear: an empty board, which the layout leaves out to give the stops more room."""
     panel = update(board_with(FakeSource("tfl", [])))
 
-    assert isinstance(panel, MessagePanel)
-    assert panel.message == "All clear"
+    assert isinstance(panel, NoticeBoardPanel)
+    assert panel.notices == []
+    assert panel.fitted_height(155) == 0
 
 
 def test_board_only_asks_a_source_again_after_its_refresh_interval(clock):
@@ -613,7 +614,7 @@ def test_board_keeps_a_failing_sources_last_notices_until_they_go_stale(clock):
     assert update(client).notices == [delay]  # the failure keeps the last answer
 
     clock.now += timedelta(minutes=51)
-    assert update(client).message == "All clear"  # over an hour old: dropped
+    assert update(client).notices == []  # over an hour old: dropped
 
 
 def test_board_drops_notices_past_their_end(clock):
@@ -622,7 +623,7 @@ def test_board_drops_notices_past_their_end(clock):
 
     assert update(client).notices == [ending]
     clock.now += timedelta(minutes=6)
-    assert update(client).message == "All clear"
+    assert update(client).notices == []
 
 
 def test_board_errors_rather_than_claiming_all_clear_when_no_source_answered(clock):
@@ -742,6 +743,27 @@ def test_panel_says_how_many_notices_did_not_fit():
 
     # Five rows fit: four notices and a "+6 more" -- so nothing drawn below the fifth row.
     assert img.convert("L").crop((0, 140, 536, 155)).getextrema() == (255, 255)
+
+
+def test_panel_is_only_as_tall_as_its_rows():
+    def board(count: int) -> NoticeBoardPanel:
+        return NoticeBoardPanel([Notice("TfL", Severity.INFO, "Victoria: Minor Delays")] * count)
+
+    assert board(3).fitted_height(155) - board(2).fitted_height(155) == ROW_HEIGHT
+    # Two rows drawn in it, both in full: nothing says "+N more".
+    img = Image.new("RGB", (536, 155), "white")
+    img.paste(board(2).render(536, board(2).fitted_height(155)))
+    assert _drawn_rows(img) == 2
+
+
+def test_panel_with_more_notices_than_fit_takes_all_the_room_it_is_given():
+    notices = [Notice("TfL", Severity.INFO, f"Line {i}: Minor Delays") for i in range(10)]
+
+    assert NoticeBoardPanel(notices).fitted_height(155) == 155
+
+
+def test_panel_with_no_notices_needs_no_room():
+    assert NoticeBoardPanel([]).fitted_height(155) == 0
 
 
 def _drawn_rows(img) -> int:

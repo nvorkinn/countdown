@@ -1,6 +1,7 @@
 """The classic dashboard on a screen hung portrait (480x800), top to bottom: the weather, two
-stops side by side, the notices, and Spotify. Without Spotify the stops and notices share its
-room. There's no energy chart: Glowmarkt is left out on portrait."""
+stops side by side, Spotify, and the notices, only as tall as their rows so the stops get the
+rest. Without Spotify the stops and notices share its room. There's no energy chart: Glowmarkt
+is left out on portrait."""
 
 from typing import override
 
@@ -23,6 +24,7 @@ class ClassicPortraitLayout(Layout):
     layout_id = "classic"
     canvases = frozenset({Canvas(480, 800)})
 
+    # The arrivals' height when the notices fill all the room they may have.
     ARRIVALS_HEIGHT = 185
     SHOWS_SPOTIFY = True
 
@@ -37,37 +39,44 @@ class ClassicPortraitLayout(Layout):
         self._place(img, weather_panel, GAP, GAP, width, WEATHER_HEIGHT, clock_format=clock_format)
 
         arrivals_y = GAP + WEATHER_HEIGHT + GAP
+        spotify_room = SPOTIFY_HEIGHT + GAP if self.SHOWS_SPOTIFY else 0
+        notices_room = canvas.height - GAP - spotify_room - (arrivals_y + self.ARRIVALS_HEIGHT + GAP)
+        notices_height, spare = self._fit_notices(panels, notices_room)
+
+        arrival_panel = panels[ClientClasses.TFL.api_name]
         arrivals = self._place(
             img,
-            panels[ClientClasses.TFL.api_name],
+            arrival_panel,
             GAP,
             arrivals_y,
             width,
-            self.ARRIVALS_HEIGHT,
+            self.ARRIVALS_HEIGHT + spare,
             clock_format=clock_format,
         )
         arrivals_box = (GAP, arrivals_y, GAP + arrivals.size[0], arrivals_y + arrivals.size[1])
 
-        # The slots stay put however much the arrivals draw, so the notices never move.
-        notices_y = arrivals_y + self.ARRIVALS_HEIGHT + GAP
-        notices_bottom = canvas.height - GAP
+        bottom = canvas.height - GAP
+        if notices_height:
+            bottom -= notices_height
+            self._place(
+                img,
+                panels[ClientClasses.NOTICE_BOARD.api_name],
+                GAP,
+                bottom,
+                width,
+                notices_height,
+                clock_format=clock_format,
+            )
+            bottom -= GAP
         if self.SHOWS_SPOTIFY:
-            spotify_y = canvas.height - SPOTIFY_HEIGHT - GAP
             self._place(
                 img,
                 panels[ClientClasses.SPOTIFY.api_name],
                 GAP,
-                spotify_y,
+                bottom - SPOTIFY_HEIGHT,
                 width,
                 SPOTIFY_HEIGHT,
                 clock_format=clock_format,
-            )
-            notices_bottom = spotify_y - GAP
-
-        notices_panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
-        if notices_panel is not None:
-            self._place(
-                img, notices_panel, GAP, notices_y, width, notices_bottom - notices_y, clock_format=clock_format
             )
         return Frame(img, arrivals_box)
 

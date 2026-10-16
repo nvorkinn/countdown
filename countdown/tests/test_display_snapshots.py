@@ -21,7 +21,6 @@ from countdown_core.core.panel import Panel
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_client import NoticeBoardClient
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.rendering.screen import DEFAULT_CANVAS
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
@@ -250,7 +249,8 @@ def test_screen_without_energy_panel_playing_spotify(snapshot):
 
 
 def test_screen_with_no_notices(snapshot):
-    img = _draw(_panels(_bus_only_arrivals(), notices=NoticeBoardClient.message_panel("All clear")))
+    """All clear: the notices are left out, and the stops take their room."""
+    img = _draw(_panels(_bus_only_arrivals(), notices=NoticeBoardPanel([])))
     snapshot.assert_matches("screen_no_notices", img)
 
 
@@ -368,7 +368,7 @@ def _draw_portrait(panels: dict[str, Panel], available: frozenset[ClientClasses]
 
 @responses.activate
 def test_portrait_screen_playing_spotify(snapshot):
-    """Top to bottom: the weather in full, two stops side by side, the notices, Spotify."""
+    """Top to bottom: the weather in full, two stops side by side, Spotify, the notices."""
     responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
     img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE)))
     snapshot.assert_matches("screen_portrait_spotify", img)
@@ -425,6 +425,52 @@ def test_arrival_styles(snapshot, style):
     """Each look the config's tfl.style can pick, on a busy bus stop and station."""
     img = _draw(_panels(_styled_arrivals(style)))
     snapshot.assert_matches(f"screen_arrivals_{style}", img)
+
+
+FEW_NOTICES = NoticeBoardPanel(NOTICES.notices[1:3])
+
+
+def _many_route_arrivals() -> CombinedArrivalPanel:
+    """More routes than the stops have room for, so the room the notices leave shows."""
+    more_buses = [
+        BusArrival(naptanId="490000123W", lineName=line, timeToStation=minutes * 60, modeName="bus", destinationName=to)
+        for line, to, minutes in [("12", "Oxford Circus", 19), ("148", "White City", 21), ("171", "Holborn", 23)]
+    ]
+    more_trains = [
+        TubeArrival(
+            naptanId="940GZZLUKNG", lineName="Northern", timeToStation=minutes * 60, modeName="tube", towards=to
+        )
+        for to, minutes in [("Mill Hill East via Bank", 10), ("Kennington", 14), ("High Barnet via Bank", 17)]
+    ]
+    return CombinedArrivalPanel(
+        [
+            BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS + more_buses),
+            TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS + more_trains),
+        ]
+    )
+
+
+@responses.activate
+def test_screen_with_few_notices(snapshot):
+    """The notices only as tall as their two rows, at the bottom: the stops get the rest."""
+    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
+    panels = _panels(_many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE), notices=FEW_NOTICES)
+    snapshot.assert_matches("screen_few_notices", _draw(panels))
+
+
+@responses.activate
+def test_screen_with_few_notices_and_no_energy_panel(snapshot):
+    """Without the energy chart under it, the weather grows with the stops."""
+    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
+    panels = _panels(_many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE), notices=FEW_NOTICES)
+    snapshot.assert_matches("screen_few_notices_no_energy", _draw(panels, NO_GLOWMARKT))
+
+
+@responses.activate
+def test_portrait_screen_with_few_notices(snapshot):
+    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
+    panels = _panels(_many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE), notices=FEW_NOTICES)
+    snapshot.assert_matches("screen_portrait_few_notices", _draw_portrait(panels))
 
 
 @pytest.mark.parametrize("style", ["hero", "grouped", "card"])

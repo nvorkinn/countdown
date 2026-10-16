@@ -1,12 +1,16 @@
 import countdown_core  # noqa: F401, I001 -- see test_display_snapshots.py for why this comes first
 import logging
+from datetime import datetime
 
 import pytest
-from PIL import Image, ImageOps
+from PIL import Image, ImageDraw, ImageOps
 
 from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.panel import Panel
+from countdown_core.glow.energy_panel import EnergyPanel
+from countdown_core.notices.notice import Notice, Severity
+from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.rendering import LAYOUTS, to_native
 from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLayout, SpotifyGlowLayout, SpotifyLayout
@@ -14,6 +18,7 @@ from countdown_core.rendering.layouts.classic_portrait import BasePortraitLayout
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
 from countdown_core.utils.clock import ClockFormat
+from countdown_core.utils.utils import GAP
 
 EVERYTHING = frozenset(ClientClasses)
 PORTRAIT = Canvas(480, 800)
@@ -86,6 +91,57 @@ def test_portrait_arrivals_are_the_volatile_part():
         frame = layout.render(panels, PORTRAIT)
         assert frame.image.size == PORTRAIT.size
         assert frame.volatile == (5, 280, 475, 280 + layout.ARRIVALS_HEIGHT)
+
+
+def _notices(count: int) -> NoticeBoardPanel:
+    return NoticeBoardPanel([Notice("TfL", Severity.INFO, "Victoria: Minor Delays")] * count)
+
+
+@pytest.mark.parametrize("layout", [*CLASSIC, SpotifyPortraitLayout(), BasePortraitLayout()], ids=type)
+@pytest.mark.parametrize("clock_format", ["12h", "24h"])
+def test_fewer_notices_give_the_arrivals_more_room(layout, clock_format):
+    canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
+
+    def arrivals_height(notices: Panel) -> int:
+        panels = {api.api_name: _SolidPanel() for api in ClientClasses} | {"notice_board": notices}
+        box = layout.render(panels, canvas, clock_format=clock_format).volatile
+        return box[3] - box[1]
+
+    full, two, none = arrivals_height(_notices(20)), arrivals_height(_notices(2)), arrivals_height(_notices(0))
+    assert full == layout.ARRIVALS_HEIGHT  # a full board keeps the room it always had
+    assert full < two < none
+    assert none - two == _notices(2).fitted_height(1000) + GAP  # the board and the gap above it
+
+
+@pytest.mark.parametrize("layout", [*CLASSIC, SpotifyPortraitLayout(), BasePortraitLayout()], ids=type)
+def test_clock_switching_preserves_compact_notice_fitting_and_reaches_each_layout(layout, monkeypatch):
+    canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
+    expiry = datetime.fromisoformat("2026-09-25T21:07:00+01:00")
+    notices = NoticeBoardPanel([Notice("Met Office", Severity.INFO, "Until", expiry, display_time=expiry)])
+    panels = {api.api_name: _SolidPanel() for api in ClientClasses} | {
+        "notice_board": notices,
+        "glowmarkt": EnergyPanel([{"start": f"2026-09-25T{hour:02d}:07:00+01:00", "kwh": 1} for hour in (0, 12)], 0),
+    }
+    texts = []
+    original = ImageDraw.ImageDraw.text
+
+    def record(draw, xy, text, *args, **kwargs):
+        texts.append(text)
+        return original(draw, xy, text, *args, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
+    full = layout.render(panels | {"notice_board": _notices(20)}, canvas).volatile
+    default = layout.render(panels, canvas)
+    assert "Until 21:07" in texts
+    texts.clear()
+    twelve_hour = layout.render(panels, canvas, clock_format="12h")
+    assert "Until 9:07 PM" in texts
+    if layout in CLASSIC and layout.SHOWS_ENERGY:
+        assert {"12:07 AM", "12:07 PM"} <= set(texts)
+    assert default.volatile == twelve_hour.volatile
+    assert default.volatile[3] > full[3]
+    assert default.image.tobytes() == layout.render(panels, canvas).image.tobytes()
+    assert notices.fitted_height(1000) < 100
 
 
 class _SolidPanel(Panel):
