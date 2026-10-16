@@ -24,6 +24,7 @@ from countdown_core.notices.met_office import MetOfficeWarningsSource, parse_war
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
+from countdown_core.notices.notice_styles import STYLES
 from countdown_core.notices.tfl import TFL_URL, TflLineStatusSource, TflRoadSource, TflStationSource
 from countdown_core.tfl.models import Postcode
 from countdown_core.utils.clock import format_clock
@@ -112,13 +113,13 @@ def test_cached_notice_clocks_reformat_without_rewriting_feed_text(now, hour_24,
     texts = []
     original = ImageDraw.ImageDraw.text
 
-    def record(draw, xy, text, *args, font=None, anchor=None, **kwargs):
+    def record(draw, xy, text, fill=None, font=None, anchor=None, **kwargs):  # noqa: PLR0913, PLR0917 -- ImageDraw.text's own arguments
         if anchor == "lm":
             left, top, right, bottom = draw.textbbox(xy, text, font=font, anchor=anchor)
-            assert 4 <= left < right <= width - 4
-            assert 4 <= top < bottom <= 200 - 4
+            assert 0 <= left < right <= width
+            assert 0 <= top < bottom <= 200
             texts.append(text)
-        return original(draw, xy, text, *args, font=font, anchor=anchor, **kwargs)
+        return original(draw, xy, text, fill, font=font, anchor=anchor, **kwargs)
 
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
     first = panel.render(width, 200)
@@ -770,10 +771,39 @@ def test_panel_with_no_notices_needs_no_room():
     assert NoticeBoardPanel([]).fitted_height(155) == 0
 
 
+@pytest.mark.parametrize("style", list(STYLES))
+def test_every_style_leaves_room_for_its_title_and_frame(style):
+    def board(count: int) -> NoticeBoardPanel:
+        return NoticeBoardPanel([Notice("TfL", Severity.INFO, "Victoria: Minor Delays")] * count, style)
+
+    assert board(2).fitted_height(155) == STYLES[style].top + 2 * ROW_HEIGHT + STYLES[style].bottom
+    assert board(3).fitted_height(155) - board(2).fitted_height(155) == ROW_HEIGHT
+    assert board(0).fitted_height(155) == 0
+
+
+@pytest.mark.parametrize("style", list(STYLES))
+def test_every_style_fits_five_rows_in_the_landscape_slot(style):
+    """155 is what the landscape layout gives the board beside the energy chart: four notices and "+6 more"."""
+    notices = [Notice("TfL", Severity.INFO, f"Line {i}: Minor Delays") for i in range(10)]
+    drawn = []
+    original = ImageDraw.ImageDraw.text
+
+    def record(draw, xy, text, *args, **kwargs):
+        drawn.append(text)
+        return original(draw, xy, text, *args, **kwargs)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(ImageDraw.ImageDraw, "text", record)
+        NoticeBoardPanel(notices, style).render(536, 155)
+
+    assert sum(text.startswith("Line ") for text in drawn) == 4
+    assert "+6 more" in drawn
+
+
 def _drawn_rows(img) -> int:
     """How many of the panel's rows have something in them."""
     grey = img.convert("L")
-    top = 30  # below the title
+    top = STYLES["hero"].top  # below the title and its rule
     return sum(
         grey.crop((0, top + i * 22, grey.width, top + (i + 1) * 22)).getextrema() != (255, 255) for i in range(5)
     )

@@ -28,6 +28,7 @@ from countdown_core.glow.glow_client import GlowClient
 from countdown_core.i18n import set_locale
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
+from countdown_core.notices.notice_styles import STYLES as NOTICE_STYLES
 from countdown_core.rendering.screen import DEFAULT_CANVAS
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_client import SpotifyClient
@@ -487,6 +488,32 @@ def test_portrait_screen_with_few_notices(snapshot):
     responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
     panels = _panels(_many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE), notices=FEW_NOTICES)
     snapshot.assert_matches("screen_portrait_few_notices", _draw_portrait(panels))
+
+
+# The Spotify style each notice board style is drawn beside: the one it matches.
+NOTICE_STYLE_SPOTIFY = {"airy": "airy", "hero": "hero", "card": "card", "boxed": "hero"}
+
+
+@responses.activate
+@pytest.mark.parametrize("style", list(NOTICE_STYLES))
+def test_notice_styles(snapshot, style):
+    """Each look the config's notice_board.style can pick, below the Spotify style it matches."""
+    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, NOTICE_STYLE_SPOTIFY[style])
+    notices = NoticeBoardPanel(NOTICES.notices, style)
+    snapshot.assert_matches(
+        f"screen_notices_{style}", _draw(_panels(_many_route_arrivals(), spotify=spotify, notices=notices))
+    )
+
+
+@responses.activate
+@pytest.mark.parametrize("style", list(NOTICE_STYLES))
+def test_notice_styles_on_a_portrait_screen(snapshot, style):
+    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, NOTICE_STYLE_SPOTIFY[style])
+    notices = NoticeBoardPanel(FEW_NOTICES.notices, style)
+    img = _draw_portrait(_panels(_many_route_arrivals(), spotify=spotify, notices=notices))
+    snapshot.assert_matches(f"screen_portrait_notices_{style}", img)
 
 
 @pytest.mark.parametrize("style", ["hero", "grouped", "card"])

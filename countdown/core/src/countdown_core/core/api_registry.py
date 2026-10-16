@@ -55,6 +55,7 @@ def section_for(name: str, config: ConfigResponse) -> object:
         return NoticeBoardSettings(
             postcode=config.notice_board.postcode,
             country=config.notice_board.country,
+            style=config.notice_board.style,
             departures=DeparturesSettings.from_config(config),
         )
     return getattr(config, name)
