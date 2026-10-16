@@ -57,7 +57,7 @@ jobs:
 
       - name: Install system dependencies
         # libfribidi0 turns on Pillow's Raqm text layout, which the golden images are drawn with.
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends swig liblgpio-dev libfribidi0
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libfribidi0
 
       - name: Install dependencies
         run: uv sync --frozen

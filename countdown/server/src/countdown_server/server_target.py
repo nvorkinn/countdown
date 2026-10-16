@@ -9,7 +9,7 @@ from countdown_credentials.registration import RendererRegistration
 
 
 class ServerTarget(DisplayTarget):
-    """Hands each frame to the broker, for the device's screen (countdown-client) to fetch. Until a
+    """Hands each frame to the broker, for the device's screen to fetch. Until a
     screen has been matched with this renderer, the broker accepts frames with a 202 and drops them."""
 
     def __init__(self, registration: RendererRegistration):

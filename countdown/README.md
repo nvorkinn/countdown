@@ -93,9 +93,6 @@ This directory is a uv workspace:
 - `server/` (`countdown-server`): the renderer. It runs as a Docker container
   next to the broker (see [`server/deploy/`](server/deploy/)) and sends each
   frame to the broker.
-- `client/` (`countdown-client`) and `epd/` (`countdown-epd`): the thin screen
-  that fetches finished frames and paints them on the panel, with the vendored
-  Waveshare driver.
 
 `uv sync` installs them all, editable, for development and the tests.
 
@@ -152,8 +149,8 @@ config is rejected, and the renderer keeps the one it has. A test pins each half
 ## Running it in development
 
 In production the orchestrator makes the renderer, inside a container, with a one-time claim token, so there's
-nothing to attach a debugger to. In development you start it yourself, as a plain process, and run the
-screen beside it: the renderer from PyCharm (debug), the screen from VS Code.
+nothing to attach a debugger to. In development you start it yourself, as a plain process (from PyCharm, with the
+debugger, or from VS Code).
 
 A screen that's already set up (WiFi, account, config) keeps all of that if you **take over its existing renderer**
 rather than make a new one. That's the quick way:
@@ -164,7 +161,7 @@ DOCKER_HOST=ssh://user@host uv run python dev/adopt_renderer.py <slug>   # copie
 
 Then, on the host, stop the orchestrator (it restarts a stopped renderer within seconds) and the renderer
 (`docker stop <orchestrator> renderer-<slug>`), so two never run as one device, and start yours. Nothing changes on
-the broker and no tokens are needed. When you're done, start both again. The screen needs nothing at all.
+the broker and no tokens are needed. When you're done, start both again. The screen (the ESP32) needs nothing at all.
 
 On a **local broker** there is nothing to take over, so seed one: it writes a paired screen, its config and a
 provisioned renderer straight into the broker's SQLite (stop the broker, and run its migrations first by starting
@@ -175,8 +172,8 @@ uv run python dev/seed_broker.py /path/to/broker.db --owner <your user id> --slu
 ```
 
 It writes identities for both processes, `dev/.env`, and prints nothing secret (the secrets live only in the
-encrypted identity files, beside their keys). The seeded renderer and screen are already paired, so start them and they just work; the broker must speak
-the contract in `api/` (a broker newer or older than the submodule's pin can reject the screen or the config).
+encrypted identity files, beside their keys). The seeded renderer and screen are already paired, so start the renderer and it just works; the broker must speak
+the contract in `api/` (a broker newer or older than the submodule's pin can reject the renderer or the config).
 `--replace` re-seeds a slug.
 
 All three scripts (`adopt_renderer.py`, `seed_broker.py` and `dev_env.py`) also write a **PyCharm run configuration**,
@@ -205,10 +202,6 @@ Then:
    `countdown/dev/renderer`, the project's uv interpreter and `countdown/dev/.env` under "Paths to .env files".
    Run it with Debug. It claims the screen the first time, and keeps its identity in
    `dev/renderer/.auth_broker_device`, so later runs reuse it (the stale `CLAIM_TOKEN` is ignored).
-5. **Screen, in VS Code.** Open `countdown/` and run "Python Debugger: countdown-client (screen)". It
-   needs the e-paper hardware, so run it on the Pi (VS Code Remote-SSH), with `dev/.env` made there with only
-   `BROKER_URL` in it. The screen and renderer need different working directories (`dev/screen`, `dev/renderer`):
-   a secret registered as one role is refused as the other.
 
 The VS Code "Python Debugger: countdown-server" configuration runs the renderer the same way, if you'd rather
 debug it there. `LOG_LEVEL` in `dev/.env` is `DEBUG`; the default is `INFO`. Without a Fluent Bit on

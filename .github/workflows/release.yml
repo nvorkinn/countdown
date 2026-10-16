@@ -43,15 +43,14 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           # Every workspace member: the root project is virtual, so it isn't built.
-          for package in countdown-api countdown-credentials countdown-epd countdown-core countdown-server countdown-client countdown-orchestrator; do
+          for package in countdown-api countdown-credentials countdown-core countdown-server countdown-orchestrator; do
             (cd countdown && uv version --frozen --package "$package" "$version")
           done
-      - name: Install lgpio build dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends swig liblgpio-dev
       - name: Build countdown wheels
         working-directory: countdown
-        # Every workspace member: the two apps (countdown-server, -client) and the
-        # libraries they depend on (countdown-core, -credentials, -epd), none of which is on an index.
+        # Every workspace member: the renderer (countdown-server), the
+        # orchestrator and the libraries they depend on (countdown-core, -credentials, -api), none of
+        # which is on an index.
         run: |
           uv sync --frozen
           uv build --wheel --all-packages

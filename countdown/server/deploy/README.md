@@ -1,6 +1,6 @@
 # Running renderers with Docker
 
-A screen that only shows frames -- a Pi running `countdown-client`, or the ESP32 -- needs a
+A screen that only shows frames (the ESP32) needs a
 renderer: a `countdown-server` process that draws its dashboard and hands each frame to the auth
 broker, where the screen fetches it. These run on the same server as the broker, one container per
 screen, from the `ghcr.io/nvorkinn/countdown-server` image.
@@ -21,7 +21,7 @@ docker build -f server/Dockerfile -t countdown-server:dev .
 
 ## Adding a screen
 
-Set up the screen (`countdown-client` or the ESP32), then choose a renderer slug on the config page. The
+Set up the screen (the ESP32), then choose a renderer slug on the config page. The
 orchestrator starts its renderer, and stops it after a day without the screen. To remove one, delete its
 assignment through the config page; the orchestrator removes the renderer **with its volumes** (identity and
 key).

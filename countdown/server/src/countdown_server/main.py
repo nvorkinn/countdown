@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def run() -> None:
-    """The `countdown-server` console script: the app, rendering for a separate screen (countdown-client)."""
+    """The `countdown-server` console script: the app, rendering for a separate screen."""
     main(ServerTarget)
 
 

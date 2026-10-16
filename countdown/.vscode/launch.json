@@ -10,16 +10,6 @@
             "envFile": "${workspaceFolder}/dev/.env",
             "python": "${command:python.interpreterPath}",
             "console": "integratedTerminal"
-        },
-        {
-            "name": "Python Debugger: countdown-client (screen)",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "countdown_client.main",
-            "cwd": "${workspaceFolder}/dev/screen",
-            "envFile": "${workspaceFolder}/dev/.env",
-            "python": "${command:python.interpreterPath}",
-            "console": "integratedTerminal"
         }
     ]
 }

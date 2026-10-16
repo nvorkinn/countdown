@@ -1,4 +1,4 @@
-# countdown-server: the renderer for a screen that only shows frames (countdown-client or the
+# countdown-server: the renderer for a screen that only shows frames (the
 # ESP32). Built from a release's wheels -- the build context is countdown/, after
 # `uv build --wheel --all-packages` has filled countdown/dist/. See deploy/README.md.
 FROM python:3.14-slim
