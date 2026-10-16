@@ -81,7 +81,7 @@ class FailedClient(AbstractClient):
     It shows in HA too, instead of the client silently being missing. Rebuilt when its config changes.
     """
 
-    poll_interval = timedelta(hours=1)
+    poll_interval = timedelta(minutes=10)
 
     def __init__(self, registration: Registration, config: object, error: Exception) -> None:
         """Stand in for the client that was built with `registration` and `config` and raised `error`."""

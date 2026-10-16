@@ -115,7 +115,7 @@ is asked to update, it returns the next tab, wrapping back to Now. Rendering a f
 it, and the registry keeps the current tab while the client is not due for a poll.
 
 The rotation uses a cached eight-day Open-Meteo forecast, not an HTTP request per tab. The forecast
-is refreshed every 30 minutes, or when the date changes at the weather location. A failed fetch keeps
+is refreshed every 10 minutes, or when the date changes at the weather location. A failed fetch keeps
 the last good frame and does not skip a tab; changing the configured location starts a new carousel.
 
 Now shows current conditions; landscape panels also show today's low, high and rain probability.
