@@ -59,11 +59,17 @@ Times stay in their data source's time zone. Durations (including arrival countd
 timestamps/parameters, logs and upstream free-form notice text are not rewritten.
 
 **API clients** (`*_client.py`, `api_registry.py`). Each API has an
-`AbstractClient` subclass: TfL arrivals, Open-Meteo weather, Glowmarkt energy,
-Spotify (proxied by the broker, so the device never holds a Spotify token), the
-developer panel (the owner's GitHub pull requests and failing builds, and their AI plans, also from the broker, which
+`AbstractClient` subclass: the departures (TfL and Entur), Open-Meteo weather, Glowmarkt energy,
+Spotify and Apple Music, the
+developer panel (the owner's GitHub pull requests and failing builds, and their AI plans, from the broker, which
 holds the GitHub token; while one of their repos is releasing, the release's jobs as GitHub's workflow graph instead,
-asked for every minute until it ends) and the notice board. `ApiRegistry` builds a client for every API the config enables.
+asked for every minute until it ends) and the notice board. The departures, weather, energy and music clients read
+only the shared Redis store, which the [providers](providers/README.md) (and auth-broker's, for energy and music) fill:
+the renderer never calls TfL, Entur, Open-Meteo or Glowmarkt for them, and never holds a Glowmarkt password or a
+Spotify token. A renderer started without `REDIS_URL` can't build those four, so their areas say "Could not connect"
+and the log says why (`store.reader.require_store`); a key missing from the store, or Redis not answering, is just a
+failed poll. The notice board and its disruption sources still call their APIs, and the developer panel reads the
+store when it has one, else the broker. `ApiRegistry` builds a client for every API the config enables.
 When the config changes, it only rebuilds the clients whose `needs_refresh()`
 says the change affects them. Each client has its own `poll_interval`. The
 clients that are due are polled concurrently, with their blocking `requests`
@@ -125,7 +131,7 @@ This directory is a uv workspace:
 - `orchestrator/` (`countdown-orchestrator`): starts a renderer container for each screen (see
   [its README](orchestrator/README.md)).
 - `providers/` (`countdown-providers`): one long-running process per API, fetching what screens subscribe to into a
-  shared Redis store, for renderers to read later. Scaffolding so far; see [its README](providers/README.md).
+  shared Redis store, which the renderers read; see [its README](providers/README.md).
 
 `uv sync` installs them all, editable, for development and the tests.
 
@@ -136,9 +142,10 @@ marks the selected tab; narrow landscape panels abbreviate the labels. Each time
 is asked to update, it returns the next tab, wrapping back to Now. Rendering a frame does not advance
 it, and the registry keeps the current tab while the client is not due for a poll.
 
-The rotation uses a cached eight-day Open-Meteo forecast, not an HTTP request per tab. The forecast
-is refreshed every 10 minutes, or when the date changes at the weather location. A failed fetch keeps
-the last good frame and does not skip a tab; changing the configured location starts a new carousel.
+The rotation uses a cached eight-day Open-Meteo forecast, which the weather provider stores for the location, not a
+read per tab. It's read again every 10 minutes, or when the date changes at the weather location. A failed read (the
+forecast not in the store, or Redis not answering) keeps the last good frame and does not skip a tab; changing the
+configured location starts a new carousel. With no location configured the panel says it needs configuring.
 
 Now shows current conditions; landscape panels also show today's low, high and rain probability.
 Tonight shows the overnight low from 18:00 to 06:00, excluding hours that have already passed.
@@ -340,9 +347,10 @@ https://nikolaivorkinn.com and picks a name (the slug) for its renderer; the
 [orchestrator](orchestrator/README.md) then starts this renderer for it, with a one-time
 claim token. From then on everything is managed on the broker's pages: TfL stops,
 weather location, Glowmarkt energy account, and connecting Spotify (the broker
-handles the OAuth handshake and proxies now-playing calls, so the renderer never holds a
-Spotify token itself). The renderer's own settings are `BROKER_URL`, `CLAIM_TOKEN` and
-`DEVICE_NAME`; everything else, including Glowmarkt credentials, comes from the broker.
+handles the OAuth handshake and its music provider fetches now-playing into the store, so the renderer never holds a
+Spotify token itself). The renderer's own settings are `BROKER_URL`, `CLAIM_TOKEN`, `DEVICE_NAME`, and `REDIS_URL`
+and `REDIS_PASSWORD` for the store (the orchestrator passes those); everything else comes from the broker. (The
+broker still sends the Glowmarkt credentials, which the renderer only takes as the energy panel's on switch.)
 
 Once paired, an API that still needs setting up shows "Not configured" in its area (see
 [How it works](#how-it-works)).

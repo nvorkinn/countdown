@@ -26,9 +26,11 @@ from countdown_core.glow.glow_client import GlowClient
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.spotify.spotify_client import APPLE_MUSIC, SPOTIFY, AppleMusicClient, MusicSettings, SpotifyClient
+from countdown_core.store import keys, reader
+from countdown_core.store.models import StoredForecast
 from countdown_core.system_screens.message_panel import MessagePanel
-from countdown_core.weather.models import WeatherPeriod
-from countdown_core.weather.weather_client import FORECAST_URL, WeatherClient
+from countdown_core.weather.models import ForecastResponse, WeatherPeriod
+from countdown_core.weather.weather_client import WeatherClient
 
 
 class FakeClient(AbstractClient):
@@ -69,10 +71,13 @@ def registry_with(**clients: AbstractClient) -> ApiRegistry:
     return registry
 
 
-@responses.activate
-def test_weather_rotates_only_when_the_registry_actually_polls_it():
-    responses.add(responses.GET, FORECAST_URL, json=forecast_json())
-    client = WeatherClient(REGISTRATION, WeatherSection(location="", api_key=""))
+def test_weather_rotates_only_when_the_registry_actually_polls_it(store):
+    forecast = ForecastResponse.model_validate(forecast_json())
+    store.set(
+        keys.weather("London"),
+        StoredForecast(fetched_at=dt.datetime.now(dt.UTC), location="London", forecast=forecast).model_dump_json(),
+    )
+    client = WeatherClient(REGISTRATION, WeatherSection(location="London", api_key=""))
     registry = registry_with(weather=client)
     seen = []
     for _ in range(5):
@@ -88,7 +93,32 @@ def test_weather_rotates_only_when_the_registry_actually_polls_it():
         WeatherPeriod.WEEKEND,
         WeatherPeriod.NOW,
     ]
-    assert len(responses.calls) == 1
+
+
+@responses.activate  # nothing registered: the notice board's calls fail at once
+def test_a_renderer_without_a_store_shows_the_panels_that_need_one_as_failing(monkeypatch):
+    """Not a crash: the notice board and the developer panel, which don't need one, still work."""
+    monkeypatch.setattr(reader, "store", lambda: None)
+    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
+    config = make_config(
+        tfl={"stop_ids": ["490000123W"]},
+        weather={"location": "London"},
+        spotify={"enabled": True},
+        glowmarkt={"username": "me@example.com", "password": "secret"},
+    )
+
+    asyncio.run(registry.on_config_update(config))
+
+    for name in ("tfl", "weather", "spotify", "glowmarkt"):
+        client = registry.clients[name]
+        assert isinstance(client, FailedClient), name
+        assert isinstance(client.error, reader.StoreNotConfiguredError)
+        assert client.status == ClientStatus.ERROR
+    assert isinstance(registry.clients["notice_board"], NoticeBoardClient)
+    panels = asyncio.run(registry.update_all())
+    assert {name: panels[name].message for name in ("tfl", "weather", "spotify", "glowmarkt")} == dict.fromkeys(
+        ("tfl", "weather", "spotify", "glowmarkt"), "Could not connect"
+    )
 
 
 def drawn(panels: dict) -> dict:
@@ -560,12 +590,11 @@ def test_available_leaves_out_glowmarkt_when_its_username_is_cleared(username):
     assert ClientClasses.GLOWMARKT not in registry.available()
 
 
-def test_a_client_missing_what_it_needs_is_not_built_and_comes_back_fresh(monkeypatch):
+def test_a_client_missing_what_it_needs_is_not_built_and_comes_back_fresh():
     """Clearing Glowmarkt's username removes its client altogether.
 
     Putting it back builds a new one rather than reviving the old.
     """
-    monkeypatch.setattr(GlowClient, "_initialise", lambda self: asyncio.sleep(0))  # no network
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
     with_credentials = make_config(glowmarkt={"username": "me@example.com", "password": "pw"})
 

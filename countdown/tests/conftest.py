@@ -1,8 +1,11 @@
 from pathlib import Path
 
+import fakeredis
 import pytest
 from PIL import Image
 from test_utils import highlight_diff, images_equal
+
+from countdown_core.store import reader
 
 
 @pytest.fixture(autouse=True)
@@ -18,6 +21,18 @@ def isolated_cwd(tmp_path, monkeypatch):
     monkeypatch.delenv("CREDENTIALS_DIRECTORY", raising=False)
     monkeypatch.delenv("DEVICE_NAME", raising=False)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def store(monkeypatch):
+    """Return the store every test's renderer reads, as if it had been given REDIS_URL: an empty fake Redis.
+
+    Every renderer reads one, and the departures, weather, energy and music clients can't be built without it. A test
+    puts what a provider would have written there; one about a renderer without a store sets reader.store to give None.
+    """
+    client = fakeredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(reader, "store", lambda: client)
+    return client
 
 
 # --- Visual regression snapshots -------------------------------------------------

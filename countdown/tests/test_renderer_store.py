@@ -1,9 +1,8 @@
-"""The renderer reading the store: TfL and Entur departures and the weather from Redis (fakeredis), when configured."""
+"""The renderer reading the store: TfL and Entur departures and the weather from Redis (fakeredis)."""
 
 import asyncio
 from datetime import UTC, datetime, timedelta
 
-import fakeredis
 import pytest
 import requests
 import responses
@@ -23,7 +22,6 @@ from countdown_core.store import keys, reader
 from countdown_core.store.models import StoredForecast
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.stored_source import NoStoredDeparturesError, StoredTflSource, stored_panel
-from countdown_core.tfl.tfl_client import TflSource
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
 from countdown_core.weather.models import ForecastResponse
 from countdown_core.weather.weather_client import NoStoredForecastError, WeatherClient
@@ -31,48 +29,53 @@ from countdown_core.weather.weather_forecast import weather_pages
 from countdown_providers.entur.main import to_stop_departures as entur_stop_departures
 from countdown_providers.tfl.main import to_stop_departures
 
-
-@pytest.fixture
-def store(monkeypatch):
-    """Return a fake Redis that this renderer reads, as if it had been given REDIS_URL."""
-    client = fakeredis.FakeRedis(decode_responses=True)
-    monkeypatch.setattr(reader, "store", lambda: client)
-    return client
+# The real reader.store, which conftest's `store` fixture replaces in every test.
+REAL_STORE = reader.store
 
 
 @pytest.fixture
-def no_store(monkeypatch):
-    monkeypatch.setattr(reader, "store", lambda: None)
+def real_store(monkeypatch):
+    """Use the real reader.store, reading REDIS_URL, afresh."""
+    monkeypatch.setattr(reader, "store", REAL_STORE)
+    REAL_STORE.cache_clear()
+    yield REAL_STORE
+    REAL_STORE.cache_clear()
 
 
 # --- Which source -------------------------------------------------------------------
 
 
-def test_reads_no_store_without_redis_url(monkeypatch):
+def test_reads_no_store_without_redis_url(monkeypatch, real_store):
     monkeypatch.delenv("REDIS_URL", raising=False)
-    reader.store.cache_clear()
-    try:
-        assert reader.store() is None
-    finally:
-        reader.store.cache_clear()
+
+    assert reader.store() is None
 
 
-def test_reads_the_store_given_redis_url(monkeypatch):
+def test_requiring_a_store_without_redis_url_says_what_is_missing(monkeypatch, real_store):
+    monkeypatch.delenv("REDIS_URL", raising=False)
+
+    with pytest.raises(reader.StoreNotConfiguredError, match="REDIS_URL is not set"):
+        reader.require_store()
+
+
+def test_reads_the_store_given_redis_url(monkeypatch, real_store):
     monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:6399/0")
     monkeypatch.setenv("REDIS_PASSWORD", "secret")
-    reader.store.cache_clear()
-    try:
-        client = reader.store()
-        assert client is not None
-        assert client.connection_pool.connection_kwargs["password"] == "secret"
-    finally:
-        reader.store.cache_clear()
+
+    client = reader.require_store()
+
+    assert client is reader.store()
+    assert client.connection_pool.connection_kwargs["password"] == "secret"
 
 
-def test_departures_come_from_tfl_and_entur_without_a_store(no_store):
+def test_requiring_a_store_doesnt_connect_so_redis_being_down_isnt_fatal(monkeypatch, real_store):
+    """Nothing listens on 6399: building the clients still works, and only each read fails (keeping the last panel)."""
+    monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:6399/0")
     client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
-    assert isinstance(client.sources["tfl"], TflSource)
-    assert isinstance(client.sources["entur"], EnturSource)
+    asyncio.run(client.initialise())
+
+    with pytest.raises(RuntimeError, match="Could not fetch departures"):
+        client._update()
 
 
 def test_departures_come_from_the_store_with_one(store):
@@ -278,12 +281,3 @@ def test_weather_comes_from_the_store_without_asking_open_meteo(store):
 def test_weather_not_in_the_store_raises_so_the_last_panel_stays(store):
     with pytest.raises(NoStoredForecastError):
         make_weather_client("London")._update()
-
-
-@responses.activate
-def test_weather_without_a_location_still_asks_open_meteo_for_the_north_pole(store):
-    from countdown_core.weather.weather_client import FORECAST_URL  # noqa: PLC0415
-
-    responses.add(responses.GET, FORECAST_URL, json=forecast_json())
-    make_weather_client("")._update()
-    assert len(responses.calls) == 1

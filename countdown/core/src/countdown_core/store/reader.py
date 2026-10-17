@@ -1,8 +1,9 @@
-"""The renderer's side of the store: reading what the providers wrote, when this renderer is set up to.
+"""The renderer's side of the store: reading what the providers wrote.
 
-A renderer reads the store only when it's given REDIS_URL (and REDIS_PASSWORD, if Redis wants one); the orchestrator
-passes them on to the renderers it starts when it has them itself. Without REDIS_URL (a standalone Pi, which can't
-reach the server's Redis, or a server that hasn't turned it on) every client calls its API directly, as before.
+Every renderer runs on the server and reads the store: the orchestrator passes it REDIS_URL (and REDIS_PASSWORD, if
+Redis wants one). The departures, weather, energy and music clients read only the store (require_store()); a renderer
+started without REDIS_URL can't draw them, and those panels show their error state instead. Only the developer
+panel and the refresh pace still cope without one (store()).
 
 Synchronous (redis.Redis, not redis.asyncio): the clients' _initialise() and _update() run in worker threads.
 """
@@ -23,13 +24,17 @@ logger = logging.getLogger(__name__)
 TIMEOUT_S = 2
 
 
+class StoreNotConfiguredError(RuntimeError):
+    """The renderer was started without REDIS_URL, so it has no store to read its panels' data from."""
+
+
 @functools.cache
 def store() -> redis.Redis | None:
     """Return the client for the store this renderer reads, or None if it reads none (no REDIS_URL)."""
     url = os.environ.get("REDIS_URL", "")
     if not url:
         return None
-    logger.info("Reading departures and weather from the store at %s", url)
+    logger.info("Reading the panels' data from the store at %s", url)
     return redis.Redis.from_url(
         url,
         password=os.environ.get("REDIS_PASSWORD") or None,
@@ -37,6 +42,31 @@ def store() -> redis.Redis | None:
         socket_timeout=TIMEOUT_S,
         socket_connect_timeout=TIMEOUT_S,
     )
+
+
+def require_store() -> redis.Redis:
+    """Return the client for the store, for a client that has nowhere else to get its data.
+
+    Raises StoreNotConfiguredError without REDIS_URL. Only that: making the client doesn't connect, so Redis being
+    down raises later, from each read, and the registry just keeps the last panel.
+    """
+    client = store()
+    if client is None:
+        msg = "REDIS_URL is not set: this renderer reads its panels' data from the store, and has none to read"
+        raise StoreNotConfiguredError(msg)
+    return client
+
+
+def device_id(registration: object) -> str:
+    """Return the device id a renderer's keys in the store are under; raises ValueError if `registration` has none.
+
+    Only a renderer's registration (RendererRegistration) carries one.
+    """
+    found = getattr(registration, "device_id", None)
+    if not found:
+        msg = "This registration has no device id, which the store's keys for this device are under"
+        raise ValueError(msg)
+    return found
 
 
 def read[M: BaseModel](client: redis.Redis, key: str, model: type[M]) -> M | None:

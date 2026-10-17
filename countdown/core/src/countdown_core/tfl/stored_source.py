@@ -1,6 +1,6 @@
 """TfL's departures from the store (`v1:departures:<stop id>`, written by the TfL provider) instead of from TfL.
 
-The departures client uses this in place of TflSource when the renderer reads the store (countdown_core.store.reader).
+The departures client reads every TfL stop this way; TflSource itself is only the TfL provider's now.
 The panel draws exactly as BusArrivalPanel and TubeArrivalPanel do: the provider has already turned TfL's arrivals
 into departures (the Tube's `towards` as the destination, trains terminating at the station left out).
 """

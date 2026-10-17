@@ -2,7 +2,7 @@
 
 Written by auth-broker's glow-provider, not by countdown-providers: the Glowmarkt passwords are the broker's, and stay
 there. The broker can't import countdown-core, so the value is Glowmarkt's own answers, as the broker got them, in a
-thin wrapper, and they're read with the models the renderer reads Glowmarkt with (countdown_core.glow.models). The
+thin wrapper, and they're read with the models of Glowmarkt's answers (countdown_core.glow.models). The
 broker documents the same shape ("The energy provider" in its README), and both repositories test against the same
 fixture (tests/fixtures/glow_energy.json): change them together.
 
@@ -10,8 +10,8 @@ fixture (tests/fixtures/glow_energy.json): change them together.
      "hourly": <Glowmarkt's PT1H readings>, "daily": <P1D>, "monthly": <P1M>}
 
 Each page's readings run from the start of its window's first bucket as of `fetched_at` (the hour 24 hours before,
-midnight 31 days before, 1st January) to `fetched_at`, as GlowClient would have asked for them then. The renderer cuts
-each page to its window as of when it draws (GlowClient._stored_update).
+midnight 31 days before, 1st January) to `fetched_at`, as the renderer once asked Glowmarkt for them itself. The
+renderer cuts each page to its window as of when it draws (GlowClient._update).
 """
 
 from datetime import timedelta, timezone

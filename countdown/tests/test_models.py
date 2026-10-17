@@ -1,7 +1,7 @@
 import pytest
 from pydantic import TypeAdapter
 
-from countdown_core.glow.models import Entity, Readings
+from countdown_core.glow.models import Readings
 from countdown_core.tfl.models import (
     ArrivalUnion,
     BusArrival,
@@ -92,11 +92,6 @@ def test_metro_stop_point_with_nested_children():
     stop = TypeAdapter(StopPointUnion).validate_python(parent)
     assert len(stop.children) == 1
     assert isinstance(stop.children[0], SingleStopPoint)
-
-
-def test_entity_parses_resources():
-    entity = Entity.model_validate({"resources": [{"name": "electricity consumption", "resourceId": "abc-123"}]})
-    assert entity.resources[0].resourceId == "abc-123"
 
 
 def test_readings_parses_data_tuples():
