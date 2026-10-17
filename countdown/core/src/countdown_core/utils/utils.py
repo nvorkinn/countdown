@@ -1,6 +1,7 @@
 """Drawing helpers shared by the panels: fonts, sizes, borders and images."""
 
 import functools
+import os
 import urllib.request
 from pathlib import Path
 
@@ -19,7 +20,8 @@ def _cached_font(url: str, filename: str) -> ImageFont.FreeTypeFont:
     path = FONTS_DIR / filename
     if not path.exists():
         FONTS_DIR.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(path.suffix + ".part")
+        # One file per process: test workers may all download it at once.
+        tmp = path.with_suffix(f"{path.suffix}.{os.getpid()}.part")
         with urllib.request.urlopen(url, timeout=10) as resp:  # noqa: S310 -- only ever google_symbols()'s fixed https URL
             tmp.write_bytes(resp.read())
         tmp.replace(path)  # atomic, so a killed download never leaves a broken font
