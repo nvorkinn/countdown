@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from countdown_core.i18n import _, ngettext
 from countdown_core.spotify.spotify_styles import airy_label
 from countdown_core.tfl.arrival_styles import MEDIUM, SANS_SEMI
-from countdown_core.utils.utils import fitted_font, google_symbols
+from countdown_core.utils.utils import fitted_font, google_symbols, resized
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -38,7 +38,7 @@ def _airy(d: ImageDraw.ImageDraw, width: int, _height: int, count: int) -> None:
 
 def _hero(d: ImageDraw.ImageDraw, width: int, _height: int, count: int) -> None:
     """Draw an icon, the title and the count over a 2px rule, like Spotify hero's header."""
-    d.text((0, 11), CAMPAIGN, "black", google_symbols().font_variant(size=22), anchor="lm")
+    d.text((0, 11), CAMPAIGN, "black", resized(google_symbols(), 22), anchor="lm")
     d.text((26, 11), _("Notices"), "black", fitted_font(SANS_SEMI, 17), anchor="lm")
     d.text((width - 1, 11), _count(count), "black", fitted_font(MEDIUM, 13), anchor="rm")
     d.line((0, 26, width, 26), fill="black", width=2)
@@ -49,7 +49,7 @@ def _card(d: ImageDraw.ImageDraw, width: int, height: int, count: int) -> None:
     d.rounded_rectangle((0, 0, width - 1, height - 1), 10, fill="white", outline="black", width=2)
     d.rounded_rectangle((0, 0, width - 1, CARD_BAR), 10, fill="black")
     d.rectangle((0, CARD_BAR - 10, width - 1, CARD_BAR), fill="black")  # square off the bar's bottom corners
-    d.text((10, 14), CAMPAIGN, "white", google_symbols().font_variant(size=18), anchor="lm")
+    d.text((10, 14), CAMPAIGN, "white", resized(google_symbols(), 18), anchor="lm")
     d.text((32, 14), _("Notices"), "white", fitted_font(SANS_SEMI, 15), anchor="lm")
     d.text((width - 11, 14), _count(count), "white", fitted_font(SANS_SEMI, 13), anchor="rm")
 

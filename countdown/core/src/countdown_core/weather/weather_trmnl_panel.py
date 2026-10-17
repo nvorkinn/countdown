@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_, _, format_date
 from countdown_core.utils.clock import ClockFormat, format_clock
-from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS
+from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS, resized
 from countdown_core.weather.models import Upcoming, Weather, WeatherPeriod
 from countdown_core.weather.weather_panel import (
     WEATHER_CODE_DESC,
@@ -58,7 +58,7 @@ class WeatherTrmnlPanel(Panel):
             draw,
             icon_for(w.weather_code, is_day=w.is_day),
             (x + width - 65 * scale, y + 92 * scale),
-            METEOCONS.font_variant(size=max(1, round(103 * scale))),
+            resized(METEOCONS, max(1, round(103 * scale))),
         )
         _draw_shrunk_to_fit(
             draw,
@@ -72,7 +72,7 @@ class WeatherTrmnlPanel(Panel):
 
         readings = self._readings(clock_format)
         column_width = width / len(readings)
-        label = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
+        label = resized(GOOGLE_SEMI, max(1, round(11 * scale)))
         for index, (title, value) in enumerate(readings):
             left = x + column_width * index
             draw.text((left, y + 164 * scale), title, "black", font=label, anchor="lt")
@@ -125,7 +125,7 @@ class WeatherTrmnlPanel(Panel):
     ) -> None:
         w = self.weather
         x, y = coord
-        label = GOOGLE_SEMI.font_variant(size=max(1, round(10 * scale)))
+        label = resized(GOOGLE_SEMI, max(1, round(10 * scale)))
         if w.period is WeatherPeriod.WEEKEND:
             for index, day in enumerate(w.days):
                 left = x + index * width / 2
@@ -145,7 +145,7 @@ class WeatherTrmnlPanel(Panel):
                     draw,
                     icon_for(day.weather_code, is_day=True),
                     (left + width / 2 - 30 * scale, y + 244 * scale),
-                    METEOCONS.font_variant(size=max(1, round(35 * scale))),
+                    resized(METEOCONS, max(1, round(35 * scale))),
                 )
             return
         if w.period is WeatherPeriod.NOW:
@@ -188,7 +188,7 @@ class WeatherTrmnlPanel(Panel):
             draw,
             icon_for(code, is_day=is_day),
             (x + width - 22 * scale, y + 244 * scale),
-            METEOCONS.font_variant(size=max(1, round(36 * scale))),
+            resized(METEOCONS, max(1, round(36 * scale))),
         )
 
 
