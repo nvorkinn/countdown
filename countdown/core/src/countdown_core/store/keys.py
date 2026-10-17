@@ -50,5 +50,17 @@ def energy(device_id: str) -> str:
 
 
 def spotify(device_id: str) -> str:
-    """Return the key of what a device's Spotify account is playing."""
+    """Return the key of what a device's Spotify and Apple Music are playing, e.g. `v1:spotify:<device id>`.
+
+    Written by auth-broker's music provider; holds a countdown_core.store.music.StoredPlayer.
+    """
     return f"{PREFIX}:spotify:{device_id}"
+
+
+def spotify_top(device_id: str) -> str:
+    """Return the key of a device's Spotify and Apple Music top tracks and artists, e.g. `v1:spotify-top:<device id>`.
+
+    Apart from the player's key because it's fetched far less often (every half hour) and kept far longer. Written by
+    auth-broker's music provider; holds a countdown_core.store.music.StoredTop.
+    """
+    return f"{PREFIX}:spotify-top:{device_id}"

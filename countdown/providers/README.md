@@ -38,7 +38,23 @@ countdown-core so the providers and renderers share them.
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages) |
 | `v1:energy:<device id>` | string, TTL ~1 h | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
-| `v1:spotify:<device id>` | string, TTL ~1 min | (provider to come) | (model to come) |
+| `v1:spotify:<device id>` | string, TTL 3 min | auth-broker's `spotify-provider`, every minute | `StoredPlayer` JSON (`store/music.py`): each service's queue, as the broker's `/queue` route answers it |
+| `v1:spotify-top:<device id>` | string, TTL 2 h | auth-broker's `spotify-provider`, every 30 min | `StoredTop` JSON (`store/music.py`): each service's top tracks and artists by time range |
+
+The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
+own tokens, which never leave it (auth-broker's README, "Music in the store"). As the two repositories can't share
+code, each service's part is exactly what the broker's proxy route answers a renderer (`/api/spotify/queue`,
+`/api/apple-music/top/tracks?time_range=long_term&limit=5`, ...), read with the models the renderer already has
+(`spotify/models.py`); only the wrappers in `store/music.py` are new. Both repositories' tests read the same examples
+(`tests/fixtures/music_*.json`), so keep them in step:
+
+```json
+{"fetched_at": "2026-10-17T12:00:00+00:00", "spotify": {"currently_playing": {...}, "queue": [...]}, "apple_music": null}
+{"fetched_at": "...", "spotify": {"long_term": {"tracks": {"items": [...]}, "artists": {"items": [...]}}, "short_term": {...}}, "apple_music": null}
+```
+
+A part is `null` when the service is off for the device or couldn't be fetched (the renderer then keeps its last
+panel); nothing playing is a queue with `"currently_playing": null`.
 
 TfL and Entur write the same `StopDepartures` into the same `v1:departures:` namespace (their ids never clash), so the
 transit panel needn't know the country. Entur's also fill the fields only it has: the stop's `modes` (a stop can serve
@@ -155,6 +171,11 @@ The services are in `../server/deploy/docker-compose.yml`, under the `providers`
    (see "The energy provider" in auth-broker's README): without it, every energy panel says "Could not connect", as
    the renderers are remade with the store and have no readings to draw. Unset it again to go back. Renderers on
    standalone Pis never get it, so they keep calling the APIs.
+
+   The Spotify area (Spotify and Apple Music) comes from the store too (`v1:spotify:<device>` and
+   `v1:spotify-top:<device>`, under the renderer's own device id) instead of the broker's proxy routes, so turn on
+   auth-broker's `spotify-provider` first (its README, "Music in the store"): while its keys are missing, the area
+   keeps its last panel.
 
    A key a renderer wants that isn't in the store (its provider is down, or hasn't got to it yet) is skipped: that stop
    is left off, or the weather keeps its last forecast, as when an API call fails.
