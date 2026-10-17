@@ -94,8 +94,9 @@ layout, and keeps nothing about the answer. Layouts are registered by the canvas
 on: the screen in the config, as it's hung, so 800x480 landscape or 480x800 portrait. A
 canvas with no layouts yet gets the 800x480 ones. Several layouts can share a canvas (the
 config will choose one by its `layout_id`; until it can, the canvas's first is used), and
-each has a variant for every combination of the APIs available: Glowmarkt is on only when
-the config has both its credentials, and Spotify when it's enabled. The only layout so far,
+each has a variant for every combination of the APIs available: Glowmarkt is on when the
+config's `glowmarkt.enabled` is (or, from a broker that predates it, when both its credentials
+are there), and Spotify when it's enabled. The only layout so far,
 `classic`, puts the arrivals top-left with the weather beside them. The developer panel has no area of its own: it
 shares Spotify's (`rendering.share_spotify_area`), all the time without Spotify, and with it one minute in three,
 whenever Spotify has nothing to show, or every minute while it's showing a release. The layout also sets
@@ -350,7 +351,8 @@ weather location, Glowmarkt energy account, and connecting Spotify (the broker
 handles the OAuth handshake and its music provider fetches now-playing into the store, so the renderer never holds a
 Spotify token itself). The renderer's own settings are `BROKER_URL`, `CLAIM_TOKEN`, `DEVICE_NAME`, and `REDIS_URL`
 and `REDIS_PASSWORD` for the store (the orchestrator passes those); everything else comes from the broker. (The
-broker still sends the Glowmarkt credentials, which the renderer only takes as the energy panel's on switch.)
+broker sends only `glowmarkt.enabled` for the energy panel, not the Glowmarkt credentials; an older broker's
+credentials are still taken as the on switch, never used.)
 
 Once paired, an API that still needs setting up shows "Not configured" in its area (see
 [How it works](#how-it-works)).

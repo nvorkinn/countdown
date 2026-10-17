@@ -115,7 +115,7 @@ def test_get_config_parses_response(isolated_cwd):
             tfl={"app_key": "tfl-key", "stop_ids": ["940GZZLUEUS"]},
             weather={"api_key": "weather-key", "location": "London"},
             spotify={"enabled": True},
-            glowmarkt={"username": "me@example.com", "password": "hunter2"},
+            glowmarkt={"enabled": True},
         ),
     )
 
@@ -124,8 +124,22 @@ def test_get_config_parses_response(isolated_cwd):
     assert config.interval == 20
     assert config.tfl.stop_ids == ["940GZZLUEUS"]
     assert config.spotify.enabled is True
-    assert config.glowmarkt.username == "me@example.com"
+    assert config.glowmarkt.enabled is True
     assert config.pairing_code is None
+
+
+@responses.activate
+def test_get_config_parses_glowmarkt_from_a_broker_without_its_switch(isolated_cwd):
+    """An older broker sends the credentials and no `enabled`, which parses as null (see api_registry.is_enabled)."""
+    client = _initialised_client()
+    payload = broker_payload(glowmarkt={"username": "me@example.com", "password": "hunter2"})
+    del payload["glowmarkt"]["enabled"]
+    responses.add(responses.GET, CONFIG_URL, json=payload)
+
+    config = client.get_config()
+
+    assert config.glowmarkt.enabled is None
+    assert config.glowmarkt.username == "me@example.com"
 
 
 @responses.activate

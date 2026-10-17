@@ -104,7 +104,7 @@ def test_a_renderer_without_a_store_shows_the_panels_that_need_one_as_failing(mo
         tfl={"stop_ids": ["490000123W"]},
         weather={"location": "London"},
         spotify={"enabled": True},
-        glowmarkt={"username": "me@example.com", "password": "secret"},
+        glowmarkt={"enabled": True},
     )
 
     asyncio.run(registry.on_config_update(config))
@@ -222,16 +222,27 @@ def test_the_apis_without_a_switch_are_always_on():
         {"username": "me@example.com", "password": ""},
     ],
 )
-def test_glowmarkt_is_off_without_both_credentials(credentials):
-    """The broker has no Glowmarkt switch, so the credentials decide.
+def test_glowmarkt_is_off_without_both_credentials_from_a_broker_without_its_switch(credentials):
+    """A broker that predates `enabled` has no Glowmarkt switch, so the credentials decide.
 
     A cleared field can arrive as "" or whitespace as well as null.
     """
-    assert not is_enabled(Glowmarkt(**{"username": None, "password": None, **credentials}))
+    assert not is_enabled(Glowmarkt.model_validate({"username": None, "password": None, **credentials}))
 
 
-def test_glowmarkt_is_on_with_both_credentials():
-    assert is_enabled(Glowmarkt(username="me@example.com", password=" pass word "))
+def test_glowmarkt_is_on_with_both_credentials_from_a_broker_without_its_switch():
+    assert is_enabled(Glowmarkt.model_validate({"username": "me@example.com", "password": " pass word "}))
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_glowmarkt_follows_its_switch_without_credentials(enabled):
+    """The broker sends no credentials, only the switch: the readings come from the store."""
+    assert is_enabled(Glowmarkt.model_validate({"enabled": enabled, "username": None, "password": None})) is enabled
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_glowmarkt_switch_wins_over_credentials(enabled):
+    assert is_enabled(Glowmarkt(enabled=enabled, username="me@example.com", password="hunter2")) is enabled
 
 
 def test_on_config_update_registers_the_enabled_clients():
@@ -582,29 +593,30 @@ def test_available_leaves_out_glowmarkt_without_credentials_and_spotify_when_off
 
 @pytest.mark.parametrize("username", [None, "", "   "])
 def test_available_leaves_out_glowmarkt_when_its_username_is_cleared(username):
-    """The broker has no Glowmarkt switch, so it's the credentials themselves that decide."""
+    """A broker that predates Glowmarkt's switch sends the credentials, so they decide."""
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
+    glowmarkt = {"enabled": None, "username": username, "password": "pw"}
 
-    asyncio.run(registry.on_config_update(make_config(glowmarkt={"username": username, "password": "pw"})))
+    asyncio.run(registry.on_config_update(make_config(glowmarkt=glowmarkt)))
 
     assert ClientClasses.GLOWMARKT not in registry.available()
 
 
 def test_a_client_missing_what_it_needs_is_not_built_and_comes_back_fresh():
-    """Clearing Glowmarkt's username removes its client altogether.
+    """Switching Glowmarkt off removes its client altogether.
 
-    Putting it back builds a new one rather than reviving the old.
+    Switching it back on builds a new one rather than reviving the old.
     """
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
-    with_credentials = make_config(glowmarkt={"username": "me@example.com", "password": "pw"})
+    switched_on = make_config(glowmarkt={"enabled": True})
 
-    asyncio.run(registry.on_config_update(with_credentials))
+    asyncio.run(registry.on_config_update(switched_on))
     first = registry.clients["glowmarkt"]
-    asyncio.run(registry.on_config_update(make_config(glowmarkt={"username": None, "password": "pw"})))
+    asyncio.run(registry.on_config_update(make_config(glowmarkt={"enabled": False})))
     assert "glowmarkt" not in registry.clients
     assert "glowmarkt" not in registry.panels
 
-    asyncio.run(registry.on_config_update(with_credentials))
+    asyncio.run(registry.on_config_update(switched_on))
     assert isinstance(registry.clients["glowmarkt"], GlowClient)
     assert registry.clients["glowmarkt"] is not first
 

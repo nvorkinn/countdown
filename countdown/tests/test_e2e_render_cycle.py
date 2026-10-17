@@ -132,9 +132,9 @@ def reads(store, monkeypatch) -> list[str]:
 
 
 def _make_config() -> ConfigResponse:
-    # Without credentials Glowmarkt is off. Passed in, not set afterwards: they're
+    # Glowmarkt is off unless the broker switches it on. Passed in, not set afterwards: it's
     # checked when the config is validated.
-    config = make_config(glowmarkt={"username": "dummy@example.com", "password": "dummy-password"})
+    config = make_config(glowmarkt={"enabled": True})
     config.interval = 1  # the fake sleep in _run_cycles() means this never actually waits
     return config
 
@@ -224,13 +224,12 @@ def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch, stor
 
 
 @responses.activate
-def test_full_render_cycle_skips_glowmarkt_when_credentials_empty(isolated_cwd, monkeypatch, store, reads):
+def test_full_render_cycle_skips_glowmarkt_when_switched_off(isolated_cwd, monkeypatch, store, reads):
     """The common case: Glowmarkt never set up, so its readings are never even read."""
     config = make_config()
     config.interval = 1
     config.tfl.stop_ids = [BUS_STOP]
-    assert config.glowmarkt.username is None
-    assert config.glowmarkt.password is None
+    assert config.glowmarkt.enabled is False
     _put_stops_and_energy(store, BUS_STOP)
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
@@ -238,9 +237,25 @@ def test_full_render_cycle_skips_glowmarkt_when_credentials_empty(isolated_cwd, 
     _run_cycles(loop, monkeypatch)
 
     assert keys.energy(DEVICE_ID) not in reads
-    assert "glowmarkt" not in loop.api_reg.clients  # never built without credentials
+    assert "glowmarkt" not in loop.api_reg.clients  # never built while switched off
     assert shown[0]["glowmarkt"].message == "Not configured"
     assert len(shown[0]["tfl"].arrival_panels) == 1
+
+
+@responses.activate
+def test_full_render_cycle_shows_glowmarkt_from_a_broker_without_its_switch(isolated_cwd, monkeypatch, store):
+    """An older broker sends no `enabled`, only the credentials, which still switch the panel on (from the store)."""
+    config = make_config(glowmarkt={"enabled": None, "username": "dummy@example.com", "password": "dummy-password"})
+    config.interval = 1
+    config.tfl.stop_ids = [BUS_STOP]
+    _put_stops_and_energy(store, BUS_STOP)
+    loop = _build_loop(config, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
+
+    _run_cycles(loop, monkeypatch)
+
+    assert isinstance(shown[0]["glowmarkt"], EnergyPanel)
+    assert [reading["kwh"] for reading in shown[0]["glowmarkt"].readings] == [2.25, 1.5]
 
 
 @responses.activate

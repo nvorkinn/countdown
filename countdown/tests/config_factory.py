@@ -15,7 +15,7 @@ def broker_payload(**overrides) -> dict:
         notice_board=wire.NoticeBoard(postcode=None),
         tfl=wire.Tfl(app_key="", stop_ids=[]),
         spotify=wire.Spotify(enabled=False),
-        glowmarkt=wire.Glowmarkt(username=None, password=None),
+        glowmarkt=wire.Glowmarkt(enabled=False, username=None, password=None),
         pairing_code=None,
     ).model_dump(mode="json")
     return typical | {
