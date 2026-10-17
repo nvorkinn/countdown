@@ -1,6 +1,6 @@
 import pytest
+from tfl_factory import tfl_panel
 
-from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.models import BusArrival, SingleStopPoint
 
 STOP = SingleStopPoint(
@@ -22,7 +22,7 @@ def _buses(count: int, line: str = "36") -> list[BusArrival]:
 
 @pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_a_stop_with_nothing_due_draws_just_its_header(style):
-    img = BusArrivalPanel(STOP, [], style).render(262, 185)
+    img = tfl_panel(STOP, [], style).render(262, 185)
 
     assert img.size == (262, 185)
     _, top, _, bottom = img.getchannel("A").getbbox()
@@ -33,7 +33,7 @@ def test_a_stop_with_nothing_due_draws_just_its_header(style):
 
 @pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_more_departures_than_fit_stop_at_the_bottom_edge(style):
-    img = BusArrivalPanel(STOP, _buses(20), style).render(262, 185)
+    img = tfl_panel(STOP, _buses(20), style).render(262, 185)
 
     assert img.size == (262, 185)
     assert img.getchannel("A").getbbox()[3] <= 185
@@ -41,6 +41,6 @@ def test_more_departures_than_fit_stop_at_the_bottom_edge(style):
 
 @pytest.mark.parametrize("style", ["hero", "card"])
 def test_a_long_route_number_shrinks_to_fit_its_badge(style):
-    img = BusArrivalPanel(STOP, _buses(2, line="SL10X"), style).render(262, 185)
+    img = tfl_panel(STOP, _buses(2, line="SL10X"), style).render(262, 185)
 
     assert img.getchannel("A").getbbox() is not None
