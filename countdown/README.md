@@ -1,7 +1,7 @@
 # countdown
 
 The long-running Python app that renders the 7.5" e-paper dashboard for a separate screen to fetch:
-TfL arrivals, weather, a notice board, Glowmarkt energy use and Spotify, all
+TfL arrivals, weather, a notice board, Glowmarkt energy use, Spotify and a developer panel, all
 configured remotely through [auth-broker](https://github.com/nvorkinn/auth-broker).
 
 This README is about the renderer. For the whole system (the ESP32 screen, Caddy, authentik, the broker, the
@@ -48,8 +48,9 @@ timestamps/parameters, logs and upstream free-form notice text are not rewritten
 
 **API clients** (`*_client.py`, `api_registry.py`). Each API has an
 `AbstractClient` subclass: TfL arrivals, Open-Meteo weather, Glowmarkt energy,
-Spotify (proxied by the broker, so the device never holds a Spotify token) and
-the notice board. `ApiRegistry` builds a client for every API the config enables.
+Spotify (proxied by the broker, so the device never holds a Spotify token), the
+developer panel (the owner's GitHub pull requests and failing builds, and their AI plans, also from the broker, which
+holds the GitHub token) and the notice board. `ApiRegistry` builds a client for every API the config enables.
 When the config changes, it only rebuilds the clients whose `needs_refresh()`
 says the change affects them. Each client has its own `poll_interval`. The
 clients that are due are polled concurrently, with their blocking `requests`
@@ -76,7 +77,9 @@ canvas with no layouts yet gets the 800x480 ones. Several layouts can share a ca
 config will choose one by its `layout_id`; until it can, the canvas's first is used), and
 each has a variant for every combination of the APIs available: Glowmarkt is on only when
 the config has both its credentials, and Spotify when it's enabled. The only layout so far,
-`classic`, puts the arrivals top-left with the weather beside them. The layout also sets
+`classic`, puts the arrivals top-left with the weather beside them. The developer panel has no area of its own: it
+shares Spotify's (`rendering.share_spotify_area`), all the time without Spotify, and with it one minute in three or
+whenever Spotify has nothing to show. The layout also sets
 how many stops are on screen at once (four with neither Spotify nor Glowmarkt, otherwise
 two), so it's picked before the clients are polled, and the TfL client pages through the rest.
 

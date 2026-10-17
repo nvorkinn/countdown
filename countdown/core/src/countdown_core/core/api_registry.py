@@ -11,6 +11,7 @@ from countdown_api.models import ConfigResponse, Glowmarkt, Spotify
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
 from countdown_core.core.style import panel_style
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
+from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.i18n import N_, set_locale
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
@@ -34,6 +35,8 @@ class ClientClasses(Enum):
     TFL = ("tfl", DeparturesClient)
     WEATHER = ("weather", WeatherClient)
     SPOTIFY = ("spotify", SpotifyClient)
+    # Shares Spotify's area (see rendering.share_spotify_area).
+    DEVELOPER = ("developer", DeveloperClient)
 
     @property
     def api_name(self) -> str:
@@ -62,17 +65,21 @@ def section_for(name: str, config: ConfigResponse) -> object:
         )
     if name == ClientClasses.SPOTIFY.api_name:
         return config.spotify.model_copy(update={"style": panel_style(config, config.spotify.style)})
+    if name == ClientClasses.DEVELOPER.api_name:
+        # A broker that predates the developer panel leaves it off; it has no style of its own to fall back on.
+        enabled = config.developer is not None and config.developer.enabled
+        return DeveloperSettings(enabled=enabled, style=panel_style(config, "hero"))
     return getattr(config, name)
 
 
 def is_enabled(section: object) -> bool:
     """Whether the broker's config switches the API on.
 
-    Only Spotify has a switch; Glowmarkt is on when both credentials are there (a cleared field can arrive as "" or
-    whitespace as well as null); the rest are always on.
+    Only Spotify and the developer panel have a switch; Glowmarkt is on when both credentials are there (a cleared
+    field can arrive as "" or whitespace as well as null); the rest are always on.
     """
     match section:
-        case Spotify():
+        case Spotify() | DeveloperSettings():
             return section.enabled
         case Glowmarkt():
             return all((value or "").strip() for value in (section.username, section.password))

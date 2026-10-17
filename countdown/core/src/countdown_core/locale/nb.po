@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: countdown VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-16 18:27+0000\n"
+"POT-Creation-Date: 2026-10-17 01:11+0000\n"
 "PO-Revision-Date: 2026-10-16 16:50+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nb\n"
@@ -27,6 +27,18 @@ msgstr "12 måneder"
 
 msgid "4 weeks"
 msgstr "4 uker"
+
+msgid "AI PLANS"
+msgstr "KI-ABONNEMENT"
+
+msgid "AI plans"
+msgstr "KI-abonnement"
+
+msgid "Add a GitHub token on the config page"
+msgstr "Legg inn et GitHub-token på innstillingssiden"
+
+msgid "All builds passing"
+msgstr "Alle bygg er grønne"
 
 #, python-brace-format
 msgid "Amber warning: {hazard}"
@@ -95,6 +107,9 @@ msgstr "Tett underkjølt yr"
 msgid "Depositing rime fog"
 msgstr "Rimtåke"
 
+msgid "Developer"
+msgstr "Utvikler"
+
 #, python-brace-format
 msgid "Device: {device}"
 msgstr "Enhet: {device}"
@@ -120,6 +135,9 @@ msgstr "1. påskedag"
 
 msgid "Energy"
 msgstr "Energi"
+
+msgid "FAIL"
+msgstr "FEIL"
 
 msgid "Feels like"
 msgstr "Føles som"
@@ -252,6 +270,9 @@ msgstr "Må konfigureres"
 msgid "New Year's Day"
 msgstr "Første nyttårsdag"
 
+msgid "No plans"
+msgstr "Ingen abonnement"
+
 msgid "Not configured"
 msgstr "Ikke konfigurert"
 
@@ -269,6 +290,9 @@ msgstr "Nå"
 
 msgid "Now playing"
 msgstr "Spiller nå"
+
+msgid "OK"
+msgstr "OK"
 
 msgid "OVERNIGHT"
 msgstr "NATTEN"
@@ -446,9 +470,15 @@ msgstr "min"
 msgid "on {day}"
 msgstr "på {day}"
 
+msgid "open PRs"
+msgstr "åpne PR-er"
+
 #, python-brace-format
 msgid "then {times} min"
 msgstr "deretter {times} min"
+
+msgid "to review"
+msgstr "til gjennomgang"
 
 msgid "tonight"
 msgstr "i kveld"
@@ -462,8 +492,44 @@ msgid "{line} line"
 msgstr "{line}-linjen"
 
 #, python-brace-format
+msgid "{n} failing: {repos}"
+msgstr "{n} feiler: {repos}"
+
+#, python-brace-format
 msgid "{n} notice"
 msgid_plural "{n} notices"
 msgstr[0] "{n} varsel"
 msgstr[1] "{n} varsler"
+
+#, python-brace-format
+msgid "{n} repo"
+msgid_plural "{n} repos"
+msgstr[0] "{n} repo"
+msgstr[1] "{n} repoer"
+
+#, python-brace-format
+msgid "{n} waiting for your review"
+msgid_plural "{n} waiting for your review"
+msgstr[0] "{n} venter på din gjennomgang"
+msgstr[1] "{n} venter på din gjennomgang"
+
+#, python-brace-format, python-format
+msgid "{percent}% of {plan} used"
+msgstr "{percent} % av {plan} brukt"
+
+#, python-brace-format
+msgid "{plan} renews today"
+msgstr "{plan} fornyes i dag"
+
+#, python-brace-format
+msgid "{plan} renews tomorrow"
+msgstr "{plan} fornyes i morgen"
+
+#, python-brace-format
+msgid "{repo} failing"
+msgstr "{repo} feiler"
+
+#, python-brace-format
+msgid "{repo}: build failing"
+msgstr "{repo}: bygget feiler"
 
