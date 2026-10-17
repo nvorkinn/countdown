@@ -40,7 +40,7 @@ countdown-core so the providers and renderers share them.
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages) |
 | `v1:energy:<device id>` | string, TTL ~1 h | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
 | `v1:spotify:<device id>` | string, TTL 3 min | auth-broker's `spotify-provider`, every minute | `StoredPlayer` JSON (`store/music.py`): each service's queue, as the broker's `/queue` route answers it |
-| `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 5 min, every 20 s while a release runs | `StoredDeveloper` JSON (`store/developer.py`): the GitHub summary (pull requests, builds, releases with their jobs) and the AI plans, as the broker's `/api/developer` answers them |
+| `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): the GitHub summary (pull requests, builds, releases with their jobs) and the AI plans, as the broker's `/api/developer` answers them; the renderer reads only this, never the route |
 | `v1:pace:<source>:<id>` | integer string, TTL ~1 min | any provider that has bursty data (the developer provider, per device, while a release runs) | the seconds it wants the screen to refresh at; renderers take the fastest of those they watch, see the renderer's README, "The pace" |
 | `v1:spotify-top:<device id>` | string, TTL 2 h | auth-broker's `spotify-provider`, every 30 min | `StoredTop` JSON (`store/music.py`): each service's top tracks and artists by time range |
 
@@ -161,7 +161,7 @@ so every deploy starts and upgrades them, and `--wait` fails the deploy if one w
 `deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`)
 and `TFL_APP_KEY`; without the password the deploy fails rather than start them unauthenticated. They need the broker
 writing subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking).
-auth-broker's providers (energy, music) are switched on in auth-broker.
+auth-broker's providers (energy, music, developer) are switched on in auth-broker, and deployed with the broker.
 
 The renderers read the store: the orchestrator's `RENDERER_REDIS_URL` defaults to `redis://127.0.0.1:6379/0` in
 the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to each renderer as `REDIS_URL` and
@@ -169,8 +169,9 @@ the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to e
 as an upgrade, like a new image. The renderers read TfL's and Entur's departures (`v1:departures:<stop>`), the weather
 (`v1:weather:<location>`), the energy readings (`v1:energy:<device id>`, from auth-broker's `glow-provider`) and the
 Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
-the store; only the disruption notices still come straight from their APIs, and the developer panel from the store
-when there is one. So each provider must be running for its panels to have anything to draw.
+the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; only the
+disruption notices still come straight from their APIs. So each provider must be running for its panels to have anything
+to draw.
 
 A renderer started without the store (`RENDERER_REDIS_URL` set to empty, so no `REDIS_URL`) can't build the clients
 that read it: their areas say "Could not connect", the device reports them as in error, and the log names

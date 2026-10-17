@@ -61,15 +61,14 @@ timestamps/parameters, logs and upstream free-form notice text are not rewritten
 **API clients** (`*_client.py`, `api_registry.py`). Each API has an
 `AbstractClient` subclass: the departures (TfL and Entur), Open-Meteo weather, Glowmarkt energy,
 Spotify and Apple Music, the
-developer panel (the owner's GitHub pull requests and failing builds, and their AI plans, from the broker, which
-holds the GitHub token; while one of their repos is releasing, the release's jobs as GitHub's workflow graph instead,
-asked for every minute until it ends) and the notice board. The departures, weather, energy and music clients read
-only the shared Redis store, which the [providers](providers/README.md) (and auth-broker's, for energy and music) fill:
-the renderer never calls TfL, Entur, Open-Meteo or Glowmarkt for them, and never holds a Glowmarkt password or a
-Spotify token. A renderer started without `REDIS_URL` can't build those four, so their areas say "Could not connect"
-and the log says why (`store.reader.require_store`); a key missing from the store, or Redis not answering, is just a
-failed poll. The notice board and its disruption sources still call their APIs, and the developer panel reads the
-store when it has one, else the broker. `ApiRegistry` builds a client for every API the config enables.
+developer panel (the owner's GitHub pull requests and failing builds, and their AI plans; while one of their repos is
+releasing, the release's jobs as GitHub's workflow graph instead) and the notice board. The departures, weather,
+energy, music and developer clients read only the shared Redis store, which the [providers](providers/README.md) (and
+auth-broker's, for energy, music and the developer panel) fill: the renderer never calls TfL, Entur, Open-Meteo,
+Glowmarkt or GitHub for them, nor the broker, and never holds a Glowmarkt password, a Spotify token or a GitHub token. A
+renderer started without `REDIS_URL` can't build those five, so their areas say "Could not connect" and the log says
+why (`store.reader.require_store`); a key missing from the store, or Redis not answering, is just a failed poll. The
+notice board and its disruption sources still call their APIs. `ApiRegistry` builds a client for every API the config enables.
 When the config changes, it only rebuilds the clients whose `needs_refresh()`
 says the change affects them. Each client has its own `poll_interval`. The
 clients that are due are polled concurrently, with their blocking `requests`

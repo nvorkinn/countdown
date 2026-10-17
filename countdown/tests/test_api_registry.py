@@ -97,7 +97,7 @@ def test_weather_rotates_only_when_the_registry_actually_polls_it(store):
 
 @responses.activate  # nothing registered: the notice board's calls fail at once
 def test_a_renderer_without_a_store_shows_the_panels_that_need_one_as_failing(monkeypatch):
-    """Not a crash: the notice board and the developer panel, which don't need one, still work."""
+    """Not a crash: the notice board, which doesn't need one, still works (developer: test_developer_client)."""
     monkeypatch.setattr(reader, "store", lambda: None)
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
     config = make_config(
