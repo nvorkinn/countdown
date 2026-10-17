@@ -50,7 +50,8 @@ timestamps/parameters, logs and upstream free-form notice text are not rewritten
 `AbstractClient` subclass: TfL arrivals, Open-Meteo weather, Glowmarkt energy,
 Spotify (proxied by the broker, so the device never holds a Spotify token), the
 developer panel (the owner's GitHub pull requests and failing builds, and their AI plans, also from the broker, which
-holds the GitHub token) and the notice board. `ApiRegistry` builds a client for every API the config enables.
+holds the GitHub token; while one of their repos is releasing, the release's jobs as GitHub's workflow graph instead,
+asked for every minute until it ends) and the notice board. `ApiRegistry` builds a client for every API the config enables.
 When the config changes, it only rebuilds the clients whose `needs_refresh()`
 says the change affects them. Each client has its own `poll_interval`. The
 clients that are due are polled concurrently, with their blocking `requests`
@@ -78,8 +79,8 @@ config will choose one by its `layout_id`; until it can, the canvas's first is u
 each has a variant for every combination of the APIs available: Glowmarkt is on only when
 the config has both its credentials, and Spotify when it's enabled. The only layout so far,
 `classic`, puts the arrivals top-left with the weather beside them. The developer panel has no area of its own: it
-shares Spotify's (`rendering.share_spotify_area`), all the time without Spotify, and with it one minute in three or
-whenever Spotify has nothing to show. The layout also sets
+shares Spotify's (`rendering.share_spotify_area`), all the time without Spotify, and with it one minute in three,
+whenever Spotify has nothing to show, or every minute while it's showing a release. The layout also sets
 how many stops are on screen at once (four with neither Spotify nor Glowmarkt, otherwise
 two), so it's picked before the clients are polled, and the TfL client pages through the rest.
 

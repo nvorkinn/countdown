@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: countdown VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-17 03:25+0000\n"
+"POT-Creation-Date: 2026-10-17 16:45+0000\n"
 "PO-Revision-Date: 2026-10-16 16:50+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nb\n"
@@ -21,6 +21,10 @@ msgstr ""
 #, python-brace-format
 msgid "+{count} more"
 msgstr "+{count} til"
+
+#, python-brace-format
+msgid "+{n} more"
+msgstr "+{n} til"
 
 msgid "12 months"
 msgstr "12 måneder"
@@ -468,6 +472,10 @@ msgstr "d. MMM"
 msgid "due"
 msgstr "nå"
 
+#, python-brace-format
+msgid "failed after {n} min"
+msgstr "feilet etter {n} min"
+
 #. Translators: short for minutes, after a number in a narrow column ("4 m").
 msgid "m"
 msgstr "m"
@@ -481,6 +489,10 @@ msgstr "på {day}"
 
 msgid "open PRs"
 msgstr "åpne PR-er"
+
+#, python-brace-format
+msgid "released in {n} min"
+msgstr "utgitt på {n} min"
 
 #, python-brace-format
 msgid "then {times} min"
@@ -503,6 +515,14 @@ msgstr "{line}-linjen"
 #, python-brace-format
 msgid "{n} failing: {repos}"
 msgstr "{n} feiler: {repos}"
+
+#, python-brace-format
+msgid "{n} min"
+msgstr "{n} min"
+
+#, python-brace-format
+msgid "{n} min · approve {job}"
+msgstr "{n} min · godkjenn {job}"
 
 #, python-brace-format
 msgid "{n} notice"
@@ -533,6 +553,14 @@ msgstr "{plan} fornyes i dag"
 #, python-brace-format
 msgid "{plan} renews tomorrow"
 msgstr "{plan} fornyes i morgen"
+
+#, python-brace-format
+msgid "{release}: release failed"
+msgstr "{release}: utgivelsen feilet"
+
+#, python-brace-format
+msgid "{release}: {job} waiting for your approval"
+msgstr "{release}: {job} venter på din godkjenning"
 
 #, python-brace-format
 msgid "{repo} failing"
