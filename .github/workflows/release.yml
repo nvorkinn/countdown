@@ -39,14 +39,14 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           # Every workspace member: the root project is virtual, so it isn't built.
-          for package in countdown-api countdown-credentials countdown-core countdown-server countdown-orchestrator; do
+          for package in countdown-api countdown-credentials countdown-core countdown-server countdown-orchestrator countdown-providers; do
             (cd countdown && uv version --frozen --package "$package" "$version")
           done
       - name: Build countdown wheels
         working-directory: countdown
         # Every workspace member: the renderer (countdown-server), the
-        # orchestrator and the libraries they depend on (countdown-core, -credentials, -api), none of
-        # which is on an index.
+        # orchestrator, the providers and the libraries they depend on (countdown-core, -credentials, -api), none
+        # of which is on an index.
         run: |
           uv sync --frozen
           uv build --wheel --all-packages
@@ -68,7 +68,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        image: [ server, orchestrator ]
+        image: [ server, orchestrator, providers ]
         platform: [ linux/amd64, linux/arm64 ]
         include:
           - platform: linux/amd64
@@ -114,8 +114,8 @@ jobs:
   publish-image:
     # countdown-server's image, for renderers run with Docker (countdown/server/deploy/), is tagged with the
     # version and :latest, as every release is the latest. countdown-orchestrator's, run beside the renderers
-    # by countdown/server/deploy/, is only ever pinned to a version, so there's no :latest to move. Both are
-    # built from this release's own wheels.
+    # by countdown/server/deploy/, is only ever pinned to a version, so there's no :latest to move; nor is
+    # countdown-providers', run there too. All are built from this release's own wheels.
     name: publish ${{ matrix.image }}
     needs: build-image
     runs-on: ubuntu-latest
@@ -128,6 +128,8 @@ jobs:
           - image: server
             tags: ${{ github.ref_name }} latest
           - image: orchestrator
+            tags: ${{ github.ref_name }}
+          - image: providers
             tags: ${{ github.ref_name }}
     steps:
       - uses: actions/download-artifact@v4

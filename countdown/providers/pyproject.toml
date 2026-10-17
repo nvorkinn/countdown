@@ -1,0 +1,20 @@
+[project]
+name = "countdown-providers"
+version = "0.4.2"
+requires-python = ">=3.14"
+dependencies = [
+    "countdown-core",
+    "pydantic>=2.13.5",
+    "redis>=8.1.0",
+]
+
+[project.scripts]
+countdown-provider-tfl = "countdown_providers.tfl.main:main"
+countdown-provider-weather = "countdown_providers.weather.main:main"
+
+[tool.uv.sources]
+countdown-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"

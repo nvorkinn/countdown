@@ -109,6 +109,10 @@ This directory is a uv workspace:
 - `server/` (`countdown-server`): the renderer. It runs as a Docker container
   next to the broker (see [`server/deploy/`](server/deploy/)) and sends each
   frame to the broker.
+- `orchestrator/` (`countdown-orchestrator`): starts a renderer container for each screen (see
+  [its README](orchestrator/README.md)).
+- `providers/` (`countdown-providers`): one long-running process per API, fetching what screens subscribe to into a
+  shared Redis store, for renderers to read later. Scaffolding so far; see [its README](providers/README.md).
 
 `uv sync` installs them all, editable, for development and the tests.
 

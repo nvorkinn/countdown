@@ -58,6 +58,11 @@ Set up once, in the repo's Settings:
   the same values as auth-broker's. The user must be able to use Docker (be in the `docker` group).
 - Secret `ORCHESTRATOR_TOKEN`: the orchestrator's credential on the broker, which the deploy hands to it.
 
+## Providers
+
+The compose file also has a service per provider (`provider-tfl`, `provider-weather`), in the `providers` profile, so
+deploys don't start them yet. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
+
 ## Day to day
 
 ```sh
