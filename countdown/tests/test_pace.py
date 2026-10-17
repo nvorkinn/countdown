@@ -5,7 +5,6 @@ Provider -> store (`v1:pace:...`, with a TTL) -> ApiRegistry.pace() -> DisplayLo
 """
 
 import asyncio
-import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,8 +21,7 @@ from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.api_registry import API_NAMES, ApiRegistry
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import MIN_PACE_S, DisplayLoop
-from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings, NoStoredDeveloperError
-from countdown_core.developer.developer_panel import DeveloperPanel
+from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.store import keys, reader
 from countdown_core.store.developer import StoredDeveloper
@@ -41,11 +39,6 @@ def store(monkeypatch):
     client = fakeredis.FakeRedis(decode_responses=True)
     monkeypatch.setattr(reader, "store", lambda: client)
     return client
-
-
-@pytest.fixture
-def no_store(monkeypatch):
-    monkeypatch.setattr(reader, "store", lambda: None)
 
 
 def developer_client() -> DeveloperClient:
@@ -90,36 +83,6 @@ def test_the_shared_fixture_is_a_stored_developer():
     assert [plan.name for plan in stored.plans] == ["Copilot", "Claude"]
 
 
-def test_a_renderer_with_a_store_reads_the_panel_from_it(store):
-    store.set(keys.developer("device-123"), FIXTURE.read_text())
-
-    # No HTTP is mocked: asking the broker would fail.
-    with responses.RequestsMock():
-        panel = asyncio.run(developer_client().update())
-
-    assert isinstance(panel, DeveloperPanel)
-    assert panel.summary.releases[0].title == "v0.4.3"
-
-
-def test_a_stored_summary_is_polled_on_every_cycle(store):
-    assert developer_client().poll_interval.total_seconds() == 0
-
-
-def test_nothing_in_the_store_keeps_the_last_panel(store):
-    with pytest.raises(NoStoredDeveloperError):
-        asyncio.run(developer_client().update())
-
-
-@responses.activate
-def test_a_renderer_without_a_store_still_asks_the_broker(no_store):
-    responses.add(responses.GET, f"{BROKER_URL}/api/developer", json=json.loads(FIXTURE.read_text()))
-
-    panel = asyncio.run(developer_client().update())
-
-    assert panel.summary.github.login == "nvorkinn"
-    assert developer_client().pace_keys() == []
-
-
 def test_the_developer_client_watches_its_devices_pace_key(store):
     assert developer_client().pace_keys() == [PACE_KEY]
 
@@ -147,8 +110,11 @@ def test_the_registry_reports_none_once_the_pace_lapses(store):
     assert asyncio.run(registry_with_developer().pace()) is None
 
 
-def test_the_registry_reports_none_without_a_store(no_store):
-    assert asyncio.run(registry_with_developer().pace()) is None
+def test_the_registry_reports_none_without_a_store(store, monkeypatch):
+    registry = registry_with_developer()
+    monkeypatch.setattr(reader, "store", lambda: None)
+
+    assert asyncio.run(registry.pace()) is None
 
 
 def test_a_store_that_cant_be_read_is_no_pace(monkeypatch, store):

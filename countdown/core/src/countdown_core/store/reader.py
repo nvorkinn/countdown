@@ -1,9 +1,9 @@
 """The renderer's side of the store: reading what the providers wrote.
 
 Every renderer runs on the server and reads the store: the orchestrator passes it REDIS_URL (and REDIS_PASSWORD, if
-Redis wants one). The departures, weather, energy and music clients read only the store (require_store()); a renderer
-started without REDIS_URL can't draw them, and those panels show their error state instead. Only the developer
-panel and the refresh pace still cope without one (store()).
+Redis wants one). The departures, weather, energy, music and developer clients read only the store (require_store()); a
+renderer started without REDIS_URL can't draw them, and those panels show their error state instead. Only the refresh
+pace still copes without one (store()).
 
 Synchronous (redis.Redis, not redis.asyncio): the clients' _initialise() and _update() run in worker threads.
 """
