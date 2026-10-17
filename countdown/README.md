@@ -22,12 +22,24 @@ it keeps retrying, backing off from 30 seconds to 5 minutes. Nothing is painted
 until it has a config. Once it's running, a failed config refresh just keeps the
 config it already has.
 
-**The loop** (`display_loop.py`). Every `interval` seconds (set in the config),
-the device is in one of two stages:
+**The loop** (`display_loop.py`). Every `interval` seconds (the broker's 60; nobody sets it any more), or sooner
+while a provider asks for a faster refresh (see [The pace](#the-pace)), the device is in one of two stages:
 
 - *pairing*: the config carries a pairing code, so the device shows it full
   screen. It's only repainted when the code changes.
 - *running*: the dashboard.
+
+### The pace
+
+How often the screen refreshes is not a setting: the providers decide. A provider whose data can turn bursty (the
+developer provider, while a release runs) writes `v1:pace:<source>:<id>` to the store with a ~1 minute TTL, holding the
+seconds it wants (see `countdown_core/store/keys.py`). Each cycle the renderer takes the fastest of those its clients
+watch (`AbstractClient.pace_keys`, `ApiRegistry.pace`), sleeps that long (never under 20 s, never over the
+config's interval: `DisplayLoop.sleep_s`), and tells the target (`DisplayTarget.set_pace`). The server target sends it
+with each frame as `X-Refresh-Hint`, and again with the same frame when the picture hasn't changed (`renew`), so the
+broker keeps answering the screen's polls with it as `Retry-After`. When the provider stops asking, the key lapses, the
+header stops, and everything is back to the usual within a lease. Providers that can ask define
+`pace(item_id, fetched)` (see `countdown_providers/provider.py`).
 
 After each cycle the loop publishes health over OTLP (see
 [Metrics](#metrics)) and re-reads the config from the
@@ -326,8 +338,8 @@ There's no local config file. A screen registers itself with
 [auth-broker](https://github.com/nvorkinn/auth-broker); its owner pairs it at
 https://nikolaivorkinn.com and picks a name (the slug) for its renderer; the
 [orchestrator](orchestrator/README.md) then starts this renderer for it, with a one-time
-claim token. From then on everything is managed on the broker's pages: TfL stops, refresh
-interval, weather location, Glowmarkt energy account, and connecting Spotify (the broker
+claim token. From then on everything is managed on the broker's pages: TfL stops,
+weather location, Glowmarkt energy account, and connecting Spotify (the broker
 handles the OAuth handshake and proxies now-playing calls, so the renderer never holds a
 Spotify token itself). The renderer's own settings are `BROKER_URL`, `CLAIM_TOKEN` and
 `DEVICE_NAME`; everything else, including Glowmarkt credentials, comes from the broker.

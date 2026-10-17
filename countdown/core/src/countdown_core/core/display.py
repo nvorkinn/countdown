@@ -47,6 +47,10 @@ class DisplayController:
         """None until the target has been asked (or if it can't tell, like a preview)."""
         return self.target.connected
 
+    def set_pace(self, seconds: int | None) -> None:
+        """Pass the refresh pace the providers ask for (None: the usual) on to the target, for its next frame."""
+        self.target.set_pace(seconds)
+
     def stops_shown(self, screen: Screen, available: frozenset[ClientClasses]) -> int:
         """How many stops the layout for `screen` and `available` has room for."""
         layout, _ = layout_for(screen, available)
@@ -77,7 +81,9 @@ class DisplayController:
         content = img.convert("RGB")
         changed = ImageChops.difference(self._shown, content).getbbox() if self._shown is not None else None
         if self._shown is not None and changed is None:
-            return  # this exact picture is already on the panel
+            # This exact picture is already on the panel; the target only has the pace to keep telling.
+            self.target.renew()
+            return
 
         self._pending = None  # the dashboard supersedes any screen still waiting for the panel
         region = self._partial_region(changed, frame.volatile)

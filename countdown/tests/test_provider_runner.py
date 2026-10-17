@@ -11,7 +11,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from countdown_core.store import keys
 from countdown_core.store.models import StopDepartures
 from countdown_providers.config import DEFAULT_REDIS_URL, Settings
-from countdown_providers.runner import ProviderRunner, next_tick
+from countdown_providers.runner import PACE_TTL_S, ProviderRunner, next_tick
 from countdown_providers.sharding import Shard, shard_of
 
 FETCHED_AT = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
@@ -294,3 +294,51 @@ def test_written_value_is_the_models_json(redis):
         "modes": [],
         "departures": [],
     }
+
+
+# --- the pace: a provider asking the screen to refresh faster --------------------------------------------------------
+
+
+class BurstyProvider(FakeProvider):
+    """Asks for a 20 s pace for the ids in `bursty`."""
+
+    def __init__(self, bursty: frozenset[str]):
+        super().__init__()
+        self.bursty = bursty
+
+    def pace(self, item_id, fetched):
+        return 20 if item_id in self.bursty else None
+
+
+def pace_of(redis, item_id):
+    return asyncio.run(redis.get(keys.pace("fake", item_id)))
+
+
+def test_a_provider_that_asks_for_a_pace_gets_it_written_with_a_ttl(redis):
+    subscribe(redis, "a", "b")
+
+    asyncio.run(ProviderRunner(BurstyProvider(frozenset({"a"})), redis).run_cycle())
+
+    assert pace_of(redis, "a") == "20"
+    assert 0 < asyncio.run(redis.ttl(keys.pace("fake", "a"))) <= PACE_TTL_S
+    assert pace_of(redis, "b") is None
+
+
+def test_the_pace_is_deleted_when_the_provider_stops_asking(redis):
+    subscribe(redis, "a")
+    provider = BurstyProvider(frozenset({"a"}))
+    runner = ProviderRunner(provider, redis)
+    asyncio.run(runner.run_cycle())
+
+    provider.bursty = frozenset()
+    asyncio.run(runner.run_cycle())
+
+    assert pace_of(redis, "a") is None
+
+
+def test_a_provider_without_a_pace_writes_none(redis):
+    subscribe(redis, "a")
+
+    asyncio.run(ProviderRunner(FakeProvider(), redis).run_cycle())
+
+    assert asyncio.run(redis.keys(f"{keys.PREFIX}:pace:*")) == []

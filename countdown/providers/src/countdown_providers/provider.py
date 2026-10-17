@@ -31,3 +31,11 @@ class Provider(Protocol):
         the others. Raising is for failing the whole batch, e.g. the API being down; the runner logs it and carries on.
         """
         ...
+
+    # Optional, and not part of the protocol: a provider whose data can turn bursty (a release running) defines
+    #
+    #     def pace(self, item_id: str, fetched: BaseModel) -> int | None
+    #
+    # returning the seconds it wants the screen to refresh at for what it just fetched, or None if it needs no more
+    # than usual. The runner writes that to `v1:pace:<name>:<item id>` with a TTL of PACE_TTL_S (and deletes the key on
+    # None), so the pace lapses by itself if the provider stops, and a renderer takes the fastest of those it reads.

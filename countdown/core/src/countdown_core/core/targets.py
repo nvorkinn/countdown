@@ -18,6 +18,19 @@ class DisplayTarget(ABC):
     # Whether the screen answered; None until known (or for targets that can't tell).
     connected: bool | None = None
 
+    def set_pace(self, seconds: int | None) -> None:  # noqa: B027 -- optional hook: only a target with a broker needs it
+        """Tell the target how fast the providers want the screen to refresh now, or None for the usual pace.
+
+        Called before each cycle's paint. A target whose screen is paced elsewhere (the broker's `Retry-After`)
+        passes it on with the next frame; the others ignore it.
+        """
+
+    def renew(self) -> None:  # noqa: B027 -- optional hook: only a target with a broker needs it
+        """Tell the screen's pace again when the picture hasn't changed, so what was asked for isn't allowed to lapse.
+
+        Called instead of a paint whenever the picture on the screen is already the right one.
+        """
+
     @abstractmethod
     def paint(self, img: Image.Image, region: Region | None = None) -> bool:
         """Put the full 800x480 `img` on the screen, or with a region just that part (a partial refresh).

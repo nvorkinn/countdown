@@ -118,6 +118,13 @@ class AbstractClient(ABC):
         """
         return self.config != new_config
 
+    def pace_keys(self) -> list[str]:
+        """Return the store keys (store.keys.pace) where this client's provider asks for a faster refresh.
+
+        None by default: only the clients whose providers can turn bursty have any.
+        """
+        return []
+
     def notice_sources(self) -> list[NoticeSource]:
         """Return the sources of notices about what this client shows, for the notice board to poll and rank.
 
