@@ -7,7 +7,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfoNotFoundError
 
-from countdown_api.models import ConfigResponse, Glowmarkt, Spotify
+from countdown_api.models import ConfigResponse, Glowmarkt
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
 from countdown_core.core.style import panel_style
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
@@ -15,7 +15,7 @@ from countdown_core.developer.developer_client import DeveloperClient, Developer
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.i18n import N_, set_locale
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
-from countdown_core.spotify.spotify_client import SpotifyClient, music_client_class
+from countdown_core.spotify.spotify_client import MusicSettings, SpotifyClient, music_client_class
 from countdown_core.weather.weather_client import WeatherClient
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ class ClientClasses(Enum):
     # Departures from every source; named for the broker's first section, which the layouts still go by.
     TFL = ("tfl", DeparturesClient)
     WEATHER = ("weather", WeatherClient)
-    # Or AppleMusicClient, as its config's source says (see client_class).
+    # Spotify, Apple Music or both; AppleMusicClient when it's only Apple Music (see client_class).
     SPOTIFY = ("spotify", SpotifyClient)
     # Shares Spotify's area (see rendering.share_spotify_area).
     DEVELOPER = ("developer", DeveloperClient)
@@ -65,7 +65,7 @@ def section_for(name: str, config: ConfigResponse) -> object:
             tfl_app_key=config.tfl.app_key,
         )
     if name == ClientClasses.SPOTIFY.api_name:
-        return config.spotify.model_copy(update={"style": panel_style(config, config.spotify.style)})
+        return MusicSettings.from_config(config)
     if name == ClientClasses.DEVELOPER.api_name:
         # A broker that predates the developer panel leaves it off; it has no style of its own to fall back on.
         enabled = config.developer is not None and config.developer.enabled
@@ -75,7 +75,7 @@ def section_for(name: str, config: ConfigResponse) -> object:
 
 def client_class(member: ClientClasses, section: object) -> type[AbstractClient]:
     """Return the class that polls the API `member`, configured with `section`: the Spotify area's depends on it."""
-    if isinstance(section, Spotify):
+    if isinstance(section, MusicSettings):
         return music_client_class(section)
     return member.value[1]
 
@@ -83,11 +83,12 @@ def client_class(member: ClientClasses, section: object) -> type[AbstractClient]
 def is_enabled(section: object) -> bool:
     """Whether the broker's config switches the API on.
 
-    Only Spotify and the developer panel have a switch; Glowmarkt is on when both credentials are there (a cleared
+    Only the music (Spotify, Apple Music) and the developer panel have switches; Glowmarkt is on when both
+    credentials are there (a cleared
     field can arrive as "" or whitespace as well as null); the rest are always on.
     """
     match section:
-        case Spotify() | DeveloperSettings():
+        case MusicSettings() | DeveloperSettings():
             return section.enabled
         case Glowmarkt():
             return all((value or "").strip() for value in (section.username, section.password))
@@ -149,9 +150,8 @@ class ApiRegistry:
             if not is_enabled(client_config):
                 # No client at all, so one switched back on later is built fresh.
                 self._drop(name)
-            elif current is None or type(current) not in {clazz, FailedClient} or current.needs_refresh(client_config):
-                # A client of another class (Spotify's for Apple Music's) is rebuilt even if the config compares
-                # equal. The old panel came from the old config, so it goes too.
+            elif current is None or current.needs_refresh(client_config):
+                # The old panel came from the old config, so it goes too.
                 self._drop(name)
                 try:
                     to_initialise[name] = self.clients[name] = clazz(self.registration, client_config)

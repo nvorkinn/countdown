@@ -737,6 +737,15 @@ def test_apple_music_now(snapshot, style):
     snapshot.assert_matches(f"screen_portrait_apple_music_{style}_now", img)
 
 
+@pytest.mark.parametrize("style", SPOTIFY_STYLES)
+def test_apple_music_top_beside_spotify(snapshot, style):
+    """With both services on, a top page says whose lists they are."""
+    top = _spotify_page("top", style)
+    top.service = "Apple Music"
+    img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=top))
+    snapshot.assert_matches(f"screen_portrait_apple_music_{style}_top", img)
+
+
 @pytest.mark.parametrize("period", [WeatherPeriod.NOW, WeatherPeriod.TONIGHT, WeatherPeriod.TOMORROW])
 def test_portrait_screen_in_12_hour_time(snapshot, period):
     pages = weather_pages(ForecastResponse.model_validate(forecast_json()))

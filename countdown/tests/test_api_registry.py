@@ -9,7 +9,7 @@ from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from test_utils import REGISTRATION
 from weather_factory import forecast_json
 
-from countdown_api.models import Glowmarkt, Spotify
+from countdown_api.models import Glowmarkt
 from countdown_api.models import Weather as WeatherSection
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
 from countdown_core.core.api_registry import (
@@ -25,7 +25,7 @@ from countdown_core.developer.developer_client import DeveloperClient, Developer
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
-from countdown_core.spotify.spotify_client import AppleMusicClient, SpotifyClient
+from countdown_core.spotify.spotify_client import APPLE_MUSIC, SPOTIFY, AppleMusicClient, MusicSettings, SpotifyClient
 from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.weather.models import WeatherPeriod
 from countdown_core.weather.weather_client import FORECAST_URL, WeatherClient
@@ -112,7 +112,7 @@ def test_each_client_is_configured_with_its_section_of_the_config():
 
     assert section_for("tfl", config) == DeparturesSettings.from_config(config)
     assert section_for("weather", config) is config.weather
-    assert section_for("spotify", config) == config.spotify
+    assert section_for("spotify", config) == MusicSettings.from_config(config)
     assert section_for("glowmarkt", config) is config.glowmarkt
     # The notice board also gets the TfL key, for the road incidents near the postcode.
     assert section_for("notice_board", config) == NoticeBoardSettings(
@@ -169,9 +169,10 @@ def test_a_broker_without_the_shared_style_leaves_each_panel_on_its_own():
     assert section_for("notice_board", config).style == "card"
 
 
-def test_only_spotify_has_a_switch_in_the_config():
-    assert is_enabled(Spotify(enabled=True))
-    assert not is_enabled(Spotify(enabled=False))
+def test_the_music_is_on_with_either_service():
+    assert is_enabled(MusicSettings(spotify=True))
+    assert is_enabled(MusicSettings(spotify=False, apple_music=True))
+    assert not is_enabled(MusicSettings(spotify=False))
 
 
 def test_the_apis_without_a_switch_are_always_on():
@@ -218,18 +219,19 @@ def test_on_config_update_registers_the_enabled_clients():
     }
 
 
-def test_apple_music_as_the_source_builds_its_client_and_a_switch_back_rebuilds():
+def test_apple_music_alone_builds_its_client_and_switching_spotify_on_rebuilds():
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
 
-    asyncio.run(registry.on_config_update(with_apple_music(make_config(spotify={"enabled": True}))))
+    asyncio.run(registry.on_config_update(with_apple_music(make_config(spotify={"enabled": False}))))
     assert type(registry.clients["spotify"]) is AppleMusicClient
-    asyncio.run(registry.on_config_update(make_config(spotify={"enabled": True})))
+    asyncio.run(registry.on_config_update(with_apple_music(make_config(spotify={"enabled": True}))))
     assert type(registry.clients["spotify"]) is SpotifyClient
+    assert registry.clients["spotify"].config.services == (SPOTIFY, APPLE_MUSIC)
 
 
 def test_apple_musics_area_says_whose_service_could_not_connect():
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
-    asyncio.run(registry.on_config_update(with_apple_music(make_config(spotify={"enabled": True}))))
+    asyncio.run(registry.on_config_update(with_apple_music(make_config(spotify={"enabled": False}))))
 
     panel = registry._panel_for(ClientClasses.SPOTIFY)
 

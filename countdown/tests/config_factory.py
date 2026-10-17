@@ -33,9 +33,5 @@ def make_config(**overrides) -> wire.ConfigResponse:
 
 
 def with_apple_music(config: wire.ConfigResponse) -> wire.ConfigResponse:
-    """Return `config` with its Spotify area showing Apple Music.
-
-    Set past validation, so it holds whether or not the contract the tests run against has `spotify.source` yet.
-    """
-    spotify = config.spotify.model_copy(update={"source": "apple_music"})
-    return config.model_copy(update={"spotify": spotify})
+    """Return `config` with Apple Music switched on too."""
+    return config.model_copy(update={"apple_music": wire.AppleMusic(enabled=True)})

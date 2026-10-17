@@ -48,6 +48,14 @@ APPLE_MUSIC_LABELS = Labels(N_("Last played"), N_("Earlier"), N_("EARLIER"), HIS
 TOP = {"tracks": N_("Top tracks"), "artists": N_("Top artists")}
 
 
+def _aside(column: int, period: str, service: str | None) -> str:
+    """Return what a top page's `column` (0 tracks, 1 artists) says beside its heading, translated.
+
+    The period; but when the area shows both services, the tracks' side says whose lists they are instead.
+    """
+    return _(service) if service and column == 0 else _(period)
+
+
 def _artists(track: Track) -> str:
     return ", ".join(artist.name for artist in track.artists)
 
@@ -129,7 +137,9 @@ def airy_now(queue: Queue, art: AlbumArt, width: int, height: int, labels: Label
     return img
 
 
-def airy_top(period: str, tracks: list[Track], artists: list[Artist], width: int, height: int) -> Image.Image:
+def airy_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same arguments
+    period: str, tracks: list[Track], artists: list[Artist], width: int, height: int, service: str | None = None
+) -> Image.Image:
     """Draw the two top lists side by side, each under a small-caps label and a hairline."""
     img, d = _canvas(width, height)
     label = fitted_font(SANS_SEMI, 11)
@@ -140,8 +150,9 @@ def airy_top(period: str, tracks: list[Track], artists: list[Artist], width: int
         left = i * (column + gap)
         right = left + column
         airy_label(d, left, 8, NOTE if kind == "tracks" else MIC, _(TOP[kind]).upper())
-        if i == 1:
-            d.text((right, 8), _("LAST {period}").format(period=_(period)).upper(), "black", label, anchor="rm")
+        if i == 1 or service:
+            aside = _aside(i, _("LAST {period}").format(period=_(period)), service)
+            d.text((right, 8), aside.upper(), "black", label, anchor="rm")
         d.line((left, 19, right, 19), fill="black")
         y = 31
         for rank, (name, by) in enumerate(rows, 1):
@@ -203,7 +214,9 @@ def hero_now(queue: Queue, art: AlbumArt, width: int, height: int, labels: Label
     return img
 
 
-def hero_top(period: str, tracks: list[Track], artists: list[Artist], width: int, height: int) -> Image.Image:
+def hero_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same arguments
+    period: str, tracks: list[Track], artists: list[Artist], width: int, height: int, service: str | None = None
+) -> Image.Image:
     """Draw the two top lists side by side, number one big in a black badge and two to five under it."""
     img, d = _canvas(width, height)
     gap = 24
@@ -212,7 +225,14 @@ def hero_top(period: str, tracks: list[Track], artists: list[Artist], width: int
     for i, (kind, rows) in enumerate(_columns(tracks, artists)):
         left = round(i * (column + gap))
         right = round(left + column)
-        _hero_header(d, left, right, NOTE if kind == "tracks" else MIC, _(TOP[kind]), _(period) if i == 1 else "")
+        _hero_header(
+            d,
+            left,
+            right,
+            NOTE if kind == "tracks" else MIC,
+            _(TOP[kind]),
+            _aside(i, period, service) if i == 1 or service else "",
+        )
         if not rows:
             continue
         # Number one big, in a black badge like the next departure's route.
@@ -287,7 +307,9 @@ def card_now(queue: Queue, art: AlbumArt, width: int, height: int, labels: Label
     return img
 
 
-def card_top(period: str, tracks: list[Track], artists: list[Artist], width: int, height: int) -> Image.Image:
+def card_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same arguments
+    period: str, tracks: list[Track], artists: list[Artist], width: int, height: int, service: str | None = None
+) -> Image.Image:
     """Draw the two top lists side by side, a card each."""
     img, d = _canvas(width, height)
     gap = 10
@@ -296,7 +318,7 @@ def card_top(period: str, tracks: list[Track], artists: list[Artist], width: int
     for i, (kind, rows) in enumerate(_columns(tracks, artists)):
         left = round(i * (column + gap))
         right = round(left + column)
-        _card(d, left, right, height, NOTE if kind == "tracks" else MIC, _(TOP[kind]), _(period))
+        _card(d, left, right, height, NOTE if kind == "tracks" else MIC, _(TOP[kind]), _aside(i, period, service))
         y = CARD_BAR + 13
         for rank, (name, by) in enumerate(rows, 1):
             if y + 7 > height - 2:
@@ -312,7 +334,7 @@ class Style:
     """A Spotify style's two pages: `now` draws what's playing, `top` the top tracks and artists."""
 
     now: Callable[[Queue, AlbumArt, int, int, Labels], Image.Image]
-    top: Callable[[str, list[Track], list[Artist], int, int], Image.Image]
+    top: Callable[[str, list[Track], list[Artist], int, int, str | None], Image.Image]
 
 
 STYLES: dict[str, Style] = {

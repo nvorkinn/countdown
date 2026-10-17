@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: countdown VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-17 03:05+0000\n"
+"POT-Creation-Date: 2026-10-17 03:25+0000\n"
 "PO-Revision-Date: 2026-10-16 16:50+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nb\n"
@@ -285,9 +285,6 @@ msgstr "Ingen abonnement"
 msgid "Not configured"
 msgstr "Ikke konfigurert"
 
-msgid "Nothing played yet on:"
-msgstr "Ingenting spilt ennå på:"
-
 msgid "Nothing playing on:"
 msgstr "Ingenting spilles på:"
 
@@ -550,4 +547,7 @@ msgstr "{repo}: bygget feiler"
 
 #~ msgid "UP NEXT"
 #~ msgstr "NESTE"
+
+#~ msgid "Nothing played yet on:"
+#~ msgstr "Ingenting spilt ennå på:"
 
