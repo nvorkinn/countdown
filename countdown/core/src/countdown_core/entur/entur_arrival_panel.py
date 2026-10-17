@@ -26,6 +26,7 @@ class EnturArrivalPanel(AbstractArrivalPanel):
         """Draw `departures` from `stop` in the given departures style."""
         super().__init__(departures, style)
         self.stop = stop
+        self._arrivals = departures
 
     @property
     @override
@@ -40,10 +41,21 @@ class EnturArrivalPanel(AbstractArrivalPanel):
     @property
     @override
     def icon(self) -> Icon:
-        # A station served by several modes (Majorstuen: metro and tram) shows the first, which Entur gives as
-        # its main one.
-        modes = self.stop.transport_modes
-        return ICON_BY_MODE.get(modes[0], "bus") if modes else "bus"
+        return self.icons[0]
+
+    @property
+    @override
+    def icons(self) -> list[Icon]:
+        # Every mode the stop serves (Majorstuen: metro and tram), in the order Entur gives them (its main one
+        # first), then any a departure has that the stop didn't list. Modes drawn alike (bus, coach) count once.
+        modes = [*self.stop.transport_modes, *(departure.mode for departure in self._arrivals)]
+        icons = list(dict.fromkeys(ICON_BY_MODE.get(mode, "bus") for mode in modes))
+        return icons or ["bus"]
+
+    @staticmethod
+    @override
+    def _icon(departure: EnturDeparture) -> Icon:
+        return ICON_BY_MODE.get(departure.mode, "bus")
 
     @staticmethod
     @override

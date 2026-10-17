@@ -31,6 +31,7 @@ class Departures:
     line: str
     destination: str
     minutes: tuple[int, ...]
+    icon: Icon | None = None  # how this route travels, where the source says (a stop can serve several modes)
 
 
 class AbstractArrivalPanel(Panel, ABC):
@@ -43,13 +44,17 @@ class AbstractArrivalPanel(Panel, ABC):
         """Group `arrivals` (the stop's, in any order) into Departures, drawn in `style`."""
         super().__init__()
         self.style = style
-        groups: dict[tuple[str, str], tuple[str, str, str, list[int]]] = {}
+        groups: dict[tuple[str, str], tuple[str, str, str, Icon | None, list[int]]] = {}
         for arrival in sorted(arrivals, key=lambda a: a.time_to_station):
             *_, minutes = groups.setdefault(
-                self._route_key(arrival), (self._badge(arrival), arrival.line, self._destination(arrival), [])
+                self._route_key(arrival),
+                (self._badge(arrival), arrival.line, self._destination(arrival), self._icon(arrival), []),
             )
             minutes.append(arrival.time_to_station // 60)
-        self.departures = [Departures(*group[:3], tuple(group[3])) for group in groups.values()]
+        self.departures = [
+            Departures(badge, line, destination, tuple(minutes), icon)
+            for badge, line, destination, icon, minutes in groups.values()
+        ]
 
     @property
     @abstractmethod
@@ -70,6 +75,21 @@ class AbstractArrivalPanel(Panel, ABC):
     def icon(self) -> Icon:
         """The kind of transport the stop serves, for the styles that draw it beside its name."""
         return "subway" if self.is_tube else "bus"
+
+    @property
+    def icons(self) -> list[Icon]:
+        """The kinds of transport the stop serves, each once, for the styles that draw them beside its name."""
+        return [self.icon]
+
+    @property
+    def mixed_modes(self) -> bool:
+        """Whether the departures span several modes, so each row says which it is."""
+        return len({departure.icon for departure in self.departures if departure.icon}) > 1
+
+    @staticmethod
+    def _icon(arrival: Arrival) -> Icon | None:  # noqa: ARG004 -- a source that mixes modes overrides it
+        """Return the kind of transport `arrival` is, or None where the stop serves only one."""
+        return None
 
     @staticmethod
     @abstractmethod

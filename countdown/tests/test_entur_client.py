@@ -9,7 +9,14 @@ from test_utils import REGISTRATION
 from countdown_api.models import DepartureStop
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.entur.entur_arrival_panel import EnturArrivalPanel
-from countdown_core.entur.entur_client import HEADERS, EnturClient, TransportMode, normalize_stop_id
+from countdown_core.entur.entur_client import (
+    HEADERS,
+    EnturClient,
+    EnturDeparture,
+    EnturStop,
+    TransportMode,
+    normalize_stop_id,
+)
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 
 NOW = datetime(2026, 10, 16, 16, 0, tzinfo=UTC)
@@ -175,3 +182,46 @@ def test_a_stop_from_a_source_this_renderer_doesnt_know_is_skipped():
     client = DeparturesClient(REGISTRATION, DeparturesSettings(()))
     unknown = DepartureStop.model_construct(source="vy", id="x")
     assert client.init_stops([unknown]) == []
+
+
+def _departures(*modes: TransportMode) -> list[EnturDeparture]:
+    return [
+        EnturDeparture(
+            line=str(i),
+            destination="Somewhere",
+            mode=mode,
+            expected_departure_time=datetime(2026, 10, 16, 16, i, tzinfo=UTC),
+            time_to_station=i * 60,
+        )
+        for i, mode in enumerate(modes, 1)
+    ]
+
+
+def test_a_stop_serving_several_modes_lists_each_in_its_header_and_marks_every_row():
+    stop = EnturStop(id="x", name="Majorstuen", transport_modes=[TransportMode.METRO, TransportMode.TRAM])
+    panel = EnturArrivalPanel(stop, _departures(TransportMode.TRAM, TransportMode.METRO))
+
+    assert panel.icons == ["subway", "tram"]
+    assert panel.icon == "subway"
+    assert panel.mixed_modes
+    assert [d.icon for d in panel.departures] == ["tram", "subway"]
+
+
+def test_a_stop_serving_one_mode_marks_no_rows():
+    stop = EnturStop(id="x", name="Frogner plass", transport_modes=[TransportMode.TRAM])
+    panel = EnturArrivalPanel(stop, _departures(TransportMode.TRAM, TransportMode.TRAM))
+
+    assert panel.icons == ["tram"]
+    assert not panel.mixed_modes
+
+
+def test_modes_drawn_alike_count_once_and_a_departures_own_mode_joins_the_stops():
+    stop = EnturStop(id="x", name="Oslo S", transport_modes=[TransportMode.BUS])
+    panel = EnturArrivalPanel(stop, _departures(TransportMode.COACH, TransportMode.RAIL))
+
+    assert panel.icons == ["bus", "train"]
+    assert panel.mixed_modes
+
+
+def test_a_stop_listing_no_modes_and_no_departures_shows_a_bus():
+    assert EnturArrivalPanel(EnturStop(id="x", name="Somewhere"), []).icons == ["bus"]

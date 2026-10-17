@@ -49,6 +49,29 @@ def _shrunk(text: str, filename: str, size: int, width: float) -> ImageFont.Free
     return font
 
 
+# The most mode icons a header lists; a stop serving more keeps the first few, so its name keeps its room.
+MAX_HEADER_ICONS = 3
+# The room a row's own mode icon takes before the row, on a stop that serves several modes.
+ROW_ICON_ROOM = 22
+
+
+def _header_icons(d: ImageDraw.ImageDraw, panel: AbstractArrivalPanel, y: float, size: int, step: int) -> int:
+    """Draw the modes the stop serves, side by side from the left and centred on `y`; return the width they took."""
+    icons = panel.icons[:MAX_HEADER_ICONS]
+    for i, icon in enumerate(icons):
+        d.text((i * step, y), ICONS[icon], "black", google_symbols().font_variant(size=size), anchor="lm")
+    return len(icons) * step
+
+
+def _row_icons(d: ImageDraw.ImageDraw, panel: AbstractArrivalPanel, centres: list[float]) -> None:
+    """Draw each row's mode before it, when the stop serves several; `centres` are the rows' middles, top down."""
+    if not panel.mixed_modes:
+        return
+    for departure, y in zip(panel.departures, centres, strict=False):
+        if departure.icon:
+            d.text((0, y), ICONS[departure.icon], "black", google_symbols().font_variant(size=18), anchor="lm")
+
+
 def _minutes(minutes: int) -> str:
     return _("due") if minutes == 0 else str(minutes)
 
@@ -66,11 +89,11 @@ def _later(minutes: tuple[int, ...]) -> str:
 def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     """Draw the next departure big, so it reads from across the room; the rest in a list below."""
     img, d = _canvas(width, height)
-    # Header: the stop's mode (a bus, a train...), its name, its letter in a circle, and a rule.
-    d.text((0, 11), ICONS[panel.icon], "black", google_symbols().font_variant(size=22), anchor="lm")
+    # Header: the stop's modes (a bus, a train...), its name, its letter in a circle, and a rule.
+    name_x = _header_icons(d, panel, 11, 22, 24) + 2
     letter_width = 26 if panel.stop_letter else 0
-    name = truncate_to_fit(panel.stop_name, fitted_font(SANS_SEMI, 17), width - 26 - letter_width)
-    d.text((26, 11), name, "black", fitted_font(SANS_SEMI, 17), anchor="lm")
+    name = truncate_to_fit(panel.stop_name, fitted_font(SANS_SEMI, 17), width - name_x - letter_width)
+    d.text((name_x, 11), name, "black", fitted_font(SANS_SEMI, 17), anchor="lm")
     if panel.stop_letter:
         d.ellipse((width - 22, 0, width - 1, 21), fill="black")
         d.text((width - 11.5, 11), panel.stop_letter, "white", fitted_font(BOLD, 13), anchor="mm")
@@ -78,8 +101,20 @@ def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     if not panel.departures:
         return img
 
+    # A stop serving several modes gives each row its own icon, and the rows a little less room.
+    indent = ROW_ICON_ROOM if panel.mixed_modes else 0
+    rows, centres = _hero_rows(panel, width - indent, height)
+    img.paste(rows, (indent, 0), rows)
+    _row_icons(d, panel, centres)
+    return img
+
+
+def _hero_rows(panel: AbstractArrivalPanel, width: int, height: int) -> tuple[Image.Image, list[float]]:
+    """Draw the departures under the header: the next big, the rest in a list; return the rows' middles too."""
+    img, d = _canvas(width, height)
     first, *rest = panel.departures
     y = 34
+    centres = [y + 20.0]
     badge_width = 46
     d.rounded_rectangle((0, y, badge_width, y + 40), 6, fill="black")
     d.text(
@@ -117,8 +152,9 @@ def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
             destination_font,
             anchor="lm",
         )
+        centres.append(y + 10)
         y += 25
-    return img
+    return img, centres
 
 
 def airy(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
@@ -128,19 +164,34 @@ def airy(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     label = _("Platform {letter}") if panel.icon in ("subway", "train") else _("Stop {letter}")
     letter = label.format(letter=panel.stop_letter) if panel.stop_letter else ""
     letter_font = fitted_font(MEDIUM, 13)
-    # The stop's mode (a bus, a train...), smaller than hero's.
-    d.text((0, 10), ICONS[panel.icon], "black", google_symbols().font_variant(size=18), anchor="lm")
-    name_room = width - 21 - (letter_font.getlength(letter) + 8 if letter else 0)
-    d.text((21, 0), truncate_to_fit(panel.stop_name, fitted_font(BOLD, 16), name_room), "black", fitted_font(BOLD, 16))
+    # The stop's modes (a bus, a train...), smaller than hero's.
+    name_x = _header_icons(d, panel, 10, 18, 20) + 1
+    name_room = width - name_x - (letter_font.getlength(letter) + 8 if letter else 0)
+    d.text(
+        (name_x, 0), truncate_to_fit(panel.stop_name, fitted_font(BOLD, 16), name_room), "black", fitted_font(BOLD, 16)
+    )
     if letter:
         d.text((width, 0), letter, "black", letter_font, anchor="ra")
     d.line((0, 24, width, 24), fill="black", width=2)
 
+    # A stop serving several modes gives each row its own icon, and the rows a little less room.
+    indent = ROW_ICON_ROOM if panel.mixed_modes else 0
+    rows, centres = _airy_rows(panel, width - indent, height)
+    img.paste(rows, (indent, 0), rows)
+    _row_icons(d, panel, centres)
+    return img
+
+
+def _airy_rows(panel: AbstractArrivalPanel, width: int, height: int) -> tuple[Image.Image, list[float]]:
+    """Draw a row per route under the header; return the rows' middles too."""
+    img, d = _canvas(width, height)
+    centres: list[float] = []
     number_font, unit_font, small = fitted_font(BOLD, 26), fitted_font(REGULAR, 11), fitted_font(REGULAR, 11)
     y = 32
     for departure in panel.departures:
         if y + 31 > height:
             break
+        centres.append(y + 15)
         d.rectangle((0, y, 3, y + 30), fill="black")
         number, unit = _minutes(departure.minutes[0]), _unit(departure.minutes[0], _("min"))
         unit_width = unit_font.getlength(unit) + 3 if unit else 0
@@ -164,7 +215,7 @@ def airy(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
         d.text((10, y + 21), subtitle, "black", small)
         y += 37
         d.line((10, y - 4, width, y - 4), fill="gray")
-    return img
+    return img, centres
 
 
 def card(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
