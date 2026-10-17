@@ -222,6 +222,7 @@ def source_names(registry: ApiRegistry) -> list[str]:
     return [type(source).__name__ for source in registry.clients["notice_board"].client_sources]
 
 
+@responses.activate
 def test_the_notice_board_polls_the_departures_disruptions_for_their_stops():
     config = make_config(departures={"stops": [{"source": "entur", "id": "NSR:StopPlace:58366"}]})
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
@@ -232,6 +233,7 @@ def test_the_notice_board_polls_the_departures_disruptions_for_their_stops():
     assert source_names(registry) == ["EnturSituationsSource"]
 
 
+@responses.activate
 def test_new_stops_change_the_disruptions_without_rebuilding_the_notice_board():
     """Norway's disruptions go with Norway's stops, and the board keeps its postcode's place."""
     norway = make_config(
@@ -252,6 +254,7 @@ def test_new_stops_change_the_disruptions_without_rebuilding_the_notice_board():
     assert source_names(registry) == ["TflLineStatusSource", "TflStationSource"]
 
 
+@responses.activate
 def test_a_rebuilt_notice_board_gets_the_departures_disruptions_too():
     stops = {"stops": [{"source": "tfl", "id": "940GZZLUKNG"}]}
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
@@ -313,6 +316,7 @@ def test_unchanged_config_keeps_the_existing_clients_and_their_panels():
     assert registry.panels == {"tfl": "arrivals"}
 
 
+@responses.activate
 def test_a_changed_config_replaces_only_that_client_and_drops_its_stale_panel():
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
     asyncio.run(registry.on_config_update(make_config()))
@@ -479,6 +483,7 @@ def test_a_client_that_could_not_be_built_shows_as_an_error_in_the_health_payloa
     assert data["countdown.problem"][0].value == 1
 
 
+@responses.activate
 def test_a_client_that_could_not_be_built_is_reported_again_by_update_all_without_raising(unbuildable_spotify, caplog):
     caplog.set_level(logging.INFO)
     config = make_config()
