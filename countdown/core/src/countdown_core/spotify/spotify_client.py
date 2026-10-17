@@ -2,6 +2,10 @@
 
 It shows Spotify, Apple Music, or both: Spotify while it's playing, else what was last played on Apple Music, with
 their top lists taking turns.
+
+A renderer that reads the store (countdown_core.store.reader) reads them from what auth-broker's music provider wrote
+there (countdown_core.store.music), and never calls the broker for them; one that doesn't (a standalone Pi) asks the
+broker's proxy routes, which answer in the same shapes.
 """
 
 from dataclasses import dataclass
@@ -14,8 +18,12 @@ from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
+from countdown_core.store import keys, reader
+from countdown_core.store.music import StoredPlayer, StoredTop, TopLists
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from countdown_api.models import ConfigResponse
     from countdown_core.core.panel import Panel
     from countdown_core.core.style import Style
@@ -31,12 +39,14 @@ class MusicService:
     # Where the broker serves its data, in Spotify's shapes.
     api_path: str
     labels: Labels
+    # Its part of what the broker's music provider stores (countdown_core.store.music).
+    stored_as: str
 
 
-SPOTIFY = MusicService(N_("Spotify"), "/api/spotify", SPOTIFY_LABELS)
+SPOTIFY = MusicService(N_("Spotify"), "/api/spotify", SPOTIFY_LABELS, "spotify")
 # Apple Music has no now playing, queue or top lists, so the broker hands over the last played track and the ones
 # before it, and top lists it counts from the plays it has seen since the listener connected.
-APPLE_MUSIC = MusicService(N_("Apple Music"), "/api/apple-music", APPLE_MUSIC_LABELS)
+APPLE_MUSIC = MusicService(N_("Apple Music"), "/api/apple-music", APPLE_MUSIC_LABELS, "apple_music")
 
 
 @dataclass(frozen=True)
@@ -83,6 +93,8 @@ class Page:
 
 
 PERIODS = (("long_term", N_("12 months")), ("short_term", N_("4 weeks")))
+# How many of each the top pages show.
+TOP_LIMIT = 5
 
 
 def pages(services: tuple[MusicService, ...]) -> tuple[Page, ...]:
@@ -95,11 +107,18 @@ def pages(services: tuple[MusicService, ...]) -> tuple[Page, ...]:
     )
 
 
+class NoStoredMusicError(LookupError):
+    """The store has nothing for one of the device's services: the music provider is down, or hasn't got to it yet.
+
+    Raised so the registry keeps the last panel, as when a call to the broker fails.
+    """
+
+
 class SpotifyClient(AbstractClient):
     """Now playing and top tracks/artists, from Spotify, Apple Music or both, via auth-broker.
 
     The broker calls the services server-side, so this device never holds a token. Authenticates as the device
-    `registration` registered.
+    `registration` registered; with the store, reads that device's keys instead.
     """
 
     panel_title = N_("Spotify")
@@ -141,8 +160,9 @@ class SpotifyClient(AbstractClient):
 
         Each with what's next (or, for Apple Music, what was played before).
         """
+        stored = self._read_store(StoredPlayer, keys.spotify)
         for service in self.config.services:
-            queue = Queue.model_validate_json(self._request("GET", f"{service.api_path}/queue"))
+            queue = self._fetch_queue(service) if stored is None else _stored_queue(stored, service)
             if queue.currently_playing is not None:
                 return SpotifyPanel(queue, self.style, service.labels)
         return None
@@ -152,14 +172,60 @@ class SpotifyClient(AbstractClient):
 
         Apple Music's are, until the broker has seen some plays. With both services on, the page names its own.
         """
-        params = {"time_range": page.time_range, "limit": 5}
-        path = page.service.api_path
-        tracks = TopResponse[Track].model_validate_json(self._request("GET", f"{path}/top/tracks", params=params))
-        artists = TopResponse[Artist].model_validate_json(self._request("GET", f"{path}/top/artists", params=params))
-        if not tracks.items and not artists.items:
+        stored = self._read_store(StoredTop, keys.spotify_top)
+        lists = self._fetch_top(page) if stored is None else _stored_top(stored, page)
+        tracks, artists = lists.tracks.items, lists.artists.items
+        if not tracks and not artists:
             return None
         service = page.service.name if len(self.config.services) > 1 else None
-        return SpotifyTopPanel(page.period, tracks.items, artists.items, self.style, service)
+        return SpotifyTopPanel(page.period, tracks, artists, self.style, service)
+
+    def _fetch_queue(self, service: MusicService) -> Queue:
+        """Ask the broker for `service`'s queue."""
+        return Queue.model_validate_json(self._request("GET", f"{service.api_path}/queue"))
+
+    def _fetch_top(self, page: Page) -> TopLists:
+        """Ask the broker for the page's service's top tracks and artists over its time range."""
+        params = {"time_range": page.time_range, "limit": TOP_LIMIT}
+        path = page.service.api_path
+        return TopLists(
+            tracks=TopResponse[Track].model_validate_json(self._request("GET", f"{path}/top/tracks", params=params)),
+            artists=TopResponse[Artist].model_validate_json(self._request("GET", f"{path}/top/artists", params=params)),
+        )
+
+    def _read_store[S: (StoredPlayer, StoredTop)](self, model: type[S], key: Callable[[str], str]) -> S | None:
+        """Read this device's `key` as `model`; None if this renderer reads no store (and so asks the broker).
+
+        Raises NoStoredMusicError if the key isn't there, and RedisError if Redis can't be asked.
+        """
+        store = reader.store()
+        # Only a renderer's registration (RendererRegistration) carries the device id its keys are under.
+        device_id = getattr(self.registration, "device_id", None)
+        if store is None or device_id is None:
+            return None
+        stored = reader.read(store, key(device_id), model)
+        if stored is None:
+            msg = f"No music in the store under {key(device_id)}"
+            raise NoStoredMusicError(msg)
+        return stored
+
+
+def _stored_queue(stored: StoredPlayer, service: MusicService) -> Queue:
+    """Return `service`'s stored queue; raises NoStoredMusicError if there's none (the provider couldn't fetch it)."""
+    queue = getattr(stored, service.stored_as)
+    if queue is None:
+        msg = f"No {service.name} queue in the store"
+        raise NoStoredMusicError(msg)
+    return queue
+
+
+def _stored_top(stored: StoredTop, page: Page) -> TopLists:
+    """Return the page's stored top lists; raises NoStoredMusicError if there are none."""
+    lists = (getattr(stored, page.service.stored_as) or {}).get(page.time_range)
+    if lists is None:
+        msg = f"No {page.time_range} top lists for {page.service.name} in the store"
+        raise NoStoredMusicError(msg)
+    return lists
 
 
 class AppleMusicClient(SpotifyClient):
