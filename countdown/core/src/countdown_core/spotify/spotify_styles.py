@@ -23,13 +23,37 @@ if TYPE_CHECKING:
 NOTE = chr(0xE405)
 MIC = chr(0xE029)
 SKIP_NEXT = chr(0xE044)
+HISTORY = chr(0xE889)
 
 # The cover at a given size: a square, or 0 wide if the track has none (a local file).
 AlbumArt = Callable[[int], Image.Image]
 
 
+@dataclass(frozen=True)
+class Labels:
+    """What the now page calls its two parts, which differ by service: English, marked with N_()."""
+
+    now: str  # the track with the cover
+    next: str  # the one under it
+    badge: str  # the hero style's short badge for that one
+    next_icon: str  # its Material Symbols glyph
+
+
+SPOTIFY_LABELS = Labels(N_("Now playing"), N_("Up next"), N_("NEXT"), SKIP_NEXT)
+# Apple Music can't say what's playing or what's next, only what was played: the last track, and the one before it.
+APPLE_MUSIC_LABELS = Labels(N_("Last played"), N_("Earlier"), N_("EARLIER"), HISTORY)
+
+
 # The headings of the two top lists, by kind.
 TOP = {"tracks": N_("Top tracks"), "artists": N_("Top artists")}
+
+
+def _aside(column: int, period: str, service: str | None) -> str:
+    """Return what a top page's `column` (0 tracks, 1 artists) says beside its heading, translated.
+
+    The period; but when the area shows both services, the tracks' side says whose lists they are instead.
+    """
+    return _(service) if service and column == 0 else _(period)
 
 
 def _artists(track: Track) -> str:
@@ -83,7 +107,7 @@ def airy_label(d: ImageDraw.ImageDraw, x: float, y: float, icon: str, text: str)
     return x + 18 + label.getlength(text)
 
 
-def airy_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Image:
+def airy_now(queue: Queue, art: AlbumArt, width: int, height: int, labels: Labels = SPOTIFY_LABELS) -> Image.Image:
     """Draw what's playing beside its cover, under a small-caps label, with what's up next below a hairline."""
     img, d = _canvas(width, height)
     track = queue.currently_playing
@@ -92,7 +116,7 @@ def airy_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     x = cover.size[0] + 18 if cover.size[0] else 0
     room = width - x
     label = fitted_font(SANS_SEMI, 11)
-    airy_label(d, x, 12, NOTE, _("NOW PLAYING"))
+    airy_label(d, x, 12, NOTE, _(labels.now).upper())
     d.text((width, 12), _length(track.duration_ms), "black", label, anchor="rm")
     title = _shrunk(track.name, SANS, 32, room)
     d.text((x, 48), truncate_to_fit(track.name, title, room), "black", title, anchor="ls")
@@ -106,14 +130,16 @@ def airy_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     )
     if queue.queue:
         d.line((x, 86, width, 86), fill="black")
-        next_x = airy_label(d, x, 104, SKIP_NEXT, _("UP NEXT")) + 10
+        next_x = airy_label(d, x, 104, labels.next_icon, _(labels.next).upper()) + 10
         up_next, body = queue.queue[0], fitted_font(SANS, 15)
         text = truncate_to_fit(f"{up_next.name} · {_artists(up_next)}", body, width - next_x)
         d.text((next_x, 104), text, "black", body, anchor="lm")
     return img
 
 
-def airy_top(period: str, tracks: list[Track], artists: list[Artist], width: int, height: int) -> Image.Image:
+def airy_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same arguments
+    period: str, tracks: list[Track], artists: list[Artist], width: int, height: int, service: str | None = None
+) -> Image.Image:
     """Draw the two top lists side by side, each under a small-caps label and a hairline."""
     img, d = _canvas(width, height)
     label = fitted_font(SANS_SEMI, 11)
@@ -124,8 +150,9 @@ def airy_top(period: str, tracks: list[Track], artists: list[Artist], width: int
         left = i * (column + gap)
         right = left + column
         airy_label(d, left, 8, NOTE if kind == "tracks" else MIC, _(TOP[kind]).upper())
-        if i == 1:
-            d.text((right, 8), _("LAST {period}").format(period=_(period)).upper(), "black", label, anchor="rm")
+        if i == 1 or service:
+            aside = _aside(i, _("LAST {period}").format(period=_(period)), service)
+            d.text((right, 8), aside.upper(), "black", label, anchor="rm")
         d.line((left, 19, right, 19), fill="black")
         y = 31
         for rank, (name, by) in enumerate(rows, 1):
@@ -147,7 +174,7 @@ def _hero_header(d: ImageDraw.ImageDraw, left: float, right: float, icon: str, t
     d.line((left, 26, right, 26), fill="black", width=2)
 
 
-def hero_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Image:
+def hero_now(queue: Queue, art: AlbumArt, width: int, height: int, labels: Labels = SPOTIFY_LABELS) -> Image.Image:
     """Draw what's playing beside its cover, the title big, with what's up next in a NEXT badge's row."""
     img, d = _canvas(width, height)
     track = queue.currently_playing
@@ -155,7 +182,7 @@ def hero_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     img.paste(cover, (0, 0), cover)
     x = cover.size[0] + 14 if cover.size[0] else 0
     room = width - x
-    _hero_header(d, x, width, NOTE, _("Now playing"), _length(track.duration_ms))
+    _hero_header(d, x, width, NOTE, _(labels.now), _length(track.duration_ms))
     title = _shrunk(track.name, BOLD, 26, room)
     d.text((x, 47), truncate_to_fit(track.name, title, room), "black", title, anchor="lm")
     subtitle = fitted_font(REGULAR, 14)
@@ -168,16 +195,28 @@ def hero_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     )
     if queue.queue:
         y = 92
-        d.rounded_rectangle((x, y, x + 46, y + 20), 4, outline="black", width=2)
-        d.text((x + 23, y + 10), _("NEXT"), "black", fitted_font(BOLD, 12), anchor="mm")
+        badge, badge_font = _(labels.badge), fitted_font(BOLD, 12)
+        # 46 wide, as NEXT has always been; a longer word widens it.
+        badge_width = max(46, round(badge_font.getlength(badge)) + 12)
+        d.rounded_rectangle((x, y, x + badge_width, y + 20), 4, outline="black", width=2)
+        d.text((x + badge_width / 2, y + 10), badge, "black", badge_font, anchor="mm")
         up_next = queue.queue[0]
         _track_and_by(
-            d, y + 10, x + 54, width, up_next.name, _artists(up_next), fitted_font(MEDIUM, 14), fitted_font(BOLD, 14)
+            d,
+            y + 10,
+            x + badge_width + 8,
+            width,
+            up_next.name,
+            _artists(up_next),
+            fitted_font(MEDIUM, 14),
+            fitted_font(BOLD, 14),
         )
     return img
 
 
-def hero_top(period: str, tracks: list[Track], artists: list[Artist], width: int, height: int) -> Image.Image:
+def hero_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same arguments
+    period: str, tracks: list[Track], artists: list[Artist], width: int, height: int, service: str | None = None
+) -> Image.Image:
     """Draw the two top lists side by side, number one big in a black badge and two to five under it."""
     img, d = _canvas(width, height)
     gap = 24
@@ -186,7 +225,14 @@ def hero_top(period: str, tracks: list[Track], artists: list[Artist], width: int
     for i, (kind, rows) in enumerate(_columns(tracks, artists)):
         left = round(i * (column + gap))
         right = round(left + column)
-        _hero_header(d, left, right, NOTE if kind == "tracks" else MIC, _(TOP[kind]), _(period) if i == 1 else "")
+        _hero_header(
+            d,
+            left,
+            right,
+            NOTE if kind == "tracks" else MIC,
+            _(TOP[kind]),
+            _aside(i, period, service) if i == 1 or service else "",
+        )
         if not rows:
             continue
         # Number one big, in a black badge like the next departure's route.
@@ -232,11 +278,11 @@ def _card(d: ImageDraw.ImageDraw, left: int, right: int, height: int, icon: str,
     d.text((right - 11, 14), aside, "white", fitted_font(SANS_SEMI, 13), anchor="rm")
 
 
-def card_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Image:
+def card_now(queue: Queue, art: AlbumArt, width: int, height: int, labels: Labels = SPOTIFY_LABELS) -> Image.Image:
     """Draw what's playing in a card, its cover inside, with what's up next under a dotted line."""
     img, d = _canvas(width, height)
     track = queue.currently_playing
-    _card(d, 0, width, height, NOTE, _("Now playing"), _length(track.duration_ms))
+    _card(d, 0, width, height, NOTE, _(labels.now), _length(track.duration_ms))
     cover = art(height - CARD_BAR - 14)
     img.paste(cover, (8, CARD_BAR + 7), cover)
     x = 8 + cover.size[0] + 12 if cover.size[0] else 10
@@ -254,14 +300,16 @@ def card_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     if queue.queue:
         for dot in range(x, width - 10, 4):
             d.point((dot, 84), fill="black")
-        d.text((x, 100), SKIP_NEXT, "black", google_symbols().font_variant(size=18), anchor="lm")
+        d.text((x, 100), labels.next_icon, "black", google_symbols().font_variant(size=18), anchor="lm")
         up_next, body = queue.queue[0], fitted_font(SANS, 14)
         text = truncate_to_fit(f"{up_next.name} · {_artists(up_next)}", body, room - 22)
         d.text((x + 22, 100), text, "black", body, anchor="lm")
     return img
 
 
-def card_top(period: str, tracks: list[Track], artists: list[Artist], width: int, height: int) -> Image.Image:
+def card_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same arguments
+    period: str, tracks: list[Track], artists: list[Artist], width: int, height: int, service: str | None = None
+) -> Image.Image:
     """Draw the two top lists side by side, a card each."""
     img, d = _canvas(width, height)
     gap = 10
@@ -270,7 +318,7 @@ def card_top(period: str, tracks: list[Track], artists: list[Artist], width: int
     for i, (kind, rows) in enumerate(_columns(tracks, artists)):
         left = round(i * (column + gap))
         right = round(left + column)
-        _card(d, left, right, height, NOTE if kind == "tracks" else MIC, _(TOP[kind]), _(period))
+        _card(d, left, right, height, NOTE if kind == "tracks" else MIC, _(TOP[kind]), _aside(i, period, service))
         y = CARD_BAR + 13
         for rank, (name, by) in enumerate(rows, 1):
             if y + 7 > height - 2:
@@ -285,8 +333,8 @@ def card_top(period: str, tracks: list[Track], artists: list[Artist], width: int
 class Style:
     """A Spotify style's two pages: `now` draws what's playing, `top` the top tracks and artists."""
 
-    now: Callable[[Queue, AlbumArt, int, int], Image.Image]
-    top: Callable[[str, list[Track], list[Artist], int, int], Image.Image]
+    now: Callable[[Queue, AlbumArt, int, int, Labels], Image.Image]
+    top: Callable[[str, list[Track], list[Artist], int, int, str | None], Image.Image]
 
 
 STYLES: dict[str, Style] = {

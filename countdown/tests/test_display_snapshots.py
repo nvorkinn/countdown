@@ -35,6 +35,7 @@ from countdown_core.rendering.screen import DEFAULT_CANVAS
 from countdown_core.spotify.models import Artist, Queue, Track
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.spotify.spotify_panel import SpotifyPanel
+from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
@@ -722,6 +723,27 @@ def test_spotify_styles_on_a_portrait_screen(snapshot, style, page):
     responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
     img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
     snapshot.assert_matches(f"screen_portrait_spotify_{style}_{page}", img)
+
+
+@responses.activate
+@pytest.mark.parametrize("style", SPOTIFY_STYLES)
+def test_apple_music_now(snapshot, style):
+    """Apple Music's now page: the last played track, with the one before it, labelled for what they are."""
+    responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
+    queue = SPOTIFY_QUEUE.model_copy(deep=True)
+    queue.currently_playing.album.images[0].height = queue.currently_playing.album.images[0].width = 300
+    panel = SpotifyPanel(queue, style, APPLE_MUSIC_LABELS)
+    img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=panel))
+    snapshot.assert_matches(f"screen_portrait_apple_music_{style}_now", img)
+
+
+@pytest.mark.parametrize("style", SPOTIFY_STYLES)
+def test_apple_music_top_beside_spotify(snapshot, style):
+    """With both services on, a top page says whose lists they are."""
+    top = _spotify_page("top", style)
+    top.service = "Apple Music"
+    img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=top))
+    snapshot.assert_matches(f"screen_portrait_apple_music_{style}_top", img)
 
 
 @pytest.mark.parametrize("period", [WeatherPeriod.NOW, WeatherPeriod.TONIGHT, WeatherPeriod.TOMORROW])

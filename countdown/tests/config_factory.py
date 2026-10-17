@@ -30,3 +30,8 @@ def make_config(**overrides) -> wire.ConfigResponse:
     Sections are overridden as for broker_payload, e.g. make_config(tfl={"stop_ids": ["940GZZLUKNG"]}).
     """
     return wire.ConfigResponse.model_validate(broker_payload(**overrides))
+
+
+def with_apple_music(config: wire.ConfigResponse) -> wire.ConfigResponse:
+    """Return `config` with Apple Music switched on too."""
+    return config.model_copy(update={"apple_music": wire.AppleMusic(enabled=True)})
