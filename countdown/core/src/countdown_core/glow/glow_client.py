@@ -10,8 +10,13 @@ from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.glow.models import Entity, Readings
 from countdown_core.i18n import N_
+from countdown_core.store import keys, reader
+from countdown_core.store.energy import StoredEnergy
 
 if TYPE_CHECKING:
+    from datetime import tzinfo
+
+    import redis
     from pydantic import JsonValue
 
     from countdown_api.models import Glowmarkt
@@ -36,8 +41,33 @@ def _get_utc_offset(now: datetime | None = None) -> str:
     return str(round(-utc_offset.total_seconds() / 60))
 
 
+def _bucket_starts(
+    data: list[tuple[int | float | str, float]], local_tz: tzinfo | None
+) -> list[tuple[datetime, float]]:
+    """Return Glow's (time, kWh) readings as (bucket start, kWh), each start an aware time in `local_tz`.
+
+    With an offset set, Glow labels each bucket with its *local* wall-clock start encoded as if it were UTC (06:00 BST
+    comes back as 06:00Z). Read the wall clock as UTC, then relabel it with the zone the readings were asked for in,
+    so the starts are the same instants as the bucket starts _update() walks.
+    """
+    readings = []
+    for ts, value in data:
+        # Glow has sent both epoch seconds and ISO strings.
+        wall_clock = datetime.fromtimestamp(ts, tz=UTC) if isinstance(ts, (int, float)) else datetime.fromisoformat(ts)
+        readings.append((wall_clock.replace(tzinfo=local_tz), value))
+    return readings
+
+
+class NoStoredEnergyError(LookupError):
+    """The store has no readings for the device: the broker's glow-provider is down, or hasn't fetched it yet."""
+
+
 class GlowClient(AbstractClient):
-    """The energy panel's pages in turn, a new one each update: the last 24 hours, 31 days, and this year."""
+    """The energy panel's pages in turn, a new one each update: the last 24 hours, 31 days, and this year.
+
+    When the renderer reads the store (countdown_core.store.reader), the readings come from there instead, under the
+    device's id (`v1:energy:<device id>`, written by auth-broker's glow-provider), and Glow isn't signed in to at all.
+    """
 
     # update() runs every minute to rotate the page; each page only asks Glow for fresh
     # readings this often and redraws from cache otherwise.
@@ -65,8 +95,19 @@ class GlowClient(AbstractClient):
 
     @override
     def _initialise(self) -> None:
+        if self._stored_source() is not None:
+            return  # the broker signs in to Glow, not this renderer
         self._authenticate()
         self.resource_id = self.get_electricity_resource_id()
+
+    def _stored_source(self) -> tuple[redis.Redis, str] | None:
+        """Return the store to read the readings from and the device id they're under; None to ask Glow instead.
+
+        None without a store, or without a device id to read by (only a renderer's registration has one).
+        """
+        store = reader.store()
+        device_id = getattr(self.registration, "device_id", None)
+        return (store, device_id) if store is not None and device_id else None
 
     def _authenticate(self) -> None:
         """Fetch and store the session token."""
@@ -112,6 +153,9 @@ class GlowClient(AbstractClient):
 
     @override
     def _update(self) -> EnergyPanel:
+        source = self._stored_source()
+        if source is not None:
+            return self._stored_update(*source)
         current = datetime.now().astimezone()
         window_start, period, bucket_delta = self._page_config(self.page_index, current)
         open_start = self._truncate(current, period)
@@ -148,6 +192,30 @@ class GlowClient(AbstractClient):
             usage.append({"start": open_bucket_start.isoformat(), "kwh": round(open_value, 3)})
 
         self.glow_cache[self.page_index] = cache
+        panel = EnergyPanel(usage, self.page_index)
+        self.page_index = (self.page_index + 1) % 3
+        return panel
+
+    def _stored_update(self, store: redis.Redis, device_id: str) -> EnergyPanel:
+        """Return the next page, drawn from the readings in the store; raises if there are none, keeping the last.
+
+        The stored readings run to when they were fetched, from the start of each page's window then. Cut to the
+        window as of now, in the zone they were asked for in, they're what _update() would show from Glow: the
+        buckets since the window's start, the last one perhaps still open.
+        """
+        stored = reader.read(store, keys.energy(device_id), StoredEnergy)
+        if stored is None:
+            msg = f"No energy readings in the store for device {device_id}"
+            raise NoStoredEnergyError(msg)
+        current = datetime.now(UTC).astimezone(stored.zone())
+        window_start, period, _ = self._page_config(self.page_index, current)
+        window_start = self._truncate(window_start, period)
+        buckets = dict(_bucket_starts(stored.readings(period).data, current.tzinfo))
+        usage = [
+            {"start": bucket_start.isoformat(), "kwh": round(value, 3)}
+            for bucket_start, value in sorted(buckets.items())
+            if bucket_start >= window_start
+        ]
         panel = EnergyPanel(usage, self.page_index)
         self.page_index = (self.page_index + 1) % 3
         return panel
@@ -213,7 +281,7 @@ class GlowClient(AbstractClient):
             return dt.replace(month=dt.month + 1)
         return dt + bucket_delta
 
-    def _get_readings(self, dt_from: datetime, dt_to: datetime, period: str) -> list[Readings]:
+    def _get_readings(self, dt_from: datetime, dt_to: datetime, period: str) -> list[tuple[datetime, float]]:
         """(bucket start, kWh) pairs, summed by Glow per period: "PT1H", "P1D" or "P1M"."""
         response = self.session.get(
             f"{self.base_url}/resource/{self.resource_id}/readings",
@@ -227,19 +295,4 @@ class GlowClient(AbstractClient):
             },
         )
         response.raise_for_status()
-
-        # With an offset set, Glow labels each bucket with its *local* wall-clock
-        # start encoded as if it were UTC (06:00 BST comes back as 06:00Z). Read the
-        # wall clock as UTC, then relabel it with the request's zone so the keys
-        # are the same instants as the bucket starts _update() walks.
-        local_tz = dt_from.tzinfo
-        readings = []
-        for ts, value in response.json()["data"]:
-            # Glow has sent both epoch seconds and ISO strings.
-            if isinstance(ts, (int, float)):
-                wall_clock = datetime.fromtimestamp(ts, tz=UTC)
-            else:
-                wall_clock = datetime.fromisoformat(ts)
-            readings.append((wall_clock.replace(tzinfo=local_tz), value))
-
-        return readings
+        return _bucket_starts(Readings.model_validate(response.json()).data, dt_from.tzinfo)

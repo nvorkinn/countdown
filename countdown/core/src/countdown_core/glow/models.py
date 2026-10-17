@@ -17,6 +17,7 @@ class Entity(BaseModel):
 
 
 class Readings(BaseModel):
-    """A resource's readings: (time, kWh) pairs."""
+    """A resource's readings: (time, kWh) pairs, each time a bucket's local wall-clock start as if it were UTC."""
 
-    data: list[tuple[int, float]]
+    # Glow has sent the times both as epoch seconds and as ISO strings.
+    data: list[tuple[int | float | str, float]]

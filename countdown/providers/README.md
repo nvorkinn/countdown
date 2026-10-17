@@ -37,7 +37,7 @@ countdown-core so the providers and renderers share them.
 | `v1:sub:changed` | pub/sub channel | broker | empty message after replacing subscriptions |
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages) |
-| `v1:energy:<device id>` | string, TTL ~1 h | (provider to come) | (model to come) |
+| `v1:energy:<device id>` | string, TTL ~1 h | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
 | `v1:spotify:<device id>` | string, TTL ~1 min | (provider to come) | (model to come) |
 
 TfL and Entur write the same `StopDepartures` into the same `v1:departures:` namespace (their ids never clash), so the
@@ -49,6 +49,27 @@ quay it leaves from); a quay's own code is its `stop_letter`. TfL leaves them un
 Failures stay small: a batch whose fetch raises is logged and skipped (its keys expire if it keeps failing), an id the
 provider couldn't fetch is just left out, and an unreachable Redis is logged and retried on the next tick. A missed
 nudge only delays a change until the next tick, as every cycle re-reads the subscriptions.
+
+### Energy
+
+The energy panel's readings are written by auth-broker, not by a provider here: its `glow-provider` (the broker's image
+with another command) signs in to Glowmarkt with the passwords the broker keeps encrypted, so they never leave it. It
+can't import countdown-core, so what it stores is Glowmarkt's answers as they came, in a thin wrapper, and the renderer
+reads them with the models it reads Glowmarkt with (`glow/models.py`):
+
+```json
+{"fetched_at": "2026-09-25T05:10:00+00:00", "device_id": "a1b2c3d4e5f6", "offset": "-60", "resource_id": "...",
+ "hourly": {"data": [[1790229600, 0.21], ...], ...}, "daily": {...}, "monthly": {...}}
+```
+
+`hourly`, `daily` and `monthly` are Glowmarkt's `PT1H`, `P1D` and `P1M` readings, each asked for, as `GlowClient` would
+ask, from the start of its page's window (the hour 24 hours before, midnight 31 days before, 1st January) to
+`fetched_at`, in the screen's time zone at its offset then. `offset` is Glowmarkt's parameter for that (minutes from
+local time to UTC, so BST is `-60`): Glowmarkt labels each bucket with its local wall-clock start as if it were UTC, and
+the renderer relabels them at that offset. It cuts each page to its window as of when it draws, so a value up to its
+TTL old still gives the right 24 hours, 31 days and year, short only of the readings since `fetched_at`. The broker
+fetches every 15 minutes, and keeps each value for an hour. `tests/fixtures/glow_energy.json` is one fetch, from
+Glowmarkt's answers to the stored value, and auth-broker's tests read the same file: change both together.
 
 ## Running locally
 
@@ -129,8 +150,11 @@ The services are in `../server/deploy/docker-compose.yml`, under the `providers`
    renderer as `REDIS_URL` and `REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change
    to the store they read counts as an upgrade, like a new image. Those renderers then read TfL's and Entur's
    departures (`v1:departures:<stop>`) and the weather (`v1:weather:<location>`) from the store, and stop calling TfL,
-   Entur and Open-Meteo for them; only the disruption notices still come straight from their APIs. Unset it again to go
-   back. Renderers on standalone Pis never get it, so they keep calling the APIs.
+   Entur and Open-Meteo for them; only the disruption notices still come straight from their APIs. The energy panel's
+   readings (`v1:energy:<device id>`) come from the store too, from auth-broker's `glow-provider`, so start that first
+   (see "The energy provider" in auth-broker's README): without it, every energy panel says "Could not connect", as
+   the renderers are remade with the store and have no readings to draw. Unset it again to go back. Renderers on
+   standalone Pis never get it, so they keep calling the APIs.
 
    A key a renderer wants that isn't in the store (its provider is down, or hasn't got to it yet) is skipped: that stop
    is left off, or the weather keeps its last forecast, as when an API call fails.
