@@ -75,6 +75,14 @@ def _columns(tracks: list[Track], artists: list[Artist]) -> list[tuple[str, list
 # --- airy: small-caps labels and a hairline, like the weather -------------------------------
 
 
+def airy_label(d: ImageDraw.ImageDraw, x: float, y: float, icon: str, text: str) -> float:
+    """Draw a small icon and a small-caps label after it, centred on `y`; return where the label ends."""
+    d.text((x, y), icon, "black", google_symbols().font_variant(size=15), anchor="lm")
+    label = fitted_font(SANS_SEMI, 11)
+    d.text((x + 18, y), text, "black", label, anchor="lm")
+    return x + 18 + label.getlength(text)
+
+
 def airy_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Image:
     """Draw what's playing beside its cover, under a small-caps label, with what's up next below a hairline."""
     img, d = _canvas(width, height)
@@ -84,7 +92,7 @@ def airy_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     x = cover.size[0] + 18 if cover.size[0] else 0
     room = width - x
     label = fitted_font(SANS_SEMI, 11)
-    d.text((x, 12), _("NOW PLAYING"), "black", label, anchor="lm")
+    airy_label(d, x, 12, NOTE, _("NOW PLAYING"))
     d.text((width, 12), _length(track.duration_ms), "black", label, anchor="rm")
     title = _shrunk(track.name, SANS, 32, room)
     d.text((x, 48), truncate_to_fit(track.name, title, room), "black", title, anchor="ls")
@@ -98,8 +106,7 @@ def airy_now(queue: Queue, art: AlbumArt, width: int, height: int) -> Image.Imag
     )
     if queue.queue:
         d.line((x, 86, width, 86), fill="black")
-        d.text((x, 104), _("UP NEXT"), "black", label, anchor="lm")
-        next_x = x + label.getlength(_("UP NEXT")) + 10
+        next_x = airy_label(d, x, 104, SKIP_NEXT, _("UP NEXT")) + 10
         up_next, body = queue.queue[0], fitted_font(SANS, 15)
         text = truncate_to_fit(f"{up_next.name} · {_artists(up_next)}", body, width - next_x)
         d.text((next_x, 104), text, "black", body, anchor="lm")
@@ -116,7 +123,7 @@ def airy_top(period: str, tracks: list[Track], artists: list[Artist], width: int
     for i, (kind, rows) in enumerate(_columns(tracks, artists)):
         left = i * (column + gap)
         right = left + column
-        d.text((left, 8), _(TOP[kind]).upper(), "black", label, anchor="lm")
+        airy_label(d, left, 8, NOTE if kind == "tracks" else MIC, _(TOP[kind]).upper())
         if i == 1:
             d.text((right, 8), _("LAST {period}").format(period=_(period)).upper(), "black", label, anchor="rm")
         d.line((left, 19, right, 19), fill="black")
