@@ -8,6 +8,8 @@ import docker
 from docker.types import LogConfig
 
 if TYPE_CHECKING:
+    from docker.models.containers import Container
+
     from countdown_orchestrator.models import Assignment
 
 # On every container the orchestrator makes, so it only ever touches (and lists) its own.
@@ -15,6 +17,8 @@ MANAGED_LABEL = "countdown.managed"
 SLUG_LABEL = "countdown.slug"
 # The image a renderer was made from, so a release's deploy can bring it up to date.
 IMAGE_LABEL = "countdown.image"
+# The store a renderer reads (its REDIS_URL), on renderers that read one: changing it remakes them, like a new image.
+STORE_LABEL = "countdown.store"
 LOG_ROTATION = {"max-size": "10m", "max-file": "3"}
 # What a renderer is given as its claim token once the screen is claimed and the broker has cleared the real one. It
 # still refuses to start without some value, but then ignores it: its identity is in its volumes.
@@ -60,18 +64,23 @@ class DockerRuntime:
     a volume each for the identity and its key.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 -- each is one setting of the containers it makes, all but two keyword-only
         self,
         image: str,
         broker_url: str,
+        *,
         mem_limit: str = "256m",
         nano_cpus: int = 500_000_000,
         client: docker.DockerClient | None = None,
+        store_url: str = "",
+        store_password: str = "",
     ) -> None:
         """Run renderers from `image`, pointed at the broker at `broker_url`.
 
         Each is limited to `mem_limit` of memory and `nano_cpus` billionths of a CPU. `client` is the Docker
-        client, by default the one the environment configures.
+        client, by default the one the environment configures. With `store_url` (and `store_password`), renderers
+        read departures and weather from that Redis (as REDIS_URL and REDIS_PASSWORD) rather than calling the APIs;
+        without, they call the APIs (see countdown_core.store.reader).
         """
         if client is None:
             client = docker.from_env()
@@ -80,6 +89,8 @@ class DockerRuntime:
         self.broker_url = broker_url
         self.mem_limit = mem_limit
         self.nano_cpus = nano_cpus
+        self.store_url = store_url
+        self.store_password = store_password
 
     @staticmethod
     def container_name(slug: str) -> str:
@@ -93,7 +104,7 @@ class DockerRuntime:
             slug: Renderer(
                 slug,
                 running=container.status == "running",
-                up_to_date=container.labels.get(IMAGE_LABEL) == self.image,
+                up_to_date=self._is_current(container),
             )
             for container in containers
             if (slug := container.labels.get(SLUG_LABEL))
@@ -107,15 +118,31 @@ class DockerRuntime:
         except docker.errors.NotFound:
             self._run(assignment)
             return
-        if container.labels.get(IMAGE_LABEL) != self.image:
+        if not self._is_current(container):
             # Only the container: the volumes are the renderer's identity, so it stays the same device.
             container.remove(force=True)
             self._run(assignment)
         elif container.status != "running":
             container.start()
 
+    def _is_current(self, container: Container) -> bool:
+        """Whether the container is from the current image and reads the current store (or, like this, none)."""
+        labels = container.labels
+        return labels.get(IMAGE_LABEL) == self.image and labels.get(STORE_LABEL, "") == self.store_url
+
     def _run(self, assignment: Assignment) -> None:
         name = self.container_name(assignment.slug)
+        labels = {MANAGED_LABEL: "1", SLUG_LABEL: assignment.slug, IMAGE_LABEL: self.image}
+        environment = {
+            "BROKER_URL": self.broker_url,
+            "DEVICE_NAME": assignment.slug,
+            "CLAIM_TOKEN": assignment.claim_token or CLAIMED,
+        }
+        if self.store_url:
+            labels[STORE_LABEL] = self.store_url
+            environment["REDIS_URL"] = self.store_url
+            if self.store_password:
+                environment["REDIS_PASSWORD"] = self.store_password
         self.client.containers.run(
             self.image,
             name=name,
@@ -124,15 +151,11 @@ class DockerRuntime:
             restart_policy={"Name": "unless-stopped"},
             mem_limit=self.mem_limit,
             nano_cpus=self.nano_cpus,
-            labels={MANAGED_LABEL: "1", SLUG_LABEL: assignment.slug, IMAGE_LABEL: self.image},
+            labels=labels,
             # What the host's log collector names the stream (renderer-<slug>), as for the compose services; the
             # json-file driver is the one it tails. Rotated, so a chatty renderer can't fill the disk.
             log_config=LogConfig(type=LogConfig.types.JSON, config={"tag": "{{.Name}}", **LOG_ROTATION}),
-            environment={
-                "BROKER_URL": self.broker_url,
-                "DEVICE_NAME": assignment.slug,
-                "CLAIM_TOKEN": assignment.claim_token or CLAIMED,
-            },
+            environment=environment,
             volumes={
                 f"{name}-data": {"bind": "/data", "mode": "rw"},
                 f"{name}-key": {"bind": "/keys", "mode": "rw"},

@@ -5,7 +5,7 @@ import responses
 from countdown_orchestrator.broker import OrchestratorBroker
 from countdown_orchestrator.models import Assignment, Status, valid_slug
 from countdown_orchestrator.reconcile import reconcile
-from countdown_orchestrator.runtime import IMAGE_LABEL, MANAGED_LABEL, SLUG_LABEL, DockerRuntime, Renderer
+from countdown_orchestrator.runtime import IMAGE_LABEL, MANAGED_LABEL, SLUG_LABEL, STORE_LABEL, DockerRuntime, Renderer
 
 BROKER_URL = "https://broker.example.com"
 IMAGE = "ghcr.io/x/countdown-server:1"
@@ -483,3 +483,51 @@ def test_suspended_renderers_dont_count_against_capacity():
     reconcile(broker, runtime, max_renderers=1)
 
     assert runtime.ensured == ["new"]
+
+
+STORE_URL = "redis://127.0.0.1:6379/0"
+
+
+def test_renderers_read_no_store_unless_given_one():
+    client = FakeDocker()
+
+    _runtime(client).ensure(_assignment())
+
+    ((_, kwargs),) = client.run_calls
+    assert "REDIS_URL" not in kwargs["environment"]
+    assert STORE_LABEL not in kwargs["labels"]
+
+
+def test_renderers_given_a_store_are_told_where_it_is_and_labelled_with_it():
+    client = FakeDocker()
+
+    DockerRuntime(IMAGE, BROKER_URL, client=client, store_url=STORE_URL, store_password="pw").ensure(_assignment())
+
+    ((_, kwargs),) = client.run_calls
+    assert kwargs["environment"]["REDIS_URL"] == STORE_URL
+    assert kwargs["environment"]["REDIS_PASSWORD"] == "pw"
+    assert kwargs["labels"][STORE_LABEL] == STORE_URL  # the URL, never the password
+
+
+@pytest.mark.parametrize(("label", "store_url"), [(None, STORE_URL), (STORE_URL, "")], ids=["turned on", "turned off"])
+def test_a_renderer_is_remade_when_the_store_it_reads_changes(label, store_url):
+    client = FakeDocker(FakeContainer("running"))
+    if label:
+        client.container.labels[STORE_LABEL] = label
+    runtime = DockerRuntime(IMAGE, BROKER_URL, client=client, store_url=store_url)
+
+    assert runtime.renderers()["lisa"].up_to_date is False
+    runtime.ensure(_assignment())
+
+    assert client.container.removed == {"force": True}  # its volumes, its identity, are kept
+    assert len(client.run_calls) == 1
+
+
+def test_a_renderer_already_reading_the_store_is_left_alone():
+    client = FakeDocker(FakeContainer("running"))
+    client.container.labels[STORE_LABEL] = STORE_URL
+
+    DockerRuntime(IMAGE, BROKER_URL, client=client, store_url=STORE_URL).ensure(_assignment())
+
+    assert client.container.removed is None
+    assert client.run_calls == []

@@ -14,6 +14,10 @@ services:
       ORCHESTRATOR_TOKEN: ${ORCHESTRATOR_TOKEN:?the orchestrator's token on the broker}
       RENDERER_IMAGE: ghcr.io/nvorkinn/countdown-server:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
       MAX_RENDERERS: ${MAX_RENDERERS:-20}
+      # Empty (the default) keeps renderers calling TfL and Open-Meteo themselves. Set to redis://127.0.0.1:6379/0
+      # (with REDIS_PASSWORD) once the providers run, and renderers read departures and weather from the store.
+      RENDERER_REDIS_URL: ${RENDERER_REDIS_URL:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     # The tag is the stream's `service` in VictoriaLogs (the renderers' is renderer-<slug>, see runtime.py).

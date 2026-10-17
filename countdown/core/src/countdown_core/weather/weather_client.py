@@ -7,11 +7,14 @@ from typing import TYPE_CHECKING, override
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.i18n import N_
 from countdown_core.notices.location import is_postcode, postcode_coordinates
+from countdown_core.store import keys, reader
+from countdown_core.store.models import StoredForecast
 from countdown_core.weather.models import ForecastResponse, GeocodingResponse, GeocodingResult, Weather
 from countdown_core.weather.weather_forecast import weather_pages
 from countdown_core.weather.weather_panel import WeatherPanel
 
 if TYPE_CHECKING:
+    import redis
     import requests
 
     from countdown_api.models import Weather as WeatherSection
@@ -32,10 +35,16 @@ NORTH_POLE = (90.0, 0.0)
 REFRESH_INTERVAL = dt.timedelta(minutes=10)
 
 
+class NoStoredForecastError(LookupError):
+    """The store has no forecast for the location: the weather provider is down, or hasn't fetched it yet."""
+
+
 class WeatherClient(AbstractClient):
     """A forecast carousel from Open-Meteo, which is keyless, so the config's api_key is unused.
 
     The location is geocoded once, on first fetch; with no location configured it's the weather at the North Pole.
+    When the renderer reads the store (countdown_core.store.reader), the forecast comes from there instead, under the
+    location as the broker subscribes to it (`v1:weather:<location>`), and Open-Meteo isn't asked at all.
     """
 
     panel_title = N_("Weather")
@@ -74,22 +83,39 @@ class WeatherClient(AbstractClient):
             and (now + self._utc_offset).date() != (self._last_attempt + self._utc_offset).date()
         )
         if elapsed is None or elapsed >= REFRESH_INTERVAL or date_changed:
-            coordinates = self._geocode() if self.location else NORTH_POLE
-            if coordinates is None:
-                logger.warning("Could not find a location matching %r", self.location)
-                self._panel = self.message_panel(N_("Location not found"))
-                self._pages = ()
+            store = reader.store()
+            if store is not None and self.location:
+                self._use(self._stored_forecast(store))
             else:
-                forecast = self._fetch_forecast(*coordinates)
-                pages = weather_pages(forecast)
-                self._pages = pages
-                self._utc_offset = dt.timedelta(seconds=forecast.utc_offset_seconds)
+                self._fetch_directly()
             self._last_attempt = now
 
         if self._pages:
             self._panel = WeatherPanel(self._pages[self._next_page])
             self._next_page = (self._next_page + 1) % len(self._pages)
         return self._panel
+
+    def _fetch_directly(self) -> None:
+        """Geocode the location (once) and ask Open-Meteo for its forecast, as a renderer without the store does."""
+        coordinates = self._geocode() if self.location else NORTH_POLE
+        if coordinates is None:
+            logger.warning("Could not find a location matching %r", self.location)
+            self._panel = self.message_panel(N_("Location not found"))
+            self._pages = ()
+        else:
+            self._use(self._fetch_forecast(*coordinates))
+
+    def _use(self, forecast: ForecastResponse) -> None:
+        self._pages = weather_pages(forecast)
+        self._utc_offset = dt.timedelta(seconds=forecast.utc_offset_seconds)
+
+    def _stored_forecast(self, store: redis.Redis) -> ForecastResponse:
+        """Read the location's forecast from the store; raises if there's none, so the registry keeps the last panel."""
+        stored = reader.read(store, keys.weather(self.location), StoredForecast)
+        if stored is None:
+            msg = f"No forecast in the store for {self.location!r}"
+            raise NoStoredForecastError(msg)
+        return stored.forecast
 
     def _geocode(self) -> tuple[float, float] | None:
         if self._coordinates is None:
