@@ -9,10 +9,12 @@ from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.models import (
     ArrivalUnion,
+    BusArrival,
     MetroStopPoint,
     SingleStopPoint,
     StopPoint,
     StopPointUnion,
+    TubeArrival,
 )
 from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
 
@@ -51,13 +53,17 @@ class TflSource:
         response.raise_for_status()
         return _find_stop_child(TypeAdapter(StopPointUnion).validate_python(response.json()), stop_id)
 
-    def panel(self, stop: SingleStopPoint | MetroStopPoint, style: Style) -> AbstractArrivalPanel:
-        """Fetch the stop's arrivals, as a panel that groups them by route."""
+    def arrivals(self, stop: SingleStopPoint | MetroStopPoint) -> list[BusArrival | TubeArrival]:
+        """Fetch the stop's arrivals, in TfL's order (not soonest first); raises if TfL can't be asked."""
         response = self.session.get(
             f"{TFL_URL}/StopPoint/{stop.naptan_id}/Arrivals", params=self.params, timeout=DEFAULT_TIMEOUT
         )
         response.raise_for_status()
-        arrivals = TypeAdapter(list[ArrivalUnion]).validate_python(response.json())
+        return TypeAdapter(list[ArrivalUnion]).validate_python(response.json())
+
+    def panel(self, stop: SingleStopPoint | MetroStopPoint, style: Style) -> AbstractArrivalPanel:
+        """Fetch the stop's arrivals, as a panel that groups them by route."""
+        arrivals = self.arrivals(stop)
         if isinstance(stop, MetroStopPoint):
             return TubeArrivalPanel(stop, arrivals, style)
         return BusArrivalPanel(stop, arrivals, style)

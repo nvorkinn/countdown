@@ -1,0 +1,33 @@
+"""What a provider is: the one part of each API's process that differs. The loop around it is runner.ProviderRunner."""
+
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from pydantic import BaseModel
+
+
+class Provider(Protocol):
+    """Fetches one API's data for a list of ids. The runner decides which ids, when, and writes the results."""
+
+    # The subscription source this provider serves: the runner reads the ids from `v1:sub:<name>`.
+    name: str
+    # How long a written value lives. Longer than interval_s, so one failed cycle doesn't hide a panel, but short
+    # enough that a provider that's down shows up as missing data rather than as stale data.
+    ttl_s: int
+    # How often a cycle runs, in seconds. Cycles are aligned to the epoch (every provider with the same interval
+    # ticks together), and a subscription change runs one early.
+    interval_s: float
+
+    def output_key(self, item_id: str) -> str:
+        """Return the Redis key to write `item_id`'s data to, from countdown_core.store.keys."""
+        ...
+
+    async def fetch(self, ids: list[str]) -> Mapping[str, BaseModel]:
+        """Fetch the data for `ids`, as a model per id that could be fetched.
+
+        One bad id (unknown, or its API call failed) is left out of the result and logged; it mustn't raise and lose
+        the others. Raising is for failing the whole batch, e.g. the API being down; the runner logs it and carries on.
+        """
+        ...

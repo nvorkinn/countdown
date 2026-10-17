@@ -23,3 +23,42 @@ services:
         tag: orchestrator
         max-size: 10m
         max-file: "3"
+
+  # The providers (see ../../providers/README.md): one per API, all from the one image, each picking its provider by
+  # `command`. They fetch what the broker's subscriptions in Redis ask for and write it back there. Scaffolding for
+  # now, so they're in the `providers` profile: a plain `docker compose up` (deploy.sh) doesn't start them. Start them
+  # by hand with `docker compose --profile providers up -d`.
+  provider-tfl:
+    profiles: [ providers ]
+    image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    command: countdown-provider-tfl
+    pull_policy: always
+    restart: unless-stopped
+    # Redis listens on the host's 127.0.0.1:6379 (deployed by auth-broker), as Fluent Bit does for the renderers.
+    network_mode: host
+    environment:
+      # `:-` rather than `:?`: not set by the deploy yet, and the profile keeps these services from starting.
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      TFL_APP_KEY: ${TFL_APP_KEY:-}
+    logging:
+      driver: json-file
+      options:
+        tag: provider-tfl
+        max-size: 10m
+        max-file: "3"
+
+  provider-weather:
+    profiles: [ providers ]
+    image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    command: countdown-provider-weather
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    logging:
+      driver: json-file
+      options:
+        tag: provider-weather
+        max-size: 10m
+        max-file: "3"
