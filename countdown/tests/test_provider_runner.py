@@ -13,7 +13,6 @@ from countdown_core.store.models import StopDepartures
 from countdown_providers.config import DEFAULT_REDIS_URL, Settings
 from countdown_providers.runner import ProviderRunner, next_tick
 from countdown_providers.sharding import Shard, shard_of
-from countdown_providers.weather.main import WeatherProvider
 
 FETCHED_AT = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
 # Long enough that a test only gets a second cycle by nudging (or a short interval of its own).
@@ -294,10 +293,3 @@ def test_written_value_is_the_models_json(redis):
         "stop_letter": None,
         "departures": [],
     }
-
-
-def test_weather_stub_writes_nothing(redis):
-    subscribe(redis, "london-gb-2643743", source=keys.WEATHER)
-    provider = WeatherProvider()
-    assert asyncio.run(ProviderRunner(provider, redis).run_cycle()) == 0
-    assert provider.output_key("london-gb-2643743") == "v1:weather:london-gb-2643743"

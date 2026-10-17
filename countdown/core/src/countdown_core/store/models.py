@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import AwareDatetime, BaseModel
 
+from countdown_core.weather.models import ForecastResponse
+
 if TYPE_CHECKING:
     from datetime import datetime
 
@@ -53,3 +55,16 @@ class StopDepartures(Stored):
     stop_letter: str | None = None
     # Soonest first.
     departures: list[Departure] = []
+
+
+class StoredForecast(Stored):
+    """A place's Open-Meteo forecast: the value of `v1:weather:<location key>`.
+
+    The forecast itself, not the panel's pages: the renderer turns it into pages (weather_forecast.weather_pages) when
+    it draws, so "now" and "tonight" are as of drawing, not of fetching. One model for both Open-Meteo's JSON and the
+    stored copy, so they can't drift apart (see weather.models.OpenMeteoModel).
+    """
+
+    # The broker's location key it was fetched for, e.g. "london-gb-2643743".
+    location: str
+    forecast: ForecastResponse
