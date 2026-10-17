@@ -20,9 +20,8 @@ from countdown_core.entur.entur_source import EnturSource
 from countdown_core.entur.stored_source import StoredEnturPanel, StoredEnturSource
 from countdown_core.store import keys, reader
 from countdown_core.store.models import StoredForecast
-from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
+from countdown_core.tfl.abstract_arrival_panel import Departures
 from countdown_core.tfl.stored_source import NoStoredDeparturesError, StoredTflSource, stored_panel
-from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
 from countdown_core.weather.models import ForecastResponse
 from countdown_core.weather.weather_client import NoStoredForecastError, WeatherClient
 from countdown_core.weather.weather_forecast import weather_pages
@@ -87,31 +86,31 @@ def test_departures_come_from_the_store_with_one(store):
 # --- TfL from the store -------------------------------------------------------------
 
 
-def test_a_stored_bus_stop_draws_as_tfls_own_would():
+def test_a_stored_bus_stop_draws_a_row_per_route_under_its_name_and_letter():
     arrivals = [bus("12", "Oxford Circus", 300), bus("12", "Oxford Circus", 60), bus("148", "Camberwell", 120)]
-    stored = to_stop_departures(BUS_STOP, arrivals, NOW)
-    from_store = stored_panel(stored, "hero", NOW)
-    from_tfl = BusArrivalPanel(BUS_STOP, arrivals, "hero")
-    assert from_store.departures == from_tfl.departures
-    assert (from_store.stop_name, from_store.stop_letter, from_store.is_tube) == (
-        from_tfl.stop_name,
-        from_tfl.stop_letter,
-        from_tfl.is_tube,
-    )
+    panel = stored_panel(to_stop_departures(BUS_STOP, arrivals, NOW), "hero", NOW)
+    # The soonest route first, each badged with its number, its later buses' minutes after its first's.
+    assert panel.departures == [
+        Departures(badge="12", line="12", destination="Oxford Circus", minutes=(1, 5)),
+        Departures(badge="148", line="148", destination="Camberwell", minutes=(2,)),
+    ]
+    assert (panel.stop_name, panel.stop_letter, panel.is_tube, panel.icon) == ("Elephant & Castle", "W", False, "bus")
 
 
-def test_a_stored_tube_station_draws_as_tfls_own_would():
+def test_a_stored_tube_station_draws_a_row_per_destination_under_the_roundel():
     arrivals = [
         train("Morden", 240),
         train("Edgware via Charing Cross", 90),
         train("Morden", 30),
         train("Terminates here", 10, destination_naptan_id=TUBE_STATION.naptan_id),
     ]
-    stored = to_stop_departures(TUBE_STATION, arrivals, NOW)
-    from_store = stored_panel(stored, "hero", NOW)
-    from_tfl = TubeArrivalPanel(TUBE_STATION, arrivals, "hero")
-    assert from_store.departures == from_tfl.departures
-    assert (from_store.stop_name, from_store.is_tube) == (from_tfl.stop_name, from_tfl.is_tube) == ("Kennington", True)
+    panel = stored_panel(to_stop_departures(TUBE_STATION, arrivals, NOW), "hero", NOW)
+    # Badged with the line's initial, a row per destination; the train terminating here isn't one.
+    assert panel.departures == [
+        Departures(badge="N", line="Northern", destination="Morden", minutes=(0, 4)),
+        Departures(badge="N", line="Northern", destination="Edgware via Charing Cross", minutes=(1,)),
+    ]
+    assert (panel.stop_name, panel.stop_letter, panel.is_tube, panel.icon) == ("Kennington", None, True, "subway")
 
 
 def test_stored_departures_count_down_from_when_the_panel_is_made():

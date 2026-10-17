@@ -12,6 +12,7 @@ import pytest
 import responses
 from fake_target import FakeTarget
 from PIL import Image, ImageChops, ImageDraw
+from tfl_factory import tfl_panel
 from weather_factory import forecast_json, make_weather
 
 # `countdown_core` must be imported before any display.* module, or it's a circular import.
@@ -39,10 +40,8 @@ from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.combined_arrival_panel import ROTATION_STRIP, CombinedArrivalPanel, Rotation
 from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
-from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
 from countdown_core.weather.models import ForecastResponse, WeatherPeriod
 from countdown_core.weather.weather_client import WeatherClient
 from countdown_core.weather.weather_forecast import weather_pages
@@ -164,14 +163,14 @@ def _album_art_bytes() -> bytes:
 def _bus_and_tube_arrivals() -> CombinedArrivalPanel:
     return CombinedArrivalPanel(
         [
-            BusArrivalPanel(BUS_STOP, BUS_ARRIVALS),
-            TubeArrivalPanel(TUBE_STOP, TUBE_ARRIVALS),
+            tfl_panel(BUS_STOP, BUS_ARRIVALS),
+            tfl_panel(TUBE_STOP, TUBE_ARRIVALS),
         ]
     )
 
 
 def _bus_only_arrivals() -> CombinedArrivalPanel:
-    return CombinedArrivalPanel([BusArrivalPanel(BUS_STOP, BUS_ARRIVALS)])
+    return CombinedArrivalPanel([tfl_panel(BUS_STOP, BUS_ARRIVALS)])
 
 
 def _four_stop_arrivals() -> CombinedArrivalPanel:
@@ -180,10 +179,10 @@ def _four_stop_arrivals() -> CombinedArrivalPanel:
     other_station = TUBE_STOP.model_copy(update={"common_name": "Oval Underground Station"})
     return CombinedArrivalPanel(
         [
-            BusArrivalPanel(BUS_STOP, BUS_ARRIVALS),
-            TubeArrivalPanel(TUBE_STOP, TUBE_ARRIVALS),
-            BusArrivalPanel(other_bus_stop, BUS_ARRIVALS),
-            TubeArrivalPanel(other_station, TUBE_ARRIVALS),
+            tfl_panel(BUS_STOP, BUS_ARRIVALS),
+            tfl_panel(TUBE_STOP, TUBE_ARRIVALS),
+            tfl_panel(other_bus_stop, BUS_ARRIVALS),
+            tfl_panel(other_station, TUBE_ARRIVALS),
         ]
     )
 
@@ -435,7 +434,7 @@ BUSY_TUBE_ARRIVALS = [
 
 def _styled_arrivals(style: str) -> CombinedArrivalPanel:
     return CombinedArrivalPanel(
-        [BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS, style), TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS, style)]
+        [tfl_panel(BUS_STOP, BUSY_BUS_ARRIVALS, style), tfl_panel(TUBE_STOP, BUSY_TUBE_ARRIVALS, style)]
     )
 
 
@@ -452,7 +451,7 @@ def test_arrival_styles_with_departures_due(snapshot, style):
     # The next 36 and 185, and the next Morden train.
     buses = [a.model_copy(update={"time_to_station": 0}) for a in BUSY_BUS_ARRIVALS[:2]] + BUSY_BUS_ARRIVALS[2:]
     trains = [BUSY_TUBE_ARRIVALS[0].model_copy(update={"time_to_station": 0}), *BUSY_TUBE_ARRIVALS[1:]]
-    panel = CombinedArrivalPanel([BusArrivalPanel(BUS_STOP, buses, style), TubeArrivalPanel(TUBE_STOP, trains, style)])
+    panel = CombinedArrivalPanel([tfl_panel(BUS_STOP, buses, style), tfl_panel(TUBE_STOP, trains, style)])
     snapshot.assert_matches(f"screen_arrivals_due_{style}", _draw(_panels(panel)))
 
 
@@ -473,8 +472,8 @@ def _many_route_arrivals(style: str = "hero") -> CombinedArrivalPanel:
     ]
     return CombinedArrivalPanel(
         [
-            BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS + more_buses, style),
-            TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS + more_trains, style),
+            tfl_panel(BUS_STOP, BUSY_BUS_ARRIVALS + more_buses, style),
+            tfl_panel(TUBE_STOP, BUSY_TUBE_ARRIVALS + more_trains, style),
         ]
     )
 
@@ -639,8 +638,8 @@ def _rotating_arrivals() -> CombinedArrivalPanel:
     """Show the first of three pages of stops: one square filled, two empty."""
     return CombinedArrivalPanel(
         [
-            BusArrivalPanel(BUS_STOP, BUSY_BUS_ARRIVALS, "hero"),
-            TubeArrivalPanel(TUBE_STOP, BUSY_TUBE_ARRIVALS, "hero"),
+            tfl_panel(BUS_STOP, BUSY_BUS_ARRIVALS, "hero"),
+            tfl_panel(TUBE_STOP, BUSY_TUBE_ARRIVALS, "hero"),
         ],
         Rotation(0, 3),
     )

@@ -1,4 +1,4 @@
-"""TfL's stops and their arrivals, for the departures client."""
+"""TfL's stops and their arrivals, for the TfL provider."""
 
 import logging
 from typing import TYPE_CHECKING
@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from pydantic import TypeAdapter
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
-from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
 from countdown_core.tfl.models import (
     ArrivalUnion,
     BusArrival,
@@ -16,13 +15,9 @@ from countdown_core.tfl.models import (
     StopPointUnion,
     TubeArrival,
 )
-from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
 
 if TYPE_CHECKING:
     import requests
-
-    from countdown_core.core.style import Style
-    from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +35,7 @@ def _find_stop_child(stop: StopPoint, naptan_id: str) -> SingleStopPoint | Metro
 
 
 class TflSource:
-    """London's stops for the departures client: Tube stations and bus stops, by NaPTAN id."""
+    """London's stops for the TfL provider: Tube stations and bus stops, by NaPTAN id."""
 
     def __init__(self, session: requests.Session, app_key: str = "") -> None:
         """`session` to ask TfL with; `app_key`, TfL's API key, is sent with every request if set."""
@@ -60,10 +55,3 @@ class TflSource:
         )
         response.raise_for_status()
         return TypeAdapter(list[ArrivalUnion]).validate_python(response.json())
-
-    def panel(self, stop: SingleStopPoint | MetroStopPoint, style: Style) -> AbstractArrivalPanel:
-        """Fetch the stop's arrivals, as a panel that groups them by route."""
-        arrivals = self.arrivals(stop)
-        if isinstance(stop, MetroStopPoint):
-            return TubeArrivalPanel(stop, arrivals, style)
-        return BusArrivalPanel(stop, arrivals, style)

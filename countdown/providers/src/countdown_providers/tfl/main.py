@@ -36,7 +36,7 @@ def to_stop_departures(stop: TflStop, arrivals: list[BusArrival | TubeArrival], 
             expected_at=fetched_at + timedelta(seconds=arrival.time_to_station),
         )
         for arrival in sorted(arrivals, key=lambda a: a.time_to_station)
-        # A train ending its journey here isn't a departure (TubeArrivalPanel leaves them out too).
+        # A train ending its journey here isn't a departure, so the station's panel never shows it.
         if not (isinstance(arrival, TubeArrival) and arrival.destination_naptan_id == arrival.naptan_id)
     ]
     return StopDepartures(
