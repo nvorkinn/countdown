@@ -1,10 +1,10 @@
 # countdown-providers
 
-One long-running process per API (TfL, weather, ...) that fetches what the screens want and writes it to a shared
+One long-running process per API (TfL, Entur, weather, ...) that fetches what the screens want and writes it to a shared
 Redis store, so renderers can read it from there instead of each calling every API itself. Ten screens watching the
 same bus stop then cost one TfL call, not ten.
 
-**Status: scaffolding.** The TfL and weather providers fetch, the broker writes the subscriptions (auth-broker,
+**Status: scaffolding.** The TfL, Entur and weather providers fetch, the broker writes the subscriptions (auth-broker,
 on every config save), and renderers read the store only once they're told to (step 4 of
 [Enabling in production](#enabling-in-production)). In production the services are
 behind a Compose profile, so they aren't started (see [Enabling in production](#enabling-in-production)).
@@ -30,18 +30,21 @@ countdown-core so the providers and renderers share them.
 | Key | Type | Written by | Holds |
 |---|---|---|---|
 | `v1:sub:tfl` | set | broker | TfL NaPTAN stop ids, e.g. `490000123W` |
-| `v1:sub:entur` | set | broker | Entur stop ids, e.g. `NSR:StopPlace:58366` |
+| `v1:sub:entur` | set | broker | Entur stop place or quay ids, e.g. `NSR:StopPlace:58366`, `NSR:Quay:7333` |
 | `v1:sub:weather` | set | broker | location keys, e.g. `london-gb-2643743` |
 | `v1:sub:glow` | set | broker | Glow device ids |
 | `v1:sub:spotify` | set | broker | device ids |
 | `v1:sub:changed` | pub/sub channel | broker | empty message after replacing subscriptions |
-| `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl (and later Entur) | `StopDepartures` JSON |
+| `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages) |
 | `v1:energy:<device id>` | string, TTL ~1 h | (provider to come) | (model to come) |
 | `v1:spotify:<device id>` | string, TTL ~1 min | (provider to come) | (model to come) |
 
 TfL and Entur write the same `StopDepartures` into the same `v1:departures:` namespace (their ids never clash), so the
-transit panel needn't know the country. Every stored model has `fetched_at`.
+transit panel needn't know the country. Entur's also fill the fields only it has: the stop's `modes` (a stop can serve
+several, e.g. metro and tram, each an icon in its header), each departure's `mode` (its row's icon) and `platform` (the
+quay it leaves from); a quay's own code is its `stop_letter`. TfL leaves them unset. Every stored model has
+`fetched_at`.
 
 Failures stay small: a batch whose fetch raises is logged and skipped (its keys expire if it keeps failing), an id the
 provider couldn't fetch is just left out, and an unreachable Redis is logged and retried on the next tick. A missed
@@ -90,7 +93,9 @@ every id is fetched by exactly one copy. (Not Python's `hash()`, which differs f
 4. Add a `provider-<name>` service to `../server/deploy/docker-compose.yml` like the others, with its `command`.
 5. Test it with its API mocked; `tests/test_provider_runner.py` already covers the loop.
 
-`weather/main.py` is the smallest complete example of the shape. Location keys there are the broker's
+`weather/main.py` is the smallest complete example of the shape. `tfl/main.py` and `entur/main.py` are the same
+shape for departures, each wrapping the renderer's own source (`TflSource`, `EnturSource`). Entur, like Open-Meteo,
+needs no key, only the `ET-Client-Name` header its client already sends. Location keys there are the broker's
 `<name>-<country>-<GeoNames id>` (`london-gb-2643743`): the id finds the place exactly, and a key without one (a
 screen saved before the place picker, until it's backfilled) is geocoded by name. Open-Meteo is keyless, so it
 needs no secret.
@@ -122,9 +127,9 @@ The services are in `../server/deploy/docker-compose.yml`, under the `providers`
 4. Once the providers are filling the store, point the renderers at it: set `RENDERER_REDIS_URL` to
    `redis://127.0.0.1:6379/0` for the orchestrator (with `REDIS_PASSWORD`, as in step 2). It passes them to each
    renderer as `REDIS_URL` and `REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change
-   to the store they read counts as an upgrade, like a new image. Those renderers then read TfL's departures
-   (`v1:departures:<stop>`) and the weather (`v1:weather:<location>`) from the store, and stop calling TfL and Open-Meteo
-   for them; Entur's departures and the disruption notices still come straight from their APIs. Unset it again to go
+   to the store they read counts as an upgrade, like a new image. Those renderers then read TfL's and Entur's
+   departures (`v1:departures:<stop>`) and the weather (`v1:weather:<location>`) from the store, and stop calling TfL,
+   Entur and Open-Meteo for them; only the disruption notices still come straight from their APIs. Unset it again to go
    back. Renderers on standalone Pis never get it, so they keep calling the APIs.
 
    A key a renderer wants that isn't in the store (its provider is down, or hasn't got to it yet) is skipped: that stop

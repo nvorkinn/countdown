@@ -1,18 +1,24 @@
-"""The renderer reading the store: TfL departures and the weather from Redis (fakeredis), and only when configured."""
+"""The renderer reading the store: TfL and Entur departures and the weather from Redis (fakeredis), when configured."""
 
 import asyncio
 from datetime import UTC, datetime, timedelta
 
 import fakeredis
 import pytest
+import requests
 import responses
 from test_departures_client import make_config
+from test_entur_provider import MAJORSTUEN_ID, QUAY_ID, fetched, mock_entur
 from test_tfl_provider import BUS_STOP, NOW, TUBE_STATION, bus, train
 from test_utils import REGISTRATION
 from weather_factory import forecast_json
 
+from countdown_api.models import DepartureStop
 from countdown_api.models import Weather as WeatherSection
-from countdown_core.departures.departures_client import DeparturesClient
+from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
+from countdown_core.entur.entur_arrival_panel import EnturArrivalPanel
+from countdown_core.entur.entur_source import EnturSource
+from countdown_core.entur.stored_source import StoredEnturPanel, StoredEnturSource
 from countdown_core.store import keys, reader
 from countdown_core.store.models import StoredForecast
 from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
@@ -22,6 +28,7 @@ from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
 from countdown_core.weather.models import ForecastResponse
 from countdown_core.weather.weather_client import NoStoredForecastError, WeatherClient
 from countdown_core.weather.weather_forecast import weather_pages
+from countdown_providers.entur.main import to_stop_departures as entur_stop_departures
 from countdown_providers.tfl.main import to_stop_departures
 
 
@@ -62,14 +69,16 @@ def test_reads_the_store_given_redis_url(monkeypatch):
         reader.store.cache_clear()
 
 
-def test_departures_come_from_tfl_without_a_store(no_store):
+def test_departures_come_from_tfl_and_entur_without_a_store(no_store):
     client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
     assert isinstance(client.sources["tfl"], TflSource)
+    assert isinstance(client.sources["entur"], EnturSource)
 
 
 def test_departures_come_from_the_store_with_one(store):
     client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
     assert isinstance(client.sources["tfl"], StoredTflSource)
+    assert isinstance(client.sources["entur"], StoredEnturSource)
 
 
 # --- TfL from the store -------------------------------------------------------------
@@ -140,6 +149,112 @@ def test_departures_client_raises_when_nothing_is_in_the_store_so_the_last_panel
     asyncio.run(client.initialise())
     with pytest.raises(RuntimeError):
         client._update()
+
+
+# --- Entur from the store -----------------------------------------------------------
+
+
+def entur_settings(*stop_ids: str) -> DeparturesSettings:
+    return DeparturesSettings(tuple(DepartureStop(source="entur", id=stop_id) for stop_id in stop_ids))
+
+
+def drawn(panel: EnturArrivalPanel) -> tuple:
+    """Everything an Entur panel draws from: its rows (with their icons), its header's icons, name and letter."""
+    return (
+        panel.departures,
+        panel.icons,
+        panel.icon,
+        panel.mixed_modes,
+        panel.stop_name,
+        panel.stop_letter,
+        panel.is_tube,
+        panel.style,
+    )
+
+
+def stored_via_json(stored):
+    """Return `stored` as a renderer reads it back from the store."""
+    return type(stored).model_validate_json(stored.model_dump_json())
+
+
+@responses.activate
+@pytest.mark.parametrize("stop_id", [MAJORSTUEN_ID, QUAY_ID], ids=["stop place", "quay"])
+@pytest.mark.parametrize("style", ["hero", "card"])
+def test_a_stored_entur_stop_draws_as_enturs_own_would(stop_id, style):
+    mock_entur()
+    stop, departures = fetched(stop_id)
+    stored = stored_via_json(entur_stop_departures(stop, departures, NOW))
+    from_store = StoredEnturPanel(stored, style, NOW)
+    from_entur = EnturArrivalPanel(stop, departures, style)
+    assert drawn(from_store) == drawn(from_entur)
+
+
+@responses.activate
+def test_a_stored_stop_serving_several_modes_keeps_its_header_and_row_icons():
+    mock_entur()
+    stored = stored_via_json(entur_stop_departures(*fetched(MAJORSTUEN_ID), NOW))
+    panel = StoredEnturPanel(stored, "hero", NOW)
+    assert panel.icons == ["subway", "tram"]
+    assert panel.mixed_modes
+    assert [(d.line, d.icon) for d in panel.departures] == [("3", "subway"), ("19", "tram"), ("5", "subway")]
+
+
+@responses.activate
+def test_a_stored_entur_stop_counts_whole_seconds_as_enturs_client_does():
+    # Asked 0.4 s after the minute: 1 min 59.6 s to go is "1 min" from Entur's client (it truncates), so from the
+    # store too, rather than Departure.time_to_station's 120 s ("2 min").
+    mock_entur()
+    asked_at = NOW + timedelta(milliseconds=400)
+    source = EnturSource(requests.Session())
+    stop = source.resolve(QUAY_ID)
+    departures = source.departures(stop, now=asked_at)
+    stored = entur_stop_departures(stop, departures, asked_at)
+    assert StoredEnturPanel(stored, "hero", asked_at).departures == EnturArrivalPanel(stop, departures).departures
+    assert StoredEnturPanel(stored, "hero", asked_at).departures[0].minutes == (1,)
+
+
+@responses.activate
+def test_stored_entur_departures_count_down_and_drop_once_gone_as_enturs_client_would():
+    mock_entur()
+    stored = entur_stop_departures(*fetched(QUAY_ID), NOW)  # the 3 in 2 min, the 1 in 9 min
+    # 2.5 min on, the 3 left 30 s ago: still shown, as due, as Entur's client would.
+    assert [(d.line, d.minutes) for d in StoredEnturPanel(stored, "hero", NOW + timedelta(minutes=2.5)).departures] == [
+        ("3", (0,)),
+        ("1", (6,)),
+    ]
+    # 3.5 min on, it left 90 s ago: gone, as Entur's client leaves out anything over a minute gone.
+    assert [(d.line, d.minutes) for d in StoredEnturPanel(stored, "hero", NOW + timedelta(minutes=3.5)).departures] == [
+        ("1", (5,)),
+    ]
+
+
+@responses.activate
+def test_the_stored_entur_source_reads_the_stops_key(store):
+    mock_entur()
+    store.set(keys.departures(QUAY_ID), entur_stop_departures(*fetched(QUAY_ID), NOW).model_dump_json())
+    source = StoredEnturSource(store, now=lambda: NOW)
+    panel = source.panel(source.resolve(QUAY_ID), "hero")
+    assert (panel.stop_name, panel.stop_letter) == ("Majorstuen", "2")
+
+
+def test_an_entur_stop_not_in_the_store_yet_still_resolves_but_raises_when_drawn(store):
+    source = StoredEnturSource(store)
+    stop = source.resolve("NSR:StopPlace:999")
+    assert stop == "NSR:StopPlace:999"  # kept, so it's drawn once the provider has fetched it
+    with pytest.raises(NoStoredDeparturesError):
+        source.panel(stop, "hero")
+
+
+@responses.activate
+def test_departures_client_draws_stored_entur_stops_without_asking_entur(store):
+    mock_entur()
+    store.set(keys.departures(MAJORSTUEN_ID), entur_stop_departures(*fetched(MAJORSTUEN_ID), NOW).model_dump_json())
+    asked_before = len(responses.calls)
+    client = DeparturesClient(REGISTRATION, entur_settings(MAJORSTUEN_ID, "NSR:StopPlace:999"))
+    asyncio.run(client.initialise())
+    panel = client._update()
+    assert [p.stop_name for p in panel.arrival_panels] == ["Majorstuen"]
+    assert len(responses.calls) == asked_before
 
 
 # --- Weather from the store ---------------------------------------------------------

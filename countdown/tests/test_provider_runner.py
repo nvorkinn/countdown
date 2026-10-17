@@ -291,5 +291,6 @@ def test_written_value_is_the_models_json(redis):
         "name": "a",
         "mode": "bus",
         "stop_letter": None,
+        "modes": [],
         "departures": [],
     }

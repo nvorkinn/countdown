@@ -3,9 +3,11 @@
 from typing import TYPE_CHECKING
 
 from countdown_core.entur.entur_arrival_panel import EnturArrivalPanel
-from countdown_core.entur.entur_client import EnturClient, EnturStop
+from countdown_core.entur.entur_client import EnturClient, EnturDeparture, EnturStop
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     import requests
 
     from countdown_core.core.style import Style
@@ -26,6 +28,10 @@ class EnturSource:
         """Look up a stop place or quay by NSR id; None if Entur doesn't know it."""
         return self.client.get_stop_info(stop_id)
 
+    def departures(self, stop: EnturStop, now: datetime | None = None) -> list[EnturDeparture]:
+        """Fetch the stop's next departures as of `now` (default: now), soonest first; raises if Entur fails."""
+        return self.client.get_departures(stop.id, limit=DEPARTURES_PER_STOP, now=now)
+
     def panel(self, stop: EnturStop, style: Style) -> AbstractArrivalPanel:
         """Fetch the stop's next departures and draw them in `style`."""
-        return EnturArrivalPanel(stop, self.client.get_departures(stop.id, limit=DEPARTURES_PER_STOP), style)
+        return EnturArrivalPanel(stop, self.departures(stop), style)

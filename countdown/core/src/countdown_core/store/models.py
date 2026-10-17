@@ -34,6 +34,9 @@ class Departure(BaseModel):
     expected_at: AwareDatetime
     # The platform or stop pole, when the source says (Entur's quay code); None from TfL.
     platform: str | None = None
+    # How this departure travels, by the source's mode name, where a stop can serve several (Entur's "metro" or
+    # "tram" at Majorstuen), so each row can say; None from TfL, whose stops serve one (the stop's `mode`).
+    mode: str | None = None
 
     def time_to_station(self, now: datetime) -> int:
         """Return the seconds until it's due, counted from `now` (aware), and never below 0."""
@@ -49,10 +52,14 @@ class StopDepartures(Stored):
     stop_id: str
     # As the source names it, e.g. "Kennington Underground Station": the panel decides how to shorten it.
     name: str
-    # The source's own mode name: TfL's "bus" or "tube"; Entur's "bus", "tram", "metro", "rail", "water"...
+    # The source's own mode name: TfL's "bus" or "tube"; Entur's "bus", "tram", "metro", "rail", "water"... (its
+    # "unknown" for a stop that lists none).
     mode: str
-    # The letter on a London bus stop's flag ("W"); None elsewhere.
+    # The letter on a London bus stop's flag ("W"), or an Entur quay's code ("2"); None elsewhere.
     stop_letter: str | None = None
+    # Every mode the stop serves, its main one (`mode`) first, for the header's icons: Entur's, e.g. ["metro", "tram"].
+    # Empty from TfL, whose stops serve just `mode`.
+    modes: list[str] = []
     # Soonest first.
     departures: list[Departure] = []
 
