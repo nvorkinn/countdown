@@ -4,10 +4,9 @@ One long-running process per API (TfL, Entur, weather, ...) that fetches what th
 Redis store, so renderers can read it from there instead of each calling every API itself. Ten screens watching the
 same bus stop then cost one TfL call, not ten.
 
-**Status: scaffolding.** The TfL, Entur and weather providers fetch, the broker writes the subscriptions (auth-broker,
-on every config save), and renderers read the store only once they're told to (step 4 of
-[Enabling in production](#enabling-in-production)). In production the services are
-behind a Compose profile, so they aren't started (see [Enabling in production](#enabling-in-production)).
+**Status:** the TfL, Entur and weather providers run in production and fill the store from the broker's
+subscriptions (auth-broker writes them on every config save). Renderers read the store only once they're pointed at
+it (see [Enabling in production](#enabling-in-production)).
 
 ## The model
 
@@ -150,19 +149,15 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-The services are in `../server/deploy/docker-compose.yml`, under the `providers` profile, so `deploy.sh`'s plain
-`docker compose up` neither starts nor removes them. To turn them on:
+This repository's providers (TfL, weather, Entur) are on: they're services in `../server/deploy/docker-compose.yml`,
+so every deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s
+`deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`)
+and `TFL_APP_KEY`; without the password the deploy fails rather than start them unauthenticated. They need the broker
+writing subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking).
+auth-broker's providers (energy, music) are switched on in auth-broker.
 
-1. Have the broker write subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`; the services use
-   host networking to reach it).
-2. Add the secrets `REDIS_PASSWORD` and `TFL_APP_KEY` to the repo, and pass them to `deploy.sh` in `release.yml`'s
-   `deploy-renderers` job, next to `ORCHESTRATOR_TOKEN`. Once they're always set, consider `:?` instead of `:-` in the
-   compose file, so a missing one fails the deploy rather than starting a provider that can't log in.
-3. Remove the `profiles: [ providers ]` lines from the services that should run. Then every deploy starts and
-   upgrades them, and `--wait` fails the deploy if one won't stay up.
-
-4. Once the providers are filling the store, point the renderers at it: set `RENDERER_REDIS_URL` to
-   `redis://127.0.0.1:6379/0` for the orchestrator (with `REDIS_PASSWORD`, as in step 2). It passes them to each
+Then, once every provider is filling the store, point the renderers at it: set `RENDERER_REDIS_URL` to
+   `redis://127.0.0.1:6379/0` for the orchestrator (it already gets `REDIS_PASSWORD` from the deploy). It passes them to each
    renderer as `REDIS_URL` and `REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change
    to the store they read counts as an upgrade, like a new image. Those renderers then read TfL's and Entur's
    departures (`v1:departures:<stop>`) and the weather (`v1:weather:<location>`) from the store, and stop calling TfL,
@@ -179,6 +174,3 @@ The services are in `../server/deploy/docker-compose.yml`, under the `providers`
 
    A key a renderer wants that isn't in the store (its provider is down, or hasn't got to it yet) is skipped: that stop
    is left off, or the weather keeps its last forecast, as when an API call fails.
-
-Until then they can be tried on the host with `docker compose --profile providers up -d`. Containers started that way
-are left alone by later deploys: not removed, but not upgraded either.

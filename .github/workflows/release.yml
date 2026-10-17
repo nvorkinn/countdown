@@ -210,4 +210,7 @@ jobs:
       - name: Deploy the renderers
         env:
           ORCHESTRATOR_TOKEN: ${{ secrets.ORCHESTRATOR_TOKEN }}
+          # For the providers: Redis's password (the same as auth-broker's secrets/redis.env) and TfL's app key.
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          TFL_APP_KEY: ${{ secrets.TFL_APP_KEY }}
         run: bash countdown/server/deploy/deploy.sh "$GITHUB_REF_NAME"
