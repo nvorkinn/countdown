@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: countdown VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-17 01:11+0000\n"
+"POT-Creation-Date: 2026-10-17 03:05+0000\n"
 "PO-Revision-Date: 2026-10-16 16:50+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nb\n"
@@ -43,6 +43,9 @@ msgstr "Alle bygg er grønne"
 #, python-brace-format
 msgid "Amber warning: {hazard}"
 msgstr "Gult farevarsel: {hazard}"
+
+msgid "Apple Music"
+msgstr "Apple Music"
 
 msgid "Arrivals"
 msgstr "Ankomster"
@@ -117,6 +120,9 @@ msgstr "Enhet: {device}"
 msgid "E"
 msgstr "Ø"
 
+msgid "EARLIER"
+msgstr "TIDLIGERE"
+
 #. Translators: a CLDR date pattern (EEE weekday, d day, MMM month), e.g. "Fri
 #. 16 Oct". Norwegian: "EEE d. MMM".
 msgid "EEE d MMM"
@@ -126,6 +132,9 @@ msgstr "EEE d. MMM"
 #. d. MMMM".
 msgid "EEEE d MMMM"
 msgstr "EEEE d. MMMM"
+
+msgid "Earlier"
+msgstr "Tidligere"
 
 msgid "Easter Monday"
 msgstr "2. påskedag"
@@ -195,6 +204,9 @@ msgstr "Siste 24 timer (kWh)"
 msgid "Last 31 days (kWh)"
 msgstr "Siste 31 dager (kWh)"
 
+msgid "Last played"
+msgstr "Sist spilt"
+
 msgid "Light drizzle"
 msgstr "Lett yr"
 
@@ -258,9 +270,6 @@ msgstr "VARSLER"
 msgid "NOW"
 msgstr "NÅ"
 
-msgid "NOW PLAYING"
-msgstr "SPILLER NÅ"
-
 msgid "NW"
 msgstr "NV"
 
@@ -275,6 +284,9 @@ msgstr "Ingen abonnement"
 
 msgid "Not configured"
 msgstr "Ikke konfigurert"
+
+msgid "Nothing played yet on:"
+msgstr "Ingenting spilt ennå på:"
 
 msgid "Nothing playing on:"
 msgstr "Ingenting spilles på:"
@@ -410,11 +422,11 @@ msgstr "Topp artister"
 msgid "Top tracks"
 msgstr "Topp låter"
 
-msgid "UP NEXT"
-msgstr "NESTE"
-
 msgid "Unknown postcode"
 msgstr "Ukjent postnummer"
+
+msgid "Up next"
+msgstr "Neste"
 
 msgid "Violent rain showers"
 msgstr "Voldsomme regnbyger"
@@ -532,4 +544,10 @@ msgstr "{repo} feiler"
 #, python-brace-format
 msgid "{repo}: build failing"
 msgstr "{repo}: bygget feiler"
+
+#~ msgid "NOW PLAYING"
+#~ msgstr "SPILLER NÅ"
+
+#~ msgid "UP NEXT"
+#~ msgstr "NESTE"
 

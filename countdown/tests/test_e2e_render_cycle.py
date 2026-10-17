@@ -279,7 +279,7 @@ def test_full_render_cycle_when_nothing_is_playing(isolated_cwd, monkeypatch):
     _mock_tfl_and_glowmarkt({"490000123W": BUS_STOP_JSON}, {"490000123W": BUS_ARRIVALS_JSON})
     responses.add(responses.GET, QUEUE_URL, json={"currently_playing": None, "queue": []})
     responses.add(responses.GET, f"{TEST_BROKER_URL}/api/spotify/top/tracks", json={"items": []})
-    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/spotify/top/artists", json={"items": []})
+    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/spotify/top/artists", json={"items": [{"name": "An Artist"}]})
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 

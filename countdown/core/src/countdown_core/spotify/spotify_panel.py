@@ -1,4 +1,4 @@
-"""The Spotify area's now playing page: the cover, the track, and what's up next."""
+"""The Spotify area's now playing page: the cover, the track, and what's up next (for Apple Music, last played)."""
 
 import io
 from typing import TYPE_CHECKING, override
@@ -7,28 +7,38 @@ import requests
 from PIL import Image, ImageOps
 
 from countdown_core.core.panel import Panel
-from countdown_core.spotify.spotify_styles import STYLES
+from countdown_core.spotify.spotify_styles import SPOTIFY_LABELS, STYLES
 
 if TYPE_CHECKING:
     from countdown_core.core.style import Style
     from countdown_core.spotify.models import Album, Queue
     from countdown_core.spotify.models import Image as AlbumImage
+    from countdown_core.spotify.spotify_styles import Labels
     from countdown_core.utils.clock import ClockFormat
 
 
 class SpotifyPanel(Panel):
     """What's playing, with its cover, and what's up next."""
 
-    def __init__(self, queue: Queue, style: Style = "hero") -> None:
-        """`queue`: the player's, with something playing; `style`: how to draw it."""
+    def __init__(self, queue: Queue, style: Style = "hero", labels: Labels = SPOTIFY_LABELS) -> None:
+        """`queue`: the player's, with something playing; `style`: how to draw it; `labels`: what to call its parts.
+
+        Apple Music's (APPLE_MUSIC_LABELS) has the last played track in place of what's playing, and the ones before
+        it in place of what's next.
+        """
         self.queue = queue
         self.style = style
+        self.labels = labels
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         album = self.queue.currently_playing.album
         return STYLES[self.style].now(
-            self.queue, lambda size: _contrasty(_create_album_image_panel(album, size)), image_width, image_height
+            self.queue,
+            lambda size: _contrasty(_create_album_image_panel(album, size)),
+            image_width,
+            image_height,
+            self.labels,
         )
 
 

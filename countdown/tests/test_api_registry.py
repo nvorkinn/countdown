@@ -25,7 +25,7 @@ from countdown_core.developer.developer_client import DeveloperClient, Developer
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
-from countdown_core.spotify.spotify_client import SpotifyClient
+from countdown_core.spotify.spotify_client import AppleMusicClient, SpotifyClient
 from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.weather.models import WeatherPeriod
 from countdown_core.weather.weather_client import FORECAST_URL, WeatherClient
@@ -216,6 +216,24 @@ def test_on_config_update_registers_the_enabled_clients():
         "weather": WeatherClient,
         "spotify": SpotifyClient,
     }
+
+
+def test_apple_music_as_the_source_builds_its_client_and_a_switch_back_rebuilds():
+    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
+
+    asyncio.run(registry.on_config_update(make_config(spotify={"enabled": True, "source": "apple_music"})))
+    assert type(registry.clients["spotify"]) is AppleMusicClient
+    asyncio.run(registry.on_config_update(make_config(spotify={"enabled": True})))
+    assert type(registry.clients["spotify"]) is SpotifyClient
+
+
+def test_apple_musics_area_says_whose_service_could_not_connect():
+    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
+    asyncio.run(registry.on_config_update(make_config(spotify={"enabled": True, "source": "apple_music"})))
+
+    panel = registry._panel_for(ClientClasses.SPOTIFY)
+
+    assert (panel.title, panel.message) == ("Apple Music", "Could not connect")
 
 
 def source_names(registry: ApiRegistry) -> list[str]:

@@ -15,7 +15,7 @@ from countdown_core.developer.developer_client import DeveloperClient, Developer
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.i18n import N_, set_locale
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
-from countdown_core.spotify.spotify_client import SpotifyClient
+from countdown_core.spotify.spotify_client import SpotifyClient, music_client_class
 from countdown_core.weather.weather_client import WeatherClient
 
 if TYPE_CHECKING:
@@ -34,6 +34,7 @@ class ClientClasses(Enum):
     # Departures from every source; named for the broker's first section, which the layouts still go by.
     TFL = ("tfl", DeparturesClient)
     WEATHER = ("weather", WeatherClient)
+    # Or AppleMusicClient, as its config's source says (see client_class).
     SPOTIFY = ("spotify", SpotifyClient)
     # Shares Spotify's area (see rendering.share_spotify_area).
     DEVELOPER = ("developer", DeveloperClient)
@@ -70,6 +71,13 @@ def section_for(name: str, config: ConfigResponse) -> object:
         enabled = config.developer is not None and config.developer.enabled
         return DeveloperSettings(enabled=enabled, style=panel_style(config, "hero"))
     return getattr(config, name)
+
+
+def client_class(member: ClientClasses, section: object) -> type[AbstractClient]:
+    """Return the class that polls the API `member`, configured with `section`: the Spotify area's depends on it."""
+    if isinstance(section, Spotify):
+        return music_client_class(section)
+    return member.value[1]
 
 
 def is_enabled(section: object) -> bool:
@@ -133,8 +141,9 @@ class ApiRegistry:
         self._apply_locale(config)
         to_initialise: dict[str, AbstractClient] = {}
         for member in ClientClasses:
-            name, clazz = member.value
+            name = member.api_name
             client_config = section_for(name, config)
+            clazz = client_class(member, client_config)
             current = self.clients.get(name)
 
             if not is_enabled(client_config):
@@ -223,4 +232,6 @@ class ApiRegistry:
         client = self.clients.get(name)
         if client is None or client.is_disabled():
             return clazz.message_panel(N_("Not configured"))
-        return self.panels.get(name) or clazz.message_panel(N_("Could not connect"))
+        # The client's own class where it has one, which says whose service it is (Spotify's or Apple Music's).
+        named = type(client) if isinstance(client, clazz) else clazz
+        return self.panels.get(name) or named.message_panel(N_("Could not connect"))
