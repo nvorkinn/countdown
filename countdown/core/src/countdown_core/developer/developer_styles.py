@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from countdown_core.i18n import _, format_date, ngettext
 from countdown_core.spotify.spotify_styles import CARD_BAR, _card, _hero_header, airy_label
 from countdown_core.tfl.arrival_styles import BOLD, MEDIUM, REGULAR, SANS, SANS_SEMI, _canvas
-from countdown_core.utils.utils import fitted_font, google_symbols, truncate_to_fit
+from countdown_core.utils.utils import fitted_font, google_symbols, resized, truncate_to_fit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -70,7 +70,7 @@ def _plans(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, 
         return
     dates = [format_date(plan.renews, "d MMM") for plan in plans]
     date_width = max(small.getlength(text) for text in dates)
-    renew = google_symbols().font_variant(size=14)
+    renew = resized(google_symbols(), 14)
     for i, (plan, renews) in enumerate(zip(plans, dates, strict=True)):
         y = top + i * step
         d.text((left, y), truncate_to_fit(plan.name, name_font, NAME_WIDTH - 6), "black", name_font, anchor="lm")
@@ -143,7 +143,7 @@ def airy(summary: DeveloperSummary, width: int, height: int) -> Image.Image:
             (left, 104),
             CANCEL if github.failing else CHECK_CIRCLE,
             "black",
-            google_symbols().font_variant(size=16),
+            resized(google_symbols(), 16),
             anchor="lm",
         )
         d.text((left + 20, 104), truncate_to_fit(_builds(github), body, right - left - 20), "black", body, anchor="lm")
@@ -241,7 +241,7 @@ def card(summary: DeveloperSummary, width: int, height: int) -> Image.Image:
             (left + 12, 100),
             CANCEL if github.failing else CHECK_CIRCLE,
             "black",
-            google_symbols().font_variant(size=18),
+            resized(google_symbols(), 18),
             anchor="lm",
         )
         d.text(

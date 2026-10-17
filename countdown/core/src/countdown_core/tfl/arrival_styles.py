@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.i18n import _
-from countdown_core.utils.utils import ROUNDEL, fitted_font, google_symbols, truncate_to_fit
+from countdown_core.utils.utils import ROUNDEL, fitted_font, google_symbols, resized, truncate_to_fit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -59,7 +59,7 @@ def _header_icons(d: ImageDraw.ImageDraw, panel: AbstractArrivalPanel, y: float,
     """Draw the modes the stop serves, side by side from the left and centred on `y`; return the width they took."""
     icons = panel.icons[:MAX_HEADER_ICONS]
     for i, icon in enumerate(icons):
-        d.text((i * step, y), ICONS[icon], "black", google_symbols().font_variant(size=size), anchor="lm")
+        d.text((i * step, y), ICONS[icon], "black", resized(google_symbols(), size), anchor="lm")
     return len(icons) * step
 
 
@@ -69,7 +69,7 @@ def _row_icons(d: ImageDraw.ImageDraw, panel: AbstractArrivalPanel, centres: lis
         return
     for departure, y in zip(panel.departures, centres, strict=False):
         if departure.icon:
-            d.text((0, y), ICONS[departure.icon], "black", google_symbols().font_variant(size=18), anchor="lm")
+            d.text((0, y), ICONS[departure.icon], "black", resized(google_symbols(), 18), anchor="lm")
 
 
 def _minutes(minutes: int) -> str:

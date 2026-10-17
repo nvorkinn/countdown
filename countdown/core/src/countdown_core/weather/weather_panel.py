@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_, _, format_date
-from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS, truncate_to_fit
+from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS, resized, truncate_to_fit
 from countdown_core.weather.models import Weather, WeatherPeriod
 
 if TYPE_CHECKING:
@@ -60,7 +60,7 @@ class WeatherPanel(Panel):
             draw,
             icon_for(weather.weather_code, is_day=weather.is_day),
             (x + width - icon_size / 2, y + 80 * scale),
-            METEOCONS.font_variant(size=max(1, icon_size)),
+            resized(METEOCONS, max(1, icon_size)),
         )
         _draw_shrunk_to_fit(
             draw,
@@ -97,9 +97,9 @@ class WeatherPanel(Panel):
             draw,
             icon_for(weather.weather_code, is_day=weather.is_day),
             (x + current_width - icon_size / 2, y + 53 * scale),
-            METEOCONS.font_variant(size=max(1, icon_size)),
+            resized(METEOCONS, max(1, icon_size)),
         )
-        detail_font = GOOGLE_REGULAR.font_variant(size=max(1, round(11 * scale)))
+        detail_font = resized(GOOGLE_REGULAR, max(1, round(11 * scale)))
         draw.text(
             (x + 128 * scale, y + 57 * scale),
             truncate_to_fit(_condition(weather), detail_font, current_width - icon_size - 142 * scale),
@@ -116,7 +116,7 @@ class WeatherPanel(Panel):
         if weather.precipitation_probability is not None:
             readings.append((_("RAIN"), f"{weather.precipitation_probability}%"))
         x, y = coord
-        label = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
+        label = resized(GOOGLE_SEMI, max(1, round(11 * scale)))
         column_width = width / len(readings)
         for index, (title, value) in enumerate(readings):
             center = x + column_width * (index + 0.5)
@@ -140,12 +140,12 @@ def _draw_tabs(
     scale: float,
 ) -> None:
     labels = [_(period.value).upper() for period in WeatherPeriod]
-    font = GOOGLE_SEMI.font_variant(size=max(1, round(11 * scale)))
+    font = resized(GOOGLE_SEMI, max(1, round(11 * scale)))
     padding, gap, height = 13 * scale, 8 * scale, 25 * scale
     if sum(font.getlength(label) + 2 * padding for label in labels) + 3 * gap > width:
         # Short forms of the tabs, for a narrow panel.
         labels = [_("NOW"), _("NIGHT"), _("TMRW"), _("WKND")]
-        font = GOOGLE_SEMI.font_variant(size=max(1, round(10 * scale)))
+        font = resized(GOOGLE_SEMI, max(1, round(10 * scale)))
         padding, gap, height = 7 * scale, 4 * scale, 21 * scale
     x, y = coord
     for period, label in zip(WeatherPeriod, labels, strict=True):
@@ -215,8 +215,8 @@ def _draw_temperature(  # noqa: PLR0913 -- the text, where it goes, and how much
     """Keep the unit secondary, on the number's baseline, and fit the pair together."""
     size = max(1, optimal_size)
     while True:
-        number_font = GOOGLE_REGULAR.font_variant(size=size)
-        unit_font = GOOGLE_REGULAR.font_variant(size=max(1, round(size * 0.38)))
+        number_font = resized(GOOGLE_REGULAR, size)
+        unit_font = resized(GOOGLE_REGULAR, max(1, round(size * 0.38)))
         gap = max(1, round(size * 0.06))
         number_width = number_font.getlength(temperature)
         if number_width + gap + unit_font.getlength(units) <= space or size == 1:
@@ -236,9 +236,9 @@ def _draw_shrunk_to_fit(  # noqa: PLR0913 -- the text, where it goes, and how mu
     optimal_size: int,
     anchor: str = "lt",
 ) -> None:
-    font = font.font_variant(size=max(1, optimal_size))
+    font = resized(font, max(1, optimal_size))
     while font.getlength(text) > space and font.size > 1:
-        font = font.font_variant(size=font.size - 1)
+        font = resized(font, font.size - 1)
     draw.text(coord, text, "black", font=font, anchor=anchor)
 
 

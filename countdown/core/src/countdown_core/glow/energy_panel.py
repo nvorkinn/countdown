@@ -9,14 +9,14 @@ from PIL import Image, ImageDraw
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_, _, format_date
 from countdown_core.utils.clock import ClockFormat, format_clock
-from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI
+from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, resized
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-TITLE_FONT = GOOGLE_SEMI.font_variant(size=16)
-LABEL_FONT = GOOGLE_REGULAR.font_variant(size=12)
-NO_DATA_FONT = GOOGLE_REGULAR.font_variant(size=16)
+TITLE_FONT = resized(GOOGLE_SEMI, 16)
+LABEL_FONT = resized(GOOGLE_REGULAR, 12)
+NO_DATA_FONT = resized(GOOGLE_REGULAR, 16)
 
 PADDING = 4  # blank border round the whole panel
 TITLE_GAP = 8  # between the title and the tallest bar

@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.i18n import N_, _
 from countdown_core.tfl.arrival_styles import BOLD, MEDIUM, REGULAR, SANS, SANS_SEMI, _canvas, _shrunk
-from countdown_core.utils.utils import fitted_font, google_symbols, truncate_to_fit
+from countdown_core.utils.utils import fitted_font, google_symbols, resized, truncate_to_fit
 
 if TYPE_CHECKING:
     from datetime import timedelta
@@ -101,7 +101,7 @@ def _columns(tracks: list[Track], artists: list[Artist]) -> list[tuple[str, list
 
 def airy_label(d: ImageDraw.ImageDraw, x: float, y: float, icon: str, text: str) -> float:
     """Draw a small icon and a small-caps label after it, centred on `y`; return where the label ends."""
-    d.text((x, y), icon, "black", google_symbols().font_variant(size=15), anchor="lm")
+    d.text((x, y), icon, "black", resized(google_symbols(), 15), anchor="lm")
     label = fitted_font(SANS_SEMI, 11)
     d.text((x + 18, y), text, "black", label, anchor="lm")
     return x + 18 + label.getlength(text)
@@ -168,7 +168,7 @@ def airy_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same
 
 
 def _hero_header(d: ImageDraw.ImageDraw, left: float, right: float, icon: str, title: str, aside: str) -> None:  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and with which icon
-    d.text((left, 11), icon, "black", google_symbols().font_variant(size=22), anchor="lm")
+    d.text((left, 11), icon, "black", resized(google_symbols(), 22), anchor="lm")
     d.text((left + 26, 11), title, "black", fitted_font(SANS_SEMI, 17), anchor="lm")
     d.text((right, 11), aside, "black", fitted_font(MEDIUM, 13), anchor="rm")
     d.line((left, 26, right, 26), fill="black", width=2)
@@ -273,7 +273,7 @@ def _card(d: ImageDraw.ImageDraw, left: int, right: int, height: int, icon: str,
     d.rounded_rectangle((left, 0, right - 1, height - 1), 10, fill="white", outline="black", width=2)
     d.rounded_rectangle((left, 0, right - 1, CARD_BAR), 10, fill="black")
     d.rectangle((left, CARD_BAR - 10, right - 1, CARD_BAR), fill="black")  # square off the bar's bottom corners
-    d.text((left + 10, 14), icon, "white", google_symbols().font_variant(size=18), anchor="lm")
+    d.text((left + 10, 14), icon, "white", resized(google_symbols(), 18), anchor="lm")
     d.text((left + 32, 14), title, "white", fitted_font(SANS_SEMI, 15), anchor="lm")
     d.text((right - 11, 14), aside, "white", fitted_font(SANS_SEMI, 13), anchor="rm")
 
@@ -300,7 +300,7 @@ def card_now(queue: Queue, art: AlbumArt, width: int, height: int, labels: Label
     if queue.queue:
         for dot in range(x, width - 10, 4):
             d.point((dot, 84), fill="black")
-        d.text((x, 100), labels.next_icon, "black", google_symbols().font_variant(size=18), anchor="lm")
+        d.text((x, 100), labels.next_icon, "black", resized(google_symbols(), 18), anchor="lm")
         up_next, body = queue.queue[0], fitted_font(SANS, 14)
         text = truncate_to_fit(f"{up_next.name} · {_artists(up_next)}", body, room - 22)
         d.text((x + 22, 100), text, "black", body, anchor="lm")

@@ -5,10 +5,6 @@ on:
     tags:
       - "v*"
 
-env:
-  SERVER_IMAGE: ghcr.io/nvorkinn/countdown-server
-  ORCHESTRATOR_IMAGE: ghcr.io/nvorkinn/countdown-orchestrator
-
 # Jobs that need more (packages, releases) ask for it themselves.
 permissions:
   contents: read
@@ -61,14 +57,26 @@ jobs:
           name: countdown-wheel
           path: countdown/dist/*.whl
 
-  build-server-image:
-    # countdown-server's image, for renderers run with Docker (countdown/server/deploy/), built from
-    # this release's own wheels. Tagged with the version and :latest, as every release is the latest.
+  build-image:
+    # Each image for each platform on a runner of that platform, as emulating arm64 on an amd64 runner took
+    # minutes. Pushed by digest only; publish-image tags them once both platforms are in.
+    name: build ${{ matrix.image }} (${{ matrix.platform }})
     needs: build-python
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        image: [ server, orchestrator ]
+        platform: [ linux/amd64, linux/arm64 ]
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
     steps:
       - uses: actions/checkout@v7
       - name: Pull latest API Contract submodule
@@ -82,52 +90,71 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
-      - uses: docker/build-push-action@v7
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
         with:
           context: countdown
-          file: countdown/server/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.SERVER_IMAGE }}:${{ github.ref_name }}
-            ${{ env.SERVER_IMAGE }}:latest
+          file: countdown/${{ matrix.image }}/Dockerfile
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/nvorkinn/countdown-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+      - name: Save the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p digests
+          touch "digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.image }}-${{ matrix.arch }}
+          path: digests/*
+          if-no-files-found: error
 
-  build-orchestrator-image:
-    # countdown-orchestrator's image (countdown/orchestrator/Dockerfile), run beside the renderers by
-    # countdown/server/deploy/. Only ever pinned to a version, so there's no :latest to move.
-    needs: build-python
+  publish-image:
+    # countdown-server's image, for renderers run with Docker (countdown/server/deploy/), is tagged with the
+    # version and :latest, as every release is the latest. countdown-orchestrator's, run beside the renderers
+    # by countdown/server/deploy/, is only ever pinned to a version, so there's no :latest to move. Both are
+    # built from this release's own wheels.
+    name: publish ${{ matrix.image }}
+    needs: build-image
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        include:
+          - image: server
+            tags: ${{ github.ref_name }} latest
+          - image: orchestrator
+            tags: ${{ github.ref_name }}
     steps:
-      - uses: actions/checkout@v7
-      - name: Pull latest API Contract submodule
-        run: git submodule update --init --remote
       - uses: actions/download-artifact@v4
         with:
-          name: countdown-wheel
-          path: countdown/dist
+          pattern: digest-${{ matrix.image }}-*
+          path: digests
+          merge-multiple: true
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
-      - uses: docker/build-push-action@v7
-        with:
-          context: countdown
-          file: countdown/orchestrator/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ env.ORCHESTRATOR_IMAGE }}:${{ github.ref_name }}
+      - name: Tag both platforms' images together
+        working-directory: digests
+        env:
+          IMAGE: ghcr.io/nvorkinn/countdown-${{ matrix.image }}
+          TAGS: ${{ matrix.tags }}
+        run: |
+          args=()
+          for tag in $TAGS; do args+=(-t "$IMAGE:$tag"); done
+          docker buildx imagetools create "${args[@]}" $(printf "$IMAGE@sha256:%s " *)
+          docker buildx imagetools inspect "$IMAGE:${TAGS%% *}"
 
   release:
     # The image too, so a GitHub release is only created once everything it ships exists.
-    needs: [ build-python, build-server-image, build-orchestrator-image ]
+    needs: [ build-python, publish-image ]
     runs-on: ubuntu-latest
     permissions:
       contents: write

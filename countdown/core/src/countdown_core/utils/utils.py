@@ -39,6 +39,20 @@ def fitted_font(filename: str, size: int, scale: float = 1.0) -> ImageFont.FreeT
     return ImageFont.truetype(str(FONTS_DIR / filename), round(size * scale))
 
 
+def resized(font: ImageFont.FreeTypeFont, size: int) -> ImageFont.FreeTypeFont:
+    """Return `font` at `size` points.
+
+    The same as font.font_variant(size=size), except a size asked for again gets the same font back:
+    a new one opens its file again, and its first layout costs several milliseconds more.
+    """
+    return _font_at(str(font.path), size)
+
+
+@functools.cache
+def _font_at(path: str, size: int) -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(path, size)
+
+
 METEOCONS = ImageFont.truetype(str(FONTS_DIR / "meteocons.ttf"), 190)
 JOSEFIN_REGULAR = ImageFont.truetype(str(FONTS_DIR / "JosefinSans-Regular.ttf"), 40)
 JOSEFIN_SMALL = ImageFont.truetype(str(FONTS_DIR / "JosefinSans-Regular.ttf"), 28)
