@@ -573,6 +573,36 @@ def test_oslo_stops_in_every_style(snapshot, style):
     snapshot.assert_matches(f"screen_oslo_arrivals_{style}", _draw(_panels(panel)))
 
 
+MAJORSTUEN_STATION = EnturStop(
+    id="NSR:StopPlace:59872", name="Majorstuen stasjon", transport_modes=[TransportMode.METRO, TransportMode.TRAM]
+)
+MIXED_DEPARTURES = [
+    *_entur_departures([("5", "Vestli", 1), ("3", "Mortensrud", 3), ("1", "Bergkrystallen", 6)], TransportMode.METRO),
+    *_entur_departures([("12", "Kværnerbyen", 2), ("19", "Ljabru", 5), ("12", "Majorstuen", 12)], TransportMode.TRAM),
+]
+
+
+def _mixed_stops(style: str) -> CombinedArrivalPanel:
+    return CombinedArrivalPanel(
+        [
+            EnturArrivalPanel(MAJORSTUEN_STATION, MIXED_DEPARTURES, style),
+            EnturArrivalPanel(FROGNER_PLASS, BUSY_TRAM_DEPARTURES, style),
+        ]
+    )
+
+
+@pytest.mark.parametrize("style", ["airy", "hero"])
+def test_a_stop_serving_several_modes_in_airy_and_hero(snapshot, style):
+    """The header lists every mode and each row says which it is; a one-mode stop beside it looks as ever."""
+    snapshot.assert_matches(f"screen_oslo_mixed_modes_{style}", _draw(_panels(_mixed_stops(style))))
+
+
+@pytest.mark.parametrize("style", ["airy", "hero"])
+def test_a_stop_serving_several_modes_on_a_portrait_screen(snapshot, style):
+    img = _draw_portrait(_panels(_mixed_stops(style)), EVERYTHING - {ClientClasses.SPOTIFY})
+    snapshot.assert_matches(f"screen_portrait_oslo_mixed_modes_{style}", img)
+
+
 def test_oslo_screen_in_norwegian(snapshot):
     """The whole screen in Norwegian, with Norway's notices: Nikolai's translations, drawn."""
     set_locale("nb", "Europe/Oslo")
