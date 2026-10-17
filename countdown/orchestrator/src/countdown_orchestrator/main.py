@@ -30,6 +30,9 @@ def run() -> None:
         image=os.environ["RENDERER_IMAGE"],
         broker_url=broker_url,
         mem_limit=os.environ.get("RENDERER_MEM_LIMIT", "256m"),
+        # Off unless set: renderers then read departures and weather from the providers' Redis.
+        store_url=os.environ.get("RENDERER_REDIS_URL", ""),
+        store_password=os.environ.get("REDIS_PASSWORD", ""),
     )
     max_renderers = int(os.environ["MAX_RENDERERS"]) if os.environ.get("MAX_RENDERERS") else None
     poll_s = int(os.environ.get("POLL_INTERVAL_S", DEFAULT_POLL_S))

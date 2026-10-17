@@ -15,7 +15,9 @@ from countdown_core.entur.entur_source import EnturSource
 from countdown_core.i18n import N_
 from countdown_core.notices.entur import EnturSituationsSource
 from countdown_core.notices.tfl import TflLineStatusSource, TflStationSource
+from countdown_core.store import reader
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
+from countdown_core.tfl.stored_source import StoredTflSource
 from countdown_core.tfl.tfl_client import TflSource
 
 if TYPE_CHECKING:
@@ -81,8 +83,11 @@ class DeparturesClient(AbstractClient):
     def __init__(self, registration: Registration, config: DeparturesSettings) -> None:
         """Never touches the network: stops are resolved in _initialise()."""
         super().__init__(registration, config)
+        # TfL's departures come from the store when this renderer reads one (the TfL provider fetches them once for
+        # every screen), else from TfL. Entur's, and the disruption notices, are still asked for directly.
+        store = reader.store()
         self.sources: dict[str, StopSource] = {
-            "tfl": TflSource(self.session, config.tfl_app_key),
+            "tfl": StoredTflSource(store) if store is not None else TflSource(self.session, config.tfl_app_key),
             "entur": EnturSource(self.session),
         }
         self._notice_sources = self._build_notice_sources(config)
@@ -169,6 +174,9 @@ class DeparturesClient(AbstractClient):
             try:
                 # The panels group them by route, keeping the later ones for the styles that show them.
                 panels.append(resolved.source.panel(resolved.stop, self.config.style))
+            except LookupError as e:
+                # Expected, and not worth a traceback each cycle: the store has nothing for it (yet).
+                logger.warning("No departures for %s: %s", resolved.id, e)
             except Exception:
                 logger.exception("Error fetching departures for %s", resolved.id)
         if not panels:

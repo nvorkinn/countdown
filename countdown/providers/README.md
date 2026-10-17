@@ -4,8 +4,9 @@ One long-running process per API (TfL, weather, ...) that fetches what the scree
 Redis store, so renderers can read it from there instead of each calling every API itself. Ten screens watching the
 same bus stop then cost one TfL call, not ten.
 
-**Status: scaffolding.** The TfL and weather providers fetch, but nothing writes subscriptions yet
-(that's the broker's side, in auth-broker), and renderers don't read the store yet. In production the services are
+**Status: scaffolding.** The TfL and weather providers fetch, the broker writes the subscriptions (auth-broker,
+on every config save), and renderers read the store only once they're told to (step 4 of
+[Enabling in production](#enabling-in-production)). In production the services are
 behind a Compose profile, so they aren't started (see [Enabling in production](#enabling-in-production)).
 
 ## The model
@@ -117,6 +118,17 @@ The services are in `../server/deploy/docker-compose.yml`, under the `providers`
    compose file, so a missing one fails the deploy rather than starting a provider that can't log in.
 3. Remove the `profiles: [ providers ]` lines from the services that should run. Then every deploy starts and
    upgrades them, and `--wait` fails the deploy if one won't stay up.
+
+4. Once the providers are filling the store, point the renderers at it: set `RENDERER_REDIS_URL` to
+   `redis://127.0.0.1:6379/0` for the orchestrator (with `REDIS_PASSWORD`, as in step 2). It passes them to each
+   renderer as `REDIS_URL` and `REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change
+   to the store they read counts as an upgrade, like a new image. Those renderers then read TfL's departures
+   (`v1:departures:<stop>`) and the weather (`v1:weather:<location>`) from the store, and stop calling TfL and Open-Meteo
+   for them; Entur's departures and the disruption notices still come straight from their APIs. Unset it again to go
+   back. Renderers on standalone Pis never get it, so they keep calling the APIs.
+
+   A key a renderer wants that isn't in the store (its provider is down, or hasn't got to it yet) is skipped: that stop
+   is left off, or the weather keeps its last forecast, as when an API call fails.
 
 Until then they can be tried on the host with `docker compose --profile providers up -d`. Containers started that way
 are left alone by later deploys: not removed, but not upgraded either.

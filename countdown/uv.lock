@@ -289,6 +289,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-tfl-api" },
     { name = "qrcode" },
+    { name = "redis" },
     { name = "requests" },
     { name = "urllib3" },
 ]
@@ -307,6 +308,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "pydantic-tfl-api", specifier = ">=3.1.0" },
     { name = "qrcode", specifier = ">=8.2" },
+    { name = "redis", specifier = ">=8.1.0" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "urllib3", specifier = "==2.8.0" },
 ]
