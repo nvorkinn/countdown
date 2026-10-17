@@ -4,9 +4,9 @@ One long-running process per API (TfL, Entur, weather, ...) that fetches what th
 Redis store, so renderers can read it from there instead of each calling every API itself. Ten screens watching the
 same bus stop then cost one TfL call, not ten.
 
-**Status:** the TfL, Entur and weather providers run in production and fill the store from the broker's
-subscriptions (auth-broker writes them on every config save). Renderers read the store only once they're pointed at
-it (see [Enabling in production](#enabling-in-production)).
+**Status:** live. The TfL, Entur and weather providers (here) and the energy and music providers (auth-broker) fill
+the store from the broker's subscriptions, and the server's renderers read it (see
+[Enabling in production](#enabling-in-production)). Standalone Pis still call the APIs.
 
 ## The model
 
@@ -159,15 +159,16 @@ and `TFL_APP_KEY`; without the password the deploy fails rather than start them 
 writing subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking).
 auth-broker's providers (energy, music) are switched on in auth-broker.
 
-Then, once every provider is filling the store, point the renderers at it: set `RENDERER_REDIS_URL` to
-   `redis://127.0.0.1:6379/0` for the orchestrator (it already gets `REDIS_PASSWORD` from the deploy). It passes them to each
+The renderers read the store: the orchestrator's `RENDERER_REDIS_URL` defaults to `redis://127.0.0.1:6379/0` in
+   the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to each
    renderer as `REDIS_URL` and `REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change
    to the store they read counts as an upgrade, like a new image. Those renderers then read TfL's and Entur's
    departures (`v1:departures:<stop>`) and the weather (`v1:weather:<location>`) from the store, and stop calling TfL,
    Entur and Open-Meteo for them; only the disruption notices still come straight from their APIs. The energy panel's
    readings (`v1:energy:<device id>`) come from the store too, from auth-broker's `glow-provider`, so start that first
    (see "The energy provider" in auth-broker's README): without it, every energy panel says "Could not connect", as
-   the renderers are remade with the store and have no readings to draw. Unset it again to go back. Renderers on
+   the renderers are remade with the store and have no readings to draw. To go back, deploy with
+   `RENDERER_REDIS_URL` set to empty. Renderers on
    standalone Pis never get it, so they keep calling the APIs.
 
    The Spotify area (Spotify and Apple Music) comes from the store too (`v1:spotify:<device>` and
