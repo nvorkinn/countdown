@@ -4,9 +4,19 @@ import datetime as dt
 from enum import StrEnum
 from typing import Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from countdown_core.i18n import N_
+
+
+class OpenMeteoModel(BaseModel):
+    """A model of Open-Meteo's JSON, which may use Open-Meteo's names (aliases) or our own field names.
+
+    Open-Meteo sends its names ("temperature_2m"); the weather provider stores the parsed forecast in Redis with
+    model_dump_json(), which writes ours ("temperature"). Accepting both lets a renderer read that back.
+    """
+
+    model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
 
 
 class GeocodingResult(BaseModel):
@@ -24,7 +34,7 @@ class GeocodingResponse(BaseModel):
     results: list[GeocodingResult] = []
 
 
-class CurrentConditions(BaseModel):
+class CurrentConditions(OpenMeteoModel):
     """The weather now."""
 
     time: dt.datetime  # the location's local time, since the forecast asks for timezone=auto
@@ -36,7 +46,7 @@ class CurrentConditions(BaseModel):
     wind_direction: float = Field(alias="wind_direction_10m")
 
 
-class CurrentUnits(BaseModel):
+class CurrentUnits(OpenMeteoModel):
     """The units the current conditions are in, such as "°C"."""
 
     temperature: str = Field(alias="temperature_2m")
@@ -44,7 +54,7 @@ class CurrentUnits(BaseModel):
     wind_speed: str = Field(alias="wind_speed_10m")
 
 
-class HourlyForecast(BaseModel):
+class HourlyForecast(OpenMeteoModel):
     """One parallel list per variable, one entry per hour."""
 
     time: list[dt.datetime]
@@ -74,7 +84,7 @@ class HourlyForecast(BaseModel):
         return self
 
 
-class DailyForecast(BaseModel):
+class DailyForecast(OpenMeteoModel):
     """Open-Meteo returns one parallel list per variable, one entry per day (today first)."""
 
     time: list[dt.date]
@@ -106,7 +116,7 @@ class DailyForecast(BaseModel):
         return self
 
 
-class ForecastResponse(BaseModel):
+class ForecastResponse(OpenMeteoModel):
     """Open-Meteo's forecast for one place, in its local time."""
 
     utc_offset_seconds: int

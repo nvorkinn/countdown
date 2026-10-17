@@ -4,7 +4,7 @@ One long-running process per API (TfL, weather, ...) that fetches what the scree
 Redis store, so renderers can read it from there instead of each calling every API itself. Ten screens watching the
 same bus stop then cost one TfL call, not ten.
 
-**Status: scaffolding.** Only the TfL provider fetches anything (weather is a stub), nothing writes subscriptions yet
+**Status: scaffolding.** The TfL and weather providers fetch, but nothing writes subscriptions yet
 (that's the broker's side, in auth-broker), and renderers don't read the store yet. In production the services are
 behind a Compose profile, so they aren't started (see [Enabling in production](#enabling-in-production)).
 
@@ -35,7 +35,7 @@ countdown-core so the providers and renderers share them.
 | `v1:sub:spotify` | set | broker | device ids |
 | `v1:sub:changed` | pub/sub channel | broker | empty message after replacing subscriptions |
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl (and later Entur) | `StopDepartures` JSON |
-| `v1:weather:<key>` | string, TTL ~30 min | provider-weather | (model to come) |
+| `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages) |
 | `v1:energy:<device id>` | string, TTL ~1 h | (provider to come) | (model to come) |
 | `v1:spotify:<device id>` | string, TTL ~1 min | (provider to come) | (model to come) |
 
@@ -89,7 +89,10 @@ every id is fetched by exactly one copy. (Not Python's `hash()`, which differs f
 4. Add a `provider-<name>` service to `../server/deploy/docker-compose.yml` like the others, with its `command`.
 5. Test it with its API mocked; `tests/test_provider_runner.py` already covers the loop.
 
-`weather/main.py` is the smallest example of the shape.
+`weather/main.py` is the smallest complete example of the shape. Location keys there are the broker's
+`<name>-<country>-<GeoNames id>` (`london-gb-2643743`): the id finds the place exactly, and a key without one (a
+screen saved before the place picker, until it's backfilled) is geocoded by name. Open-Meteo is keyless, so it
+needs no secret.
 
 ## The image
 
