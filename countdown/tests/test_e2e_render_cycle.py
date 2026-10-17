@@ -1,6 +1,7 @@
 """End-to-end tests for the display refresh cycle, through to a rendered image.
 
-The real clients and ApiRegistry run inside DisplayLoop.run(), against HTTP mocked with `responses`.
+The real clients and ApiRegistry run inside DisplayLoop.run(), reading a fake store (conftest's `store`) that the
+tests fill as the providers would, with any other HTTP (the broker, the notices, album art) mocked with `responses`.
 
 `asyncio.sleep` is replaced by a fake that raises after N calls (see _run_cycles()). Most
 tests leave the broker's /config unmocked, so refreshing the config fails and is swallowed,
@@ -10,6 +11,7 @@ and the loop carries on with the config it was built with.
 import asyncio
 import datetime
 import io
+import json
 import logging
 from types import SimpleNamespace
 
@@ -18,6 +20,7 @@ import responses
 from config_factory import broker_payload, make_config
 from fake_target import FakeTarget
 from PIL import Image, ImageDraw
+from test_utils import put_departures
 from weather_factory import forecast_json
 
 from countdown_api.models import ConfigResponse, Screen
@@ -34,13 +37,13 @@ from countdown_core.rendering import layout_for
 from countdown_core.rendering.layouts.classic import BaseLayout, GlowLayout
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
+from countdown_core.store import keys
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_credentials.registration import RendererRegistration
 
 TEST_BROKER_URL = "https://broker.example.com"
-GLOWMARKT_URL = "https://api.glowmarkt.com/api/v0-1"
-QUEUE_URL = f"{TEST_BROKER_URL}/api/spotify/queue"
+DEVICE_ID = "test-device"
 
 
 def _app_config_json(pairing_code: str | None = None, interval: int = 1) -> dict:
@@ -48,42 +51,10 @@ def _app_config_json(pairing_code: str | None = None, interval: int = 1) -> dict
     return broker_payload(interval=interval, pairing_code=pairing_code)
 
 
-BUS_STOP_JSON = {
-    "naptanId": "490000123W",
-    "commonName": "Elephant & Castle",
-    "modes": ["bus"],
-    "additionalProperties": [],
-    "children": [],
-    "stopType": "NaptanPublicBusCoachTram",
-    "stopLetter": "W",
-}
-METRO_STOP_JSON = {
-    "naptanId": "940GZZLUKNG",
-    "commonName": "Kennington Underground Station",
-    "modes": ["tube"],
-    "additionalProperties": [],
-    "children": [],
-    "stopType": "NaptanMetroStation",
-}
-BUS_ARRIVALS_JSON = [
-    {
-        "naptanId": "490000123W",
-        "lineName": "N155",
-        "timeToStation": 300,
-        "modeName": "bus",
-        "destinationName": "Somewhere",
-    }
-]
-METRO_ARRIVALS_JSON = [
-    {
-        "naptanId": "940GZZLUKNG",
-        "lineName": "Northern",
-        "timeToStation": 120,
-        "modeName": "tube",
-        "towards": "Bank",
-        "destinationNaptanId": None,
-    }
-]
+BUS_STOP = "490000123W"
+TUBE_STATION = "940GZZLUKNG"
+
+
 TRACK_JSON = {
     "name": "Test Song",
     "artists": [{"name": "Test Artist"}],
@@ -102,34 +73,62 @@ def _png_bytes() -> bytes:
     return buf.getvalue()
 
 
-def _mock_tfl(stop_json_by_id: dict, arrivals_json_by_id: dict) -> None:
-    for stop_id, stop_json in stop_json_by_id.items():
-        responses.add(responses.GET, f"https://api.tfl.gov.uk/StopPoint/{stop_id}", json=stop_json)
-    for stop_id, arrivals_json in arrivals_json_by_id.items():
-        responses.add(responses.GET, f"https://api.tfl.gov.uk/StopPoint/{stop_id}/Arrivals", json=arrivals_json)
+def _put_stops(store, *stop_ids: str) -> None:
+    """Store each stop's departures as the TfL provider would: a bus stop's, or a Tube station's (940...)."""
+    for stop_id in stop_ids:
+        if stop_id.startswith("940"):
+            put_departures(
+                store, stop_id, [("Northern", "Bank", 120)], name="Kennington Underground Station", mode="tube"
+            )
+        else:
+            put_departures(store, stop_id, [("N155", "Somewhere", 300)], stop_letter="W")
 
 
-def _mock_glowmarkt() -> None:
-    responses.add(responses.POST, f"{GLOWMARKT_URL}/auth", json={"token": "fake-token"})
-    responses.add(
-        responses.GET,
-        f"{GLOWMARKT_URL}/virtualentity",
-        json=[{"resources": [{"name": "electricity consumption", "resourceId": "elec-id"}]}],
-    )
-
-    now = datetime.datetime.now().astimezone()
-    four_hours_earlier = now - datetime.timedelta(hours=4)
-    six_hours_earlier = now - datetime.timedelta(hours=6)
-    responses.add(
-        responses.GET,
-        f"{GLOWMARKT_URL}/resource/elec-id/readings",
-        json={"data": [[four_hours_earlier.timestamp(), 1.5], [six_hours_earlier.timestamp(), 2.25]]},
-    )
+def _put_energy(store) -> None:
+    """Store the device's readings as auth-broker's glow-provider would: two hourly ones, at UTC (offset 0)."""
+    now = datetime.datetime.now(datetime.UTC)
+    hourly = {
+        "data": [
+            [(now - datetime.timedelta(hours=4)).timestamp(), 1.5],
+            [(now - datetime.timedelta(hours=6)).timestamp(), 2.25],
+        ]
+    }
+    stored = {"fetched_at": now.isoformat(), "device_id": DEVICE_ID, "offset": "0", "resource_id": "elec-id"}
+    empty = {"data": []}
+    store.set(keys.energy(DEVICE_ID), json.dumps(stored | {"hourly": hourly, "daily": empty, "monthly": empty}))
 
 
-def _mock_tfl_and_glowmarkt(stop_json_by_id: dict, arrivals_json_by_id: dict) -> None:
-    _mock_tfl(stop_json_by_id, arrivals_json_by_id)
-    _mock_glowmarkt()
+def _put_stops_and_energy(store, *stop_ids: str) -> None:
+    _put_stops(store, *stop_ids)
+    _put_energy(store)
+
+
+def _put_music(store, queue: dict, top: dict | None = None) -> None:
+    """Store Spotify's player (and top lists, the same for both periods) as auth-broker's music provider would."""
+    fetched_at = datetime.datetime.now(datetime.UTC).isoformat()
+    store.set(keys.spotify(DEVICE_ID), json.dumps({"fetched_at": fetched_at, "spotify": queue}))
+    lists = {"long_term": top, "short_term": top} if top is not None else None
+    store.set(keys.spotify_top(DEVICE_ID), json.dumps({"fetched_at": fetched_at, "spotify": lists}))
+
+
+def _put_forecast(store, forecast: dict, location: str = "London") -> None:
+    """Store `location`'s forecast as the weather provider would."""
+    stored = {"fetched_at": datetime.datetime.now(datetime.UTC).isoformat(), "location": location, "forecast": forecast}
+    store.set(keys.weather(location), json.dumps(stored))
+
+
+@pytest.fixture
+def reads(store, monkeypatch) -> list[str]:
+    """Record the key of every read of the store."""
+    seen: list[str] = []
+    get = store.get
+
+    def recording_get(key):
+        seen.append(key)
+        return get(key)
+
+    monkeypatch.setattr(store, "get", recording_get)
+    return seen
 
 
 def _make_config() -> ConfigResponse:
@@ -141,7 +140,7 @@ def _make_config() -> ConfigResponse:
 
 
 def _build_loop(config: ConfigResponse, monkeypatch, pairing_code: str | None = None) -> DisplayLoop:
-    broker = BrokerClient(RendererRegistration(TEST_BROKER_URL, "test-secret", "test-device"))
+    broker = BrokerClient(RendererRegistration(TEST_BROKER_URL, "test-secret", DEVICE_ID))
     asyncio.run(broker.initialise())
     # Via get_pairing_code_panel, to seed the broker's cache like fetch_app_config() does.
     pairing_code_panel = broker.get_pairing_code_panel(ConfigResponse.model_validate(_app_config_json(pairing_code)))
@@ -188,14 +187,12 @@ def _calls_to(url_prefix: str) -> int:
     return sum(1 for call in responses.calls if call.request.url.startswith(url_prefix))
 
 
-FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
-
-
-def _mock_forecast() -> None:
-    responses.add(
-        responses.GET,
-        FORECAST_URL,
-        json=forecast_json(
+def _put_cold_forecast(store, config: ConfigResponse) -> None:
+    """Configure the weather for London, and store a freezing forecast for it."""
+    config.weather.location = "London"
+    _put_forecast(
+        store,
+        forecast_json(
             current={"temperature_2m": -20.0, "weather_code": 45, "is_day": 0},
             daily={"temperature_2m_max": [-7.8] + [-8.0] * 7, "temperature_2m_min": [-20.1] + [-21.0] * 7}
             | {"precipitation_probability_max": [None] * 8},
@@ -204,14 +201,11 @@ def _mock_forecast() -> None:
 
 
 @responses.activate
-def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch):
+def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch, store):
     config = _make_config()
-    config.tfl.stop_ids = ["490000123W", "940GZZLUKNG"]
-    _mock_tfl_and_glowmarkt(
-        {"490000123W": BUS_STOP_JSON, "940GZZLUKNG": METRO_STOP_JSON},
-        {"490000123W": BUS_ARRIVALS_JSON, "940GZZLUKNG": METRO_ARRIVALS_JSON},
-    )
-    _mock_forecast()
+    config.tfl.stop_ids = [BUS_STOP, TUBE_STATION]
+    _put_stops_and_energy(store, BUS_STOP, TUBE_STATION)
+    _put_cold_forecast(store, config)
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
@@ -225,41 +219,37 @@ def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch):
     assert panels["glowmarkt"].page_index == 0
     assert [reading["kwh"] for reading in panels["glowmarkt"].readings] == [2.25, 1.5]  # oldest first
     assert panels["spotify"].message == "Not configured"  # not enabled, so never even built
-    assert isinstance(panels["weather"], WeatherPanel)  # no location: the weather at the North Pole
-    forecast_request = next(c.request for c in responses.calls if c.request.url.startswith(FORECAST_URL))
-    assert "latitude=90.0" in forecast_request.url
+    assert isinstance(panels["weather"], WeatherPanel)
+    assert panels["weather"].weather.temperature == -20.0
 
 
 @responses.activate
-def test_full_render_cycle_skips_glowmarkt_when_credentials_empty(isolated_cwd, monkeypatch):
-    """The common case: Glowmarkt never set up.
-
-    No glowmarkt.com endpoint is mocked, so any call to it would fail and show in the call count below.
-    """
+def test_full_render_cycle_skips_glowmarkt_when_credentials_empty(isolated_cwd, monkeypatch, store, reads):
+    """The common case: Glowmarkt never set up, so its readings are never even read."""
     config = make_config()
     config.interval = 1
-    config.tfl.stop_ids = ["490000123W"]
+    config.tfl.stop_ids = [BUS_STOP]
     assert config.glowmarkt.username is None
     assert config.glowmarkt.password is None
-    _mock_tfl({"490000123W": BUS_STOP_JSON}, {"490000123W": BUS_ARRIVALS_JSON})
+    _put_stops_and_energy(store, BUS_STOP)
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch)
 
-    assert _calls_to("https://api.glowmarkt.com") == 0
+    assert keys.energy(DEVICE_ID) not in reads
     assert "glowmarkt" not in loop.api_reg.clients  # never built without credentials
     assert shown[0]["glowmarkt"].message == "Not configured"
     assert len(shown[0]["tfl"].arrival_panels) == 1
 
 
 @responses.activate
-def test_full_render_cycle_with_spotify_track(isolated_cwd, monkeypatch):
+def test_full_render_cycle_with_spotify_track(isolated_cwd, monkeypatch, store):
     config = _make_config()
-    config.tfl.stop_ids = ["490000123W"]
+    config.tfl.stop_ids = [BUS_STOP]
     config.spotify.enabled = True
-    _mock_tfl_and_glowmarkt({"490000123W": BUS_STOP_JSON}, {"490000123W": BUS_ARRIVALS_JSON})
-    responses.add(responses.GET, QUEUE_URL, json={"currently_playing": TRACK_JSON, "queue": []})
+    _put_stops_and_energy(store, BUS_STOP)
+    _put_music(store, {"currently_playing": TRACK_JSON, "queue": []})
     responses.add(responses.GET, "https://example.com/album.jpg", body=_png_bytes(), content_type="image/png")
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
@@ -272,14 +262,13 @@ def test_full_render_cycle_with_spotify_track(isolated_cwd, monkeypatch):
 
 
 @responses.activate
-def test_full_render_cycle_when_nothing_is_playing(isolated_cwd, monkeypatch):
+def test_full_render_cycle_when_nothing_is_playing(isolated_cwd, monkeypatch, store):
     config = _make_config()
-    config.tfl.stop_ids = ["490000123W"]
+    config.tfl.stop_ids = [BUS_STOP]
     config.spotify.enabled = True
-    _mock_tfl_and_glowmarkt({"490000123W": BUS_STOP_JSON}, {"490000123W": BUS_ARRIVALS_JSON})
-    responses.add(responses.GET, QUEUE_URL, json={"currently_playing": None, "queue": []})
-    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/spotify/top/tracks", json={"items": []})
-    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/spotify/top/artists", json={"items": [{"name": "An Artist"}]})
+    _put_stops_and_energy(store, BUS_STOP)
+    top = {"tracks": {"items": []}, "artists": {"items": [{"name": "An Artist"}]}}
+    _put_music(store, {"currently_playing": None, "queue": []}, top)
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
@@ -290,20 +279,11 @@ def test_full_render_cycle_when_nothing_is_playing(isolated_cwd, monkeypatch):
 
 
 @responses.activate
-def test_full_render_cycle_with_weather(isolated_cwd, monkeypatch):
+def test_full_render_cycle_with_weather(isolated_cwd, monkeypatch, store):
     config = _make_config()
     config.weather.location = "London"
-    responses.add(
-        responses.GET,
-        "https://geocoding-api.open-meteo.com/v1/search",
-        json={"results": [{"name": "London", "latitude": 51.5, "longitude": -0.12}]},
-    )
-    responses.add(
-        responses.GET,
-        "https://api.open-meteo.com/v1/forecast",
-        json=forecast_json(),
-    )
-    _mock_glowmarkt()
+    _put_forecast(store, forecast_json())
+    _put_energy(store)
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
@@ -314,53 +294,40 @@ def test_full_render_cycle_with_weather(isolated_cwd, monkeypatch):
 
 
 @responses.activate
-def test_one_api_being_down_does_not_stop_the_others_reaching_the_screen(isolated_cwd, monkeypatch):
+def test_one_provider_being_down_does_not_stop_the_others_reaching_the_screen(isolated_cwd, monkeypatch, store):
+    """The TfL provider is down, so its stop's key has expired; the energy readings are still there."""
     config = _make_config()
-    config.tfl.stop_ids = ["490000123W"]
-    responses.add(responses.GET, "https://api.tfl.gov.uk/StopPoint/490000123W", status=500)
-    _mock_glowmarkt()
+    config.tfl.stop_ids = [BUS_STOP]
+    _put_energy(store)
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch)
 
     assert len(shown) == 1
-    assert shown[0]["tfl"].message == "Could not connect"  # no stops could be resolved
+    assert shown[0]["tfl"].message == "Could not connect"  # no stop's departures in the store
     assert isinstance(shown[0]["glowmarkt"], EnergyPanel)
 
 
 @responses.activate
-def test_later_cycles_reuse_client_state_and_keep_slow_panels_on_screen(isolated_cwd, monkeypatch):
+def test_later_cycles_reuse_client_state_and_keep_slow_panels_on_screen(isolated_cwd, monkeypatch, store, reads):
     """Clients live for the whole run.
 
-    On the second cycle Glowmarkt and TfL aren't due yet, so they aren't called again, but their last panels are still
-    drawn.
+    On the second cycle the energy and departures clients aren't due yet, so they don't read the store again, but
+    their last panels are still drawn.
     """
     config = _make_config()
-    config.tfl.stop_ids = ["490000123W", "940GZZLUKNG", "490000456X", "940GZZLUABC"]
-    _mock_tfl_and_glowmarkt(
-        {
-            "490000123W": BUS_STOP_JSON,
-            "940GZZLUKNG": METRO_STOP_JSON,
-            "490000456X": dict(BUS_STOP_JSON, naptanId="490000456X"),
-            "940GZZLUABC": dict(METRO_STOP_JSON, naptanId="940GZZLUABC"),
-        },
-        {
-            "490000123W": BUS_ARRIVALS_JSON,
-            "940GZZLUKNG": METRO_ARRIVALS_JSON,
-            "490000456X": BUS_ARRIVALS_JSON,
-            "940GZZLUABC": METRO_ARRIVALS_JSON,
-        },
-    )
+    stops = [BUS_STOP, TUBE_STATION, "490000456X", "940GZZLUABC"]
+    config.tfl.stop_ids = stops
+    _put_stops_and_energy(store, *stops)
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
     assert len(shown) == 2
-    assert _calls_to(f"{GLOWMARKT_URL}/auth") == 1
-    assert _calls_to(f"{GLOWMARKT_URL}/virtualentity") == 1
-    assert _calls_to(f"{GLOWMARKT_URL}/resource") == 1  # not due again yet
+    assert reads.count(keys.energy(DEVICE_ID)) == 1  # not due again yet
+    assert sum(key.startswith("v1:departures:") for key in reads) == loop.api_reg.clients["tfl"].stops_per_update
     assert shown[1]["glowmarkt"] is shown[0]["glowmarkt"]
     assert shown[1]["tfl"] is shown[0]["tfl"]
 
@@ -382,7 +349,7 @@ def test_run_shows_pairing_screen_and_skips_normal_display_while_unpaired(isolat
 
     _run_cycles(loop, monkeypatch)
 
-    assert pairing_screens == [("ABC123", "test-device")]
+    assert pairing_screens == [("ABC123", DEVICE_ID)]
     assert shown == []
     assert loop.api_reg.panels == {}
     assert len(responses.calls) == 0
@@ -431,14 +398,14 @@ def test_refresh_broker_config_applies_the_new_interval_and_pairing_state(isolat
 
 
 @responses.activate
-def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isolated_cwd, monkeypatch):
+def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isolated_cwd, monkeypatch, store):
     """The device boots with nothing set up; the owner then adds a stop on the broker.
 
     Cycle 2 must pick that up without a restart.
     """
-    _mock_tfl({"490000123W": BUS_STOP_JSON}, {"490000123W": BUS_ARRIVALS_JSON})
+    _put_stops(store, BUS_STOP)
     new_config = _app_config_json()
-    new_config["tfl"]["stop_ids"] = ["490000123W"]
+    new_config["tfl"]["stop_ids"] = [BUS_STOP]
     responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=new_config)
     loop = _build_loop(make_config(), monkeypatch)
     shown = _spy_on_frames(monkeypatch)
@@ -451,12 +418,12 @@ def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isola
 
 @responses.activate
 @pytest.mark.parametrize("orientation", ["horizontal", "vertical"])
-def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orientation, monkeypatch):
+def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orientation, monkeypatch, store, reads):
     config = _make_config()
     config.screen.orientation = orientation
-    config.tfl.stop_ids = ["490000123W"]
-    _mock_tfl_and_glowmarkt({"490000123W": BUS_STOP_JSON}, {"490000123W": BUS_ARRIVALS_JSON})
-    _mock_forecast()
+    config.tfl.stop_ids = [BUS_STOP]
+    _put_stops_and_energy(store, BUS_STOP)
+    _put_cold_forecast(store, config)
     for clock_format in ("12h", "24h"):
         responses.add(
             responses.GET,
@@ -517,9 +484,9 @@ def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orie
     else:
         assert any(text.endswith((" AM", " PM")) and "until" not in text for text in twelve_hour[3])
     assert loop.api_reg.clients["weather"]._next_page == 1
-    assert _calls_to(FORECAST_URL) == 1
-    assert _calls_to(f"{GLOWMARKT_URL}/resource") == 1
-    assert _calls_to("https://api.tfl.gov.uk/StopPoint/490000123W/Arrivals") == 1
+    assert reads.count(keys.weather("London")) == 1
+    assert reads.count(keys.energy(DEVICE_ID)) == 1
+    assert reads.count(keys.departures(BUS_STOP)) == 1
     assert loop.interval == 1
     assert loop.display.target.paints == [None, None, None]
     loop.display.display_screen(
@@ -529,13 +496,13 @@ def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orie
 
 
 @responses.activate
-def test_the_layout_follows_what_the_config_lets_the_device_show(isolated_cwd, monkeypatch):
+def test_the_layout_follows_what_the_config_lets_the_device_show(isolated_cwd, monkeypatch, store):
     """Boots with Glowmarkt set up but not Spotify (GlowLayout), then loses Glowmarkt.
 
     The owner removes Glowmarkt's credentials on the broker, and the next cycle drops the energy column (BaseLayout,
     with neither). The screen is hung landscape: those are its layouts.
     """
-    _mock_tfl_and_glowmarkt({}, {})
+    _put_energy(store)
     landscape = {"orientation": "horizontal", "width": 800, "height": 480}
     responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=broker_payload(interval=1, screen=landscape))
     config = _make_config()

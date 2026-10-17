@@ -1,26 +1,27 @@
 # countdown-providers
 
 One long-running process per API (TfL, Entur, weather, ...) that fetches what the screens want and writes it to a shared
-Redis store, so renderers can read it from there instead of each calling every API itself. Ten screens watching the
+Redis store, which the renderers read instead of each calling every API itself. Ten screens watching the
 same bus stop then cost one TfL call, not ten.
 
 **Status:** live. The TfL, Entur and weather providers (here) and the energy and music providers (auth-broker) fill
-the store from the broker's subscriptions, and the server's renderers read it (see
-[Enabling in production](#enabling-in-production)). Standalone Pis still call the APIs.
+the store from the broker's subscriptions, and the renderers read only the store for those panels (see
+[Enabling in production](#enabling-in-production)). There are no standalone Pis any more, so no renderer calls those
+APIs itself.
 
 ## The model
 
 ```
 auth-broker ──SADD (replace)──▶ v1:sub:tfl ──SMEMBERS──▶ provider-tfl ──SET … EX ttl──▶ v1:departures:<stop>
             ──PUBLISH───────▶ v1:sub:changed ──wakes──▶                                      │
-                                                                                 renderers (later) ◀──GET
+                                                                                       renderers ◀──GET
 ```
 
 - The **broker** writes, for each source, the set of ids some screen wants, replacing it atomically whenever a config
   is saved, then publishes on `v1:sub:changed` as a nudge.
 - Each **provider** runs the same loop (`runner.ProviderRunner`): read its set, fetch what's in its shard, write each
   result with a TTL, then sleep until the next tick of its interval (epoch-aligned), or until the nudge or a shutdown.
-- A **renderer** will read the keys. A stop with nothing due is still written (an empty list), so "no buses" isn't
+- A **renderer** reads the keys. A stop with nothing due is still written (an empty list), so "no buses" isn't
   "no data"; a **missing key** means the provider is down (its keys expired), and the panel is hidden.
 
 The key names are in `countdown_core/store/keys.py` and the stored models in `countdown_core/store/models.py`, in
@@ -73,21 +74,23 @@ nudge only delays a change until the next tick, as every cycle re-reads the subs
 The energy panel's readings are written by auth-broker, not by a provider here: its `glow-provider` (the broker's image
 with another command) signs in to Glowmarkt with the passwords the broker keeps encrypted, so they never leave it. It
 can't import countdown-core, so what it stores is Glowmarkt's answers as they came, in a thin wrapper, and the renderer
-reads them with the models it reads Glowmarkt with (`glow/models.py`):
+reads them with the models of Glowmarkt's answers (`glow/models.py`):
 
 ```json
 {"fetched_at": "2026-09-25T05:10:00+00:00", "device_id": "a1b2c3d4e5f6", "offset": "-60", "resource_id": "...",
  "hourly": {"data": [[1790229600, 0.21], ...], ...}, "daily": {...}, "monthly": {...}}
 ```
 
-`hourly`, `daily` and `monthly` are Glowmarkt's `PT1H`, `P1D` and `P1M` readings, each asked for, as `GlowClient` would
-ask, from the start of its page's window (the hour 24 hours before, midnight 31 days before, 1st January) to
+`hourly`, `daily` and `monthly` are Glowmarkt's `PT1H`, `P1D` and `P1M` readings, each asked for, as the renderer
+once asked for them itself, from the start of its page's window (the hour 24 hours before, midnight 31 days before, 1st January) to
 `fetched_at`, in the screen's time zone at its offset then. `offset` is Glowmarkt's parameter for that (minutes from
 local time to UTC, so BST is `-60`): Glowmarkt labels each bucket with its local wall-clock start as if it were UTC, and
 the renderer relabels them at that offset. It cuts each page to its window as of when it draws, so a value up to its
 TTL old still gives the right 24 hours, 31 days and year, short only of the readings since `fetched_at`. The broker
 fetches every 15 minutes, and keeps each value for an hour. `tests/fixtures/glow_energy.json` is one fetch, from
 Glowmarkt's answers to the stored value, and auth-broker's tests read the same file: change both together.
+`tests/fixtures/glow_energy_pages.json` is the pages the renderer drew from those answers when it still asked
+Glowmarkt itself, which the stored value must still draw.
 
 ## Running locally
 
@@ -133,7 +136,8 @@ every id is fetched by exactly one copy. (Not Python's `hash()`, which differs f
 5. Test it with its API mocked; `tests/test_provider_runner.py` already covers the loop.
 
 `weather/main.py` is the smallest complete example of the shape. `tfl/main.py` and `entur/main.py` are the same
-shape for departures, each wrapping the renderer's own source (`TflSource`, `EnturSource`). Entur, like Open-Meteo,
+shape for departures, each wrapping countdown-core's source (`TflSource`, `EnturSource`), which only the providers
+call now. Entur, like Open-Meteo,
 needs no key, only the `ET-Client-Name` header its client already sends. Location keys there are the broker's
 `<name>-<country>-<GeoNames id>` (`london-gb-2643743`): the id finds the place exactly, and a key without one (a
 screen saved before the place picker, until it's backfilled) is geocoded by name. Open-Meteo is keyless, so it
@@ -160,21 +164,19 @@ writing subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:63
 auth-broker's providers (energy, music) are switched on in auth-broker.
 
 The renderers read the store: the orchestrator's `RENDERER_REDIS_URL` defaults to `redis://127.0.0.1:6379/0` in
-   the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to each
-   renderer as `REDIS_URL` and `REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change
-   to the store they read counts as an upgrade, like a new image. Those renderers then read TfL's and Entur's
-   departures (`v1:departures:<stop>`) and the weather (`v1:weather:<location>`) from the store, and stop calling TfL,
-   Entur and Open-Meteo for them; only the disruption notices still come straight from their APIs. The energy panel's
-   readings (`v1:energy:<device id>`) come from the store too, from auth-broker's `glow-provider`, so start that first
-   (see "The energy provider" in auth-broker's README): without it, every energy panel says "Could not connect", as
-   the renderers are remade with the store and have no readings to draw. To go back, deploy with
-   `RENDERER_REDIS_URL` set to empty. Renderers on
-   standalone Pis never get it, so they keep calling the APIs.
+the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to each renderer as `REDIS_URL` and
+`REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change to the store they read counts
+as an upgrade, like a new image. The renderers read TfL's and Entur's departures (`v1:departures:<stop>`), the weather
+(`v1:weather:<location>`), the energy readings (`v1:energy:<device id>`, from auth-broker's `glow-provider`) and the
+Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
+the store; only the disruption notices still come straight from their APIs, and the developer panel from the store
+when there is one. So each provider must be running for its panels to have anything to draw.
 
-   The Spotify area (Spotify and Apple Music) comes from the store too (`v1:spotify:<device>` and
-   `v1:spotify-top:<device>`, under the renderer's own device id) instead of the broker's proxy routes, so turn on
-   auth-broker's `spotify-provider` first (its README, "Music in the store"): while its keys are missing, the area
-   keeps its last panel.
+A renderer started without the store (`RENDERER_REDIS_URL` set to empty, so no `REDIS_URL`) can't build the clients
+that read it: their areas say "Could not connect", the device reports them as in error, and the log names
+`REDIS_URL` (`reader.StoreNotConfiguredError`). The rest of the screen still works. There's no going back to calling
+the APIs directly: that code is gone.
 
-   A key a renderer wants that isn't in the store (its provider is down, or hasn't got to it yet) is skipped: that stop
-   is left off, or the weather keeps its last forecast, as when an API call fails.
+A key a renderer wants that isn't in the store (its provider is down, or hasn't got to it yet), or a Redis that doesn't
+answer, is a failed read, never fatal: that stop is left off, and a panel with nothing to read keeps its last
+picture (or says "Could not connect" if it never had one).

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: countdown VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-17 16:45+0000\n"
+"POT-Creation-Date: 2026-10-17 22:47+0000\n"
 "PO-Revision-Date: 2026-10-16 16:50+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nb\n"
@@ -223,9 +223,6 @@ msgstr "Lett underkjølt regn"
 #, python-brace-format
 msgid "Line {line}"
 msgstr "Linje {line}"
-
-msgid "Location not found"
-msgstr "Sted ikke funnet"
 
 msgid "Low"
 msgstr "Lav"
@@ -578,4 +575,7 @@ msgstr "{repo}: bygget feiler"
 
 #~ msgid "Nothing played yet on:"
 #~ msgstr "Ingenting spilt ennå på:"
+
+#~ msgid "Location not found"
+#~ msgstr "Sted ikke funnet"
 

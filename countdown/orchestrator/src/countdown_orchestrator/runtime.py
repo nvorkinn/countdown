@@ -79,8 +79,8 @@ class DockerRuntime:
 
         Each is limited to `mem_limit` of memory and `nano_cpus` billionths of a CPU. `client` is the Docker
         client, by default the one the environment configures. With `store_url` (and `store_password`), renderers
-        read departures and weather from that Redis (as REDIS_URL and REDIS_PASSWORD) rather than calling the APIs;
-        without, they call the APIs (see countdown_core.store.reader).
+        read their panels' data from that Redis (as REDIS_URL and REDIS_PASSWORD); without, the panels that only come
+        from the store can't be drawn (see countdown_core.store.reader).
         """
         if client is None:
             client = docker.from_env()

@@ -2,9 +2,9 @@
 
 Location keys come from the broker's place picker: `<name>-<country>-<GeoNames id>`, e.g. `london-gb-2643743`, so the
 id, last, finds the place exactly. A screen saved before the picker has only its typed text, which the broker slugs
-(`london`, `sw1a-1aa`) until it's backfilled; those are geocoded by name instead, as the renderer did.
+(`london`, `sw1a-1aa`) until it's backfilled; those are geocoded by name instead.
 
-It reuses countdown_core.weather.weather_client's HTTP calls, which are synchronous (requests), so each batch runs in
+It uses countdown_core.weather.open_meteo's HTTP calls, which are synchronous (requests), so each batch runs in
 a worker thread (asyncio.to_thread), like the TfL provider.
 """
 
@@ -17,7 +17,7 @@ from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.log_format import configure_logging
 from countdown_core.store import keys
 from countdown_core.store.models import StoredForecast
-from countdown_core.weather.weather_client import fetch_forecast, geocode, place_coordinates
+from countdown_core.weather.open_meteo import fetch_forecast, geocode, place_coordinates
 from countdown_providers.config import Settings
 from countdown_providers.runner import serve
 

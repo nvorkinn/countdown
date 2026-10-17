@@ -1,6 +1,6 @@
 """Entur's departures from the store (`v1:departures:<stop id>`, written by the Entur provider) instead of from Entur.
 
-The departures client uses this in place of EnturSource when the renderer reads the store (countdown_core.store.reader).
+The departures client reads every Entur stop this way; EnturSource itself is only the Entur provider's now.
 The panel is an EnturArrivalPanel, so it draws exactly as one from Entur does: the stored model keeps the stop's name,
 its quay code and modes, and each departure's mode, and is turned back into Entur's stop and departures to draw.
 """

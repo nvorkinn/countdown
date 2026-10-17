@@ -1,6 +1,6 @@
 """The departures panel: every stop the owner picked, London's and Norway's alike.
 
-Each stop is asked of its own source and drawn the same way.
+Each stop is read from the store, as its source's provider (TfL's or Entur's) wrote it, and drawn the same way.
 """
 
 import logging
@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, Protocol, override
 from countdown_api.models import ConfigResponse, DepartureStop, Tfl
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.style import panel_style
-from countdown_core.entur.entur_source import EnturSource
 from countdown_core.entur.stored_source import StoredEnturSource
 from countdown_core.i18n import N_
 from countdown_core.notices.entur import EnturSituationsSource
@@ -19,7 +18,6 @@ from countdown_core.notices.tfl import TflLineStatusSource, TflStationSource
 from countdown_core.store import reader
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
 from countdown_core.tfl.stored_source import StoredTflSource
-from countdown_core.tfl.tfl_client import TflSource
 
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
@@ -32,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class StopSource[S](Protocol):
-    """Where one kind of stop's details and departures come from, such as TfL; `S` is its kind of stop."""
+    """Where one kind of stop's details and departures come from, such as TfL's stops in the store; `S` is a stop."""
 
     def resolve(self, stop_id: str) -> S | None:
         """Look the stop up: None if the source doesn't know it; raises if the source can't be asked."""
@@ -51,6 +49,7 @@ class DeparturesSettings:
 
     stops: tuple[DepartureStop, ...]
     style: Style = "hero"
+    # Only for the TfL disruption notices, which are still asked of TfL; the departures come from the store.
     tfl_app_key: str = ""
 
     @classmethod
@@ -82,16 +81,12 @@ class DeparturesClient(AbstractClient):
     panel_title = N_("Arrivals")
 
     def __init__(self, registration: Registration, config: DeparturesSettings) -> None:
-        """Never touches the network: stops are resolved in _initialise()."""
+        """Never touches the network: stops are resolved in _initialise(). Raises without a store to read."""
         super().__init__(registration, config)
-        # Departures come from the store when this renderer reads one (the TfL and Entur providers fetch them once
-        # for every screen), else from TfL and Entur. The disruption notices are still asked for directly.
-        store = reader.store()
-        self.sources: dict[str, StopSource] = (
-            {"tfl": StoredTflSource(store), "entur": StoredEnturSource(store)}
-            if store is not None
-            else {"tfl": TflSource(self.session, config.tfl_app_key), "entur": EnturSource(self.session)}
-        )
+        # Departures come from the store (the TfL and Entur providers fetch them once for every screen); raises
+        # without one. The disruption notices are still asked for directly.
+        store = reader.require_store()
+        self.sources: dict[str, StopSource] = {"tfl": StoredTflSource(store), "entur": StoredEnturSource(store)}
         self._notice_sources = self._build_notice_sources(config)
         self.stops: list[ResolvedStop] = []
         self.current_page = 0

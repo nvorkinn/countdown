@@ -14,10 +14,9 @@ services:
       ORCHESTRATOR_TOKEN: ${ORCHESTRATOR_TOKEN:?the orchestrator's token on the broker}
       RENDERER_IMAGE: ghcr.io/nvorkinn/countdown-server:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
       MAX_RENDERERS: ${MAX_RENDERERS:-20}
-      # The store the renderers read (as REDIS_URL, with REDIS_PASSWORD) instead of calling TfL, Entur, Open-Meteo,
-      # Glowmarkt and the broker's music routes: the host's Redis, which the providers fill. To go back to the APIs,
-      # deploy with RENDERER_REDIS_URL set to empty (`-`, not `:-`, so an empty value is kept); the orchestrator then
-      # remakes the renderers without it.
+      # The store the renderers read (as REDIS_URL, with REDIS_PASSWORD) for the departures, weather, energy and music:
+      # the host's Redis, which the providers fill. The renderers no longer call those APIs themselves, so without it
+      # (RENDERER_REDIS_URL set to empty: `-`, not `:-`, so an empty value is kept) those panels can't be drawn.
       RENDERER_REDIS_URL: ${RENDERER_REDIS_URL-redis://127.0.0.1:6379/0}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     volumes:

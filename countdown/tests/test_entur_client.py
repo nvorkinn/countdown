@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from config_factory import make_config as make_broker_config
-from test_utils import REGISTRATION
+from test_utils import REGISTRATION, put_departures
 
 from countdown_api.models import DepartureStop
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
@@ -17,7 +17,9 @@ from countdown_core.entur.entur_client import (
     TransportMode,
     normalize_stop_id,
 )
-from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
+from countdown_core.store import keys
+from countdown_core.tfl.stored_source import StoredArrivalPanel
+from countdown_providers.entur.main import to_stop_departures
 
 NOW = datetime(2026, 10, 16, 16, 0, tzinfo=UTC)
 
@@ -142,40 +144,31 @@ def test_the_retired_classic_style_is_drawn_as_hero(sections):
     assert DeparturesSettings.from_config(make_broker_config(**sections)).style == "hero"
 
 
-BUS_STOP_JSON = {
-    "naptanId": "490000123W",
-    "commonName": "Elephant & Castle",
-    "modes": ["bus"],
-    "additionalProperties": [],
-    "children": [],
-    "stopType": "NaptanPublicBusCoachTram",
-    "stopLetter": "W",
-}
-
-
-def test_london_and_oslo_stops_share_one_panel_in_the_owners_order(monkeypatch):
+def test_london_and_oslo_stops_share_one_panel_in_the_owners_order(store):
+    """Both from the store, as the Entur and TfL providers write them."""
+    now = datetime.now(UTC)
+    majorstuen = EnturStop(id="NSR:StopPlace:58381", name="Majorstuen", transport_modes=[TransportMode.METRO])
+    departure = EnturDeparture(
+        line="5",
+        destination="Vestli",
+        mode=TransportMode.METRO,
+        expected_departure_time=now + timedelta(minutes=3),
+        time_to_station=180,
+    )
+    store.set(keys.departures(majorstuen.id), to_stop_departures(majorstuen, [departure], now).model_dump_json())
+    put_departures(store, "490000123W", stop_letter="W", now=now)
     settings = DeparturesSettings(
         (DepartureStop(source="entur", id="NSR:StopPlace:58381"), DepartureStop(source="tfl", id="490000123W"))
     )
     client = DeparturesClient(REGISTRATION, settings)
 
-    def get(url, params=None, timeout=None):
-        response = MagicMock()
-        response.json.return_value = BUS_STOP_JSON if url.endswith("490000123W") else []
-        return response
-
-    calls = [_call("5", "Vestli", 3, now=datetime.now(UTC))]
-    post = MagicMock()
-    post.return_value.json.return_value = {"data": {"stopPlace": MAJORSTUEN | {"estimatedCalls": calls}}}
-    monkeypatch.setattr(client.session, "get", get)
-    monkeypatch.setattr(client.session, "post", post)
-
     panel = asyncio.run(client.update())
 
     oslo, london = panel.arrival_panels
     assert isinstance(oslo, EnturArrivalPanel)
-    assert isinstance(london, BusArrivalPanel)
+    assert isinstance(london, StoredArrivalPanel)
     assert (oslo.stop_name, oslo.icon, oslo.departures[0].badge) == ("Majorstuen", "subway", "5")
+    assert (london.stop_name, london.stop_letter) == ("Elephant & Castle", "W")
 
 
 def test_a_stop_from_a_source_this_renderer_doesnt_know_is_skipped():

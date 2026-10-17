@@ -1,8 +1,9 @@
-"""The Spotify area reading the store: what auth-broker's music provider wrote (fakeredis), and only when configured.
+"""The Spotify area reading the store: what auth-broker's music provider wrote (fakeredis).
 
 fixtures/music_player.json and music_top.json are the stored contract: auth-broker's provider tests check that it
-writes exactly these (its tests/fixtures holds the same files), and these tests check that the renderer reads them
-into the panels it would have made from the proxy routes' answers.
+writes exactly these (its tests/fixtures holds the same files), and these tests check that the renderer reads each
+part into the models it read the proxy routes' answers with when it asked the broker itself, so it draws the same
+panels.
 """
 
 import asyncio
@@ -10,15 +11,12 @@ import copy
 import json
 from pathlib import Path
 
-import fakeredis
 import pytest
 import responses
-from responses import matchers
 from test_utils import REGISTRATION
 
-from countdown_core.spotify.models import Queue
+from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_client import (
-    AppleMusicClient,
     MusicSettings,
     NoStoredMusicError,
     SpotifyClient,
@@ -27,30 +25,15 @@ from countdown_core.spotify.spotify_client import (
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
-from countdown_core.store import keys, reader
+from countdown_core.store import keys
 from countdown_core.store.music import StoredPlayer, StoredTop
-from countdown_credentials.registration import Registration
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PLAYER = json.loads((FIXTURES / "music_player.json").read_text())
 TOP = json.loads((FIXTURES / "music_top.json").read_text())
 DEVICE_ID = REGISTRATION.device_id
-BROKER_URL = REGISTRATION.broker_url
 NOTHING_PLAYING = {"currently_playing": None, "queue": []}
 BOTH = MusicSettings(spotify=True, apple_music=True)
-
-
-@pytest.fixture
-def store(monkeypatch):
-    """Return a fake Redis that this renderer reads, as if it had been given REDIS_URL."""
-    client = fakeredis.FakeRedis(decode_responses=True)
-    monkeypatch.setattr(reader, "store", lambda: client)
-    return client
-
-
-@pytest.fixture
-def no_store(monkeypatch):
-    monkeypatch.setattr(reader, "store", lambda: None)
 
 
 def put(store, player=PLAYER, top=TOP):
@@ -61,29 +44,8 @@ def put(store, player=PLAYER, top=TOP):
         store.set(keys.spotify_top(DEVICE_ID), json.dumps(top), ex=7200)
 
 
-def mock_proxy(mock=responses, player=PLAYER, top=TOP):
-    """Have the broker's proxy routes answer with the stored parts: what the provider stores is what they answer.
-
-    `mock`: the responses mock to register them with (by default, responses' own).
-    """
-    for service, path in (("spotify", "/api/spotify"), ("apple_music", "/api/apple-music")):
-        mock.get(f"{BROKER_URL}{path}/queue", json=player[service])
-        for time_range, lists in top[service].items():
-            for type_, body in lists.items():
-                mock.get(
-                    f"{BROKER_URL}{path}/top/{type_}",
-                    json=body,
-                    match=[matchers.query_param_matcher({"time_range": time_range, "limit": "5"})],
-                )
-
-
 def panels(client, count):
     return [asyncio.run(client.update()) for _ in range(count)]
-
-
-def contents(panel):
-    """Return what a panel was made from, to compare two panels by."""
-    return type(panel), vars(panel)
 
 
 # --- The contract -------------------------------------------------------------------
@@ -100,9 +62,17 @@ def test_the_fixtures_are_stored_values():
     assert [a.name for a in top.apple_music["long_term"].artists.items] == ["Bad Bunny"]
 
 
-def test_each_stored_part_is_what_the_proxy_answers():
-    """So the renderer reads either with the same models."""
-    assert Queue.model_validate(PLAYER["spotify"]) == StoredPlayer.model_validate(PLAYER).spotify
+@pytest.mark.parametrize("service", ["spotify", "apple_music"])
+def test_each_stored_part_is_what_the_proxy_answered(service):
+    """Read as the proxy routes' answers were (/queue, /top/tracks, /top/artists), so the panels are the same."""
+    player, top = StoredPlayer.model_validate(PLAYER), StoredTop.model_validate(TOP)
+
+    assert Queue.model_validate(PLAYER[service]) == getattr(player, service)
+    assert TOP[service].keys() == {"long_term", "short_term"}
+    for time_range, lists in TOP[service].items():
+        stored = getattr(top, service)[time_range]
+        assert TopResponse[Track].model_validate(lists["tracks"]) == stored.tracks
+        assert TopResponse[Artist].model_validate(lists["artists"]) == stored.artists
 
 
 def test_the_keys():
@@ -110,7 +80,7 @@ def test_the_keys():
     assert keys.spotify_top("abc") == "v1:spotify-top:abc"
 
 
-# --- Parity with the proxy ----------------------------------------------------------
+# --- Every page from the store -----------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -119,27 +89,15 @@ def test_the_keys():
     ids=["spotify", "apple-music", "both"],
 )
 @pytest.mark.parametrize("style", ["hero", "airy"])
-def test_the_stored_panels_are_the_proxys(monkeypatch, settings, style):
-    """Every page in turn, from the store, equals the one made from the proxy's answers, and the store makes no call."""
+def test_every_page_is_drawn_from_the_store_without_a_call(store, settings, style):
     settings = MusicSettings(settings.spotify, settings.apple_music, style)
-    client_class = music_client_class(settings)
-    count = 2 * len(pages_of(settings)) + 1
+    put(store)
 
-    monkeypatch.setattr(reader, "store", lambda: None)
-    with responses.RequestsMock(assert_all_requests_are_fired=False) as proxy:
-        mock_proxy(proxy)
-        direct = panels(client_class(REGISTRATION, settings), count)
-        assert proxy.calls
-
-    stored = fakeredis.FakeRedis(decode_responses=True)
-    put(stored)
-    monkeypatch.setattr(reader, "store", lambda: stored)
     with responses.RequestsMock() as nothing:  # nothing registered: any request would fail
-        from_store = panels(client_class(REGISTRATION, settings), count)
+        found = panels(music_client_class(settings)(REGISTRATION, settings), 2 * len(pages_of(settings)) + 1)
         assert len(nothing.calls) == 0
 
-    assert [contents(p) for p in from_store] == [contents(p) for p in direct]
-    assert {type(p) for p in from_store} == {SpotifyPanel, SpotifyTopPanel}
+    assert {type(p) for p in found} == {SpotifyPanel, SpotifyTopPanel}
 
 
 def pages_of(settings):
@@ -253,27 +211,3 @@ def test_reads_only_its_own_devices_keys(store):
 
     with pytest.raises(NoStoredMusicError):
         asyncio.run(SpotifyClient(REGISTRATION, MusicSettings(spotify=True)).update())
-
-
-# --- Without a store ----------------------------------------------------------------
-
-
-@responses.activate
-def test_without_a_store_it_asks_the_proxy(no_store):
-    mock_proxy()
-
-    panel = asyncio.run(AppleMusicClient(REGISTRATION, MusicSettings(spotify=False, apple_music=True)).update())
-
-    assert panel.queue.currently_playing.name == "Efecto"
-    assert [call.request.url for call in responses.calls] == [f"{BROKER_URL}/api/apple-music/queue"]
-
-
-@responses.activate
-def test_without_a_device_id_it_asks_the_proxy(store):
-    """Only a renderer's registration says which device's keys are its own."""
-    put(store)
-    mock_proxy()
-
-    asyncio.run(SpotifyClient(Registration(BROKER_URL, "shh"), MusicSettings(spotify=True)).update())
-
-    assert [call.request.url for call in responses.calls] == [f"{BROKER_URL}/api/spotify/queue"]

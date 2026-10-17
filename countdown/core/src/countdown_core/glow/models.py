@@ -1,19 +1,6 @@
-"""The parts of Glow's (Glowmarkt's) API responses the energy panel reads."""
+"""The parts of Glow's (Glowmarkt's) API responses the energy panel reads, as auth-broker stores them."""
 
 from pydantic import BaseModel
-
-
-class Resource(BaseModel):
-    """One of an entity's data streams, such as its electricity consumption."""
-
-    name: str
-    resourceId: str  # noqa: N815 -- Glow's own JSON field name
-
-
-class Entity(BaseModel):
-    """A meter (a "virtual entity" to Glow) and the data streams it offers."""
-
-    resources: list[Resource]
 
 
 class Readings(BaseModel):

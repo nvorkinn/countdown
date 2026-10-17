@@ -2,7 +2,7 @@
 
 The provider runs in auth-broker (broker/spotify_provider.py, see "Music in the store" in its README), which can't
 import this, so the contract is the JSON itself: each service's part is exactly what the broker's proxy route answers
-a renderer today (/api/spotify/queue, /api/apple-music/top/tracks, ...), read with the models the renderer already
+a renderer (/api/spotify/queue, /api/apple-music/top/tracks, ...), read with the models the renderer already
 has (countdown_core.spotify.models). Only these wrappers are new. tests/fixtures/music_player.json and music_top.json
 are an example of each, copied into both repositories' tests so neither side can drift alone.
 

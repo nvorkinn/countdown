@@ -1,18 +1,20 @@
+"""The departures client: the configured stops' departures, read from the store a page at a time."""
+
 import asyncio
-from unittest.mock import MagicMock
 
 import pytest
 from requests.adapters import HTTPAdapter
-from test_utils import REGISTRATION
+from test_utils import REGISTRATION, put_departures
 
 from countdown_api.models import DepartureStop
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, ClientStatus
+from countdown_core.core.abstract_client import ClientStatus
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings, ResolvedStop
-from countdown_core.tfl.bus_arrival_panel import BusArrivalPanel
+from countdown_core.entur.stored_source import StoredEnturSource
+from countdown_core.store import reader
 from countdown_core.tfl.combined_arrival_panel import Rotation
 from countdown_core.tfl.models import MetroStopPoint, SingleStopPoint
+from countdown_core.tfl.stored_source import StoredArrivalPanel, StoredTflSource, StoredTubePanel
 from countdown_core.tfl.tfl_client import _find_stop_child
-from countdown_core.tfl.tube_arrival_panel import TubeArrivalPanel
 
 BUS_STOP_JSON = {
     "naptanId": "490000123W",
@@ -47,9 +49,13 @@ def make_config(stop_ids: list[str] | None = None, app_key: str = "", style: str
     return DeparturesSettings(stops, style, app_key)
 
 
-def tfl_stops(client: DeparturesClient, *stops) -> list[ResolvedStop]:
-    """Get the stops, as the client holds them once resolved."""
-    return [ResolvedStop(stop.naptan_id, client.sources["tfl"], stop) for stop in stops]
+def tfl_stops(client: DeparturesClient, *stop_ids: str) -> list[ResolvedStop]:
+    """Get the stops, as the client holds them once resolved: the stored source resolves a stop to its id."""
+    return [ResolvedStop(stop_id, client.sources["tfl"], stop_id) for stop_id in stop_ids]
+
+
+def stop_ids(count: int) -> list[str]:
+    return [f"49000000{i}" for i in range(count)]
 
 
 def test_find_stop_child_direct_match():
@@ -70,27 +76,30 @@ def test_find_stop_child_not_found_returns_none():
     assert _find_stop_child(stop, "does-not-exist") is None
 
 
-def test_construction_never_touches_the_network():
-    """__init__ must be cheap and unable to fail: stop resolution is deferred to first use.
-
-    So a flaky TfL API can never prevent a DeparturesClient from being built.
-    """
+def test_construction_reads_nothing_and_reads_both_sources_from_the_store(store):
     client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"], "app-key"))
     assert client.stops == []
-    assert client.sources["tfl"].params == {"app_key": "app-key"}
+    assert isinstance(client.sources["tfl"], StoredTflSource)
+    assert isinstance(client.sources["entur"], StoredEnturSource)
+    assert client.sources["tfl"].client is store
 
 
-def test_initialise_resolves_stops(monkeypatch):
+def test_without_a_store_it_cant_be_built_and_says_why(monkeypatch):
+    """The registry turns that into a FailedClient, so the area shows its error state rather than vanishing."""
+    monkeypatch.setattr(reader, "store", lambda: None)
+
+    with pytest.raises(reader.StoreNotConfiguredError, match="REDIS_URL"):
+        DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"]))
+
+
+def test_initialise_resolves_stops_without_reading_the_store():
+    """A stop the provider hasn't fetched yet is kept, so it's drawn once it has."""
     client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"]))
-    get_mock = MagicMock()
-    get_mock.return_value.raise_for_status = MagicMock()
-    get_mock.return_value.json.return_value = METRO_STOP_JSON
-    monkeypatch.setattr(client.session, "get", get_mock)
 
     asyncio.run(client.initialise())
 
-    assert len(client.stops) == 1
-    get_mock.assert_called_once()
+    assert [stop.id for stop in client.stops] == ["940GZZLUKNG"]
+    assert client.status == ClientStatus.CONNECTED
 
 
 def test_initialise_leaves_stops_empty_when_none_configured():
@@ -99,64 +108,8 @@ def test_initialise_leaves_stops_empty_when_none_configured():
     assert client.stops == []
 
 
-def test_initialise_is_not_repeated_once_stops_are_populated(monkeypatch):
-    client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"]))
-    get_mock = MagicMock()
-    get_mock.return_value.raise_for_status = MagicMock()
-    get_mock.return_value.json.return_value = METRO_STOP_JSON
-    monkeypatch.setattr(client.session, "get", get_mock)
-
-    asyncio.run(client.initialise())
-    asyncio.run(client.initialise())
-
-    get_mock.assert_called_once()
-
-
-def test_failed_setup_leaves_stops_empty_and_is_retried_on_next_update(monkeypatch):
-    client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"]))
-    get_mock = MagicMock(side_effect=ConnectionError("network is down"))
-    monkeypatch.setattr(client.session, "get", get_mock)
-
-    # TfL being down at boot mustn't leave the device without arrivals until it's restarted.
-    with pytest.raises(RuntimeError):
-        asyncio.run(client.update())
-    assert client.stops == []
-    assert client.status == ClientStatus.ERROR
-
-    get_mock.side_effect = None
-    get_mock.return_value.raise_for_status = MagicMock()
-    get_mock.return_value.json.side_effect = [METRO_STOP_JSON, []]  # the stop, then its arrivals
-
-    asyncio.run(client.update())
-    assert len(client.stops) == 1
-    assert client.status == ClientStatus.CONNECTED
-
-
-def test_initialise_carries_on_when_only_some_stops_resolve(monkeypatch):
-    client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG", "unknown-stop"]))
-
-    def fake_get(url, params=None, timeout=None):
-        if "940GZZLUKNG" not in url:
-            msg = "no such stop"
-            raise ConnectionError(msg)
-        response = MagicMock()
-        response.json.return_value = METRO_STOP_JSON
-        return response
-
-    monkeypatch.setattr(client.session, "get", fake_get)
-
-    asyncio.run(client.initialise())
-
-    assert [stop.id for stop in client.stops] == ["940GZZLUKNG"]
-    assert client.status == ClientStatus.CONNECTED
-
-
-def test_init_stops_is_a_pure_function_returning_resolved_stops(monkeypatch):
+def test_init_stops_is_a_pure_function_returning_resolved_stops():
     client = DeparturesClient(REGISTRATION, make_config())
-    get_mock = MagicMock()
-    get_mock.return_value.raise_for_status = MagicMock()
-    get_mock.return_value.json.return_value = METRO_STOP_JSON
-    monkeypatch.setattr(client.session, "get", get_mock)
 
     result = client.init_stops(make_config(["940GZZLUKNG"]).stops)
 
@@ -166,7 +119,7 @@ def test_init_stops_is_a_pure_function_returning_resolved_stops(monkeypatch):
 
 def test_next_page_cycles_and_wraps():
     client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(5)))
+    client.stops = tfl_stops(client, *stop_ids(5))
     client.stops_per_update = 2
     pages = [client._next_page() for _ in range(4)]
     assert pages == [
@@ -179,113 +132,102 @@ def test_next_page_cycles_and_wraps():
 
 def test_next_page_starts_over_when_there_are_fewer_pages_now():
     client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(4)))
+    client.stops = tfl_stops(client, *stop_ids(4))
     client.stops_per_update = 2
     client.current_page = 2  # left over from when there were more stops
     assert client._next_page() == ([0, 1], Rotation(0, 2))
 
 
-def test_update_builds_correct_panels(monkeypatch):
-    client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, make_bus_stop(), make_metro_stop())
-
-    def fake_get(url, params=None, timeout=None):
-        response = MagicMock()
-        response.raise_for_status = MagicMock()
-        if "490000123W" in url:
-            response.json.return_value = [
-                {
-                    "naptanId": "490000123W",
-                    "lineName": "N155",
-                    "timeToStation": 300,
-                    "modeName": "bus",
-                    "destinationName": "Somewhere",
-                }
-            ]
-        else:
-            response.json.return_value = [
-                {
-                    "naptanId": "940GZZLUKNG",
-                    "lineName": "Northern",
-                    "timeToStation": 120,
-                    "modeName": "tube",
-                    "towards": "Bank",
-                    "destinationNaptanId": None,
-                }
-            ]
-        return response
-
-    monkeypatch.setattr(client.session, "get", fake_get)
+def test_update_builds_correct_panels(store):
+    put_departures(store, "490000123W", [("N155", "Somewhere", 300)], stop_letter="W")
+    put_departures(
+        store, "940GZZLUKNG", [("Northern", "Bank", 120)], name="Kennington Underground Station", mode="tube"
+    )
+    client = DeparturesClient(REGISTRATION, make_config(["490000123W", "940GZZLUKNG"]))
 
     panel = asyncio.run(client.update())
 
-    assert len(panel.arrival_panels) == 2
-    assert isinstance(panel.arrival_panels[0], BusArrivalPanel)
-    assert isinstance(panel.arrival_panels[1], TubeArrivalPanel)
+    bus, tube = panel.arrival_panels
+    assert type(bus) is StoredArrivalPanel
+    assert isinstance(tube, StoredTubePanel)
+    assert (bus.stop_name, bus.stop_letter, tube.stop_name) == ("Elephant & Castle", "W", "Kennington")
 
 
 def _shown_stop_ids(client: DeparturesClient) -> list[str]:
-    return [panel.stop.naptan_id for panel in asyncio.run(client.update()).arrival_panels]
+    return [panel.stored.stop_id for panel in asyncio.run(client.update()).arrival_panels]
 
 
-def _no_arrivals(monkeypatch, client: DeparturesClient) -> None:
-    response = MagicMock(raise_for_status=MagicMock())
-    response.json.return_value = []
-    monkeypatch.setattr(client.session, "get", lambda url, params=None, timeout=None: response)
+def _nothing_due(store, client: DeparturesClient) -> None:
+    for stop in client.stops:
+        put_departures(store, stop.id)
 
 
-def test_update_pages_through_more_stops_than_the_layout_shows(monkeypatch):
+def test_update_pages_through_more_stops_than_the_layout_shows(store):
     client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(8)))
+    client.stops = tfl_stops(client, *stop_ids(8))
     client.stops_per_update = 4
-    _no_arrivals(monkeypatch, client)
+    _nothing_due(store, client)
 
-    assert _shown_stop_ids(client) == [f"49000000{i}" for i in range(4)]
-    assert _shown_stop_ids(client) == [f"49000000{i}" for i in range(4, 8)]
-    assert _shown_stop_ids(client) == [f"49000000{i}" for i in range(4)]
+    assert _shown_stop_ids(client) == stop_ids(4)
+    assert _shown_stop_ids(client) == stop_ids(8)[4:]
+    assert _shown_stop_ids(client) == stop_ids(4)
 
 
-def test_update_shows_every_stop_in_order_when_they_all_fit(monkeypatch):
+def test_update_shows_every_stop_in_order_when_they_all_fit(store):
     """No rotation, so no stop shown twice: 3 stops in a 4-stop layout are just 1, 2, 3."""
     client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(3)))
+    client.stops = tfl_stops(client, *stop_ids(3))
     client.stops_per_update = 4
-    _no_arrivals(monkeypatch, client)
+    _nothing_due(store, client)
 
     assert _shown_stop_ids(client) == ["490000000", "490000001", "490000002"]
     assert _shown_stop_ids(client) == ["490000000", "490000001", "490000002"]
 
 
-def test_update_says_which_page_is_on_screen_when_they_rotate(monkeypatch):
+def test_update_says_which_page_is_on_screen_when_they_rotate(store):
     """With 3 stops and room for 2 there are two pages: 0+1, then 2 on its own."""
     client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(3)))
+    client.stops = tfl_stops(client, *stop_ids(3))
     client.stops_per_update = 2
-    _no_arrivals(monkeypatch, client)
+    _nothing_due(store, client)
 
     rotations = [asyncio.run(client.update()).rotation for _ in range(3)]
     assert rotations == [Rotation(0, 2), Rotation(1, 2), Rotation(0, 2)]
 
 
-def test_update_has_no_rotation_when_every_stop_fits(monkeypatch):
+def test_update_has_no_rotation_when_every_stop_fits(store):
     client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, *(make_bus_stop(f"49000000{i}") for i in range(2)))
+    client.stops = tfl_stops(client, *stop_ids(2))
     client.stops_per_update = 2
-    _no_arrivals(monkeypatch, client)
+    _nothing_due(store, client)
 
     assert asyncio.run(client.update()).rotation is None
 
 
-def test_update_raises_when_no_stops_arrivals_could_be_fetched(monkeypatch):
+def test_update_leaves_out_a_stop_the_store_has_nothing_for(store):
+    put_departures(store, "490000000")
+    client = DeparturesClient(REGISTRATION, make_config(stop_ids(2)))
+
+    assert _shown_stop_ids(client) == ["490000000"]
+
+
+def test_update_raises_when_no_stops_departures_are_in_the_store():
     """Raised rather than returning an empty panel, so the registry keeps the last good one."""
-    client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, make_bus_stop())
+    client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
 
-    def failing_get(url, params=None, timeout=None):
-        msg = "network is down"
-        raise ConnectionError(msg)
+    with pytest.raises(RuntimeError):
+        asyncio.run(client.update())
 
-    monkeypatch.setattr(client.session, "get", failing_get)
+
+def test_update_raises_when_redis_cant_be_asked_so_the_last_panel_stays(store, monkeypatch):
+    """A transient Redis outage is just a failed update: the registry keeps the last panel."""
+    put_departures(store, "490000123W")
+    client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
+
+    def unreachable(*args, **kwargs):
+        raise reader.redis.exceptions.ConnectionError
+
+    monkeypatch.setattr(store, "get", unreachable)
 
     with pytest.raises(RuntimeError):
         asyncio.run(client.update())
@@ -297,57 +239,18 @@ def test_update_says_so_when_no_stops_are_configured():
     assert asyncio.run(client.update()).message == "Needs configuring"
 
 
-def test_update_passes_a_timeout(monkeypatch):
-    client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, make_bus_stop())
-
-    get_mock = MagicMock()
-    get_mock.return_value.raise_for_status = MagicMock()
-    get_mock.return_value.json.return_value = [
-        {
-            "naptanId": "490000123W",
-            "lineName": "N155",
-            "timeToStation": 300,
-            "modeName": "bus",
-            "destinationName": "Somewhere",
-        }
-    ]
-    monkeypatch.setattr(client.session, "get", get_mock)
-
-    asyncio.run(client.update())
-
-    assert get_mock.call_args.kwargs["timeout"] == DEFAULT_TIMEOUT
-
-
-def test_get_stop_info_passes_a_timeout(monkeypatch):
-    client = DeparturesClient(REGISTRATION, make_config())
-
-    get_mock = MagicMock()
-    get_mock.return_value.raise_for_status = MagicMock()
-    get_mock.return_value.json.return_value = METRO_STOP_JSON
-    monkeypatch.setattr(client.session, "get", get_mock)
-
-    client.sources["tfl"].resolve("940GZZLUKNG")
-
-    assert get_mock.call_args.kwargs["timeout"] == DEFAULT_TIMEOUT
-
-
 def test_session_has_retry_adapter_mounted():
+    """The session is still the disruption notices', which are asked of TfL and Entur directly."""
     client = DeparturesClient(REGISTRATION, make_config())
     adapter = client.session.get_adapter("https://api.tfl.gov.uk")
     assert isinstance(adapter, HTTPAdapter)
     assert adapter.max_retries.total == 3
 
 
-def test_the_configured_style_reaches_the_panels_with_every_departure_grouped_by_route(monkeypatch):
+def test_the_configured_style_reaches_the_panels_with_every_departure_grouped_by_route(store):
+    departures = [("36", "Queen's Park", 540), ("185", "Victoria", 240), ("36", "Queen's Park", 120)]
+    put_departures(store, "490000123W", departures)
     client = DeparturesClient(REGISTRATION, make_config(["490000123W"], style="hero"))
-    client.stops = tfl_stops(client, make_bus_stop())
-    response = MagicMock()
-    response.json.return_value = [
-        {"naptanId": "490000123W", "lineName": line, "timeToStation": seconds, "modeName": "bus", "destinationName": to}
-        for line, to, seconds in [("36", "Queen's Park", 540), ("185", "Victoria", 240), ("36", "Queen's Park", 120)]
-    ]
-    monkeypatch.setattr(client.session, "get", lambda *args, **kwargs: response)
 
     (panel,) = asyncio.run(client.update()).arrival_panels
 

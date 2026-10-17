@@ -8,6 +8,7 @@ from countdown_core.developer.developer_client import DeveloperClient, Developer
 from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.models import AiPlan, Release
 from countdown_core.notices.notice import Severity
+from countdown_core.store import reader
 from countdown_credentials.registration import RendererRegistration
 
 BROKER_URL = "https://broker.example.com"
@@ -23,6 +24,12 @@ ANSWER = {
 }
 # Midday in London on 17 October 2026.
 NOW = dt.datetime(2026, 10, 17, 11, 0, tzinfo=dt.UTC)
+
+
+@pytest.fixture(autouse=True)
+def store(monkeypatch):
+    """No store: the developer panel still asks the broker without one (test_pace has it reading the store)."""
+    monkeypatch.setattr(reader, "store", lambda: None)
 
 
 @pytest.fixture
