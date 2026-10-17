@@ -14,6 +14,14 @@ class FakeTarget(DisplayTarget):
         self.fail = False  # True: painting raises, as a screen dying midway would
         self.paints: list[Region | None] = []
         self.closed = 0
+        self.paces: list[int | None] = []  # each set_pace()
+        self.renewals = 0
+
+    def set_pace(self, seconds: int | None) -> None:
+        self.paces.append(seconds)
+
+    def renew(self) -> None:
+        self.renewals += 1
 
     def paint(self, img: Image.Image, region: Region | None = None) -> bool:
         if self.fail:

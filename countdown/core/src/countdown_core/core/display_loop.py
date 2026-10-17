@@ -22,6 +22,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# The fastest a screen is ever asked to refresh, in seconds, whatever a provider asks for (the broker's floor too).
+MIN_PACE_S = 20
+
 
 def safe_fetch[T, F](func: Callable[[], T], fallback: F) -> T | F:
     """Return `func()`, or `fallback` (logged) if it fails with a network or validation error."""
@@ -58,9 +61,11 @@ class DisplayLoop:
         # Without a registry of its own, one whose publisher reports nowhere.
         self.api_reg = api_reg if api_reg is not None else ApiRegistry(broker.registration, OtlpPublisher(API_NAMES))
         self._published_stage: str | None = None
+        # How fast the providers ask for the screen to refresh as of the last cycle, in seconds; None: not at all.
+        self._pace: int | None = None
 
     async def run(self) -> None:
-        """Run the cycles, the config's interval apart; an interval of 0 stops after the cycle."""
+        """Run the cycles, the config's interval apart (less while a provider asks for it); 0 stops after the cycle."""
         started = time.monotonic()
         await self.api_reg.on_config_update(self.config)
         self._fit_stops_to_layout()
@@ -69,6 +74,8 @@ class DisplayLoop:
             try:
                 if self.pairing_code_panel.pairing_code:
                     self.api_reg.status.stage = "pairing"
+                    self._pace = None
+                    self.display.set_pace(None)
                     # Only repaint when the code changes: it's a full e-paper refresh, and an
                     # unpaired device can sit here for days.
                     if self.pairing_code_panel.has_changed:
@@ -76,6 +83,9 @@ class DisplayLoop:
                 else:
                     self.api_reg.status.stage = "running"
                     panels = await self.api_reg.update_all()
+                    # After the update, which may have just seen the burst begin; before the paint, which carries it.
+                    self._pace = await self.api_reg.pace()
+                    self.display.set_pace(self._pace)
                     self.display.display_screen(
                         panels, self.config.screen, self.api_reg.available(), clock_format=self.config.clock_format
                     )
@@ -96,11 +106,20 @@ class DisplayLoop:
                 logger.info("First cycle finished %.1fs after start", time.monotonic() - started)
                 first_cycle_done = True
 
-            await asyncio.sleep(self.interval)
+            await asyncio.sleep(self.sleep_s())
             await self.refresh_broker_config()
 
             if not self.interval:
                 break
+
+    def sleep_s(self) -> float:
+        """Return how long to wait before the next cycle: the config's interval, or a provider's pace if that's shorter.
+
+        An interval of 0 stays 0 (the cycle is the last), and no pace goes under MIN_PACE_S.
+        """
+        if not self.interval or self._pace is None:
+            return self.interval
+        return min(self.interval, max(self._pace, MIN_PACE_S))
 
     async def refresh_broker_config(self) -> None:
         """Re-read the config, as every cycle does (the broker has no change-timestamp).

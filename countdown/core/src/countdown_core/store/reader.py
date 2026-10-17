@@ -46,3 +46,15 @@ def read[M: BaseModel](client: redis.Redis, key: str, model: type[M]) -> M | Non
     """
     value = client.get(key)
     return None if value is None else model.model_validate_json(value)
+
+
+def fastest_pace(client: redis.Redis, pace_keys: list[str]) -> int | None:
+    """Return the shortest refresh pace, in seconds, that the providers behind `pace_keys` ask for; None if none do.
+
+    A key is there only while its provider wants the screen faster (see keys.pace). Anything that isn't a positive
+    whole number is ignored, so one provider on another version can't stall the screen.
+    """
+    if not pace_keys:
+        return None
+    paces = [int(value) for value in client.mget(pace_keys) if value is not None and value.isdigit() and int(value) > 0]
+    return min(paces, default=None)

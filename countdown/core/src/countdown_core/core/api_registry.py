@@ -7,6 +7,8 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfoNotFoundError
 
+from redis.exceptions import RedisError
+
 from countdown_api.models import ConfigResponse, Glowmarkt
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
 from countdown_core.core.style import panel_style
@@ -16,6 +18,7 @@ from countdown_core.glow.glow_client import GlowClient
 from countdown_core.i18n import N_, set_locale
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.spotify.spotify_client import MusicSettings, SpotifyClient, music_client_class
+from countdown_core.store import reader
 from countdown_core.weather.weather_client import WeatherClient
 
 if TYPE_CHECKING:
@@ -206,6 +209,22 @@ class ApiRegistry:
             else:
                 self.panels[api_name] = outcome
         return {member.api_name: self._panel_for(member) for member in ClientClasses}
+
+    async def pace(self) -> int | None:
+        """Return the shortest refresh pace, in seconds, that any provider asks for now; None if none does.
+
+        Read from the store (the providers write it there, with a short TTL), so None as well when this renderer reads
+        no store, or can't reach it: the screen then keeps its usual pace.
+        """
+        store = reader.store()
+        pace_keys = [key for client in self.clients.values() for key in client.pace_keys()]
+        if store is None or not pace_keys:
+            return None
+        try:
+            return await asyncio.to_thread(reader.fastest_pace, store, pace_keys)
+        except RedisError as e:
+            logger.warning("Couldn't read the refresh pace from the store (%s); keeping the usual", e)
+            return None
 
     def available(self) -> frozenset[ClientClasses]:
         """Return the APIs that get an area on the screen.

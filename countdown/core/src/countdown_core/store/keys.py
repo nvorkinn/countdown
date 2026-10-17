@@ -11,6 +11,10 @@ Subscriptions (written by the broker, read by the providers):
 
 Data (written by the providers with a TTL, read by the renderers): one key per thing, holding the JSON of a
 countdown_core.store.models model. A missing key means its provider is down (or hasn't got to it yet).
+
+Pace (written by the providers with a short TTL, read by the renderers): `v1:pace:<source>:<id>` holds the seconds a
+provider wants the screen to refresh at while what it fetched for `id` is bursty (a release running). It lapses by
+itself, so a provider that stops renewing it, or dies, lets the screen go back to its usual pace. See `pace`.
 """
 
 PREFIX = "v1"
@@ -21,7 +25,8 @@ ENTUR = "entur"
 WEATHER = "weather"
 GLOW = "glow"
 SPOTIFY = "spotify"
-SOURCES = (TFL, ENTUR, WEATHER, GLOW, SPOTIFY)
+DEVELOPER = "developer"
+SOURCES = (TFL, ENTUR, WEATHER, GLOW, SPOTIFY, DEVELOPER)
 
 SUB_CHANGED = f"{PREFIX}:sub:changed"
 
@@ -64,3 +69,19 @@ def spotify_top(device_id: str) -> str:
     auth-broker's music provider; holds a countdown_core.store.music.StoredTop.
     """
     return f"{PREFIX}:spotify-top:{device_id}"
+
+
+def developer(device_id: str) -> str:
+    """Return the key of a device's developer panel, e.g. `v1:developer:<device id>`.
+
+    Written by auth-broker's developer provider; holds a countdown_core.store.developer.StoredDeveloper.
+    """
+    return f"{PREFIX}:developer:{device_id}"
+
+
+def pace(source: str, item_id: str) -> str:
+    """Return the key of the pace `source` wants while `item_id` is bursty, e.g. `v1:pace:developer:<device id>`.
+
+    An integer, in seconds, with a TTL of about a minute that the provider renews each cycle it still wants it.
+    """
+    return f"{PREFIX}:pace:{source}:{item_id}"

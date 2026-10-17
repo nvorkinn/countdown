@@ -22,7 +22,9 @@ from countdown_providers.sharding import Shard
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from pydantic import BaseModel
     from redis.asyncio import Redis
+    from redis.asyncio.client import Pipeline
 
     from countdown_providers.config import Settings
     from countdown_providers.provider import Provider
@@ -31,6 +33,9 @@ logger = logging.getLogger(__name__)
 
 # Ids per provider.fetch() call: a failure loses at most this many, and each batch is written as soon as it's in.
 DEFAULT_BATCH_SIZE = 10
+# How long a pace a provider asked for (see provider.Provider) lasts unless the next cycle renews it: a few seconds
+# over the shortest pace asked for, a cycle of the slowest provider that does.
+PACE_TTL_S = 60
 # How long to wait before resubscribing to `v1:sub:changed` after losing Redis.
 RESUBSCRIBE_S = 5.0
 
@@ -111,10 +116,23 @@ class ProviderRunner:
             async with self.redis.pipeline(transaction=False) as pipe:
                 for item_id, model in fetched.items():
                     pipe.set(self.provider.output_key(item_id), model.model_dump_json(), ex=self.provider.ttl_s)
+                    self._write_pace(pipe, item_id, model)
                 await pipe.execute()
             written += len(fetched)
         logger.debug("%s: wrote %d of %d ids", self.provider.name, written, len(mine))
         return written
+
+    def _write_pace(self, pipe: Pipeline, item_id: str, model: BaseModel) -> None:
+        """Queue the pace the provider wants for `item_id`, if it asks for any: set while bursty, else deleted."""
+        pace_for = getattr(self.provider, "pace", None)
+        if pace_for is None:
+            return
+        key = keys.pace(self.provider.name, item_id)
+        pace = pace_for(item_id, model)
+        if pace:
+            pipe.set(key, int(pace), ex=PACE_TTL_S)
+        else:
+            pipe.delete(key)
 
     async def _try_cycle(self) -> None:
         """Run a cycle, logging rather than raising if Redis can't be reached (the next tick tries again)."""

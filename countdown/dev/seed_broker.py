@@ -96,7 +96,6 @@ def main() -> int:
     parser.add_argument("--weather", default="", help="weather location")
     parser.add_argument("--postcode", default="", help="the notice board's postcode")
     parser.add_argument("--stops", nargs="*", default=[], help="TfL NaPTAN stop ids, in order")
-    parser.add_argument("--interval", type=int, default=20, help="seconds between updates")
     parser.add_argument("--orientation", choices=("horizontal", "vertical"), default="horizontal")
     parser.add_argument("--width", type=int, default=800)
     parser.add_argument("--height", type=int, default=480)
@@ -141,11 +140,10 @@ def main() -> int:
             ),
         )
         db.execute(
-            "INSERT INTO device_config (device_id, interval, weather_location, postcode, spotify_enabled, "
-            "tfl_stop_ids, orientation, width, height) VALUES (?,?,?,?,0,?,?,?,?)",
+            "INSERT INTO device_config (device_id, weather_location, postcode, spotify_enabled, "
+            "tfl_stop_ids, orientation, width, height) VALUES (?,?,?,0,?,?,?,?)",
             (
                 device_id,
-                args.interval,
                 args.weather,
                 args.postcode,
                 json.dumps(args.stops),
