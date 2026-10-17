@@ -7,7 +7,7 @@ Each matches the Spotify style of the same name: GitHub on the left half, the AI
 from typing import TYPE_CHECKING
 
 from countdown_core.i18n import _, format_date, ngettext
-from countdown_core.spotify.spotify_styles import CARD_BAR, _card, _hero_header
+from countdown_core.spotify.spotify_styles import CARD_BAR, _card, _hero_header, airy_label
 from countdown_core.tfl.arrival_styles import BOLD, MEDIUM, REGULAR, SANS, SANS_SEMI, _canvas
 from countdown_core.utils.utils import fitted_font, google_symbols, truncate_to_fit
 
@@ -125,18 +125,12 @@ def _counts(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what,
 # --- airy: small-caps labels and a hairline, like the weather -------------------------------
 
 
-def _airy_label(d: ImageDraw.ImageDraw, x: float, y: float, icon: str, text: str) -> None:
-    """Draw a small icon and a small-caps label after it, centred on `y`."""
-    d.text((x, y), icon, "black", google_symbols().font_variant(size=15), anchor="lm")
-    d.text((x + 18, y), text, "black", fitted_font(SANS_SEMI, 11), anchor="lm")
-
-
 def airy(summary: DeveloperSummary, width: int, height: int) -> Image.Image:
     """Draw GitHub's counts big and its builds under a hairline, beside a row per plan, each under a small label."""
     img, d = _canvas(width, height)
     left, right, plans_left, plans_right = _halves(width, 24)
     github = summary.github
-    _airy_label(d, left, 9, CODE, "GITHUB")
+    airy_label(d, left, 9, CODE, "GITHUB")
     d.text((right, 9), _repos(github).upper(), "black", fitted_font(SANS_SEMI, 11), anchor="rm")
     d.line((left, 19, right, 19), fill="black")
     body = fitted_font(SANS, 15)
@@ -154,7 +148,7 @@ def airy(summary: DeveloperSummary, width: int, height: int) -> Image.Image:
         )
         d.text((left + 20, 104), truncate_to_fit(_builds(github), body, right - left - 20), "black", body, anchor="lm")
 
-    _airy_label(d, plans_left, 9, SPARKLE, _("AI PLANS"))
+    airy_label(d, plans_left, 9, SPARKLE, _("AI PLANS"))
     d.line((plans_left, 19, plans_right, 19), fill="black")
     _plans(
         d,

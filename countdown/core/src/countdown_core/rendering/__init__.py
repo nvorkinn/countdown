@@ -74,7 +74,8 @@ def share_spotify_area(
     That's always without Spotify, and with it one minute in DEVELOPER_TURN or whenever Spotify has only a message
     to show (nothing playing, not linked).
     """
-    if ClientClasses.DEVELOPER not in available:
+    developer = panels.get(ClientClasses.DEVELOPER.api_name)
+    if ClientClasses.DEVELOPER not in available or developer is None:
         return panels
     spotify = panels.get(ClientClasses.SPOTIFY.api_name)
     if (
@@ -83,7 +84,7 @@ def share_spotify_area(
         and now.minute % DEVELOPER_TURN != DEVELOPER_TURN - 1
     ):
         return panels
-    return panels | {ClientClasses.SPOTIFY.api_name: panels[ClientClasses.DEVELOPER.api_name]}
+    return panels | {ClientClasses.SPOTIFY.api_name: developer}
 
 
 def to_native(frame: Frame, screen: Screen) -> Frame:

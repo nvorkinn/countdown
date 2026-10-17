@@ -46,6 +46,13 @@ def test_the_developer_panel_stands_in_for_spotify_with_nothing_to_show():
     assert in_spotifys_area(panels, BOTH, 0) is DEVELOPER
 
 
+@pytest.mark.parametrize("minute", [0, 1, 2])
+def test_without_a_developer_panel_to_show_spotify_keeps_its_area(minute):
+    panels = {ClientClasses.SPOTIFY.api_name: SPOTIFY}
+
+    assert in_spotifys_area(panels, BOTH, minute) is SPOTIFY
+
+
 def test_the_panels_handed_in_are_left_as_they_were():
     share_spotify_area(PANELS, BOTH, at(2))
 
