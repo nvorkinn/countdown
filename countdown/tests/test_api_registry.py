@@ -4,7 +4,7 @@ import logging
 
 import pytest
 import responses
-from config_factory import make_config
+from config_factory import make_config, with_apple_music
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from test_utils import REGISTRATION
 from weather_factory import forecast_json
@@ -221,7 +221,7 @@ def test_on_config_update_registers_the_enabled_clients():
 def test_apple_music_as_the_source_builds_its_client_and_a_switch_back_rebuilds():
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
 
-    asyncio.run(registry.on_config_update(make_config(spotify={"enabled": True, "source": "apple_music"})))
+    asyncio.run(registry.on_config_update(with_apple_music(make_config(spotify={"enabled": True}))))
     assert type(registry.clients["spotify"]) is AppleMusicClient
     asyncio.run(registry.on_config_update(make_config(spotify={"enabled": True})))
     assert type(registry.clients["spotify"]) is SpotifyClient
@@ -229,7 +229,7 @@ def test_apple_music_as_the_source_builds_its_client_and_a_switch_back_rebuilds(
 
 def test_apple_musics_area_says_whose_service_could_not_connect():
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
-    asyncio.run(registry.on_config_update(make_config(spotify={"enabled": True, "source": "apple_music"})))
+    asyncio.run(registry.on_config_update(with_apple_music(make_config(spotify={"enabled": True}))))
 
     panel = registry._panel_for(ClientClasses.SPOTIFY)
 

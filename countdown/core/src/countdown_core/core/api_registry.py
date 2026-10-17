@@ -149,8 +149,9 @@ class ApiRegistry:
             if not is_enabled(client_config):
                 # No client at all, so one switched back on later is built fresh.
                 self._drop(name)
-            elif current is None or current.needs_refresh(client_config):
-                # The old panel came from the old config, so it goes too.
+            elif current is None or type(current) not in {clazz, FailedClient} or current.needs_refresh(client_config):
+                # A client of another class (Spotify's for Apple Music's) is rebuilt even if the config compares
+                # equal. The old panel came from the old config, so it goes too.
                 self._drop(name)
                 try:
                     to_initialise[name] = self.clients[name] = clazz(self.registration, client_config)

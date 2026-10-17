@@ -131,5 +131,8 @@ class AppleMusicClient(SpotifyClient):
 
 
 def music_client_class(config: Spotify) -> type[SpotifyClient]:
-    """Return the client for the service the Spotify area is configured to show."""
-    return AppleMusicClient if config.source == "apple_music" else SpotifyClient
+    """Return the client for the service the Spotify area is configured to show.
+
+    A contract that predates `source` has only Spotify.
+    """
+    return AppleMusicClient if getattr(config, "source", "spotify") == "apple_music" else SpotifyClient

@@ -129,7 +129,7 @@ def test_the_retired_classic_style_is_drawn_as_hero():
 
 def test_the_source_picks_the_client():
     assert music_client_class(Spotify(enabled=True)) is SpotifyClient
-    assert music_client_class(Spotify(enabled=True, source="apple_music")) is AppleMusicClient
+    assert music_client_class(Spotify(enabled=True).model_copy(update={"source": "apple_music"})) is AppleMusicClient
 
 
 @responses.activate
@@ -138,9 +138,7 @@ def test_apple_music_reads_the_brokers_apple_music_paths_and_labels_the_last_pla
     responses.add(responses.GET, f"{apple}/queue", json=QUEUE)
     responses.add(responses.GET, f"{apple}/top/tracks", json={"items": [track("Top Song")]})
     responses.add(responses.GET, f"{apple}/top/artists", json={"items": [{"name": "Top Artist"}]})
-    client = AppleMusicClient(
-        RendererRegistration(BROKER_URL, "shh", "device-123"), Spotify(enabled=True, source="apple_music")
-    )
+    client = AppleMusicClient(RendererRegistration(BROKER_URL, "shh", "device-123"), Spotify(enabled=True))
 
     now, top = asyncio.run(client.update()), asyncio.run(client.update())
 
@@ -162,9 +160,7 @@ def test_apple_music_with_nothing_played_says_so_under_its_name():
     responses.add(responses.GET, f"{apple}/queue", json={"currently_playing": None, "queue": []})
     responses.add(responses.GET, f"{apple}/top/tracks", json={"items": []})
     responses.add(responses.GET, f"{apple}/top/artists", json={"items": []})
-    client = AppleMusicClient(
-        RendererRegistration(BROKER_URL, "shh", "device-123"), Spotify(enabled=True, source="apple_music")
-    )
+    client = AppleMusicClient(RendererRegistration(BROKER_URL, "shh", "device-123"), Spotify(enabled=True))
 
     panel = asyncio.run(client.update())
 
