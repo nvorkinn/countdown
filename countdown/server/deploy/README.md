@@ -60,7 +60,7 @@ Set up once, in the repo's Settings:
 
 ## Providers
 
-The compose file also has a service per provider (`provider-tfl`, `provider-weather`), in the `providers` profile, so
+The compose file also has a service per provider (`provider-tfl`, `provider-entur`, `provider-weather`), in the `providers` profile, so
 deploys don't start them yet. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
 
 ## Day to day

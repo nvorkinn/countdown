@@ -12,6 +12,7 @@ from countdown_api.models import ConfigResponse, DepartureStop, Tfl
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.style import panel_style
 from countdown_core.entur.entur_source import EnturSource
+from countdown_core.entur.stored_source import StoredEnturSource
 from countdown_core.i18n import N_
 from countdown_core.notices.entur import EnturSituationsSource
 from countdown_core.notices.tfl import TflLineStatusSource, TflStationSource
@@ -83,13 +84,14 @@ class DeparturesClient(AbstractClient):
     def __init__(self, registration: Registration, config: DeparturesSettings) -> None:
         """Never touches the network: stops are resolved in _initialise()."""
         super().__init__(registration, config)
-        # TfL's departures come from the store when this renderer reads one (the TfL provider fetches them once for
-        # every screen), else from TfL. Entur's, and the disruption notices, are still asked for directly.
+        # Departures come from the store when this renderer reads one (the TfL and Entur providers fetch them once
+        # for every screen), else from TfL and Entur. The disruption notices are still asked for directly.
         store = reader.store()
-        self.sources: dict[str, StopSource] = {
-            "tfl": StoredTflSource(store) if store is not None else TflSource(self.session, config.tfl_app_key),
-            "entur": EnturSource(self.session),
-        }
+        self.sources: dict[str, StopSource] = (
+            {"tfl": StoredTflSource(store), "entur": StoredEnturSource(store)}
+            if store is not None
+            else {"tfl": TflSource(self.session, config.tfl_app_key), "entur": EnturSource(self.session)}
+        )
         self._notice_sources = self._build_notice_sources(config)
         self.stops: list[ResolvedStop] = []
         self.current_page = 0

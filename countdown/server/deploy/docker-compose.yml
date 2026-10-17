@@ -14,8 +14,9 @@ services:
       ORCHESTRATOR_TOKEN: ${ORCHESTRATOR_TOKEN:?the orchestrator's token on the broker}
       RENDERER_IMAGE: ghcr.io/nvorkinn/countdown-server:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
       MAX_RENDERERS: ${MAX_RENDERERS:-20}
-      # Empty (the default) keeps renderers calling TfL and Open-Meteo themselves. Set to redis://127.0.0.1:6379/0
-      # (with REDIS_PASSWORD) once the providers run, and renderers read departures and weather from the store.
+      # Empty (the default) keeps renderers calling TfL, Entur and Open-Meteo themselves. Set to
+      # redis://127.0.0.1:6379/0 (with REDIS_PASSWORD) once the providers run, and renderers read departures and
+      # weather from the store.
       RENDERER_REDIS_URL: ${RENDERER_REDIS_URL:-}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     volumes:
@@ -64,5 +65,21 @@ services:
       driver: json-file
       options:
         tag: provider-weather
+        max-size: 10m
+        max-file: "3"
+
+  provider-entur:
+    profiles: [ providers ]
+    image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    command: countdown-provider-entur
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    logging:
+      driver: json-file
+      options:
+        tag: provider-entur
         max-size: 10m
         max-file: "3"
