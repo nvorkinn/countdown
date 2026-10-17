@@ -21,6 +21,8 @@ from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.display import DisplayController
 from countdown_core.departures.departures_client import DeparturesClient
+from countdown_core.developer.developer_panel import DeveloperPanel
+from countdown_core.developer.models import AiPlan, DeveloperSummary, GitHubSummary
 from countdown_core.entur.entur_arrival_panel import EnturArrivalPanel
 from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
 from countdown_core.glow.energy_panel import EnergyPanel
@@ -49,7 +51,8 @@ if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
 
 _CONTROLLER = DisplayController(FakeTarget())
-EVERYTHING = frozenset(ClientClasses)
+# Every API but the developer panel, which takes Spotify's area: its own tests add it.
+EVERYTHING = frozenset(ClientClasses) - {ClientClasses.DEVELOPER}
 NO_GLOWMARKT = EVERYTHING - {ClientClasses.GLOWMARKT}
 
 
@@ -736,3 +739,49 @@ def test_clock_preference_does_not_leak_between_controllers_sharing_layouts_and_
 
     assert default.tobytes() == explicit.tobytes()
     assert default.tobytes() != twelve_hour.tobytes()
+
+
+DEVELOPER_SUMMARY = DeveloperSummary(
+    github=GitHubSummary(login="nvorkinn", repos=9, open_prs=3, review_requests=1, failing=["auth-broker"]),
+    plans=[
+        AiPlan(name="Copilot", plan="Pro", renews=dt.date(2026, 11, 1), used=212, limit=300),
+        AiPlan(name="Claude", plan="Max", renews=dt.date(2026, 11, 3)),
+        AiPlan(name="Gemini", plan="AI Pro", renews=dt.date(2026, 11, 22)),
+    ],
+)
+# The developer panel in Spotify's area, as it is on a screen without Spotify.
+DEVELOPER_NOT_SPOTIFY = EVERYTHING - {ClientClasses.SPOTIFY} | {ClientClasses.DEVELOPER}
+
+
+def _developer_panels(panel: Panel, style: str) -> dict[str, Panel]:
+    notices = NoticeBoardPanel(FEW_NOTICES.notices, style)
+    return _panels(_many_route_arrivals(style), notices=notices) | {ClientClasses.DEVELOPER.api_name: panel}
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_developer_styles(snapshot, style):
+    """Each look the config's style can pick, beside the energy chart: GitHub on the left, the AI plans right."""
+    panels = _developer_panels(DeveloperPanel(DEVELOPER_SUMMARY, style), style)
+    snapshot.assert_matches(f"screen_developer_{style}", _draw(panels, DEVELOPER_NOT_SPOTIFY))
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_developer_styles_on_a_portrait_screen(snapshot, style):
+    panels = _developer_panels(DeveloperPanel(DEVELOPER_SUMMARY, style), style)
+    snapshot.assert_matches(f"screen_portrait_developer_{style}", _draw_portrait(panels, DEVELOPER_NOT_SPOTIFY))
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_developer_panel_with_all_green_and_no_github_token(snapshot, style):
+    """Every build passing on the full-width area, then no GitHub token yet: the plans still show."""
+    green = DEVELOPER_SUMMARY.model_copy(
+        update={
+            "github": DEVELOPER_SUMMARY.github.model_copy(update={"open_prs": 0, "review_requests": 0, "failing": []})
+        }
+    )
+    no_github = DEVELOPER_SUMMARY.model_copy(update={"github": None})
+    img = Image.new("RGBA", (790, 250), "white")
+    for i, summary in enumerate((green, no_github)):
+        panel = DeveloperPanel(summary, style).render(790, 120)
+        img.paste(panel, (0, i * 130), panel)
+    snapshot.assert_matches(f"developer_{style}_green_and_no_github", img)

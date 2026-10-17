@@ -21,6 +21,7 @@ from countdown_core.core.api_registry import (
     section_for,
 )
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
+from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
 from countdown_core.glow.glow_client import GlowClient
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
@@ -131,6 +132,28 @@ def test_every_panel_is_drawn_in_the_configs_one_style():
     assert section_for("tfl", config).style == "card"
     assert section_for("spotify", config).style == "card"
     assert section_for("notice_board", config).style == "card"
+
+
+def test_the_developer_panel_is_off_unless_the_broker_switches_it_on():
+    """A broker that predates it sends no developer section at all."""
+    assert section_for("developer", make_config()) == DeveloperSettings(enabled=False, style="hero")
+    assert not is_enabled(section_for("developer", make_config(developer={"enabled": False})))
+
+    switched_on = section_for("developer", make_config(style="airy", developer={"enabled": True}))
+
+    assert switched_on == DeveloperSettings(enabled=True, style="airy")
+    assert is_enabled(switched_on)
+
+
+def test_on_config_update_builds_the_developer_client_when_it_is_switched_on():
+    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
+
+    asyncio.run(registry.on_config_update(make_config(developer={"enabled": True})))
+
+    assert isinstance(registry.clients["developer"], DeveloperClient)
+    assert ClientClasses.DEVELOPER in registry.available()
+    # Its notices go to the notice board with the departures' disruptions.
+    assert "DeveloperNoticeSource" in source_names(registry)
 
 
 def test_a_broker_without_the_shared_style_leaves_each_panel_on_its_own():
@@ -352,6 +375,7 @@ def test_update_all_has_a_message_for_every_api_without_a_client():
         "glowmarkt": "Not configured",
         "weather": "Not configured",
         "spotify": "Not configured",
+        "developer": "Not configured",
     }
 
 
