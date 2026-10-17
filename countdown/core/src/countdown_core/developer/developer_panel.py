@@ -1,8 +1,10 @@
-"""The developer panel: GitHub on the left, the AI plans on the right."""
+"""The developer panel: GitHub on the left, the AI plans on the right; or a release's progress, while there's one."""
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, override
 
 from countdown_core.core.panel import Panel
+from countdown_core.developer import release_styles
 from countdown_core.developer.developer_styles import STYLES
 
 if TYPE_CHECKING:
@@ -14,13 +16,23 @@ if TYPE_CHECKING:
 
 
 class DeveloperPanel(Panel):
-    """The owner's pull requests and failing builds beside their AI plans."""
+    """The owner's pull requests and failing builds beside their AI plans, or the latest release as it goes."""
 
-    def __init__(self, summary: DeveloperSummary, style: Style = "hero") -> None:
-        """`summary`: the broker's answer; `style`: how to draw it."""
+    def __init__(self, summary: DeveloperSummary, style: Style = "hero", now: datetime | None = None) -> None:
+        """`summary`: the broker's answer; `style`: how to draw it; `now`: the time to draw it at (the clock's)."""
         self.summary = summary
         self.style = style
+        self.now = now
+
+    @property
+    def has_release(self) -> bool:
+        """Whether there's a release to show, running or just finished: then it wants Spotify's area every minute."""
+        return bool(self.summary.releases)
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
+        releases = self.summary.releases
+        if releases:
+            now = self.now or datetime.now(UTC)
+            return release_styles.STYLES[self.style](releases[0], len(releases) - 1, now, image_width, image_height)
         return STYLES[self.style](self.summary, image_width, image_height)

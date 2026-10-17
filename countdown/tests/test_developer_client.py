@@ -6,7 +6,7 @@ import responses
 
 from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
 from countdown_core.developer.developer_panel import DeveloperPanel
-from countdown_core.developer.models import AiPlan
+from countdown_core.developer.models import AiPlan, Release
 from countdown_core.notices.notice import Severity
 from countdown_credentials.registration import RendererRegistration
 
@@ -108,3 +108,73 @@ def test_share_used(used, limit, share):
     plan = AiPlan(name="Copilot", plan="Pro", renews=dt.date(2026, 11, 1), used=used, limit=limit)
 
     assert plan.share_used == share
+
+
+def _release(state="running", jobs=None, **fields):
+    return {
+        "repo": "auth-broker",
+        "title": "v1.27.0",
+        "state": state,
+        "started": "2026-10-17T10:56:00Z",
+        "finished": None,
+        "jobs": jobs
+        or [
+            {"key": "tag", "name": "tag", "state": "done"},
+            {"key": "deploy", "name": "deploy-authentik", "state": "approve", "needs": ["tag"]},
+        ],
+    } | fields
+
+
+def _with_releases(*releases):
+    return ANSWER | {"github": ANSWER["github"] | {"releases": list(releases)}}
+
+
+@responses.activate
+def test_a_running_release_makes_the_client_ask_every_minute_until_it_ends(client):
+    responses.add(responses.GET, DEVELOPER_URL, json=_with_releases(_release()))
+    responses.add(responses.GET, DEVELOPER_URL, json=_with_releases(_release("done", finished="2026-10-17T11:05:00Z")))
+
+    panel = asyncio.run(client.update())
+    assert client.poll_interval == dt.timedelta(minutes=1)
+    asyncio.run(client.update())
+
+    assert client.poll_interval == dt.timedelta(minutes=5)
+    assert panel.has_release
+    (release,) = panel.summary.releases
+    assert release.jobs[1].state == "approve"
+    assert release.minutes(NOW) == 4
+
+
+@responses.activate
+def test_an_answer_from_a_broker_without_releases_has_none(client):
+    responses.add(responses.GET, DEVELOPER_URL, json=ANSWER)
+
+    panel = asyncio.run(client.update())
+
+    assert panel.summary.releases == []
+    assert not panel.has_release
+
+
+@responses.activate
+def test_notices_for_a_release_failed_and_one_waiting_for_approval(client):
+    failed = _release(
+        "failed", title="v2.14.0", repo="pi-dashboard", jobs=[{"key": "b", "name": "b", "state": "failed"}]
+    )
+    responses.add(responses.GET, DEVELOPER_URL, json=_with_releases(_release(), failed))
+    asyncio.run(client.update())
+    (source,) = client.notice_sources()
+
+    notices = [(n.severity, n.text) for n in source.fetch(NOW) if n.source == "GitHub"]
+
+    assert notices == [
+        (Severity.WARNING, "auth-broker: build failing"),
+        (Severity.REMINDER, "auth-broker v1.27.0: deploy-authentik waiting for your approval"),
+        (Severity.WARNING, "pi-dashboard v2.14.0: release failed"),
+    ]
+
+
+def test_a_finished_release_counts_the_minutes_it_ran_for():
+    release = Release.model_validate(_release("done", finished="2026-10-17T11:05:30Z"))
+
+    assert release.minutes(NOW + dt.timedelta(hours=1)) == 10
+    assert release.waiting == ["deploy-authentik"]

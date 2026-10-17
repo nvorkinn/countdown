@@ -22,7 +22,7 @@ from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.display import DisplayController
 from countdown_core.departures.departures_client import DeparturesClient
 from countdown_core.developer.developer_panel import DeveloperPanel
-from countdown_core.developer.models import AiPlan, DeveloperSummary, GitHubSummary
+from countdown_core.developer.models import AiPlan, DeveloperSummary, GitHubSummary, Release, ReleaseJob
 from countdown_core.entur.entur_arrival_panel import EnturArrivalPanel
 from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
 from countdown_core.glow.energy_panel import EnergyPanel
@@ -837,3 +837,117 @@ def test_developer_panel_with_all_green_and_no_github_token(snapshot, style):
         panel = DeveloperPanel(summary, style).render(790, 120)
         img.paste(panel, (0, i * 130), panel)
     snapshot.assert_matches(f"developer_{style}_green_and_no_github", img)
+
+
+RELEASE_NOW = dt.datetime(2026, 10, 17, 15, 4, tzinfo=dt.UTC)
+
+
+def _job(key, state, needs=(), done=None, total=None):
+    return ReleaseJob(key=key, name=key, state=state, needs=list(needs), done=done, total=total)
+
+
+def _release(name, state, minutes, jobs, *, finished=None):
+    """Make a release of `name` ("<repo> <title>") that started `minutes` before RELEASE_NOW."""
+    repo, title = name.split()
+    started = RELEASE_NOW - dt.timedelta(minutes=minutes)
+    return Release(repo=repo, title=title, state=state, started=started, finished=finished, jobs=jobs)
+
+
+# auth-broker's Release four minutes in: the images building, deploy-authentik waiting for approval.
+AUTH_BROKER_RELEASE = _release(
+    "auth-broker v1.27.0",
+    "running",
+    4,
+    [
+        _job("tag", "done"),
+        _job("images", "running", ["tag"], 3, 5),
+        _job("package", "done", ["tag"]),
+        _job("deploy", "queued", ["tag", "images", "package"], 0, 2),
+        _job("deploy-authentik", "approve", ["tag", "package"]),
+        _job("terraform", "queued", ["tag", "deploy-authentik"]),
+    ],
+)
+# pi-dashboard's: a chain of six, which wraps onto two rows.
+PI_DASHBOARD_JOBS = [
+    _job("verify-tag", "done"),
+    _job("build-python", "done", ["verify-tag"]),
+    _job("build-image", "running", ["build-python"], 4, 6),
+    _job("publish-image", "queued", ["build-image"], 0, 3),
+    _job("release", "queued", ["build-python", "publish-image"]),
+    _job("deploy-renderers", "queued", ["release"]),
+]
+PI_DASHBOARD_RELEASE = _release("pi-dashboard v2.14.0", "running", 6, PI_DASHBOARD_JOBS)
+PI_DASHBOARD_FAILED = _release(
+    "pi-dashboard v2.14.0",
+    "failed",
+    5,
+    [
+        job.model_copy(update={"state": "failed", "done": 5}) if job.key == "build-image" else job
+        for job in PI_DASHBOARD_JOBS
+    ],
+    finished=RELEASE_NOW,
+)
+AUTH_BROKER_RELEASED = AUTH_BROKER_RELEASE.model_copy(
+    update={
+        "state": "done",
+        "started": RELEASE_NOW - dt.timedelta(minutes=12),
+        "finished": RELEASE_NOW - dt.timedelta(minutes=3),
+        "jobs": [job.model_copy(update={"state": "done", "done": job.total}) for job in AUTH_BROKER_RELEASE.jobs],
+    }
+)
+# More jobs side by side than fit in a column: the last box says how many more.
+CROWDED_RELEASE = _release(
+    "countdown-api #12",
+    "running",
+    1,
+    [_job("lint", "done")]
+    + [_job(f"test-{n}", "running", ["lint"]) for n in range(5)]
+    + [_job("publish", "skipped", ["test-0"])],
+)
+
+
+def _with_releases(*releases):
+    return DEVELOPER_SUMMARY.model_copy(
+        update={"github": DEVELOPER_SUMMARY.github.model_copy(update={"releases": list(releases)})}
+    )
+
+
+def _release_panels(style):
+    panel = DeveloperPanel(_with_releases(AUTH_BROKER_RELEASE), style, now=RELEASE_NOW)
+    notices = NoticeBoardPanel(
+        [
+            Notice("GitHub", Severity.REMINDER, "auth-broker v1.27.0: deploy-authentik waiting for your approval"),
+            FEW_NOTICES.notices[0],
+        ],
+        style,
+    )
+    return _panels(_many_route_arrivals(style), notices=notices) | {ClientClasses.DEVELOPER.api_name: panel}
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_a_release_in_each_style(snapshot, style):
+    """A running release in place of GitHub and the AI plans: its jobs as GitHub's graph, one waiting for approval."""
+    snapshot.assert_matches(f"screen_developer_release_{style}", _draw(_release_panels(style), DEVELOPER_NOT_SPOTIFY))
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_a_release_on_a_portrait_screen(snapshot, style):
+    img = _draw_portrait(_release_panels(style), DEVELOPER_NOT_SPOTIFY)
+    snapshot.assert_matches(f"screen_portrait_developer_release_{style}", img)
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_a_release_as_it_goes(snapshot, style):
+    """At the landscape and portrait widths: a long chain wrapped (with a second release), failed, released, crowded."""
+    summaries = [
+        _with_releases(PI_DASHBOARD_RELEASE, AUTH_BROKER_RELEASE),
+        _with_releases(PI_DASHBOARD_FAILED),
+        _with_releases(AUTH_BROKER_RELEASED),
+        _with_releases(CROWDED_RELEASE),
+    ]
+    img = Image.new("RGBA", (536 + 20 + 470, len(summaries) * 130 - 10), "white")
+    for i, summary in enumerate(summaries):
+        for x, width in ((0, 536), (556, 470)):
+            panel = DeveloperPanel(summary, style, now=RELEASE_NOW).render(width, 120)
+            img.paste(panel, (x, i * 130), panel)
+    snapshot.assert_matches(f"developer_release_{style}_as_it_goes", img)

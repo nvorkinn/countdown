@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from PIL import Image
 
 from countdown_core.core.api_registry import ClientClasses
+from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.rendering.layout import Box, Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC
 from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
@@ -71,8 +72,8 @@ def share_spotify_area(
 ) -> dict[str, Panel]:
     """Return `panels` with the developer panel in Spotify's area when it's the developer panel's turn.
 
-    That's always without Spotify, and with it one minute in DEVELOPER_TURN or whenever Spotify has only a message
-    to show (nothing playing, not linked).
+    That's always without Spotify, and with it one minute in DEVELOPER_TURN, every minute while it shows a release,
+    or whenever Spotify has only a message to show (nothing playing, not linked).
     """
     developer = panels.get(ClientClasses.DEVELOPER.api_name)
     if ClientClasses.DEVELOPER not in available or developer is None:
@@ -81,6 +82,7 @@ def share_spotify_area(
     if (
         ClientClasses.SPOTIFY in available
         and not isinstance(spotify, MessagePanel)
+        and not (isinstance(developer, DeveloperPanel) and developer.has_release)
         and now.minute % DEVELOPER_TURN != DEVELOPER_TURN - 1
     ):
         return panels

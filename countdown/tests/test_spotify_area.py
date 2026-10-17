@@ -6,6 +6,8 @@ import pytest
 
 from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
+from countdown_core.developer.developer_panel import DeveloperPanel
+from countdown_core.developer.models import DeveloperSummary, GitHubSummary, Release
 from countdown_core.rendering import layout_for, share_spotify_area
 from countdown_core.rendering.layouts.classic import BaseLayout, SpotifyLayout
 from countdown_core.spotify.spotify_client import SpotifyClient
@@ -65,3 +67,21 @@ def test_the_developer_panel_alone_gets_the_layout_with_spotifys_area():
 
     assert type(layout_for(LANDSCAPE, developer_only)[0]) is SpotifyLayout
     assert type(layout_for(LANDSCAPE, developer_only - {ClientClasses.DEVELOPER})[0]) is BaseLayout
+
+
+@pytest.mark.parametrize("minute", [0, 1, 2])
+def test_a_release_takes_the_area_every_minute_while_it_shows(minute):
+    release = Release(
+        repo="auth-broker",
+        title="v1.27.0",
+        state="running",
+        started=dt.datetime(2026, 10, 17, 9, 0, tzinfo=dt.UTC),
+        jobs=[],
+    )
+    github = GitHubSummary(login="nvorkinn", repos=1, open_prs=0, review_requests=0, failing=[], releases=[release])
+    developer = DeveloperPanel(DeveloperSummary(github=github, plans=[]))
+    quiet = DeveloperPanel(DeveloperSummary(github=github.model_copy(update={"releases": []}), plans=[]))
+
+    assert in_spotifys_area(PANELS | {ClientClasses.DEVELOPER.api_name: developer}, BOTH, minute) is developer
+    expected = quiet if minute == 2 else SPOTIFY
+    assert in_spotifys_area(PANELS | {ClientClasses.DEVELOPER.api_name: quiet}, BOTH, minute) is expected

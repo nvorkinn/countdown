@@ -33,6 +33,8 @@ class DeveloperClient(AbstractClient):
 
     # Pull requests and builds don't change by the minute, and every poll costs the broker a few GitHub calls.
     poll_interval = timedelta(minutes=5)
+    # While a release runs, its jobs do.
+    release_poll_interval = timedelta(minutes=1)
     panel_title = N_("Developer")
 
     def __init__(self, registration: Registration, config: DeveloperSettings) -> None:
@@ -53,6 +55,8 @@ class DeveloperClient(AbstractClient):
         response = self.session.get(f"{self.registration.broker_url}/api/developer", timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         self.summary = DeveloperSummary.model_validate_json(response.content)
+        running = any(release.state == "running" for release in self.summary.releases)
+        self.poll_interval = self.release_poll_interval if running else type(self).poll_interval
         return DeveloperPanel(self.summary, self.config.style)
 
     @override

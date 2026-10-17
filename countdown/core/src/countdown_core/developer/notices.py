@@ -18,7 +18,7 @@ NEARLY_USED_UP = 0.9
 
 
 class DeveloperNoticeSource(NoticeSource):
-    """A build failing on a default branch, a plan renewing today or tomorrow, a plan nearly used up.
+    """A failing build, a release failed or waiting for approval, a plan renewing soon or nearly used up.
 
     It asks nothing itself: it reads the client's last answer, so it has nothing until the client has fetched.
     """
@@ -42,6 +42,18 @@ class DeveloperNoticeSource(NoticeSource):
             notices.extend(
                 Notice("GitHub", Severity.WARNING, _("{repo}: build failing").format(repo=repo))
                 for repo in summary.github.failing
+            )
+        for release in summary.releases:
+            name = f"{release.repo} {release.title}"
+            if release.state == "failed":
+                notices.append(Notice("GitHub", Severity.WARNING, _("{release}: release failed").format(release=name)))
+            notices.extend(
+                Notice(
+                    "GitHub",
+                    Severity.REMINDER,
+                    _("{release}: {job} waiting for your approval").format(release=name, job=job),
+                )
+                for job in release.waiting
             )
         today = now.astimezone(local_zone()).date()
         for plan in summary.plans:
