@@ -33,7 +33,7 @@ countdown-core so the providers and renderers share them.
 | `v1:sub:weather` | set | broker | location keys, e.g. `london-gb-2643743` |
 | `v1:sub:glow` | set | broker | Glow device ids |
 | `v1:sub:spotify` | set | broker | device ids |
-| `v1:sub:developer` | set | broker | device ids with the developer panel on and a GitHub token |
+| `v1:sub:developer` | set | broker | device ids with the developer panel on (with or without a GitHub token) |
 | `v1:sub:changed` | pub/sub channel | broker | empty message after replacing subscriptions |
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages) |
