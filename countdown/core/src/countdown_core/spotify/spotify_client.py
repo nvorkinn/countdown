@@ -7,7 +7,7 @@ their top lists taking turns.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
+from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient, json_content
 from countdown_core.core.style import normalise, panel_style
 from countdown_core.i18n import N_
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
@@ -123,8 +123,7 @@ class SpotifyClient(AbstractClient):
 
     def _request(self, method: str, path: str, params: dict[str, str | int] | None = None) -> bytes:
         response = self.session.request(method, f"{self.base_url}{path}", params=params, timeout=DEFAULT_TIMEOUT)
-        response.raise_for_status()
-        return response.content
+        return json_content(response)
 
     def _update(self) -> Panel:
         """Show the next page, or the one after if that has nothing to show."""

@@ -4,11 +4,12 @@ import threading
 from datetime import datetime, timedelta
 
 import pytest
+import requests
 from test_utils import REGISTRATION
 
 from countdown_api.models import Tfl
 from countdown_core.core import abstract_client
-from countdown_core.core.abstract_client import AbstractClient, ClientStatus
+from countdown_core.core.abstract_client import AbstractClient, ClientStatus, NotJSONError, json_content
 
 
 class FakeClient(AbstractClient):
@@ -205,3 +206,35 @@ def test_a_slow_call_is_logged_by_client_name_and_a_fast_one_is_not(monkeypatch,
     monkeypatch.setattr(abstract_client, "SLOW_CALL_S", 0)
     asyncio.run(client.update())
     assert "FakeClient: update took" in caplog.text
+
+
+def _response(content_type: str | None, status: int = 200) -> requests.Response:
+    response = requests.Response()
+    response.status_code = status
+    response.url = "https://broker.example.com/api/thing"
+    response._content = b"{}"
+    if content_type is not None:
+        response.headers["Content-Type"] = content_type
+    return response
+
+
+@pytest.mark.parametrize(
+    "content_type", ["application/json", "application/json; charset=utf-8", "application/problem+json"]
+)
+def test_json_content_returns_a_json_body(content_type):
+    assert json_content(_response(content_type)) == b"{}"
+
+
+@pytest.mark.parametrize(
+    ("content_type", "named"), [("text/html; charset=utf-8", "text/html"), (None, "no content type")]
+)
+def test_json_content_names_what_came_back_instead_of_json(content_type, named):
+    with pytest.raises(
+        NotJSONError, match=rf"^https://broker.example.com/api/thing answered with {named} \(200\), not JSON$"
+    ):
+        json_content(_response(content_type))
+
+
+def test_json_content_raises_for_an_error_status_first():
+    with pytest.raises(requests.HTTPError):
+        json_content(_response("text/html", status=502))

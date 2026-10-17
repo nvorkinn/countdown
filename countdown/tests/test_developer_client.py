@@ -4,6 +4,7 @@ import datetime as dt
 import pytest
 import responses
 
+from countdown_core.core.abstract_client import NotJSONError
 from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
 from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.models import AiPlan
@@ -68,6 +69,16 @@ def test_a_failing_broker_raises_so_the_last_panel_stays(client):
     responses.add(responses.GET, DEVELOPER_URL, status=500)
 
     with pytest.raises(Exception):  # noqa: B017, PT011 -- whatever requests raises; the registry keeps the last panel
+        asyncio.run(client.update())
+
+
+@responses.activate
+def test_a_login_page_in_front_of_the_broker_is_named_rather_than_parsed(client):
+    login = "https://broker.example.com/outpost.goauthentik.io/start"
+    responses.add(responses.GET, DEVELOPER_URL, status=302, headers={"Location": login})
+    responses.add(responses.GET, login, body="\n\n<!DOCTYPE html><html></html>", content_type="text/html")
+
+    with pytest.raises(NotJSONError, match=rf"^{DEVELOPER_URL} answered with text/html \(200, after a redirect to "):
         asyncio.run(client.update())
 
 

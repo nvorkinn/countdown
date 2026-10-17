@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, override
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
+from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient, json_content
 from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.models import DeveloperSummary
 from countdown_core.developer.notices import DeveloperNoticeSource
@@ -51,8 +51,7 @@ class DeveloperClient(AbstractClient):
     @override
     def _update(self) -> Panel:
         response = self.session.get(f"{self.registration.broker_url}/api/developer", timeout=DEFAULT_TIMEOUT)
-        response.raise_for_status()
-        self.summary = DeveloperSummary.model_validate_json(response.content)
+        self.summary = DeveloperSummary.model_validate_json(json_content(response))
         return DeveloperPanel(self.summary, self.config.style)
 
     @override

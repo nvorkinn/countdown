@@ -28,6 +28,28 @@ SLOW_CALL_S = 5
 DEFAULT_TIMEOUT = 10
 
 
+class NotJSONError(Exception):
+    """An API answered with something other than JSON, such as a login page a proxy in front of it served."""
+
+
+def json_content(response: requests.Response) -> bytes:
+    """Return `response`'s body, raising for an error status, and NotJSONError if the body isn't JSON.
+
+    A proxy can answer in the API's place with a page (Caddy's Authentik login does, for a path it doesn't let
+    through), which would otherwise only show up as a parse error.
+    """
+    response.raise_for_status()
+    content_type = response.headers.get("Content-Type", "")
+    media_type = content_type.partition(";")[0].strip().lower()
+    if media_type != "application/json" and not media_type.endswith("+json"):
+        asked = response.history[0].url if response.history else response.url
+        # Where it ended up, without the query (a login's state and return address only clutter the log).
+        via = f", after a redirect to {response.url.partition('?')[0]}" if response.history else ""
+        msg = f"{asked} answered with {media_type or 'no content type'} ({response.status_code}{via}), not JSON"
+        raise NotJSONError(msg)
+    return response.content
+
+
 class ClientStatus(StrEnum):
     """Where a client stands, as the publisher reports it for each API."""
 
