@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from countdown_core.i18n import _, ngettext
+from countdown_core.spotify.spotify_styles import airy_label
 from countdown_core.tfl.arrival_styles import MEDIUM, SANS_SEMI
 from countdown_core.utils.utils import fitted_font, google_symbols
 
@@ -28,9 +29,9 @@ def _count(n: int) -> str:
 
 
 def _airy(d: ImageDraw.ImageDraw, width: int, _height: int, count: int) -> None:
-    """Draw a small-caps label and the count over a hairline, like Spotify airy's NOW PLAYING."""
+    """Draw an icon, a small-caps label and the count over a hairline, like Spotify airy's NOW PLAYING."""
     label = fitted_font(SANS_SEMI, 11)
-    d.text((0, 8), _("NOTICES"), "black", label, anchor="lm")
+    airy_label(d, 0, 8, CAMPAIGN, _("NOTICES"))
     d.text((width - 1, 8), _count(count).upper(), "black", label, anchor="rm")
     d.line((0, 19, width, 19), fill="black")
 

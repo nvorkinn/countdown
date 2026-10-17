@@ -128,8 +128,10 @@ def airy(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     label = _("Platform {letter}") if panel.icon in ("subway", "train") else _("Stop {letter}")
     letter = label.format(letter=panel.stop_letter) if panel.stop_letter else ""
     letter_font = fitted_font(MEDIUM, 13)
-    name_room = width - (letter_font.getlength(letter) + 8 if letter else 0)
-    d.text((0, 0), truncate_to_fit(panel.stop_name, fitted_font(BOLD, 16), name_room), "black", fitted_font(BOLD, 16))
+    # The stop's mode (a bus, a train...), smaller than hero's.
+    d.text((0, 10), ICONS[panel.icon], "black", google_symbols().font_variant(size=18), anchor="lm")
+    name_room = width - 21 - (letter_font.getlength(letter) + 8 if letter else 0)
+    d.text((21, 0), truncate_to_fit(panel.stop_name, fitted_font(BOLD, 16), name_room), "black", fitted_font(BOLD, 16))
     if letter:
         d.text((width, 0), letter, "black", letter_font, anchor="ra")
     d.line((0, 24, width, 24), fill="black", width=2)
