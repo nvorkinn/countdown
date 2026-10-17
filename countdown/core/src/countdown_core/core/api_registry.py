@@ -86,12 +86,15 @@ def client_class(member: ClientClasses, section: object) -> type[AbstractClient]
 def is_enabled(section: object) -> bool:
     """Whether the broker's config switches the API on.
 
-    Only the music (Spotify, Apple Music) and the developer panel have switches; Glowmarkt is on when both
-    credentials are there (a cleared
-    field can arrive as "" or whitespace as well as null); the rest are always on.
+    The music (Spotify, Apple Music), the developer panel and Glowmarkt have switches; the rest are always on. A
+    broker that predates Glowmarkt's switch sends null for it, and its credentials instead: the panel is on when both
+    are there (a cleared field can arrive as "" or whitespace as well as null). The credentials aren't used either
+    way, since the readings come from the store.
     """
     match section:
         case MusicSettings() | DeveloperSettings():
+            return section.enabled
+        case Glowmarkt() if section.enabled is not None:
             return section.enabled
         case Glowmarkt():
             return all((value or "").strip() for value in (section.username, section.password))

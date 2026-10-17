@@ -59,7 +59,7 @@ def _full_response() -> wire.ConfigResponse:
         notice_board=wire.NoticeBoard(postcode="SW1A 1AA"),
         tfl=wire.Tfl(app_key="tfl-key", stop_ids=["940GZZLUKNG", "490000077E"]),
         spotify=wire.Spotify(enabled=True),
-        glowmarkt=wire.Glowmarkt(username="someone@example.com", password="hunter2"),
+        glowmarkt=wire.Glowmarkt(enabled=True, username=None, password=None),
         pairing_code="ABC123",
     )
 
