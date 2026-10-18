@@ -140,3 +140,11 @@ def tfl_roads(postcode: str) -> str:
     countdown_core.store.tfl_notices.StoredRoadDisruptions.
     """
     return f"{PREFIX}:notices:tfl-roads:{place(postcode)}"
+
+
+def floods(postcode: str) -> str:
+    """Return the key of the Environment Agency's flood warnings near a UK postcode, e.g. `v1:notices:floods:SE173LL`.
+
+    Written by provider-floods; holds a countdown_core.store.floods.StoredFloods.
+    """
+    return f"{PREFIX}:notices:floods:{place(postcode)}"

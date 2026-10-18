@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, override
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.i18n import N_, local_zone
 from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
-from countdown_core.notices.floods import FloodWarningsSource
+from countdown_core.notices.floods import StoredFloodWarningsSource
 from countdown_core.notices.location import lookup_postcode
 from countdown_core.notices.met_office import StoredMetOfficeWarningsSource
 from countdown_core.notices.norway import MetAlertsSource, NorwegianHolidaySource, lookup_norwegian_postcode
@@ -128,7 +128,7 @@ class NoticeBoardClient(AbstractClient):
         self.sources += [
             bank_holidays,
             met_office,
-            FloodWarningsSource(self.session, location),
+            StoredFloodWarningsSource(self.session, self.postcode),
             StoredTflRoadSource(self.session, self.postcode),
         ]
         # Otherwise a quiet board gives no sign the postcode was placed.
