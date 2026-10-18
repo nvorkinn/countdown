@@ -6,7 +6,8 @@ reads what it wrote back (fakeredis).
 fixtures/met_office_warnings.xml is a region's feed, and fixtures/met_office_warnings.json the stored value the
 provider makes of it. The notices the board makes from the stored value must be the ones it made from the feed when it
 fetched the feed itself: fixtures/met_office_notices.json is what it made then, from that feed at the fixture's `now`,
-in English and in Norwegian.
+in English and in Norwegian. One change since: an amber warning now reads "Oransje farevarsel" in Norwegian, not
+"Gult", since amber is the Met Office's middle level, as orange is MetAlerts'.
 """
 
 import asyncio
