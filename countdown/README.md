@@ -70,9 +70,10 @@ auth-broker's, for energy, music and the developer panel) fill: the renderer nev
 Glowmarkt or GitHub for them, nor the broker, and never holds a Glowmarkt password, a Spotify token or a GitHub token. A
 renderer started without `REDIS_URL` can't build those five, so their areas say "Could not connect" and the log says
 why (`store.reader.require_store`); a key missing from the store, or Redis not answering, is just a failed poll. The
-notice board and its disruption sources still call their APIs, except for the Met Office's warnings and the
-Environment Agency's flood warnings, which the board reads from the store too (`v1:notices:met-office:<place>`,
-`v1:notices:floods:<place>`). `ApiRegistry` builds a client for every API the config enables.
+notice board reads its bank holidays (`v1:notices:bank-holidays`), the Met Office's warnings
+(`v1:notices:met-office:<place>`) and the Environment Agency's flood warnings (`v1:notices:floods:<place>`) from the
+store too; its other sources, and the disruptions, still call their APIs.
+`ApiRegistry` builds a client for every API the config enables.
 When the config changes, it only rebuilds the clients whose `needs_refresh()`
 says the change affects them. Each client has its own `poll_interval`. The
 clients that are due are polled concurrently, with their blocking `requests`

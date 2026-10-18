@@ -107,6 +107,15 @@ def met_office(postcode: str) -> str:
     return f"{PREFIX}:notices:met-office:{place(postcode)}"
 
 
+def bank_holidays() -> str:
+    """Return the key of gov.uk's bank holidays, `v1:notices:bank-holidays`: one for all of the UK, every division's.
+
+    Written by the bank holidays provider with no subscription, as every UK board reads it; holds a
+    countdown_core.store.bank_holidays.StoredBankHolidays.
+    """
+    return f"{PREFIX}:notices:bank-holidays"
+
+
 def floods(postcode: str) -> str:
     """Return the key of the Environment Agency's flood warnings near a UK postcode, e.g. `v1:notices:floods:SE173LL`.
 
