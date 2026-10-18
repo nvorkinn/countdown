@@ -92,7 +92,8 @@ one broken API never takes the others down.
 **Notice board** (`notice_board_client.py`, `notices/`). This covers TfL line
 status and station disruptions for the configured stops, Met Office warnings,
 Environment Agency flood alerts and TfL road incidents near the owner's postcode
-(looked up with postcodes.io), and bank holidays and clock changes. Each source
+(placed from the store, where `provider-locations` keeps each postcode's place from postcodes.io), and bank holidays
+and clock changes. Each source
 has its own refresh interval. The board's own sources are about the postcode's place; the disruptions at the stops
 come from the departures client, as every client can hand the board notice sources about what it shows
 (`AbstractClient.notice_sources`, passed on by the registry). A failing source keeps its last notices for a
@@ -191,11 +192,12 @@ stays English. After adding or changing a text, run `sh dev/update_translations.
 (`i18n.format_date`), so the pattern itself is translatable ("EEE d MMM" in English, "EEE d. MMM" in Norwegian).
 
 A Norwegian postcode (`notice_board.country` is `NO`) gets Norway's notices instead of the UK's: it's placed by
-[Kartverket](https://ws.geonorge.no/adresser/v1/), the public holidays are worked out here, weather warnings come
-from [MET Norway's MetAlerts](https://api.met.no/weatherapi/metalerts/2.0/documentation) in the screen's language
-(through the store: `provider-metalerts` fetches them for all of Norway, and the board picks out its place's, see
-`providers/README.md`), and the clocks-change reminder goes by the screen's time zone. Entur stops bring their
-disruptions to the board whatever the postcode, as TfL stops bring theirs.
+[Kartverket](https://ws.geonorge.no/adresser/v1/) (through the store: `provider-locations` asks it), the public holidays
+are worked out here, weather warnings come from [MET Norway's
+MetAlerts](https://api.met.no/weatherapi/metalerts/2.0/documentation) in the screen's language (through the store:
+`provider-metalerts` fetches them for all of Norway, and the board picks out its place's, see `providers/README.md`),
+and the clocks-change reminder goes by the screen's time zone. Entur stops bring their disruptions to the board whatever
+the postcode, as TfL stops bring theirs.
 
 ## The API contract
 

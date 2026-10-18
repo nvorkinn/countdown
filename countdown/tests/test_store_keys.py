@@ -15,6 +15,14 @@ def test_the_postcode_is_a_subscription_source():
     assert keys.POSTCODE in keys.SOURCES
 
 
+@pytest.mark.parametrize(
+    ("postcode", "key"),
+    [("SE17 3LL", "v1:location:SE173LL"), ("se17 3ll", "v1:location:SE173LL"), ("0150", "v1:location:0150")],
+)
+def test_a_postcodes_location_is_under_its_place(postcode, key):
+    assert keys.location(postcode) == key
+
+
 def test_the_met_office_warnings_are_by_place():
     assert keys.met_office("SE17 3LL") == "v1:notices:met-office:SE173LL"
 

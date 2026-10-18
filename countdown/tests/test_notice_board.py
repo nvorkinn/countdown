@@ -13,7 +13,6 @@ from countdown_core.core.api_registry import section_for
 from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
 from countdown_core.notices.floods import StoredFloodWarningsSource
-from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.met_office import StoredMetOfficeWarningsSource, region_for, warning_notices
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
@@ -22,6 +21,7 @@ from countdown_core.notices.notice_styles import STYLES
 from countdown_core.notices.tfl import StoredTflRoadSource
 from countdown_core.store import keys
 from countdown_core.store.bank_holidays import StoredBankHolidays
+from countdown_core.store.location import StoredLocation
 from countdown_core.tfl.models import Postcode
 from countdown_core.utils.clock import format_clock
 from countdown_providers.met_office.main import feed_items
@@ -35,12 +35,6 @@ SOUTHWARK = Postcode(
     region="London",
     admin_district="Southwark",
 )
-
-
-@pytest.fixture
-def api():
-    with responses.RequestsMock() as rsps:
-        yield rsps
 
 
 # --- Met Office ------------------------------------------------------------------
@@ -184,13 +178,13 @@ def test_met_office_region_from_postcode(country, region, district, expected):
     assert region_for(location) == expected
 
 
-def test_met_office_logs_the_area_not_the_postcode_when_it_has_no_region(caplog):
+def test_met_office_logs_neither_the_postcode_nor_its_area_when_it_has_no_region(caplog):
     location = SOUTHWARK.model_copy(update={"country": "Scotland", "region": None, "admin_district": "Somewhere New"})
 
     with caplog.at_level("WARNING", logger="countdown_core.notices.met_office"):
         region_for(location)
 
-    assert caplog.messages == ["No Met Office warning region for Somewhere New; using the whole UK"]
+    assert caplog.messages == ["No Met Office warning region for a postcode's area; using the whole UK"]
 
 
 # --- Bank holidays and the clocks -------------------------------------------------
@@ -387,15 +381,21 @@ def test_board_with_nothing_configured_still_has_bank_holidays_and_the_clocks():
     assert client.sources[1].division == "england-and-wales"
 
 
-def test_board_adds_local_sources_once_the_postcode_is_found(api, clock):
-    result = SOUTHWARK.model_dump()
-    api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", json={"result": result})
+def put_location(store, postcode: str, location: Postcode | None) -> None:
+    """Store where `postcode` is, as provider-locations would: `location`, or None for a postcode that doesn't exist."""
+    stored = StoredLocation(fetched_at=NOW, postcode=postcode, found=location is not None, location=location)
+    store.set(keys.location(postcode), stored.model_dump_json())
+
+
+def test_board_adds_local_sources_once_the_store_says_where_the_postcode_is(store, clock):
+    put_location(store, "SE17 3LL", SOUTHWARK)
     client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
-    client._refresh = lambda source, now: None  # only the lookup is under test here
+    client._refresh = lambda source, now: None  # only placing the postcode is under test here
 
     with pytest.raises(RuntimeError):  # sources added, but none has answered yet
         update(client)
 
+    assert client.location == SOUTHWARK
     assert [type(s) for s in client.sources] == [
         ClockChangeSource,
         StoredBankHolidaySource,
@@ -407,36 +407,46 @@ def test_board_adds_local_sources_once_the_postcode_is_found(api, clock):
     assert client.sources[3].key == "v1:notices:floods:SE173LL"
 
 
-def test_board_logs_that_it_resolved_postcode(api, clock, caplog):
-    api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", json={"result": SOUTHWARK.model_dump()})
+def test_board_reads_the_location_under_its_postcodes_place_however_its_written(store, clock):
+    put_location(store, "SE17 3LL", SOUTHWARK)
+    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="se17 3ll"))
+
+    client._ensure_location(NOW)
+
+    assert client.location == SOUTHWARK
+
+
+def test_board_logs_that_it_placed_the_postcode_but_not_where(store, clock, caplog):
+    put_location(store, "SE17 3LL", SOUTHWARK)
     client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
     client._refresh = lambda source, now: None
 
-    with caplog.at_level("INFO", logger="countdown_core.notices.notice_board_client"), pytest.raises(RuntimeError):
+    with caplog.at_level("DEBUG"), pytest.raises(RuntimeError):
         update(client)
 
-    assert (
-        "Notice board: location lookup succeeded: London, Southwark; Met Office region se, "
-        "bank holidays for england-and-wales" in caplog.messages
-    )
+    assert "Notice board: found the postcode's location; reading its local notices" in caplog.messages
+    # Nor anything worked out from it: its area, its Met Office region, its bank holidays' division.
+    for trace in ("SE17", "SE173LL", "London", "Southwark", "51.49", "england-and-wales", "region se"):
+        assert trace not in caplog.text
 
 
-def test_board_with_an_unknown_postcode_says_so(api, clock, caplog, store):
-    api.add(responses.GET, f"{POSTCODES_URL}/ZZ1%201ZZ", status=404, json={"error": "Invalid postcode"})
+def test_board_with_an_unknown_postcode_says_so(store, clock, caplog):
+    put_location(store, "ZZ1 1ZZ", None)
     store.set(keys.bank_holidays(), StoredBankHolidays(fetched_at=NOW, divisions=BANK_HOLIDAYS).model_dump_json())
+    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="ZZ1 1ZZ"))
 
     with caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"):
-        panel = update(NoticeBoardClient(REGISTRATION, board_settings(postcode="ZZ1 1ZZ")))
+        panel = update(client)
 
     assert panel.message == "Unknown postcode"
+    assert [type(s) for s in client.sources] == [ClockChangeSource, StoredBankHolidaySource]
     # Where the board is stays out of the logs.
     assert caplog.messages == ["The configured postcode isn't a known UK postcode; no local notices"]
 
 
-def test_board_retries_a_postcode_lookup_that_failed(api, clock, caplog):
-    api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", status=503)
+def test_board_waits_for_a_location_not_in_the_store_yet_and_reads_again_a_poll_later(store, clock, caplog):
     client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
-    client.session = requests.Session()  # no retries, so the 503 comes straight back
+    client._refresh = lambda source, now: None
 
     with (
         caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"),
@@ -444,9 +454,47 @@ def test_board_retries_a_postcode_lookup_that_failed(api, clock, caplog):
     ):
         update(client)
     assert client.location is None
-    assert client.postcode == "SE17 3LL"  # still to be looked up, unlike an unknown one
-    # Not the HTTPError's own text either: that quotes the URL, postcode and all.
-    assert caplog.messages == ["Couldn't look up the postcode: HTTPError"]
+    assert client.postcode == "SE17 3LL"  # still to be placed, unlike an unknown one
+    assert not client.unknown_postcode
+    # Not the key: it has the postcode in it.
+    assert caplog.messages == ["No location in the store for the board's postcode yet (is provider-locations running?)"]
+
+    put_location(store, "SE17 3LL", SOUTHWARK)  # provider-locations gets to it
+    clock.now += board_module.LOCATION_RETRY - timedelta(seconds=1)
+    client._ensure_location(clock.now)
+    assert client.location is None  # not read again yet
+    clock.now += timedelta(seconds=1)
+    client._ensure_location(clock.now)
+    assert client.location == SOUTHWARK
+
+
+def test_board_whose_store_cant_be_read_tries_again_without_naming_the_postcode(store, clock, caplog, monkeypatch):
+    def unreachable(key):
+        msg = f"couldn't GET {key}"  # as a real one could say: the key, postcode and all
+        raise ConnectionError(msg)
+
+    monkeypatch.setattr(store, "get", unreachable)
+    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
+    client._refresh = lambda source, now: None
+
+    with (
+        caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"),
+        pytest.raises(RuntimeError, match=r"^Couldn't look up the postcode yet$"),
+    ):
+        update(client)
+
+    assert caplog.messages == ["Couldn't read the postcode's location from the store: ConnectionError"]
+    assert client.postcode == "SE17 3LL"
+
+
+def test_board_asks_nothing_over_http_to_place_its_postcode(store, clock):
+    put_location(store, "SE17 3LL", SOUTHWARK)
+    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
+
+    with responses.RequestsMock():  # any request would fail
+        client._ensure_location(NOW)
+
+    assert client.location == SOUTHWARK
 
 
 # --- Config ----------------------------------------------------------------------

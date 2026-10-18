@@ -49,6 +49,16 @@ def place(postcode: str) -> str:
     return postcode.replace(" ", "").upper()
 
 
+def location(postcode: str) -> str:
+    """Return the key of where a postcode from `v1:sub:postcode` is, e.g. `v1:location:SE173LL`, `v1:location:0150`.
+
+    Written by provider-locations, the one process that looks postcodes up (postcodes.io, Kartverket), with a TTL of
+    days; holds a countdown_core.store.location.StoredLocation, which says so when the postcode doesn't exist. The
+    notice board reads it rather than looking its postcode up itself.
+    """
+    return f"{PREFIX}:location:{place(postcode)}"
+
+
 def departures(stop_id: str) -> str:
     """Return the key of a stop's departures, e.g. `v1:departures:490000123W` or `v1:departures:NSR:StopPlace:58366`.
 

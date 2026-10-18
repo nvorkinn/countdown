@@ -99,8 +99,8 @@ def region_for(location: Postcode) -> str:
     else:
         region = REGION_BY_AREA.get(location.region or location.country)
     if region is None:
-        area = location.admin_district or location.region or location.country
-        logger.warning("No Met Office warning region for %s; using the whole UK", area)
+        # Not the area: it says roughly where the screen, and someone's home, is.
+        logger.warning("No Met Office warning region for a postcode's area; using the whole UK")
         return UK_REGION
     return region
 
@@ -178,7 +178,8 @@ class StoredMetOfficeWarningsSource(NoticeSource):
         so a renderer without one fails this source alone, not the board.
         """
         super().__init__(session)
-        # The feed the provider reads for this postcode, worked out here too only so the board can log it.
+        # The feed the provider reads for this postcode, as the board placed it. Never logged: it says roughly where
+        # the board is.
         self.region = region_for(location)
         self.key = keys.met_office(postcode)
         self.store = store

@@ -1,0 +1,212 @@
+{
+  "_comment": "What the notice board built, and showed, for each postcode in locations.json when it still looked the postcode up itself (postcodes.io or Kartverket, with their answers there), recorded from that code before it was removed, with the same notices in the store for both: gov.uk's bank holidays (bank_holidays.json), MetAlerts' (metalerts_current.json), the Met Office's warnings (met_office_warnings.json) and no floods or road disruptions. The board must build and show exactly the same from the location the provider stores.",
+  "cases": [
+    {
+      "postcode": "SE17 3LL",
+      "country": "GB",
+      "now": "2026-09-25T12:00:00+00:00",
+      "location": {
+        "postcode": "SE17 3LL",
+        "latitude": 51.48873,
+        "longitude": -0.09766,
+        "country": "England",
+        "region": "London",
+        "admin_district": "Southwark"
+      },
+      "sources": [
+        {
+          "type": "ClockChangeSource"
+        },
+        {
+          "type": "StoredBankHolidaySource",
+          "division": "england-and-wales"
+        },
+        {
+          "type": "StoredMetOfficeWarningsSource",
+          "region": "se",
+          "key": "v1:notices:met-office:SE173LL"
+        },
+        {
+          "type": "StoredFloodWarningsSource",
+          "key": "v1:notices:floods:SE173LL"
+        },
+        {
+          "type": "StoredTflRoadSource",
+          "postcode": "SE17 3LL"
+        }
+      ],
+      "message": null,
+      "notices": [
+        {
+          "source": "Met Office",
+          "severity": "WARNING",
+          "text": "Amber warning: wind until Fri",
+          "valid_until": "2026-09-25T21:00:00+01:00",
+          "display_time": "2026-09-25T21:00:00+01:00"
+        },
+        {
+          "source": "Met Office",
+          "severity": "WARNING",
+          "text": "Warnings for London & South East England are being reviewed",
+          "valid_until": null,
+          "display_time": null
+        },
+        {
+          "source": "Met Office",
+          "severity": "INFO",
+          "text": "Yellow warning: rain until Sat",
+          "valid_until": "2026-09-26T09:00:00+01:00",
+          "display_time": "2026-09-26T09:00:00+01:00"
+        },
+        {
+          "source": "Met Office",
+          "severity": "INFO",
+          "text": "Yellow warning: fog",
+          "valid_until": null,
+          "display_time": null
+        }
+      ]
+    },
+    {
+      "postcode": "EH1 1YZ",
+      "country": "GB",
+      "now": "2026-11-26T12:00:00+00:00",
+      "location": {
+        "postcode": "EH1 1YZ",
+        "latitude": 55.95325,
+        "longitude": -3.19046,
+        "country": "Scotland",
+        "region": null,
+        "admin_district": "City of Edinburgh"
+      },
+      "sources": [
+        {
+          "type": "ClockChangeSource"
+        },
+        {
+          "type": "StoredBankHolidaySource",
+          "division": "scotland"
+        },
+        {
+          "type": "StoredMetOfficeWarningsSource",
+          "region": "dg",
+          "key": "v1:notices:met-office:EH11YZ"
+        },
+        {
+          "type": "StoredFloodWarningsSource",
+          "key": "v1:notices:floods:EH11YZ"
+        },
+        {
+          "type": "StoredTflRoadSource",
+          "postcode": "EH1 1YZ"
+        }
+      ],
+      "message": null,
+      "notices": [
+        {
+          "source": "Met Office",
+          "severity": "WARNING",
+          "text": "Warnings for London & South East England are being reviewed",
+          "valid_until": null,
+          "display_time": null
+        },
+        {
+          "source": "Met Office",
+          "severity": "INFO",
+          "text": "Yellow warning: fog",
+          "valid_until": null,
+          "display_time": null
+        },
+        {
+          "source": "Bank holiday",
+          "severity": "REMINDER",
+          "text": "Mon 30 Nov: St Andrew’s Day",
+          "valid_until": "2026-12-01T00:00:00+00:00",
+          "display_time": null
+        }
+      ]
+    },
+    {
+      "postcode": "ZZ1 1ZZ",
+      "country": "GB",
+      "now": "2026-09-25T12:00:00+00:00",
+      "location": null,
+      "sources": [
+        {
+          "type": "ClockChangeSource"
+        },
+        {
+          "type": "StoredBankHolidaySource",
+          "division": "england-and-wales"
+        }
+      ],
+      "message": "Unknown postcode",
+      "notices": null
+    },
+    {
+      "postcode": "0150",
+      "country": "NO",
+      "now": "2026-10-16T12:00:00+00:00",
+      "location": {
+        "postcode": "0150",
+        "latitude": 59.9116,
+        "longitude": 10.7505,
+        "country": "Norway",
+        "region": null,
+        "admin_district": "Oslo"
+      },
+      "sources": [
+        {
+          "type": "ClockChangeSource"
+        },
+        {
+          "type": "NorwegianHolidaySource"
+        },
+        {
+          "type": "StoredMetAlertsSource",
+          "location": {
+            "postcode": "0150",
+            "latitude": 59.9116,
+            "longitude": 10.7505,
+            "country": "Norway",
+            "region": null,
+            "admin_district": "Oslo"
+          }
+        }
+      ],
+      "message": null,
+      "notices": [
+        {
+          "source": "MET",
+          "severity": "WARNING",
+          "text": "Orange warning: wind until Fri",
+          "valid_until": "2026-10-16T19:00:00+00:00",
+          "display_time": "2026-10-16T21:00:00+02:00"
+        },
+        {
+          "source": "MET",
+          "severity": "INFO",
+          "text": "Yellow warning: rain until Sat",
+          "valid_until": "2026-10-17T06:00:00+00:00",
+          "display_time": "2026-10-17T08:00:00+02:00"
+        }
+      ]
+    },
+    {
+      "postcode": "0001",
+      "country": "NO",
+      "now": "2026-10-16T12:00:00+00:00",
+      "location": null,
+      "sources": [
+        {
+          "type": "ClockChangeSource"
+        },
+        {
+          "type": "NorwegianHolidaySource"
+        }
+      ],
+      "message": "Unknown postcode",
+      "notices": null
+    }
+  ]
+}
