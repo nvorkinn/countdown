@@ -24,7 +24,7 @@ from test_utils import REGISTRATION
 from countdown_core.core import log_format, moment
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.notices import location, norway
-from countdown_core.notices.location import lookup_postcode, postcode_coordinates
+from countdown_core.notices.location import lookup_outcode, lookup_postcode
 from countdown_core.notices.models import FloodWarningsResponse
 from countdown_core.notices.norway import ADDRESSES_URL, lookup_norwegian_postcode
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
@@ -38,7 +38,7 @@ from countdown_core.weather import open_meteo
 from countdown_core.weather.open_meteo import fetch_forecast, geocode
 from countdown_providers.floods import main as floods_main
 from countdown_providers.floods.main import FloodsProvider, fetch_flood_areas
-from countdown_providers.locations.main import LocationsProvider
+from countdown_providers.locations.main import LocationsProvider, WeatherPostcodesProvider
 from countdown_providers.met_office import main as met_office_main
 from countdown_providers.met_office.main import MetOfficeProvider
 from countdown_providers.runner import ProviderRunner
@@ -131,7 +131,7 @@ def retrying_session() -> requests.Session:
     ("ask", "found"),
     [
         pytest.param(lambda s: lookup_postcode(s, "SE17 3LL"), traces("SE17 3LL"), id="postcode"),
-        pytest.param(lambda s: postcode_coordinates(s, "SE17"), traces("SE17"), id="outward code"),
+        pytest.param(lambda s: lookup_outcode(s, "SE17"), traces("SE17"), id="outward code"),
         pytest.param(lambda s: lookup_norwegian_postcode(s, "3015"), traces("3015"), id="norwegian postcode"),
         pytest.param(lambda s: geocode(s, "Little Snoring"), named("Little Snoring", "Little+Snoring"), id="place"),
         pytest.param(lambda s: fetch_forecast(s, LATITUDE, LONGITUDE), named(LATITUDE, LONGITUDE), id="coordinates"),
@@ -315,7 +315,10 @@ def test_a_refused_redis_write_of_a_place_logs_no_key_or_value(caplog):
 @pytest.mark.parametrize(
     ("location_key", "known", "found"),
     [
-        pytest.param("sw1a-1aa", None, [*traces("SW1A 1AA"), "SW1A-1AA"], id="typed postcode"),
+        pytest.param(
+            "sw1a-1aa", None, [*traces("SW1A 1AA", LATITUDE, LONGITUDE), "SW1A-1AA"], id="typed postcode, placed"
+        ),
+        pytest.param("se17", None, [*traces("SE17", LATITUDE, LONGITUDE), "SE17"], id="typed district, placed"),
         pytest.param(
             "little-snoring", None, named("little-snoring", "Little Snoring", "Little+Snoring"), id="typed place"
         ),
@@ -325,8 +328,12 @@ def test_a_refused_redis_write_of_a_place_logs_no_key_or_value(caplog):
     ],
 )
 def test_the_weather_provider_logs_a_failed_place_without_naming_it(caplog, location_key, known, found):
-    """Geocoding a typed postcode (postcodes.io) or place (Open-Meteo), or the forecast at a place's coordinates."""
-    provider = WeatherProvider(retrying_session(), now=lambda: NOW)
+    """Geocoding a typed place (Open-Meteo), or the forecast at a place's coordinates (a typed postcode's, stored)."""
+    located = FakeLocations(
+        Postcode(postcode="SW1A 1AA", latitude=LATITUDE, longitude=LONGITUDE, country="England", region="London"),
+        Postcode(postcode="SE17", latitude=LATITUDE, longitude=LONGITUDE, country="England"),
+    )
+    provider = WeatherProvider(retrying_session(), located.reader, now=lambda: NOW)
     if known is not None:
         provider.coordinates[location_key] = known
 
@@ -334,6 +341,51 @@ def test_the_weather_provider_logs_a_failed_place_without_naming_it(caplog, loca
 
     assert caplog.messages[-1] == "Couldn't fetch the weather for a subscribed place: ConnectionError"
     assert_nothing_says_where(caplog, found)
+
+
+@pytest.mark.usefixtures("production_logging", "nowhere")
+def test_the_weather_provider_logs_no_typed_postcode_the_store_cant_place(caplog):
+    """Not placed yet, not a StoredLocation, and not a postcode that exists: through the runner, at DEBUG."""
+    located = FakeLocations(not_found=("ZZ1 1ZZ",))
+    located.store.set(keys.location("YO1 7HH"), json.dumps({"postcode": "YO1 7HH", "found": True, "location": YORK}))
+    provider = WeatherProvider(retrying_session(), located.reader, now=lambda: NOW)
+
+    async def cycle():
+        await located.redis.sadd(keys.subscription(keys.WEATHER), "e1-6an", "yo1-7hh", "zz1-1zz", "se17")
+        return await ProviderRunner(provider, located.redis).run_cycle()
+
+    assert asyncio.run(cycle()) == 0
+
+    assert len(caplog.messages) >= 3
+    assert_nothing_says_where(
+        caplog,
+        [
+            *traces("E1 6AN"),
+            *traces("YO1 7HH", "York", YORK["latitude"], YORK["longitude"]),
+            *traces("ZZ1 1ZZ"),
+            "SE17",
+            "E1-6AN",
+            "YO1-7HH",
+            "ZZ1-1ZZ",
+        ],
+    )
+
+
+@pytest.mark.usefixtures("production_logging", "nowhere")
+@pytest.mark.parametrize("location_key", ["sw1a-1aa", "se17"], ids=["postcode", "district"])
+def test_provider_locations_logs_no_weather_keys_postcode_it_couldnt_look_up(caplog, location_key):
+    """provider-locations' weather part: postcodes.io can't be reached; its, the runner's and urllib3's logs."""
+    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    postcodes = LocationsProvider(retrying_session(), now=lambda: NOW)
+
+    async def cycle():
+        await redis.sadd(keys.subscription(keys.WEATHER), location_key, "london-gb-2643743")
+        return await ProviderRunner(WeatherPostcodesProvider(postcodes), redis).run_cycle()
+
+    assert asyncio.run(cycle()) == 0
+
+    assert "Couldn't look up a postcode: ConnectionError" in caplog.messages
+    assert_nothing_says_where(caplog, [*traces("SW1A 1AA"), "SE17", location_key.upper(), "LONDON"])
 
 
 # --- The providers of notices about a place, reading where each postcode is from the store ---------------------------

@@ -250,7 +250,7 @@ def test_a_postcode_not_found_is_asked_about_again_a_day_later_and_placed_once_i
 
 
 def test_something_neither_a_uk_nor_a_norwegian_postcode_is_stored_as_not_found_without_asking(api, clock):
-    results = fetch(make_provider(clock), ["SE17", "12345", "Oslo"])
+    results = fetch(make_provider(clock), ["SE17 3", "12345", "Oslo"])
 
     assert [stored.found for stored in results.values()] == [False, False, False]
     assert len(api.calls) == 0
