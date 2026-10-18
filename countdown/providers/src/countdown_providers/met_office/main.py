@@ -74,9 +74,12 @@ class MetOfficeProvider:
     # Warnings are issued hours ahead and change rarely; with the board reading the store every 5 minutes too, a new
     # one shows no later than when each board fetched the feed itself every 10.
     interval_s = 5 * 60
+    # A cycle as soon as provider-locations places a new postcode (or moves one), not at the next tick.
+    wakes_on = (keys.LOCATION_CHANGED,)
     # The runner hands fetch() the postcodes a batch at a time, one batch after another, so a feed fetched less than
-    # this long ago was fetched this cycle, and is used again rather than fetched again; the next cycle is a whole
-    # interval later.
+    # this long ago was fetched this cycle, and is used again rather than fetched again; the next tick's cycle is a
+    # whole interval later, and one woken sooner (wakes_on) uses the feeds the last one fetched, asking only for new
+    # regions.
     feed_reuse = timedelta(seconds=interval_s / 2)
 
     def __init__(

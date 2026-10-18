@@ -278,6 +278,53 @@ def test_the_runner_writes_each_postcodes_location_under_its_place_for_days(api,
     assert provider.ttl_s >= 2 * LOOKUP_EVERY.total_seconds() > provider.interval_s
 
 
+def test_a_place_is_announced_once_its_written_when_its_new_and_again_only_if_it_moves(api, clock, monkeypatch):
+    """`v1:location:changed` wakes the providers of notices about a place: only when they'd find something new."""
+    moved = json.loads(json.dumps(PLACES["SE17 3LL"]["postcodes_io"]))
+    moved["result"]["latitude"] += 0.01  # postcodes.io's correction
+    answer(api, "SE17 3LL")
+    answer(api, "SE17 3LL")  # a day later, the same
+    answer(api, "SE17 3LL", json=moved)  # and a day after that, moved
+    answer(api, "ZZ1 1ZZ")  # doesn't exist: nothing to announce
+    answer(api, "0150")
+    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    published = []
+    publish = redis.publish
+
+    async def recording(channel, message):
+        # With what's stored by then: the place providers woken by it must find it there.
+        published.append((channel, message, await redis.get(keys.location("SE17 3LL"))))
+        return await publish(channel, message)
+
+    monkeypatch.setattr(redis, "publish", recording)
+    provider = make_provider(clock)
+
+    async def cycles():
+        await redis.sadd(keys.subscription(keys.POSTCODE), "SE17 3LL", "ZZ1 1ZZ", "0150")
+        runner = ProviderRunner(provider, redis)
+        counts = []
+        for _ in range(2):  # new, then the same again next cycle
+            await runner.run_cycle()
+            counts.append(len(published))
+        for _ in range(2):  # a day on, looked up again: the same, then moved
+            clock.now += LOOKUP_EVERY
+            await runner.run_cycle()
+            counts.append(len(published))
+        return counts
+
+    assert asyncio.run(cycles()) == [1, 1, 1, 2]
+    assert [(channel, message) for channel, message, _ in published] == [(keys.LOCATION_CHANGED, "")] * 2
+    assert json.loads(published[0][2]) == PLACES["SE17 3LL"]["stored"]
+    assert json.loads(published[1][2])["location"]["latitude"] == moved["result"]["latitude"]
+
+
+def test_a_postcode_that_isnt_found_is_never_news(clock):
+    provider = make_provider(clock)
+    not_found = StoredLocation(fetched_at=FETCHED_AT, postcode="ZZ1 1ZZ", found=False)
+
+    assert provider.is_news("ZZ1 1ZZ", not_found) is False
+
+
 def test_nothing_logged_names_a_postcode_or_anything_about_its_place(api, clock, caplog):
     """Every way a cycle can go, logged at DEBUG by the provider and the runner: a postcode says where someone lives."""
     caplog.set_level(logging.DEBUG)

@@ -164,6 +164,8 @@ class TflRoadProvider:
     ttl_s = 30 * 60
     interval_s = 5 * 60
     batch_size = EVERY_ID
+    # A cycle as soon as provider-locations places a new postcode (or moves one), not at the next tick.
+    wakes_on = (keys.LOCATION_CHANGED,)
 
     def __init__(
         self, tfl: TflSource, locations: LocationReader, now: Callable[[], datetime] = lambda: datetime.now(UTC)

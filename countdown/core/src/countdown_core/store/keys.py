@@ -81,6 +81,11 @@ def location(postcode: str) -> str:
     return f"{PREFIX}:location:{place(postcode)}"
 
 
+# The channel provider-locations publishes on (empty payload) after writing a postcode's place that's new or has
+# moved, so the providers that read `v1:location:` keys run a cycle then rather than at their next tick.
+LOCATION_CHANGED = f"{PREFIX}:location:changed"
+
+
 def departures(stop_id: str) -> str:
     """Return the key of a stop's departures, e.g. `v1:departures:490000123W` or `v1:departures:NSR:StopPlace:58366`.
 
