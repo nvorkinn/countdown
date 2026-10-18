@@ -223,7 +223,7 @@ jobs:
           failed=0
           for name in "${names[@]}"; do
             if ! docker logs "$name" 2>&1 | grep -q "Starting the "; then
-              echo "::error::$name didn't start its loop"
+              echo "::error::$name didn't start its loop: $(docker logs "$name" 2>&1 | grep -v '^[[:space:]]*$' | tail -1)"
               failed=1
             elif [ "$(docker inspect -f '{{.State.Running}}' "$name")" != true ]; then
               echo "::error::$name stopped by itself"
