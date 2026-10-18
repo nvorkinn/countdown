@@ -264,8 +264,8 @@ Here it is a git submodule and a member of the uv workspace:
   (`BrokerClient.fetch_config`) calls `countdown_api.clients.ApiConfigClient`, through the device's session, so the
   path, the method, the headers and the shape of the response all come from the contract.
 - The app reads the contract's own `ConfigResponse` (and its sections) as `get_config` returns it, whichever way it
-  came, with no model of its own beside it, so the two can't diverge. A response that doesn't match the contract (a section missing, an
-  `interval` that isn't positive) is rejected, and the renderer keeps the config it has.
+  came, with no model of its own beside it, so the two can't diverge. A response that doesn't match the contract (a
+  section missing, an `interval` that isn't positive) is rejected, and the renderer keeps the config it has.
   `tests/test_broker_contract.py` fails if the contract (the package carries `countdown_api/openapi.yaml`) and the
   client stop agreeing on the path, the security and the headers the app sends.
 
