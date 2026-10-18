@@ -10,6 +10,7 @@ from PIL import Image, ImageDraw
 from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import REGISTRATION
 
+from countdown_core.core import moment
 from countdown_core.core.api_registry import section_for
 from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
@@ -264,7 +265,8 @@ def clock(monkeypatch):
         def now(cls, tz=None):
             return Clock.now
 
-    monkeypatch.setattr(board_module, "datetime", FrozenDatetime)
+    # The moment the board draws at (core.moment), as a render sets it.
+    monkeypatch.setattr(moment, "now", lambda: FrozenDatetime.now(UTC))
     return Clock
 
 

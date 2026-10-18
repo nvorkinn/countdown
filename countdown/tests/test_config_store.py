@@ -2,8 +2,8 @@
 
 auth-broker writes `v1:config:<device id>` from its database and publishes the device id on `v1:config:changed`;
 the renderer reads it (BrokerClient.get_config), asks the broker only when it isn't there, and redraws as soon as it's
-nudged (ConfigWatcher, DisplayLoop). tests/fixtures/config_store.json is the stored shape, the same file as
-auth-broker's.
+nudged (ConfigWatcher, DisplayLoop calling the render at once). tests/fixtures/config_store.json is the stored shape,
+the same file as auth-broker's.
 """
 
 import asyncio
@@ -22,6 +22,7 @@ from fake_target import FakeTarget
 from countdown_api.models import ConfigResponse
 from countdown_core.config_server import broker_client
 from countdown_core.config_server.broker_client import BrokerClient
+from countdown_core.core import display_loop
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
 from countdown_core.store import config as stored_config
@@ -273,22 +274,22 @@ def test_the_watcher_resubscribes_after_losing_redis(server, store, monkeypatch)
     assert warning == ("Lost %s (%s); resubscribing", keys.CONFIG_CHANGED, "ConnectionError")
 
 
-def test_a_nudge_redraws_with_the_new_config_without_waiting_for_the_interval(server, store):
+def test_a_nudge_redraws_with_the_new_config_without_waiting_for_the_minute(server, store, monkeypatch):
     """The owner saves on the settings page: the broker rewrites the key and nudges, and the screen is redrawn."""
-    # Nothing on the screen, so no client has anything to fetch. Its interval is 60 s; the test gives the loop 5.
+    # Nothing on the screen, so no client has anything to read. The next minute is up to 60 s off; the test gives 5.
     quiet = broker_payload(device_id=DEVICE_ID, interval=60, style="hero")
     _put(store, quiet)
     broker = _broker()
     config = broker.get_config()
-    loop = DisplayLoop(
-        broker,
-        config,
-        broker.get_pairing_code_panel(config),
-        DisplayController(FakeTarget()),
-        watcher=_watcher(server),
-    )
+    loop = DisplayLoop(broker, config, DisplayController(FakeTarget()), watcher=_watcher(server))
     drawn: list[str] = []
-    loop.display.display_screen = lambda *args, **kwargs: drawn.append(loop.config.style)
+    render = display_loop.render
+
+    def recording(device_id, now, **kwargs):
+        drawn.append(kwargs["config"].style)
+        return render(device_id, now, **kwargs)
+
+    monkeypatch.setattr(display_loop, "render", recording)
 
     async def scenario():
         running = asyncio.create_task(loop.run())

@@ -1,0 +1,527 @@
+{
+  "_comment": "What the per-screen loop drew before the render function (pi-dashboard main at 024d31b, DisplayLoop.run with ApiRegistry and DisplayController), recorded from that code before it changed: for each case, its config (GET /api/config's body), the store as the providers left it (a cover as base64), and the moment, frozen in every module that reads the clock, with Material Symbols stood in for by Ubuntu-Regular. `etag` is frame_record.frame_etag of the frame it PUT; `panels`, the kind of panel each API drew (null for the pairing screen). render(device_id, now) must draw exactly the same frames from the same inputs.",
+  "device_id": "device-123",
+  "cases": [
+    {
+      "name": "landscape: departures, energy, weather, board",
+      "now": "2026-09-25T05:10:07+00:00",
+      "config": {
+        "device_id": "device-123",
+        "interval": 60,
+        "clock_format": "24h",
+        "language": "en",
+        "timezone": "Europe/London",
+        "style": null,
+        "screen": {
+          "orientation": "horizontal",
+          "width": 800,
+          "height": 480
+        },
+        "weather": {
+          "location": "London",
+          "key": null
+        },
+        "notice_board": {
+          "postcode": null,
+          "country": null,
+          "style": "hero"
+        },
+        "tfl": {
+          "stop_ids": [
+            "490000123W",
+            "940GZZLUKNG"
+          ],
+          "style": "hero"
+        },
+        "departures": null,
+        "spotify": {
+          "enabled": false,
+          "style": "hero"
+        },
+        "glowmarkt": {
+          "enabled": true
+        },
+        "developer": null,
+        "apple_music": null,
+        "pairing_code": null
+      },
+      "store": {
+        "v1:departures:490000123W": "{\"fetched_at\":\"2026-09-25T05:09:47Z\",\"stop_id\":\"490000123W\",\"name\":\"Elephant & Castle\",\"mode\":\"bus\",\"stop_letter\":\"W\",\"modes\":[],\"departures\":[{\"line\":\"N155\",\"destination\":\"Morden\",\"expected_at\":\"2026-09-25T05:15:07Z\",\"platform\":null,\"mode\":null},{\"line\":\"36\",\"destination\":\"Peckham\",\"expected_at\":\"2026-09-25T05:11:08Z\",\"platform\":null,\"mode\":null},{\"line\":\"185\",\"destination\":\"Lewisham\",\"expected_at\":\"2026-09-25T05:25:07Z\",\"platform\":null,\"mode\":null}]}",
+        "v1:departures:940GZZLUKNG": "{\"fetched_at\":\"2026-09-25T05:09:47Z\",\"stop_id\":\"940GZZLUKNG\",\"name\":\"Kennington Underground Station\",\"mode\":\"tube\",\"stop_letter\":null,\"modes\":[],\"departures\":[{\"line\":\"Northern\",\"destination\":\"Morden\",\"expected_at\":\"2026-09-25T05:12:07Z\",\"platform\":null,\"mode\":null},{\"line\":\"Northern\",\"destination\":\"Edgware via Bank\",\"expected_at\":\"2026-09-25T05:16:47Z\",\"platform\":null,\"mode\":null}]}",
+        "v1:energy:device-123": "{\"fetched_at\": \"2026-09-25T05:10:00+00:00\", \"device_id\": \"device-123\", \"offset\": \"-60\", \"resource_id\": \"f1b2c3d4-0000-4000-8000-0000000e1ec7\", \"hourly\": {\"status\": \"OK\", \"name\": \"electricity consumption\", \"resourceTypeId\": \"ea02304a-2820-4ea0-8399-f1d1b430c3a0\", \"resourceId\": \"f1b2c3d4-0000-4000-8000-0000000e1ec7\", \"query\": {\"from\": \"2026-09-24T06:00:00\", \"to\": \"2026-09-25T06:10:00\", \"period\": \"PT1H\", \"function\": \"sum\"}, \"data\": [[1790229600, 0.21], [1790233200, 0.27337], [1790236800, 0.33674], [1790240400, 0.399], [1790244000, 0.23137], [1790247600, 0.29474], [1790251200, 0.357], [1790254800, 0.42037], [1790258400, 0.25274], [1790262000, 0.315], [1790265600, 0.37837], [1790269200, 0.21074], [1790272800, 0.273], [1790276400, 0.33637], [1790280000, 0.39974], [1790283600, 0.231], [1790287200, 0.29437], [1790290800, 0.35774], [1790294400, 0.42], [1790298000, 0.25237], [1790301600, 0.31574], [1790305200, 0.378], [1790308800, 0.21037], [1790312400, 0.27374], [1790316000, 0.084]], \"units\": \"kWh\", \"classifier\": \"electricity.consumption\"}, \"daily\": {\"status\": \"OK\", \"name\": \"electricity consumption\", \"resourceTypeId\": \"ea02304a-2820-4ea0-8399-f1d1b430c3a0\", \"resourceId\": \"f1b2c3d4-0000-4000-8000-0000000e1ec7\", \"query\": {\"from\": \"2026-08-25T00:00:00\", \"to\": \"2026-09-25T06:10:00\", \"period\": \"P1D\", \"function\": \"sum\"}, \"data\": [[1787616000, 6.4], [1787702400, 9.60037], [1787788800, 12.80074], [1787875200, 8.96], [1787961600, 12.16037], [1788048000, 8.32074], [1788134400, 11.52], [1788220800, 7.68037], [1788307200, 10.88074], [1788393600, 7.04], [1788480000, 10.24037], [1788566400, 6.40074], [1788652800, 9.6], [1788739200, 12.80037], [1788825600, 8.96074], [1788912000, 12.16], [1788998400, 8.32037], [1789084800, 11.52074], [1789171200, 7.68], [1789257600, 10.88037], [1789344000, 7.04074], [1789430400, 10.24], [1789516800, 6.40037], [1789603200, 9.60074], [1789689600, 12.8], [1789776000, 8.96037], [1789862400, 12.16074], [1789948800, 8.32], [1790035200, 11.52037], [1790121600, 7.68074], [1790208000, 10.88], [1790294400, 1.76009]], \"units\": \"kWh\", \"classifier\": \"electricity.consumption\"}, \"monthly\": {\"status\": \"OK\", \"name\": \"electricity consumption\", \"resourceTypeId\": \"ea02304a-2820-4ea0-8399-f1d1b430c3a0\", \"resourceId\": \"f1b2c3d4-0000-4000-8000-0000000e1ec7\", \"query\": {\"from\": \"2026-01-01T00:00:00\", \"to\": \"2026-09-25T06:10:00\", \"period\": \"P1M\", \"function\": \"sum\"}, \"data\": [[1767225600, 190.0], [1769904000, 323.00037], [1772323200, 247.00074], [1775001600, 380.0], [1777593600, 304.00037], [1780272000, 228.00074], [1782864000, 361.0], [1785542400, 285.00037], [1788220800, 52.25019]], \"units\": \"kWh\", \"classifier\": \"electricity.consumption\"}}",
+        "v1:weather:London": "{\"fetched_at\": \"2026-09-25T05:07:07+00:00\", \"location\": \"London\", \"forecast\": {\"utc_offset_seconds\": 0, \"current\": {\"time\": \"2026-01-15T12:15\", \"temperature_2m\": 14.2, \"weather_code\": 2, \"is_day\": 1, \"relative_humidity_2m\": 72, \"wind_speed_10m\": 13.4, \"wind_direction_10m\": 225}, \"current_units\": {\"temperature_2m\": \"\\u00b0C\", \"relative_humidity_2m\": \"%\", \"wind_speed_10m\": \"km/h\"}, \"hourly\": {\"time\": [\"2026-01-15T00:00\", \"2026-01-15T01:00\", \"2026-01-15T02:00\", \"2026-01-15T03:00\", \"2026-01-15T04:00\", \"2026-01-15T05:00\", \"2026-01-15T06:00\", \"2026-01-15T07:00\", \"2026-01-15T08:00\", \"2026-01-15T09:00\", \"2026-01-15T10:00\", \"2026-01-15T11:00\", \"2026-01-15T12:00\", \"2026-01-15T13:00\", \"2026-01-15T14:00\", \"2026-01-15T15:00\", \"2026-01-15T16:00\", \"2026-01-15T17:00\", \"2026-01-15T18:00\", \"2026-01-15T19:00\", \"2026-01-15T20:00\", \"2026-01-15T21:00\", \"2026-01-15T22:00\", \"2026-01-15T23:00\", \"2026-01-16T00:00\", \"2026-01-16T01:00\", \"2026-01-16T02:00\", \"2026-01-16T03:00\", \"2026-01-16T04:00\", \"2026-01-16T05:00\", \"2026-01-16T06:00\", \"2026-01-16T07:00\", \"2026-01-16T08:00\", \"2026-01-16T09:00\", \"2026-01-16T10:00\", \"2026-01-16T11:00\", \"2026-01-16T12:00\", \"2026-01-16T13:00\", \"2026-01-16T14:00\", \"2026-01-16T15:00\", \"2026-01-16T16:00\", \"2026-01-16T17:00\", \"2026-01-16T18:00\", \"2026-01-16T19:00\", \"2026-01-16T20:00\", \"2026-01-16T21:00\", \"2026-01-16T22:00\", \"2026-01-16T23:00\", \"2026-01-17T00:00\", \"2026-01-17T01:00\", \"2026-01-17T02:00\", \"2026-01-17T03:00\", \"2026-01-17T04:00\", \"2026-01-17T05:00\", \"2026-01-17T06:00\", \"2026-01-17T07:00\", \"2026-01-17T08:00\", \"2026-01-17T09:00\", \"2026-01-17T10:00\", \"2026-01-17T11:00\", \"2026-01-17T12:00\", \"2026-01-17T13:00\", \"2026-01-17T14:00\", \"2026-01-17T15:00\", \"2026-01-17T16:00\", \"2026-01-17T17:00\", \"2026-01-17T18:00\", \"2026-01-17T19:00\", \"2026-01-17T20:00\", \"2026-01-17T21:00\", \"2026-01-17T22:00\", \"2026-01-17T23:00\", \"2026-01-18T00:00\", \"2026-01-18T01:00\", \"2026-01-18T02:00\", \"2026-01-18T03:00\", \"2026-01-18T04:00\", \"2026-01-18T05:00\", \"2026-01-18T06:00\", \"2026-01-18T07:00\", \"2026-01-18T08:00\", \"2026-01-18T09:00\", \"2026-01-18T10:00\", \"2026-01-18T11:00\", \"2026-01-18T12:00\", \"2026-01-18T13:00\", \"2026-01-18T14:00\", \"2026-01-18T15:00\", \"2026-01-18T16:00\", \"2026-01-18T17:00\", \"2026-01-18T18:00\", \"2026-01-18T19:00\", \"2026-01-18T20:00\", \"2026-01-18T21:00\", \"2026-01-18T22:00\", \"2026-01-18T23:00\", \"2026-01-19T00:00\", \"2026-01-19T01:00\", \"2026-01-19T02:00\", \"2026-01-19T03:00\", \"2026-01-19T04:00\", \"2026-01-19T05:00\", \"2026-01-19T06:00\", \"2026-01-19T07:00\", \"2026-01-19T08:00\", \"2026-01-19T09:00\", \"2026-01-19T10:00\", \"2026-01-19T11:00\", \"2026-01-19T12:00\", \"2026-01-19T13:00\", \"2026-01-19T14:00\", \"2026-01-19T15:00\", \"2026-01-19T16:00\", \"2026-01-19T17:00\", \"2026-01-19T18:00\", \"2026-01-19T19:00\", \"2026-01-19T20:00\", \"2026-01-19T21:00\", \"2026-01-19T22:00\", \"2026-01-19T23:00\", \"2026-01-20T00:00\", \"2026-01-20T01:00\", \"2026-01-20T02:00\", \"2026-01-20T03:00\", \"2026-01-20T04:00\", \"2026-01-20T05:00\", \"2026-01-20T06:00\", \"2026-01-20T07:00\", \"2026-01-20T08:00\", \"2026-01-20T09:00\", \"2026-01-20T10:00\", \"2026-01-20T11:00\", \"2026-01-20T12:00\", \"2026-01-20T13:00\", \"2026-01-20T14:00\", \"2026-01-20T15:00\", \"2026-01-20T16:00\", \"2026-01-20T17:00\", \"2026-01-20T18:00\", \"2026-01-20T19:00\", \"2026-01-20T20:00\", \"2026-01-20T21:00\", \"2026-01-20T22:00\", \"2026-01-20T23:00\", \"2026-01-21T00:00\", \"2026-01-21T01:00\", \"2026-01-21T02:00\", \"2026-01-21T03:00\", \"2026-01-21T04:00\", \"2026-01-21T05:00\", \"2026-01-21T06:00\", \"2026-01-21T07:00\", \"2026-01-21T08:00\", \"2026-01-21T09:00\", \"2026-01-21T10:00\", \"2026-01-21T11:00\", \"2026-01-21T12:00\", \"2026-01-21T13:00\", \"2026-01-21T14:00\", \"2026-01-21T15:00\", \"2026-01-21T16:00\", \"2026-01-21T17:00\", \"2026-01-21T18:00\", \"2026-01-21T19:00\", \"2026-01-21T20:00\", \"2026-01-21T21:00\", \"2026-01-21T22:00\", \"2026-01-21T23:00\", \"2026-01-22T00:00\", \"2026-01-22T01:00\", \"2026-01-22T02:00\", \"2026-01-22T03:00\", \"2026-01-22T04:00\", \"2026-01-22T05:00\", \"2026-01-22T06:00\", \"2026-01-22T07:00\", \"2026-01-22T08:00\", \"2026-01-22T09:00\", \"2026-01-22T10:00\", \"2026-01-22T11:00\", \"2026-01-22T12:00\", \"2026-01-22T13:00\", \"2026-01-22T14:00\", \"2026-01-22T15:00\", \"2026-01-22T16:00\", \"2026-01-22T17:00\", \"2026-01-22T18:00\", \"2026-01-22T19:00\", \"2026-01-22T20:00\", \"2026-01-22T21:00\", \"2026-01-22T22:00\", \"2026-01-22T23:00\"], \"weather_code\": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], \"temperature_2m\": [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0], \"apparent_temperature\": [6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0], \"relative_humidity_2m\": [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80], \"wind_speed_10m\": [11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0], \"wind_direction_10m\": [225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0], \"precipitation_probability\": [65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65]}, \"daily\": {\"time\": [\"2026-01-15\", \"2026-01-16\", \"2026-01-17\", \"2026-01-18\", \"2026-01-19\", \"2026-01-20\", \"2026-01-21\", \"2026-01-22\"], \"temperature_2m_max\": [18.4, 17.0, 17.0, 15.0, 16.0, 14.0, 13.0, 12.0], \"temperature_2m_min\": [9.1, 8.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0], \"precipitation_probability_max\": [40, 10, 20, 40, 30, 20, 10, 0], \"weather_code\": [61, 73, 2, 61, 3, 2, 1, 0], \"sunrise\": [\"2026-01-15T07:58\", \"2026-01-16T07:57\", \"2026-01-17T07:56\", \"2026-01-18T07:55\", \"2026-01-19T07:54\", \"2026-01-20T07:53\", \"2026-01-21T07:52\", \"2026-01-22T07:51\"], \"sunset\": [\"2026-01-15T16:22\", \"2026-01-16T16:24\", \"2026-01-17T16:26\", \"2026-01-18T16:28\", \"2026-01-19T16:30\", \"2026-01-20T16:32\", \"2026-01-21T16:34\", \"2026-01-22T16:36\"], \"wind_speed_10m_max\": [18.0, 14.0, 16.0, 17.0, 15.0, 12.0, 11.0, 10.0], \"wind_direction_10m_dominant\": [225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0]}}}",
+        "v1:notices:bank-holidays": "{\"fetched_at\":\"2026-09-25T04:10:07Z\",\"divisions\":{\"england-and-wales\":{\"events\":[{\"title\":\"New Year’s Day\",\"date\":\"2026-01-01\",\"notes\":\"\"},{\"title\":\"Good Friday\",\"date\":\"2026-04-03\",\"notes\":\"\"},{\"title\":\"Easter Monday\",\"date\":\"2026-04-06\",\"notes\":\"\"},{\"title\":\"Early May bank holiday\",\"date\":\"2026-05-04\",\"notes\":\"\"},{\"title\":\"Spring bank holiday\",\"date\":\"2026-05-25\",\"notes\":\"\"},{\"title\":\"Summer bank holiday\",\"date\":\"2026-08-31\",\"notes\":\"\"},{\"title\":\"Christmas Day\",\"date\":\"2026-12-25\",\"notes\":\"\"},{\"title\":\"Boxing Day\",\"date\":\"2026-12-28\",\"notes\":\"Substitute day\"},{\"title\":\"New Year’s Day\",\"date\":\"2027-01-01\",\"notes\":\"\"}]},\"scotland\":{\"events\":[{\"title\":\"New Year’s Day\",\"date\":\"2026-01-01\",\"notes\":\"\"},{\"title\":\"2nd January\",\"date\":\"2026-01-02\",\"notes\":\"\"},{\"title\":\"Good Friday\",\"date\":\"2026-04-03\",\"notes\":\"\"},{\"title\":\"Early May bank holiday\",\"date\":\"2026-05-04\",\"notes\":\"\"},{\"title\":\"Spring bank holiday\",\"date\":\"2026-05-25\",\"notes\":\"\"},{\"title\":\"Summer bank holiday\",\"date\":\"2026-08-03\",\"notes\":\"\"},{\"title\":\"St Andrew’s Day\",\"date\":\"2026-11-30\",\"notes\":\"\"},{\"title\":\"Christmas Day\",\"date\":\"2026-12-25\",\"notes\":\"\"},{\"title\":\"Boxing Day\",\"date\":\"2026-12-28\",\"notes\":\"Substitute day\"},{\"title\":\"New Year’s Day\",\"date\":\"2027-01-01\",\"notes\":\"\"},{\"title\":\"2nd January\",\"date\":\"2027-01-04\",\"notes\":\"Substitute day\"}]},\"northern-ireland\":{\"events\":[{\"title\":\"New Year’s Day\",\"date\":\"2026-01-01\",\"notes\":\"\"},{\"title\":\"St Patrick’s Day\",\"date\":\"2026-03-17\",\"notes\":\"\"},{\"title\":\"Good Friday\",\"date\":\"2026-04-03\",\"notes\":\"\"},{\"title\":\"Easter Monday\",\"date\":\"2026-04-06\",\"notes\":\"\"},{\"title\":\"Early May bank holiday\",\"date\":\"2026-05-04\",\"notes\":\"\"},{\"title\":\"Spring bank holiday\",\"date\":\"2026-05-25\",\"notes\":\"\"},{\"title\":\"Battle of the Boyne (Orangemen’s Day)\",\"date\":\"2026-07-13\",\"notes\":\"Substitute day\"},{\"title\":\"Summer bank holiday\",\"date\":\"2026-08-31\",\"notes\":\"\"},{\"title\":\"Christmas Day\",\"date\":\"2026-12-25\",\"notes\":\"\"},{\"title\":\"Boxing Day\",\"date\":\"2026-12-28\",\"notes\":\"Substitute day\"},{\"title\":\"New Year’s Day\",\"date\":\"2027-01-01\",\"notes\":\"\"}]}}}"
+      },
+      "etag": "18368c3c1e621710",
+      "panels": {
+        "notice_board": "NoticeBoardPanel",
+        "glowmarkt": "EnergyPanel",
+        "tfl": "CombinedArrivalPanel",
+        "weather": "WeatherPanel",
+        "spotify": "MessagePanel",
+        "developer": "MessagePanel"
+      }
+    },
+    {
+      "name": "portrait, 12h: a stop and the player",
+      "now": "2026-10-17T12:00:02+00:00",
+      "config": {
+        "device_id": "device-123",
+        "interval": 60,
+        "clock_format": "12h",
+        "language": "en",
+        "timezone": "Europe/London",
+        "style": null,
+        "screen": {
+          "orientation": "vertical",
+          "width": 480,
+          "height": 800
+        },
+        "weather": {
+          "location": "",
+          "key": null
+        },
+        "notice_board": {
+          "postcode": null,
+          "country": null,
+          "style": "hero"
+        },
+        "tfl": {
+          "stop_ids": [
+            "490000456X"
+          ],
+          "style": "hero"
+        },
+        "departures": null,
+        "spotify": {
+          "enabled": true,
+          "style": "hero"
+        },
+        "glowmarkt": {
+          "enabled": false
+        },
+        "developer": null,
+        "apple_music": null,
+        "pairing_code": null
+      },
+      "store": {
+        "v1:departures:490000456X": "{\"fetched_at\":\"2026-10-17T11:59:42Z\",\"stop_id\":\"490000456X\",\"name\":\"Elephant & Castle\",\"mode\":\"bus\",\"stop_letter\":\"X\",\"modes\":[],\"departures\":[{\"line\":\"12\",\"destination\":\"Oxford Circus\",\"expected_at\":\"2026-10-17T12:04:02Z\",\"platform\":null,\"mode\":null}]}",
+        "v1:spotify:device-123": "{\"fetched_at\": \"2026-10-17T11:59:32+00:00\", \"spotify\": {\"currently_playing\": {\"album\": {\"album_type\": \"album\", \"name\": \"Short n' Sweet\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/ab01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/ab01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/ab0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"aab01\", \"type\": \"artist\", \"uri\": \"spotify:artist:aab01\"}], \"duration_ms\": 175459, \"explicit\": false, \"id\": \"tab01\", \"is_local\": false, \"name\": \"Espresso\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tab01\"}, \"queue\": [{\"album\": {\"album_type\": \"album\", \"name\": \"Short n' Sweet\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/ab02640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/ab02300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/ab0264\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"aab02\", \"type\": \"artist\", \"uri\": \"spotify:artist:aab02\"}], \"duration_ms\": 186365, \"explicit\": false, \"id\": \"tab02\", \"is_local\": false, \"name\": \"Please Please Please\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tab02\"}, {\"album\": {\"name\": \"\", \"images\": []}, \"artists\": [{\"name\": \"Home Recording\"}], \"duration_ms\": 95000, \"is_local\": true, \"name\": \"Voice memo\", \"type\": \"track\", \"uri\": \"spotify:local:x\"}]}, \"apple_music\": {\"currently_playing\": {\"name\": \"Efecto\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}, \"queue\": [{\"name\": \"Tit\\u00ed Me Pregunt\\u00f3\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}]}}",
+        "v1:spotify-top:device-123": "{\"fetched_at\": \"2026-10-17T11:59:32+00:00\", \"spotify\": {\"long_term\": {\"tracks\": {\"items\": [{\"album\": {\"album_type\": \"album\", \"name\": \"Short n' Sweet\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/ab01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/ab01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/ab0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"aab01\", \"type\": \"artist\", \"uri\": \"spotify:artist:aab01\"}], \"duration_ms\": 175459, \"explicit\": false, \"id\": \"tab01\", \"is_local\": false, \"name\": \"Espresso\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tab01\"}, {\"album\": {\"album_type\": \"album\", \"name\": \"Hit Me Hard and Soft\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/cd01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/cd01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/cd0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Billie Eilish\", \"id\": \"acd01\", \"type\": \"artist\", \"uri\": \"spotify:artist:acd01\"}], \"duration_ms\": 210373, \"explicit\": false, \"id\": \"tcd01\", \"is_local\": false, \"name\": \"Birds of a Feather\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tcd01\"}]}, \"artists\": {\"items\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"x1\", \"genres\": [\"pop\"], \"popularity\": 90, \"type\": \"artist\"}, {\"name\": \"Billie Eilish\", \"id\": \"x2\", \"genres\": [], \"popularity\": 92, \"type\": \"artist\"}]}}, \"short_term\": {\"tracks\": {\"items\": [{\"album\": {\"album_type\": \"album\", \"name\": \"Hit Me Hard and Soft\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/cd01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/cd01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/cd0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Billie Eilish\", \"id\": \"acd01\", \"type\": \"artist\", \"uri\": \"spotify:artist:acd01\"}], \"duration_ms\": 210373, \"explicit\": false, \"id\": \"tcd01\", \"is_local\": false, \"name\": \"Birds of a Feather\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tcd01\"}]}, \"artists\": {\"items\": [{\"name\": \"Billie Eilish\", \"id\": \"x2\", \"genres\": [], \"popularity\": 92, \"type\": \"artist\"}]}}}, \"apple_music\": {\"long_term\": {\"tracks\": {\"items\": [{\"name\": \"Efecto\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}, {\"name\": \"Tit\\u00ed Me Pregunt\\u00f3\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}]}, \"artists\": {\"items\": [{\"name\": \"Bad Bunny\"}]}}, \"short_term\": {\"tracks\": {\"items\": [{\"name\": \"Efecto\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}, {\"name\": \"Tit\\u00ed Me Pregunt\\u00f3\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}]}, \"artists\": {\"items\": [{\"name\": \"Bad Bunny\"}]}}}}",
+        "v1:art:f0c75b31e316838c7115ebf3205ef753eb4a0353": {
+          "base64": "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"
+        }
+      },
+      "etag": "8980851b48e6084d",
+      "panels": {
+        "notice_board": "MessagePanel",
+        "glowmarkt": "MessagePanel",
+        "tfl": "CombinedArrivalPanel",
+        "weather": "MessagePanel",
+        "spotify": "SpotifyPanel",
+        "developer": "MessagePanel"
+      }
+    },
+    {
+      "name": "portrait, 12h: a stop and the top lists",
+      "now": "2026-10-17T12:01:02+00:00",
+      "config": {
+        "device_id": "device-123",
+        "interval": 60,
+        "clock_format": "12h",
+        "language": "en",
+        "timezone": "Europe/London",
+        "style": null,
+        "screen": {
+          "orientation": "vertical",
+          "width": 480,
+          "height": 800
+        },
+        "weather": {
+          "location": "",
+          "key": null
+        },
+        "notice_board": {
+          "postcode": null,
+          "country": null,
+          "style": "hero"
+        },
+        "tfl": {
+          "stop_ids": [
+            "490000456X"
+          ],
+          "style": "hero"
+        },
+        "departures": null,
+        "spotify": {
+          "enabled": true,
+          "style": "hero"
+        },
+        "glowmarkt": {
+          "enabled": false
+        },
+        "developer": null,
+        "apple_music": null,
+        "pairing_code": null
+      },
+      "store": {
+        "v1:departures:490000456X": "{\"fetched_at\":\"2026-10-17T12:00:42Z\",\"stop_id\":\"490000456X\",\"name\":\"Elephant & Castle\",\"mode\":\"bus\",\"stop_letter\":\"X\",\"modes\":[],\"departures\":[{\"line\":\"12\",\"destination\":\"Oxford Circus\",\"expected_at\":\"2026-10-17T12:05:02Z\",\"platform\":null,\"mode\":null}]}",
+        "v1:spotify:device-123": "{\"fetched_at\": \"2026-10-17T12:00:32+00:00\", \"spotify\": {\"currently_playing\": {\"album\": {\"album_type\": \"album\", \"name\": \"Short n' Sweet\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/ab01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/ab01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/ab0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"aab01\", \"type\": \"artist\", \"uri\": \"spotify:artist:aab01\"}], \"duration_ms\": 175459, \"explicit\": false, \"id\": \"tab01\", \"is_local\": false, \"name\": \"Espresso\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tab01\"}, \"queue\": [{\"album\": {\"album_type\": \"album\", \"name\": \"Short n' Sweet\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/ab02640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/ab02300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/ab0264\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"aab02\", \"type\": \"artist\", \"uri\": \"spotify:artist:aab02\"}], \"duration_ms\": 186365, \"explicit\": false, \"id\": \"tab02\", \"is_local\": false, \"name\": \"Please Please Please\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tab02\"}, {\"album\": {\"name\": \"\", \"images\": []}, \"artists\": [{\"name\": \"Home Recording\"}], \"duration_ms\": 95000, \"is_local\": true, \"name\": \"Voice memo\", \"type\": \"track\", \"uri\": \"spotify:local:x\"}]}, \"apple_music\": {\"currently_playing\": {\"name\": \"Efecto\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}, \"queue\": [{\"name\": \"Tit\\u00ed Me Pregunt\\u00f3\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}]}}",
+        "v1:spotify-top:device-123": "{\"fetched_at\": \"2026-10-17T12:00:32+00:00\", \"spotify\": {\"long_term\": {\"tracks\": {\"items\": [{\"album\": {\"album_type\": \"album\", \"name\": \"Short n' Sweet\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/ab01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/ab01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/ab0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"aab01\", \"type\": \"artist\", \"uri\": \"spotify:artist:aab01\"}], \"duration_ms\": 175459, \"explicit\": false, \"id\": \"tab01\", \"is_local\": false, \"name\": \"Espresso\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tab01\"}, {\"album\": {\"album_type\": \"album\", \"name\": \"Hit Me Hard and Soft\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/cd01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/cd01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/cd0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Billie Eilish\", \"id\": \"acd01\", \"type\": \"artist\", \"uri\": \"spotify:artist:acd01\"}], \"duration_ms\": 210373, \"explicit\": false, \"id\": \"tcd01\", \"is_local\": false, \"name\": \"Birds of a Feather\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tcd01\"}]}, \"artists\": {\"items\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"x1\", \"genres\": [\"pop\"], \"popularity\": 90, \"type\": \"artist\"}, {\"name\": \"Billie Eilish\", \"id\": \"x2\", \"genres\": [], \"popularity\": 92, \"type\": \"artist\"}]}}, \"short_term\": {\"tracks\": {\"items\": [{\"album\": {\"album_type\": \"album\", \"name\": \"Hit Me Hard and Soft\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/cd01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/cd01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/cd0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Billie Eilish\", \"id\": \"acd01\", \"type\": \"artist\", \"uri\": \"spotify:artist:acd01\"}], \"duration_ms\": 210373, \"explicit\": false, \"id\": \"tcd01\", \"is_local\": false, \"name\": \"Birds of a Feather\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tcd01\"}]}, \"artists\": {\"items\": [{\"name\": \"Billie Eilish\", \"id\": \"x2\", \"genres\": [], \"popularity\": 92, \"type\": \"artist\"}]}}}, \"apple_music\": {\"long_term\": {\"tracks\": {\"items\": [{\"name\": \"Efecto\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}, {\"name\": \"Tit\\u00ed Me Pregunt\\u00f3\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}]}, \"artists\": {\"items\": [{\"name\": \"Bad Bunny\"}]}}, \"short_term\": {\"tracks\": {\"items\": [{\"name\": \"Efecto\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}, {\"name\": \"Tit\\u00ed Me Pregunt\\u00f3\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}]}, \"artists\": {\"items\": [{\"name\": \"Bad Bunny\"}]}}}}",
+        "v1:art:f0c75b31e316838c7115ebf3205ef753eb4a0353": {
+          "base64": "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"
+        }
+      },
+      "etag": "eac99888603300e6",
+      "panels": {
+        "notice_board": "MessagePanel",
+        "glowmarkt": "MessagePanel",
+        "tfl": "CombinedArrivalPanel",
+        "weather": "MessagePanel",
+        "spotify": "SpotifyTopPanel",
+        "developer": "MessagePanel"
+      }
+    },
+    {
+      "name": "Norwegian: an Entur stop, the developer panel, Norway's holidays",
+      "now": "2026-10-17T12:00:30+00:00",
+      "config": {
+        "device_id": "device-123",
+        "interval": 60,
+        "clock_format": "24h",
+        "language": "nb",
+        "timezone": "Europe/Oslo",
+        "style": null,
+        "screen": {
+          "orientation": "horizontal",
+          "width": 800,
+          "height": 480
+        },
+        "weather": {
+          "location": "",
+          "key": null
+        },
+        "notice_board": {
+          "postcode": null,
+          "country": "NO",
+          "style": "hero"
+        },
+        "tfl": {
+          "stop_ids": [],
+          "style": "hero"
+        },
+        "departures": {
+          "stops": [
+            {
+              "source": "entur",
+              "id": "NSR:StopPlace:58381"
+            }
+          ]
+        },
+        "spotify": {
+          "enabled": false,
+          "style": "hero"
+        },
+        "glowmarkt": {
+          "enabled": false
+        },
+        "developer": {
+          "enabled": true
+        },
+        "apple_music": null,
+        "pairing_code": null
+      },
+      "store": {
+        "v1:departures:NSR:StopPlace:58381": "{\"fetched_at\":\"2026-10-17T12:00:10Z\",\"stop_id\":\"NSR:StopPlace:58381\",\"name\":\"Majorstuen\",\"mode\":\"metro\",\"stop_letter\":null,\"modes\":[\"metro\",\"tram\"],\"departures\":[{\"line\":\"2\",\"destination\":\"Ellingsrudåsen\",\"expected_at\":\"2026-10-17T12:03:30Z\",\"platform\":null,\"mode\":\"metro\"},{\"line\":\"19\",\"destination\":\"Ljabru\",\"expected_at\":\"2026-10-17T12:07:30Z\",\"platform\":null,\"mode\":\"tram\"}]}",
+        "v1:developer:device-123": "{\"fetched_at\": \"2026-10-17T12:00:00+00:00\", \"github\": {\"login\": \"nvorkinn\", \"repos\": 9, \"open_prs\": 3, \"review_requests\": 1, \"failing\": [\"auth-broker\"], \"releases\": [{\"repo\": \"pi-dashboard\", \"title\": \"v0.4.3\", \"state\": \"running\", \"started\": \"2026-10-17T11:57:00+00:00\", \"finished\": null, \"jobs\": [{\"key\": \"build\", \"name\": \"Build\", \"state\": \"done\", \"needs\": []}, {\"key\": \"deploy\", \"name\": \"Deploy\", \"state\": \"running\", \"needs\": [\"build\"], \"done\": 1, \"total\": 2}]}]}, \"plans\": [{\"name\": \"Copilot\", \"plan\": \"Pro\", \"renews\": \"2026-11-01\", \"used\": 280, \"limit\": 300}, {\"name\": \"Claude\", \"plan\": \"Max\", \"renews\": \"2026-10-18\", \"used\": null, \"limit\": null}]}"
+      },
+      "etag": "912c0413ecc00422",
+      "panels": {
+        "notice_board": "NoticeBoardPanel",
+        "glowmarkt": "MessagePanel",
+        "tfl": "CombinedArrivalPanel",
+        "weather": "MessagePanel",
+        "spotify": "MessagePanel",
+        "developer": "DeveloperPanel"
+      }
+    },
+    {
+      "name": "expired: every key but one stop's gone",
+      "now": "2026-10-17T12:00:00+00:00",
+      "config": {
+        "device_id": "device-123",
+        "interval": 60,
+        "clock_format": "24h",
+        "language": "en",
+        "timezone": "Europe/London",
+        "style": null,
+        "screen": {
+          "orientation": "horizontal",
+          "width": 800,
+          "height": 480
+        },
+        "weather": {
+          "location": "London",
+          "key": null
+        },
+        "notice_board": {
+          "postcode": null,
+          "country": null,
+          "style": "hero"
+        },
+        "tfl": {
+          "stop_ids": [
+            "490000123W",
+            "490000999Z"
+          ],
+          "style": "hero"
+        },
+        "departures": null,
+        "spotify": {
+          "enabled": true,
+          "style": "hero"
+        },
+        "glowmarkt": {
+          "enabled": true
+        },
+        "developer": null,
+        "apple_music": null,
+        "pairing_code": null
+      },
+      "store": {
+        "v1:departures:490000123W": "{\"fetched_at\":\"2026-10-17T11:59:40Z\",\"stop_id\":\"490000123W\",\"name\":\"Elephant & Castle\",\"mode\":\"bus\",\"stop_letter\":\"W\",\"modes\":[],\"departures\":[{\"line\":\"N155\",\"destination\":\"Morden\",\"expected_at\":\"2026-10-17T12:05:00Z\",\"platform\":null,\"mode\":null}]}"
+      },
+      "etag": "6d58003baa707ffe",
+      "panels": {
+        "notice_board": "MessagePanel",
+        "glowmarkt": "MessagePanel",
+        "tfl": "CombinedArrivalPanel",
+        "weather": "MessagePanel",
+        "spotify": "MessagePanel",
+        "developer": "MessagePanel"
+      }
+    },
+    {
+      "name": "portrait, card: the developer panel's turn in the Spotify area",
+      "now": "2026-10-17T12:02:00+00:00",
+      "config": {
+        "device_id": "device-123",
+        "interval": 60,
+        "clock_format": "24h",
+        "language": "en",
+        "timezone": "Europe/London",
+        "style": "card",
+        "screen": {
+          "orientation": "vertical",
+          "width": 480,
+          "height": 800
+        },
+        "weather": {
+          "location": "",
+          "key": null
+        },
+        "notice_board": {
+          "postcode": null,
+          "country": null,
+          "style": "hero"
+        },
+        "tfl": {
+          "stop_ids": [],
+          "style": "hero"
+        },
+        "departures": null,
+        "spotify": {
+          "enabled": true,
+          "style": "hero"
+        },
+        "glowmarkt": {
+          "enabled": false
+        },
+        "developer": {
+          "enabled": true
+        },
+        "apple_music": null,
+        "pairing_code": null
+      },
+      "store": {
+        "v1:spotify:device-123": "{\"fetched_at\": \"2026-10-17T12:01:30+00:00\", \"spotify\": {\"currently_playing\": {\"album\": {\"album_type\": \"album\", \"name\": \"Short n' Sweet\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/ab01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/ab01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/ab0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"aab01\", \"type\": \"artist\", \"uri\": \"spotify:artist:aab01\"}], \"duration_ms\": 175459, \"explicit\": false, \"id\": \"tab01\", \"is_local\": false, \"name\": \"Espresso\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tab01\"}, \"queue\": [{\"album\": {\"album_type\": \"album\", \"name\": \"Short n' Sweet\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/ab02640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/ab02300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/ab0264\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"aab02\", \"type\": \"artist\", \"uri\": \"spotify:artist:aab02\"}], \"duration_ms\": 186365, \"explicit\": false, \"id\": \"tab02\", \"is_local\": false, \"name\": \"Please Please Please\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tab02\"}, {\"album\": {\"name\": \"\", \"images\": []}, \"artists\": [{\"name\": \"Home Recording\"}], \"duration_ms\": 95000, \"is_local\": true, \"name\": \"Voice memo\", \"type\": \"track\", \"uri\": \"spotify:local:x\"}]}, \"apple_music\": {\"currently_playing\": {\"name\": \"Efecto\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}, \"queue\": [{\"name\": \"Tit\\u00ed Me Pregunt\\u00f3\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}]}}",
+        "v1:spotify-top:device-123": "{\"fetched_at\": \"2026-10-17T12:01:30+00:00\", \"spotify\": {\"long_term\": {\"tracks\": {\"items\": [{\"album\": {\"album_type\": \"album\", \"name\": \"Short n' Sweet\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/ab01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/ab01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/ab0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"aab01\", \"type\": \"artist\", \"uri\": \"spotify:artist:aab01\"}], \"duration_ms\": 175459, \"explicit\": false, \"id\": \"tab01\", \"is_local\": false, \"name\": \"Espresso\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tab01\"}, {\"album\": {\"album_type\": \"album\", \"name\": \"Hit Me Hard and Soft\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/cd01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/cd01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/cd0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Billie Eilish\", \"id\": \"acd01\", \"type\": \"artist\", \"uri\": \"spotify:artist:acd01\"}], \"duration_ms\": 210373, \"explicit\": false, \"id\": \"tcd01\", \"is_local\": false, \"name\": \"Birds of a Feather\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tcd01\"}]}, \"artists\": {\"items\": [{\"name\": \"Sabrina Carpenter\", \"id\": \"x1\", \"genres\": [\"pop\"], \"popularity\": 90, \"type\": \"artist\"}, {\"name\": \"Billie Eilish\", \"id\": \"x2\", \"genres\": [], \"popularity\": 92, \"type\": \"artist\"}]}}, \"short_term\": {\"tracks\": {\"items\": [{\"album\": {\"album_type\": \"album\", \"name\": \"Hit Me Hard and Soft\", \"images\": [{\"width\": 640, \"height\": 640, \"url\": \"https://i.scdn.co/image/cd01640\"}, {\"width\": 300, \"height\": 300, \"url\": \"https://i.scdn.co/image/cd01300\"}, {\"width\": 64, \"height\": 64, \"url\": \"https://i.scdn.co/image/cd0164\"}], \"release_date\": \"2024-03-01\"}, \"artists\": [{\"name\": \"Billie Eilish\", \"id\": \"acd01\", \"type\": \"artist\", \"uri\": \"spotify:artist:acd01\"}], \"duration_ms\": 210373, \"explicit\": false, \"id\": \"tcd01\", \"is_local\": false, \"name\": \"Birds of a Feather\", \"popularity\": 71, \"type\": \"track\", \"uri\": \"spotify:track:tcd01\"}]}, \"artists\": {\"items\": [{\"name\": \"Billie Eilish\", \"id\": \"x2\", \"genres\": [], \"popularity\": 92, \"type\": \"artist\"}]}}}, \"apple_music\": {\"long_term\": {\"tracks\": {\"items\": [{\"name\": \"Efecto\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}, {\"name\": \"Tit\\u00ed Me Pregunt\\u00f3\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}]}, \"artists\": {\"items\": [{\"name\": \"Bad Bunny\"}]}}, \"short_term\": {\"tracks\": {\"items\": [{\"name\": \"Efecto\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}, {\"name\": \"Tit\\u00ed Me Pregunt\\u00f3\", \"duration_ms\": 213061, \"artists\": [{\"name\": \"Bad Bunny\"}], \"album\": {\"name\": \"Un Verano Sin Ti\", \"images\": [{\"width\": 300, \"height\": 300, \"url\": \"https://is5-ssl.mzstatic.com/x/300x300bb.jpg\"}]}}]}, \"artists\": {\"items\": [{\"name\": \"Bad Bunny\"}]}}}}",
+        "v1:art:f0c75b31e316838c7115ebf3205ef753eb4a0353": {
+          "base64": "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"
+        },
+        "v1:developer:device-123": "{\"fetched_at\": \"2026-10-17T12:01:30+00:00\", \"github\": {\"login\": \"nvorkinn\", \"repos\": 9, \"open_prs\": 3, \"review_requests\": 1, \"failing\": [\"auth-broker\"], \"releases\": []}, \"plans\": [{\"name\": \"Copilot\", \"plan\": \"Pro\", \"renews\": \"2026-11-01\", \"used\": 280, \"limit\": 300}, {\"name\": \"Claude\", \"plan\": \"Max\", \"renews\": \"2026-10-18\", \"used\": null, \"limit\": null}]}",
+        "v1:notices:bank-holidays": "{\"fetched_at\":\"2026-10-17T11:02:00Z\",\"divisions\":{\"england-and-wales\":{\"events\":[{\"title\":\"New Year’s Day\",\"date\":\"2026-01-01\",\"notes\":\"\"},{\"title\":\"Good Friday\",\"date\":\"2026-04-03\",\"notes\":\"\"},{\"title\":\"Easter Monday\",\"date\":\"2026-04-06\",\"notes\":\"\"},{\"title\":\"Early May bank holiday\",\"date\":\"2026-05-04\",\"notes\":\"\"},{\"title\":\"Spring bank holiday\",\"date\":\"2026-05-25\",\"notes\":\"\"},{\"title\":\"Summer bank holiday\",\"date\":\"2026-08-31\",\"notes\":\"\"},{\"title\":\"Christmas Day\",\"date\":\"2026-12-25\",\"notes\":\"\"},{\"title\":\"Boxing Day\",\"date\":\"2026-12-28\",\"notes\":\"Substitute day\"},{\"title\":\"New Year’s Day\",\"date\":\"2027-01-01\",\"notes\":\"\"}]},\"scotland\":{\"events\":[{\"title\":\"New Year’s Day\",\"date\":\"2026-01-01\",\"notes\":\"\"},{\"title\":\"2nd January\",\"date\":\"2026-01-02\",\"notes\":\"\"},{\"title\":\"Good Friday\",\"date\":\"2026-04-03\",\"notes\":\"\"},{\"title\":\"Early May bank holiday\",\"date\":\"2026-05-04\",\"notes\":\"\"},{\"title\":\"Spring bank holiday\",\"date\":\"2026-05-25\",\"notes\":\"\"},{\"title\":\"Summer bank holiday\",\"date\":\"2026-08-03\",\"notes\":\"\"},{\"title\":\"St Andrew’s Day\",\"date\":\"2026-11-30\",\"notes\":\"\"},{\"title\":\"Christmas Day\",\"date\":\"2026-12-25\",\"notes\":\"\"},{\"title\":\"Boxing Day\",\"date\":\"2026-12-28\",\"notes\":\"Substitute day\"},{\"title\":\"New Year’s Day\",\"date\":\"2027-01-01\",\"notes\":\"\"},{\"title\":\"2nd January\",\"date\":\"2027-01-04\",\"notes\":\"Substitute day\"}]},\"northern-ireland\":{\"events\":[{\"title\":\"New Year’s Day\",\"date\":\"2026-01-01\",\"notes\":\"\"},{\"title\":\"St Patrick’s Day\",\"date\":\"2026-03-17\",\"notes\":\"\"},{\"title\":\"Good Friday\",\"date\":\"2026-04-03\",\"notes\":\"\"},{\"title\":\"Easter Monday\",\"date\":\"2026-04-06\",\"notes\":\"\"},{\"title\":\"Early May bank holiday\",\"date\":\"2026-05-04\",\"notes\":\"\"},{\"title\":\"Spring bank holiday\",\"date\":\"2026-05-25\",\"notes\":\"\"},{\"title\":\"Battle of the Boyne (Orangemen’s Day)\",\"date\":\"2026-07-13\",\"notes\":\"Substitute day\"},{\"title\":\"Summer bank holiday\",\"date\":\"2026-08-31\",\"notes\":\"\"},{\"title\":\"Christmas Day\",\"date\":\"2026-12-25\",\"notes\":\"\"},{\"title\":\"Boxing Day\",\"date\":\"2026-12-28\",\"notes\":\"Substitute day\"},{\"title\":\"New Year’s Day\",\"date\":\"2027-01-01\",\"notes\":\"\"}]}}}"
+      },
+      "etag": "abccb7718f8a0aee",
+      "panels": {
+        "notice_board": "NoticeBoardPanel",
+        "glowmarkt": "MessagePanel",
+        "tfl": "MessagePanel",
+        "weather": "MessagePanel",
+        "spotify": "SpotifyPanel",
+        "developer": "DeveloperPanel"
+      }
+    },
+    {
+      "name": "five stops on their third page, the board placed",
+      "now": "2026-01-15T00:02:00+00:00",
+      "config": {
+        "device_id": "device-123",
+        "interval": 60,
+        "clock_format": "24h",
+        "language": "en",
+        "timezone": "Europe/London",
+        "style": null,
+        "screen": {
+          "orientation": "horizontal",
+          "width": 800,
+          "height": 480
+        },
+        "weather": {
+          "location": "London",
+          "key": "london-gb-2643743"
+        },
+        "notice_board": {
+          "postcode": "SE17 3LL",
+          "country": "GB",
+          "style": "hero"
+        },
+        "tfl": {
+          "stop_ids": [
+            "490000001A",
+            "490000002B",
+            "940GZZLUOVL",
+            "490000004D",
+            "490000005E"
+          ],
+          "style": "hero"
+        },
+        "departures": null,
+        "spotify": {
+          "enabled": false,
+          "style": "hero"
+        },
+        "glowmarkt": {
+          "enabled": false
+        },
+        "developer": null,
+        "apple_music": null,
+        "pairing_code": null
+      },
+      "store": {
+        "v1:departures:490000001A": "{\"fetched_at\":\"2026-01-15T00:01:40Z\",\"stop_id\":\"490000001A\",\"name\":\"Stop 0\",\"mode\":\"bus\",\"stop_letter\":\"A\",\"modes\":[],\"departures\":[{\"line\":\"10\",\"destination\":\"Destination 0\",\"expected_at\":\"2026-01-15T00:04:00Z\",\"platform\":null,\"mode\":null}]}",
+        "v1:departures:490000002B": "{\"fetched_at\":\"2026-01-15T00:01:40Z\",\"stop_id\":\"490000002B\",\"name\":\"Stop 1\",\"mode\":\"bus\",\"stop_letter\":\"B\",\"modes\":[],\"departures\":[{\"line\":\"21\",\"destination\":\"Destination 1\",\"expected_at\":\"2026-01-15T00:05:00Z\",\"platform\":null,\"mode\":null}]}",
+        "v1:departures:940GZZLUOVL": "{\"fetched_at\":\"2026-01-15T00:01:40Z\",\"stop_id\":\"940GZZLUOVL\",\"name\":\"Stop 2\",\"mode\":\"tube\",\"stop_letter\":null,\"modes\":[],\"departures\":[{\"line\":\"32\",\"destination\":\"Destination 2\",\"expected_at\":\"2026-01-15T00:06:00Z\",\"platform\":null,\"mode\":null}]}",
+        "v1:departures:490000004D": "{\"fetched_at\":\"2026-01-15T00:01:40Z\",\"stop_id\":\"490000004D\",\"name\":\"Stop 3\",\"mode\":\"bus\",\"stop_letter\":\"D\",\"modes\":[],\"departures\":[{\"line\":\"43\",\"destination\":\"Destination 3\",\"expected_at\":\"2026-01-15T00:07:00Z\",\"platform\":null,\"mode\":null}]}",
+        "v1:departures:490000005E": "{\"fetched_at\":\"2026-01-15T00:01:40Z\",\"stop_id\":\"490000005E\",\"name\":\"Stop 4\",\"mode\":\"bus\",\"stop_letter\":\"E\",\"modes\":[],\"departures\":[{\"line\":\"54\",\"destination\":\"Destination 4\",\"expected_at\":\"2026-01-15T00:08:00Z\",\"platform\":null,\"mode\":null}]}",
+        "v1:location:SE173LL": "{\"fetched_at\":\"2026-01-15T00:01:00Z\",\"postcode\":\"SE17 3LL\",\"found\":true,\"location\":{\"postcode\":\"SE17 3LL\",\"latitude\":51.48873,\"longitude\":-0.09766,\"country\":\"England\",\"region\":\"London\",\"admin_district\":\"Southwark\"}}",
+        "v1:notices:bank-holidays": "{\"fetched_at\":\"2026-01-14T23:02:00Z\",\"divisions\":{\"england-and-wales\":{\"events\":[{\"title\":\"New Year’s Day\",\"date\":\"2026-01-01\",\"notes\":\"\"},{\"title\":\"Good Friday\",\"date\":\"2026-04-03\",\"notes\":\"\"},{\"title\":\"Easter Monday\",\"date\":\"2026-04-06\",\"notes\":\"\"},{\"title\":\"Early May bank holiday\",\"date\":\"2026-05-04\",\"notes\":\"\"},{\"title\":\"Spring bank holiday\",\"date\":\"2026-05-25\",\"notes\":\"\"},{\"title\":\"Summer bank holiday\",\"date\":\"2026-08-31\",\"notes\":\"\"},{\"title\":\"Christmas Day\",\"date\":\"2026-12-25\",\"notes\":\"\"},{\"title\":\"Boxing Day\",\"date\":\"2026-12-28\",\"notes\":\"Substitute day\"},{\"title\":\"New Year’s Day\",\"date\":\"2027-01-01\",\"notes\":\"\"}]},\"scotland\":{\"events\":[{\"title\":\"New Year’s Day\",\"date\":\"2026-01-01\",\"notes\":\"\"},{\"title\":\"2nd January\",\"date\":\"2026-01-02\",\"notes\":\"\"},{\"title\":\"Good Friday\",\"date\":\"2026-04-03\",\"notes\":\"\"},{\"title\":\"Early May bank holiday\",\"date\":\"2026-05-04\",\"notes\":\"\"},{\"title\":\"Spring bank holiday\",\"date\":\"2026-05-25\",\"notes\":\"\"},{\"title\":\"Summer bank holiday\",\"date\":\"2026-08-03\",\"notes\":\"\"},{\"title\":\"St Andrew’s Day\",\"date\":\"2026-11-30\",\"notes\":\"\"},{\"title\":\"Christmas Day\",\"date\":\"2026-12-25\",\"notes\":\"\"},{\"title\":\"Boxing Day\",\"date\":\"2026-12-28\",\"notes\":\"Substitute day\"},{\"title\":\"New Year’s Day\",\"date\":\"2027-01-01\",\"notes\":\"\"},{\"title\":\"2nd January\",\"date\":\"2027-01-04\",\"notes\":\"Substitute day\"}]},\"northern-ireland\":{\"events\":[{\"title\":\"New Year’s Day\",\"date\":\"2026-01-01\",\"notes\":\"\"},{\"title\":\"St Patrick’s Day\",\"date\":\"2026-03-17\",\"notes\":\"\"},{\"title\":\"Good Friday\",\"date\":\"2026-04-03\",\"notes\":\"\"},{\"title\":\"Easter Monday\",\"date\":\"2026-04-06\",\"notes\":\"\"},{\"title\":\"Early May bank holiday\",\"date\":\"2026-05-04\",\"notes\":\"\"},{\"title\":\"Spring bank holiday\",\"date\":\"2026-05-25\",\"notes\":\"\"},{\"title\":\"Battle of the Boyne (Orangemen’s Day)\",\"date\":\"2026-07-13\",\"notes\":\"Substitute day\"},{\"title\":\"Summer bank holiday\",\"date\":\"2026-08-31\",\"notes\":\"\"},{\"title\":\"Christmas Day\",\"date\":\"2026-12-25\",\"notes\":\"\"},{\"title\":\"Boxing Day\",\"date\":\"2026-12-28\",\"notes\":\"Substitute day\"},{\"title\":\"New Year’s Day\",\"date\":\"2027-01-01\",\"notes\":\"\"}]}}}",
+        "v1:weather:london-gb-2643743": "{\"fetched_at\": \"2026-01-14T23:59:00+00:00\", \"location\": \"london-gb-2643743\", \"forecast\": {\"utc_offset_seconds\": 0, \"current\": {\"time\": \"2026-01-15T12:15\", \"temperature_2m\": 14.2, \"weather_code\": 2, \"is_day\": 1, \"relative_humidity_2m\": 72, \"wind_speed_10m\": 13.4, \"wind_direction_10m\": 225}, \"current_units\": {\"temperature_2m\": \"\\u00b0C\", \"relative_humidity_2m\": \"%\", \"wind_speed_10m\": \"km/h\"}, \"hourly\": {\"time\": [\"2026-01-15T00:00\", \"2026-01-15T01:00\", \"2026-01-15T02:00\", \"2026-01-15T03:00\", \"2026-01-15T04:00\", \"2026-01-15T05:00\", \"2026-01-15T06:00\", \"2026-01-15T07:00\", \"2026-01-15T08:00\", \"2026-01-15T09:00\", \"2026-01-15T10:00\", \"2026-01-15T11:00\", \"2026-01-15T12:00\", \"2026-01-15T13:00\", \"2026-01-15T14:00\", \"2026-01-15T15:00\", \"2026-01-15T16:00\", \"2026-01-15T17:00\", \"2026-01-15T18:00\", \"2026-01-15T19:00\", \"2026-01-15T20:00\", \"2026-01-15T21:00\", \"2026-01-15T22:00\", \"2026-01-15T23:00\", \"2026-01-16T00:00\", \"2026-01-16T01:00\", \"2026-01-16T02:00\", \"2026-01-16T03:00\", \"2026-01-16T04:00\", \"2026-01-16T05:00\", \"2026-01-16T06:00\", \"2026-01-16T07:00\", \"2026-01-16T08:00\", \"2026-01-16T09:00\", \"2026-01-16T10:00\", \"2026-01-16T11:00\", \"2026-01-16T12:00\", \"2026-01-16T13:00\", \"2026-01-16T14:00\", \"2026-01-16T15:00\", \"2026-01-16T16:00\", \"2026-01-16T17:00\", \"2026-01-16T18:00\", \"2026-01-16T19:00\", \"2026-01-16T20:00\", \"2026-01-16T21:00\", \"2026-01-16T22:00\", \"2026-01-16T23:00\", \"2026-01-17T00:00\", \"2026-01-17T01:00\", \"2026-01-17T02:00\", \"2026-01-17T03:00\", \"2026-01-17T04:00\", \"2026-01-17T05:00\", \"2026-01-17T06:00\", \"2026-01-17T07:00\", \"2026-01-17T08:00\", \"2026-01-17T09:00\", \"2026-01-17T10:00\", \"2026-01-17T11:00\", \"2026-01-17T12:00\", \"2026-01-17T13:00\", \"2026-01-17T14:00\", \"2026-01-17T15:00\", \"2026-01-17T16:00\", \"2026-01-17T17:00\", \"2026-01-17T18:00\", \"2026-01-17T19:00\", \"2026-01-17T20:00\", \"2026-01-17T21:00\", \"2026-01-17T22:00\", \"2026-01-17T23:00\", \"2026-01-18T00:00\", \"2026-01-18T01:00\", \"2026-01-18T02:00\", \"2026-01-18T03:00\", \"2026-01-18T04:00\", \"2026-01-18T05:00\", \"2026-01-18T06:00\", \"2026-01-18T07:00\", \"2026-01-18T08:00\", \"2026-01-18T09:00\", \"2026-01-18T10:00\", \"2026-01-18T11:00\", \"2026-01-18T12:00\", \"2026-01-18T13:00\", \"2026-01-18T14:00\", \"2026-01-18T15:00\", \"2026-01-18T16:00\", \"2026-01-18T17:00\", \"2026-01-18T18:00\", \"2026-01-18T19:00\", \"2026-01-18T20:00\", \"2026-01-18T21:00\", \"2026-01-18T22:00\", \"2026-01-18T23:00\", \"2026-01-19T00:00\", \"2026-01-19T01:00\", \"2026-01-19T02:00\", \"2026-01-19T03:00\", \"2026-01-19T04:00\", \"2026-01-19T05:00\", \"2026-01-19T06:00\", \"2026-01-19T07:00\", \"2026-01-19T08:00\", \"2026-01-19T09:00\", \"2026-01-19T10:00\", \"2026-01-19T11:00\", \"2026-01-19T12:00\", \"2026-01-19T13:00\", \"2026-01-19T14:00\", \"2026-01-19T15:00\", \"2026-01-19T16:00\", \"2026-01-19T17:00\", \"2026-01-19T18:00\", \"2026-01-19T19:00\", \"2026-01-19T20:00\", \"2026-01-19T21:00\", \"2026-01-19T22:00\", \"2026-01-19T23:00\", \"2026-01-20T00:00\", \"2026-01-20T01:00\", \"2026-01-20T02:00\", \"2026-01-20T03:00\", \"2026-01-20T04:00\", \"2026-01-20T05:00\", \"2026-01-20T06:00\", \"2026-01-20T07:00\", \"2026-01-20T08:00\", \"2026-01-20T09:00\", \"2026-01-20T10:00\", \"2026-01-20T11:00\", \"2026-01-20T12:00\", \"2026-01-20T13:00\", \"2026-01-20T14:00\", \"2026-01-20T15:00\", \"2026-01-20T16:00\", \"2026-01-20T17:00\", \"2026-01-20T18:00\", \"2026-01-20T19:00\", \"2026-01-20T20:00\", \"2026-01-20T21:00\", \"2026-01-20T22:00\", \"2026-01-20T23:00\", \"2026-01-21T00:00\", \"2026-01-21T01:00\", \"2026-01-21T02:00\", \"2026-01-21T03:00\", \"2026-01-21T04:00\", \"2026-01-21T05:00\", \"2026-01-21T06:00\", \"2026-01-21T07:00\", \"2026-01-21T08:00\", \"2026-01-21T09:00\", \"2026-01-21T10:00\", \"2026-01-21T11:00\", \"2026-01-21T12:00\", \"2026-01-21T13:00\", \"2026-01-21T14:00\", \"2026-01-21T15:00\", \"2026-01-21T16:00\", \"2026-01-21T17:00\", \"2026-01-21T18:00\", \"2026-01-21T19:00\", \"2026-01-21T20:00\", \"2026-01-21T21:00\", \"2026-01-21T22:00\", \"2026-01-21T23:00\", \"2026-01-22T00:00\", \"2026-01-22T01:00\", \"2026-01-22T02:00\", \"2026-01-22T03:00\", \"2026-01-22T04:00\", \"2026-01-22T05:00\", \"2026-01-22T06:00\", \"2026-01-22T07:00\", \"2026-01-22T08:00\", \"2026-01-22T09:00\", \"2026-01-22T10:00\", \"2026-01-22T11:00\", \"2026-01-22T12:00\", \"2026-01-22T13:00\", \"2026-01-22T14:00\", \"2026-01-22T15:00\", \"2026-01-22T16:00\", \"2026-01-22T17:00\", \"2026-01-22T18:00\", \"2026-01-22T19:00\", \"2026-01-22T20:00\", \"2026-01-22T21:00\", \"2026-01-22T22:00\", \"2026-01-22T23:00\"], \"weather_code\": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], \"temperature_2m\": [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 14.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0], \"apparent_temperature\": [6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0], \"relative_humidity_2m\": [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80], \"wind_speed_10m\": [11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0], \"wind_direction_10m\": [225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0], \"precipitation_probability\": [65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65]}, \"daily\": {\"time\": [\"2026-01-15\", \"2026-01-16\", \"2026-01-17\", \"2026-01-18\", \"2026-01-19\", \"2026-01-20\", \"2026-01-21\", \"2026-01-22\"], \"temperature_2m_max\": [18.4, 17.0, 17.0, 15.0, 16.0, 14.0, 13.0, 12.0], \"temperature_2m_min\": [9.1, 8.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0], \"precipitation_probability_max\": [40, 10, 20, 40, 30, 20, 10, 0], \"weather_code\": [61, 73, 2, 61, 3, 2, 1, 0], \"sunrise\": [\"2026-01-15T07:58\", \"2026-01-16T07:57\", \"2026-01-17T07:56\", \"2026-01-18T07:55\", \"2026-01-19T07:54\", \"2026-01-20T07:53\", \"2026-01-21T07:52\", \"2026-01-22T07:51\"], \"sunset\": [\"2026-01-15T16:22\", \"2026-01-16T16:24\", \"2026-01-17T16:26\", \"2026-01-18T16:28\", \"2026-01-19T16:30\", \"2026-01-20T16:32\", \"2026-01-21T16:34\", \"2026-01-22T16:36\"], \"wind_speed_10m_max\": [18.0, 14.0, 16.0, 17.0, 15.0, 12.0, 11.0, 10.0], \"wind_direction_10m_dominant\": [225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0, 225.0]}}}"
+      },
+      "etag": "ac3b2976602d1d92",
+      "panels": {
+        "notice_board": "NoticeBoardPanel",
+        "glowmarkt": "MessagePanel",
+        "tfl": "CombinedArrivalPanel",
+        "weather": "WeatherPanel",
+        "spotify": "MessagePanel",
+        "developer": "MessagePanel"
+      }
+    },
+    {
+      "name": "a pairing code to show",
+      "now": "2026-10-17T12:00:00+00:00",
+      "config": {
+        "device_id": "device-123",
+        "interval": 60,
+        "clock_format": "24h",
+        "language": "en",
+        "timezone": "Europe/London",
+        "style": null,
+        "screen": {
+          "orientation": "vertical",
+          "width": 480,
+          "height": 800
+        },
+        "weather": {
+          "location": "",
+          "key": null
+        },
+        "notice_board": {
+          "postcode": null,
+          "country": null,
+          "style": "hero"
+        },
+        "tfl": {
+          "stop_ids": [],
+          "style": "hero"
+        },
+        "departures": null,
+        "spotify": {
+          "enabled": false,
+          "style": "hero"
+        },
+        "glowmarkt": {
+          "enabled": false
+        },
+        "developer": null,
+        "apple_music": null,
+        "pairing_code": "K7Q2XP"
+      },
+      "store": {},
+      "etag": "0d9e874c26e8605a",
+      "panels": null
+    },
+    {
+      "name": "nothing set up",
+      "now": "2026-10-17T12:00:00+00:00",
+      "config": {
+        "device_id": "device-123",
+        "interval": 60,
+        "clock_format": "24h",
+        "language": "en",
+        "timezone": "Europe/London",
+        "style": null,
+        "screen": {
+          "orientation": "vertical",
+          "width": 480,
+          "height": 800
+        },
+        "weather": {
+          "location": "",
+          "key": null
+        },
+        "notice_board": {
+          "postcode": null,
+          "country": null,
+          "style": "hero"
+        },
+        "tfl": {
+          "stop_ids": [],
+          "style": "hero"
+        },
+        "departures": null,
+        "spotify": {
+          "enabled": false,
+          "style": "hero"
+        },
+        "glowmarkt": {
+          "enabled": false
+        },
+        "developer": null,
+        "apple_music": null,
+        "pairing_code": null
+      },
+      "store": {},
+      "etag": "51b72f93577f34a8",
+      "panels": {
+        "notice_board": "MessagePanel",
+        "glowmarkt": "MessagePanel",
+        "tfl": "MessagePanel",
+        "weather": "MessagePanel",
+        "spotify": "MessagePanel",
+        "developer": "MessagePanel"
+      }
+    }
+  ]
+}

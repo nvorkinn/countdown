@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, NoReturn
 import requests
 
 from countdown_core.config_server.broker_client import BrokerClient
-from countdown_core.core.api_registry import API_NAMES, ApiRegistry
+from countdown_core.core.api_registry import API_NAMES
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
 from countdown_core.core.log_format import configure_logging
@@ -94,11 +94,10 @@ async def run(make_target: MakeTarget) -> None:
 
     display = DisplayController(make_target(registration))
     status.display = display
-    registry = ApiRegistry(registration, publisher)
 
     broker = BrokerClient(registration)
-    config, pairing_code_panel = await wait_for_config(broker)
+    config, _ = await wait_for_config(broker)
     status.last_broker_sync = datetime.now(UTC)
     # Wakes the loop when the broker changes this screen's config in the store; None without a store.
     watcher = ConfigWatcher.from_env(registration.device_id)
-    await DisplayLoop(broker, config, pairing_code_panel, display, registry, watcher=watcher).run()
+    await DisplayLoop(broker, config, display, publisher, watcher=watcher).run()

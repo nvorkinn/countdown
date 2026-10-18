@@ -1,13 +1,12 @@
 """Rotation from the clock (core.rotation): every rotating panel shows page `epoch minute mod its page count`.
 
 Deterministic: conftest's rotation_clock freezes the pages' clock, and these tests move it. The last one drives the
-real render path, DisplayLoop.run, a minute at a time, through a config change.
+real render path, DisplayLoop.run calling the render, a minute at a time, through a config change.
 """
 
 import asyncio
 import datetime as dt
 import json
-from types import SimpleNamespace
 
 import pytest
 from config_factory import make_config
@@ -16,13 +15,12 @@ from fake_target import FakeTarget
 from test_utils import REGISTRATION, put_departures
 from weather_factory import forecast_json
 
+from countdown_core import render as render_module
 from countdown_core.config_server.broker_client import BrokerClient
-from countdown_core.core import abstract_client, display_loop, rotation
-from countdown_core.core import display as display_module
-from countdown_core.core.api_registry import API_NAMES, ApiRegistry
+from countdown_core.core import rotation
+from countdown_core.core.api_registry import ApiRegistry
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
-from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.store import keys
 from countdown_core.tfl.combined_arrival_panel import Rotation
 from countdown_core.weather.models import WeatherPeriod
@@ -146,12 +144,11 @@ def _pages(panels: dict) -> tuple:
 def test_every_rotating_panel_shows_its_own_page_for_the_minute(store, rotation_clock):
     """Five stops two at a time are 3 pages; the weather has 4 tabs, energy 3 pages, Spotify (one service) 4."""
     _fill(store)
-    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
-    asyncio.run(registry.on_config_update(_config()))
+    registry = ApiRegistry(REGISTRATION, _config())
     registry.show_stops(2)
     rotation_clock.at_minute(5)
 
-    panels = asyncio.run(registry.update_all())
+    panels = registry.poll()
 
     assert _pages(panels) == (Rotation(2, 3), WeatherPeriod.TONIGHT, 2, "SpotifyTopPanel")
 
@@ -164,56 +161,36 @@ class _Stop(Exception):  # noqa: N818 -- not an error: how the test ends the loo
 
 
 def test_the_render_loop_turns_every_panel_a_page_a_minute_and_a_config_change_keeps_the_page(
-    store, rotation_clock, monkeypatch
+    store, rotation_clock, monkeypatch, symbols_font
 ):
     """DisplayLoop.run, a minute between cycles: each cycle draws the minute's pages.
 
-    After the second cycle the owner adds a stop. That rebuilds the departures client, which carries on at the
-    clock's page (the third, of three still) rather than starting again at the first.
+    After the second cycle the owner adds a stop. The next render's departures client, built afresh as every render's
+    is, carries on at the clock's page (the third, of three still) rather than starting again at the first.
     """
     _fill(store)
     put_departures(store, "490000009", [("12", "Elsewhere", 60)], stop_letter="X")
     store.set(keys.config(DEVICE_ID), _config().model_dump_json())
     broker = BrokerClient(REGISTRATION)
-    loop = DisplayLoop(
-        broker,
-        broker.get_config(),
-        broker.get_pairing_code_panel(broker.get_config()),
-        DisplayController(FakeTarget()),
-        ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES)),
-    )
-
-    # A minute passing, for the clients (when they're due) and the pages alike.
-    wall = [dt.datetime(2026, 1, 15, 12, 0)]  # noqa: DTZ001 -- the clients' last_updated is naive local time
-
-    class Wall(dt.datetime):
-        @classmethod
-        def now(cls, tz=None):
-            return wall[0] if tz is None else wall[0].replace(tzinfo=dt.UTC).astimezone(tz)
-
-    monkeypatch.setattr(abstract_client, "datetime", Wall)
-    clients_before_the_change = {}
     sleeps = []
 
     async def a_minute(_seconds: float) -> None:
         sleeps.append(_seconds)
         if len(sleeps) == 2:
-            clients_before_the_change.update(loop.api_reg.clients)
             store.set(keys.config(DEVICE_ID), _config([*STOPS, "490000009"]).model_dump_json())
         if len(sleeps) == 4:
             raise _Stop
-        wall[0] += dt.timedelta(minutes=1)
         rotation_clock.advance()
 
-    monkeypatch.setattr(display_loop, "asyncio", SimpleNamespace(sleep=a_minute))
+    loop = DisplayLoop(broker, broker.get_config(), DisplayController(FakeTarget()), sleep=a_minute)
     drawn = []
-    real_render = display_module.render
+    real_render = render_module.draw
 
-    def recording_render(panels, screen, available, *, clock_format="24h"):
+    def recording_render(panels, screen, available, *, clock_format="24h", now=None):
         drawn.append(_pages(panels))
-        return real_render(panels, screen, available, clock_format=clock_format)
+        return real_render(panels, screen, available, clock_format=clock_format, now=now)
 
-    monkeypatch.setattr(display_module, "render", recording_render)
+    monkeypatch.setattr(render_module, "draw", recording_render)
 
     with pytest.raises(_Stop):
         asyncio.run(loop.run())
@@ -225,5 +202,4 @@ def test_the_render_loop_turns_every_panel_a_page_a_minute_and_a_config_change_k
         (Rotation(2, 3), TABS[2], 2, "SpotifyPanel"),
         (Rotation(0, 3), TABS[3], 0, "SpotifyTopPanel"),
     ]
-    assert loop.api_reg.clients["tfl"] is not clients_before_the_change["tfl"]
-    assert loop.api_reg.clients["weather"] is clients_before_the_change["weather"]
+    assert loop.last.sections["tfl"].stops[-1].id == "490000009"

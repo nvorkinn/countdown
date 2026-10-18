@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError
 
 from countdown_api.models import ConfigResponse
 from countdown_core.core import app
-from countdown_core.core.display_loop import safe_fetch
+from countdown_core.core.display_loop import DisplayLoop, safe_fetch
 from countdown_core.core.log_format import JsonFormatter
 from countdown_core.store.config import ConfigWatcher
 from countdown_credentials.registration import RendererRegistrar, RendererRegistration
@@ -165,9 +165,12 @@ def booted(monkeypatch):  # noqa: C901 -- one fixture of small fakes, each count
     monkeypatch.setenv("CLAIM_TOKEN", "claim-me")
     seen = {"order": []}
 
-    class FakeLoop:
-        def __init__(self, broker, config, pairing_code_panel, display, registry, *, watcher):  # noqa: PLR0913 -- DisplayLoop's
-            seen.update(broker=broker, display=display, registry=registry, watcher=watcher)
+    class FakeLoop(DisplayLoop):
+        """The real loop, built as app.run builds it, that only notes it was run."""
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            seen.update(loop=self, display=self.display, watcher=self.watcher)
 
         async def run(self):
             seen["order"].append("loop")
@@ -271,20 +274,20 @@ def test_run_registers_as_a_renderer_with_the_broker_url(booted):
     assert registrar.broker_url == "https://broker.example.com"
 
 
-def test_run_shares_the_one_registration_between_the_target_the_broker_and_the_registry(booted):
+def test_run_shares_the_one_registration_between_the_target_the_broker_and_the_loop(booted):
     seen = booted()
 
     assert seen["target_registration"] is REGISTRATION
     assert seen["target"] == "the target"
-    assert seen["broker"].registration is REGISTRATION
-    assert seen["registry"].registration is REGISTRATION
+    assert seen["loop"].broker.registration is REGISTRATION
+    assert seen["loop"].device_id == REGISTRATION.device_id  # the screen the loop renders
 
 
-def test_run_hands_the_publisher_it_started_to_the_registry_with_one_device_status(booted):
+def test_run_hands_the_publisher_it_started_to_the_loop_with_one_device_status(booted):
     seen = booted()
 
-    registry = seen["registry"]
-    assert registry.pub is seen["publisher"]
-    assert registry.status is seen["publisher"].device_status
-    assert registry.status.display is seen["display"]
-    assert registry.status.last_broker_sync is not None
+    loop = seen["loop"]
+    assert loop.publisher is seen["publisher"]
+    status = loop.publisher.device_status
+    assert status.display is seen["display"]
+    assert status.last_broker_sync is not None

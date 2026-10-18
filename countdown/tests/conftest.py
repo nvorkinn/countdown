@@ -3,11 +3,12 @@ from pathlib import Path
 
 import fakeredis
 import pytest
-from PIL import Image
+from PIL import Image, ImageFont
 from test_utils import highlight_diff, images_equal
 
 from countdown_core.core import rotation
 from countdown_core.store import reader
+from countdown_core.utils import utils
 
 
 @pytest.fixture(autouse=True)
@@ -74,6 +75,20 @@ def rotation_clock(monkeypatch) -> RotationClock:
     clock = RotationClock()
     monkeypatch.setattr(rotation, "now", clock.now)
     return clock
+
+
+@pytest.fixture
+def symbols_font(monkeypatch):
+    """Stand in for Material Symbols, the one font the renderer downloads, with one it ships with (like no_network).
+
+    For the tests of what's drawn when, not how: they then draw the same offline as with the font downloaded.
+    """
+    monkeypatch.setattr(
+        utils, "_cached_font", lambda url, filename: ImageFont.truetype(utils.FONTS_DIR / "Ubuntu-Regular.ttf")
+    )
+    utils.google_symbols.cache_clear()
+    yield
+    utils.google_symbols.cache_clear()  # don't leave the stand-in cached for other tests
 
 
 # --- Visual regression snapshots -------------------------------------------------

@@ -42,7 +42,8 @@ class Provider(Protocol):
     #
     # returning the seconds it wants the screen to refresh at for what it just fetched, or None if it needs no more
     # than usual. The runner writes that to `v1:pace:<name>:<item id>` with a TTL of PACE_TTL_S (and deletes the key on
-    # None), so the pace lapses by itself if the provider stops, and a renderer takes the fastest of those it reads.
+    # None), so the pace lapses by itself if the provider stops. The broker times the screen's polls by the fastest
+    # of the screen's own (auth-broker's services/pace.py), and a renderer renders every 20 s while one is live.
     #
     # Also optional: a provider that fetches the same thing for every screen, whatever they subscribe to (gov.uk's one
     # bank holidays file for all of the UK), defines `fixed_ids`, a tuple of the ids it always fetches. The runner

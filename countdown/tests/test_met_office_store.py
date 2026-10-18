@@ -12,7 +12,7 @@ in English and in Norwegian. One change since: an amber warning now reads "Orans
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -22,7 +22,7 @@ from location_factory import FakeLocations
 from test_utils import REGISTRATION
 
 from countdown_core import i18n
-from countdown_core.notices import notice_board_client as board_module
+from countdown_core.core import moment
 from countdown_core.notices.met_office import NoStoredWarningsError, StoredMetOfficeWarningsSource, warning_notices
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
@@ -346,7 +346,8 @@ def clock(monkeypatch):
         def now(cls, tz=None):
             return BoardClock.now
 
-    monkeypatch.setattr(board_module, "datetime", FrozenDatetime)
+    # The moment the board draws at (core.moment), as a render sets it.
+    monkeypatch.setattr(moment, "now", lambda: FrozenDatetime.now(UTC))
     return BoardClock
 
 

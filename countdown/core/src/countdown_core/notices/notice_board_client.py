@@ -2,11 +2,12 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, override
 
 from redis.exceptions import RedisError
 
+from countdown_core.core import moment
 from countdown_core.core.abstract_client import NOT_AVAILABLE, AbstractClient
 from countdown_core.i18n import N_, local_zone
 from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
@@ -137,8 +138,9 @@ class NoticeBoardClient(AbstractClient):
                 StoredTflRoadSource(self.session, self.postcode),
             ]
         # Otherwise a quiet board gives no sign the postcode was placed. Nothing about where: not its area, region or
-        # bank holidays' division either, as each says roughly where the board, and someone's home, is.
-        logger.info("Notice board: found the postcode's location; reading its local notices")
+        # bank holidays' division either, as each says roughly where the board, and someone's home, is. Debug, not
+        # info: the board is built afresh for every render, and a frame gets no log line of its own.
+        logger.debug("Notice board: found the postcode's location; reading its local notices")
 
     def _read(
         self, sources: list[NoticeSource], now: datetime
@@ -172,7 +174,7 @@ class NoticeBoardClient(AbstractClient):
         Raises, keeping the last board, if Redis doesn't answer, or if none of the sources that read the store could
         be read for some other reason.
         """
-        now = datetime.now(UTC)
+        now = moment.now()
         self._ensure_location(now)
         # The other clients' first, so their disruptions rank above the place's notices of the same severity.
         sources = self.client_sources + self.sources
@@ -182,6 +184,7 @@ class NoticeBoardClient(AbstractClient):
         if online and not any(source in answers for source in online):
             if all(source in expired for source in online):
                 # Every source with data to read has none: "All clear" would be a guess.
+                self.expired = True
                 return self.message_panel(NOT_AVAILABLE)
             msg = "None of the notice sources could be reached"
             raise RuntimeError(msg)
@@ -198,6 +201,7 @@ class NoticeBoardClient(AbstractClient):
                 # The postcode isn't placed yet, so the weather, floods and roads haven't
                 # been checked: "All clear" would be a guess.
                 if self.location_missing:
+                    self.expired = True
                     return self.message_panel(NOT_AVAILABLE)
                 msg = "Couldn't look up the postcode yet"
                 raise RuntimeError(msg)

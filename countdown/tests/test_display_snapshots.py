@@ -9,7 +9,6 @@ import io
 from typing import TYPE_CHECKING
 
 import pytest
-from fake_target import FakeTarget
 from PIL import Image, ImageChops, ImageDraw
 from tfl_factory import tfl_panel
 from weather_factory import forecast_json, make_weather
@@ -19,7 +18,6 @@ import countdown_core
 import countdown_core.glow.energy_panel
 from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
-from countdown_core.core.display import DisplayController
 from countdown_core.departures.departures_client import DeparturesClient
 from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.models import AiPlan, DeveloperSummary, GitHubSummary, Release, ReleaseJob
@@ -31,6 +29,7 @@ from countdown_core.i18n import set_locale
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.notice_styles import STYLES as NOTICE_STYLES
+from countdown_core.rendering import render
 from countdown_core.rendering.screen import DEFAULT_CANVAS
 from countdown_core.spotify.models import Artist, Queue, Track
 from countdown_core.spotify.spotify_client import SpotifyClient
@@ -49,7 +48,12 @@ from countdown_core.weather.weather_panel import WeatherPanel
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
 
-_CONTROLLER = DisplayController(FakeTarget())
+
+def draw_screen(panels, screen, available, *, clock_format="24h") -> Image.Image:
+    """Draw the screen as a render does (rendering.render), upright as the viewer sees it."""
+    return render(panels, screen, available, clock_format=clock_format).image
+
+
 # Every API but the developer panel, which takes Spotify's area: its own tests add it.
 EVERYTHING = frozenset(ClientClasses) - {ClientClasses.DEVELOPER}
 NO_GLOWMARKT = EVERYTHING - {ClientClasses.GLOWMARKT}
@@ -60,7 +64,7 @@ LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
 
 def _draw(panels: dict[str, Panel], available: frozenset[ClientClasses] = EVERYTHING) -> Image.Image:
     """Draw the screen as it's drawn on an 800x480 landscape screen able to show `available`."""
-    return _CONTROLLER.display_screen(panels, LANDSCAPE, available)
+    return draw_screen(panels, LANDSCAPE, available)
 
 
 # Naive, as the panels' clock is: local wall-clock time.
@@ -356,7 +360,7 @@ def test_pairing_code_stays_on_a_vertical_screen_whatever_its_length(code):
 
 
 def test_screen_with_no_panels_at_all_on_a_vertical_screen(snapshot):
-    img = _CONTROLLER.display_screen({}, Screen(orientation="vertical", width=800, height=480), EVERYTHING)
+    img = draw_screen({}, Screen(orientation="vertical", width=800, height=480), EVERYTHING)
     assert img.size == PORTRAIT
     snapshot.assert_matches("screen_nothing_to_show_portrait", img, threshold=0.02)
 
@@ -372,7 +376,7 @@ VERTICAL = Screen(orientation="vertical", width=800, height=480)
 
 
 def _draw_portrait(panels: dict[str, Panel], available: frozenset[ClientClasses] = EVERYTHING) -> Image.Image:
-    img = _CONTROLLER.display_screen(panels, VERTICAL, available)
+    img = draw_screen(panels, VERTICAL, available)
     assert img.size == PORTRAIT
     return img
 
@@ -730,7 +734,7 @@ def test_portrait_screen_in_12_hour_time(snapshot, period):
     notices = NoticeBoardPanel(
         [Notice("Met Office", Severity.WARNING, "Amber warning: wind until Thu", expiry, display_time=expiry)]
     )
-    img = _CONTROLLER.display_screen(
+    img = draw_screen(
         _panels(_bus_and_tube_arrivals(), weather=weather, notices=notices),
         Screen(orientation="vertical", width=800, height=480),
         EVERYTHING,
@@ -744,9 +748,7 @@ def test_landscape_screen_in_12_hour_time(snapshot):
     notices = NoticeBoardPanel(
         [Notice("Met Office", Severity.WARNING, "Yellow warning: rain until Thu", expiry, display_time=expiry)]
     )
-    img = _CONTROLLER.display_screen(
-        _panels(_bus_and_tube_arrivals(), notices=notices), LANDSCAPE, EVERYTHING, clock_format="12h"
-    )
+    img = draw_screen(_panels(_bus_and_tube_arrivals(), notices=notices), LANDSCAPE, EVERYTHING, clock_format="12h")
     snapshot.assert_matches("screen_12h_landscape", img)
 
 
@@ -761,9 +763,9 @@ def test_arrival_countdown_durations_do_not_use_the_clock_preference(style):
 def test_clock_preference_does_not_leak_between_controllers_sharing_layouts_and_panels(orientation):
     panels = _panels(_bus_and_tube_arrivals())
     screen = Screen(orientation=orientation, width=800, height=480)
-    twelve_hour = DisplayController(FakeTarget()).display_screen(panels, screen, EVERYTHING, clock_format="12h")
-    default = DisplayController(FakeTarget()).display_screen(panels, screen, EVERYTHING)
-    explicit = DisplayController(FakeTarget()).display_screen(panels, screen, EVERYTHING, clock_format="24h")
+    twelve_hour = draw_screen(panels, screen, EVERYTHING, clock_format="12h")
+    default = draw_screen(panels, screen, EVERYTHING)
+    explicit = draw_screen(panels, screen, EVERYTHING, clock_format="24h")
 
     assert default.tobytes() == explicit.tobytes()
     assert default.tobytes() != twelve_hour.tobytes()

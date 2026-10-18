@@ -1,13 +1,9 @@
-"""The API clients, built and rebuilt from the broker's config, and the panels they last returned."""
+"""The API clients a render draws with, built from the broker's config, and the panels they give."""
 
-import asyncio
 import logging
 from datetime import timedelta
 from enum import Enum
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfoNotFoundError
-
-from redis.exceptions import RedisError
 
 from countdown_api.models import ConfigResponse, Glowmarkt
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
@@ -15,15 +11,15 @@ from countdown_core.core.style import panel_style
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
 from countdown_core.glow.glow_client import GlowClient
-from countdown_core.i18n import N_, set_locale
+from countdown_core.i18n import N_
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.spotify.spotify_client import MusicSettings, SpotifyClient, music_client_class
-from countdown_core.store import reader
 from countdown_core.weather.weather_client import WeatherClient
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from countdown_core.core.panel import Panel
-    from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
     from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
@@ -96,7 +92,7 @@ def is_enabled(section: object) -> bool:
 class FailedClient(AbstractClient):
     """Stands in for a client whose constructor raised, so the failure shows as an error status.
 
-    It shows in HA too, instead of the client silently being missing. Rebuilt when its config changes.
+    It shows in the metrics too, instead of the client silently being missing.
     """
 
     poll_interval = timedelta(minutes=10)
@@ -115,110 +111,80 @@ class FailedClient(AbstractClient):
 
 
 class ApiRegistry:
-    """The API clients the broker's config asks for, and the panel each last returned."""
+    """The API clients one render draws with, built afresh from the config for that render alone.
 
-    def __init__(self, registration: Registration, publisher: OtlpPublisher) -> None:
-        """`registration` is handed to every client; `publisher` reports their statuses from now on."""
-        self.registration = registration  # handed to every client
-        self.clients: dict[str, AbstractClient] = {}
-        self.panels: dict[str, Panel | None] = {}  # None only from a DISABLED client
-        # The publisher has been reporting since boot; from now on it reports these clients too.
-        # Shares self.clients (mutated in place, never reassigned) to read their statuses.
-        self.pub = publisher
-        self.pub.clients = self.clients
-        self.status = publisher.device_status
-        # The language and time zone the clients were built for; a change rebuilds them all (see on_config_update).
-        self.locale: tuple[str, str] | None = None
+    Nothing of a registry outlives its render (see render.render): the clients, what they read and their statuses are
+    the render's, and the next render builds its own. What a screen last showed comes in from outside, as the previous
+    render's panels (poll's `previous`), never from a registry kept between them.
+    """
 
-    async def on_config_update(self, config: ConfigResponse) -> None:
-        """Bring the clients in line with `config`, rebuilding only those whose needs_refresh() says so.
+    def __init__(self, registration: Registration, config: ConfigResponse) -> None:
+        """Build a client for every API `config` switches on, each with its section of the config.
 
-        Failures are logged, not raised, so one broken API doesn't take the others down. A new language or time zone
-        rebuilds every client, as some put their texts together as they fetch (the notices).
+        `registration` is handed to every client: the device whose keys they read. A client whose constructor raises
+        is logged, and stands in as a FailedClient, so one broken API doesn't take the others down. The language and
+        time zone must be set first (i18n.set_locale): some clients put their texts together as they read.
         """
-        self._apply_locale(config)
-        to_initialise: dict[str, AbstractClient] = {}
+        self.registration = registration
+        self.clients: dict[str, AbstractClient] = {}
+        # What each client was built with, so the next render can tell whether this one's panel is still its own.
+        self.sections: dict[str, object] = {}
         for member in ClientClasses:
             name = member.api_name
-            client_config = section_for(name, config)
-            clazz = client_class(member, client_config)
-            current = self.clients.get(name)
-
-            if not is_enabled(client_config):
-                # No client at all, so one switched back on later is built fresh.
-                self._drop(name)
-            elif current is None or current.needs_refresh(client_config):
-                # The old panel came from the old config, so it goes too.
-                self._drop(name)
-                try:
-                    to_initialise[name] = self.clients[name] = clazz(self.registration, client_config)
-                except Exception as e:
-                    logger.exception("Error building %s client", name)
-                    self.clients[name] = FailedClient(self.registration, client_config, e)
-
+            section = section_for(name, config)
+            if not is_enabled(section):
+                continue
+            self.sections[name] = section
+            try:
+                self.clients[name] = client_class(member, section)(registration, section)
+            except Exception as e:
+                logger.exception("Error building %s client", name)
+                self.clients[name] = FailedClient(registration, section, e)
         self._share_notice_sources()
-        outcomes = await asyncio.gather(*[c.initialise() for c in to_initialise.values()], return_exceptions=True)
-        for name, outcome in zip(to_initialise, outcomes, strict=True):
-            if isinstance(outcome, Exception):
-                logger.error("Error initialising %s: %s", name, outcome, exc_info=outcome)
 
     def _share_notice_sources(self) -> None:
-        """Hand the notice board the other clients' notice sources, which a rebuild of any of them replaces."""
+        """Hand the notice board the other clients' notice sources."""
         board = self.clients.get(ClientClasses.NOTICE_BOARD.api_name)
         if isinstance(board, NoticeBoardClient):
             board.use_client_sources(
                 source for client in self.clients.values() if client is not board for source in client.notice_sources()
             )
 
-    def _apply_locale(self, config: ConfigResponse) -> None:
-        """Switch to the config's language and time zone, dropping every client if they changed."""
-        locale = (config.language, config.timezone)
-        if locale == self.locale:
-            return
-        try:
-            set_locale(*locale)
-        except ZoneInfoNotFoundError, ValueError:
-            logger.warning("Unknown time zone %r; using Europe/London", config.timezone)
-            set_locale(config.language, "Europe/London")
-        if self.locale is not None:
-            for name in list(self.clients):
-                self._drop(name)
-        self.locale = locale
+    def poll(self, previous: Mapping[str, Panel] | None = None) -> dict[str, Panel]:
+        """Read every client's data, one after another, and return the panel each gave, by API.
 
-    def _drop(self, name: str) -> None:
-        self.clients.pop(name, None)
-        self.panels.pop(name, None)
-
-    async def update_all(self) -> dict[str, Panel]:
-        """Poll the clients that are due and return a panel for every API.
-
-        A client that isn't due, or that raised, keeps its last panel.
+        A client that raises (Redis not answering, a bug) gives its panel in `previous` if there's one there: the panel
+        the screen last had from it, which the caller has checked is still this config's. Otherwise it gives none, and
+        its area says it could not connect (see panels()). A key that has expired is no failure: the client gives a
+        "Not available" panel (AbstractClient.poll).
         """
-        due = [(api_name, client.update()) for api_name, client in self.clients.items() if client.is_due]
-        outcomes = await asyncio.gather(*[coro for _, coro in due], return_exceptions=True)
+        previous = previous or {}
+        polled: dict[str, Panel] = {}
+        for name, client in self.clients.items():
+            try:
+                polled[name] = client.poll()
+            except Exception:
+                if not isinstance(client, FailedClient):  # whose constructor's error was logged as it was built
+                    logger.exception("Error updating %s", name)
+                if name in previous:
+                    polled[name] = previous[name]
+        return polled
 
-        for (api_name, _), outcome in zip(due, outcomes, strict=True):
-            if isinstance(outcome, Exception):
-                logger.error("Error updating %s: %s", api_name, outcome, exc_info=outcome)
-            else:
-                self.panels[api_name] = outcome
-        return {member.api_name: self._panel_for(member) for member in ClientClasses}
+    def panels(self, polled: Mapping[str, Panel]) -> dict[str, Panel]:
+        """Return a panel for every API: the one it gave (`polled`, from poll()), or a MessagePanel saying why not."""
+        return {member.api_name: self._panel_for(member, polled) for member in ClientClasses}
 
-    async def pace(self) -> int | None:
-        """Return the shortest refresh pace, in seconds, that any provider asks for now; None if none does.
+    def statuses(self) -> dict[str, ClientStatus]:
+        """Return where each client stands, by API, for the metrics; an API with no client isn't there (DISABLED)."""
+        return {name: client.status for name, client in self.clients.items()}
 
-        Read from the store (the providers write it there, with a short TTL), so None as well when this renderer reads
-        no store, or can't reach it: the screen then keeps its usual pace.
-        """
-        store = reader.store()
-        pace_keys = [key for client in self.clients.values() for key in client.pace_keys()]
-        if store is None or not pace_keys:
-            return None
-        try:
-            return await asyncio.to_thread(reader.fastest_pace, store, pace_keys)
-        except RedisError as e:
-            logger.warning("Couldn't read the refresh pace from the store (%s); keeping the usual", e)
-            return None
+    def expired(self) -> frozenset[str]:
+        """Return the APIs whose panel says "Not available" because the store had nothing for them."""
+        return frozenset(name for name, client in self.clients.items() if client.expired)
+
+    def pace_keys(self) -> list[str]:
+        """Return the store keys (keys.pace) where these clients' providers can ask for a faster refresh."""
+        return [key for client in self.clients.values() for key in client.pace_keys()]
 
     def available(self) -> frozenset[ClientClasses]:
         """Return the APIs that get an area on the screen.
@@ -232,20 +198,17 @@ class ApiRegistry:
         )
 
     def show_stops(self, count: int) -> None:
-        """Tell the departures client how many stops the layout has room for.
-
-        Call after every on_config_update(), since that may have rebuilt the client.
-        """
+        """Tell the departures client how many stops the layout has room for. Call before poll()."""
         departures = self.clients.get(ClientClasses.TFL.api_name)
         if isinstance(departures, DeparturesClient):
             departures.stops_per_update = count
 
-    def _panel_for(self, member: ClientClasses) -> Panel:
-        """Return the API's last panel, or a MessagePanel saying why there isn't one."""
+    def _panel_for(self, member: ClientClasses, polled: Mapping[str, Panel]) -> Panel:
+        """Return the API's panel, or a MessagePanel saying why there isn't one."""
         name, clazz = member.value
         client = self.clients.get(name)
         if client is None or client.is_disabled():
             return clazz.message_panel(N_("Not configured"))
         # The client's own class where it has one, which says whose service it is (Spotify's or Apple Music's).
         named = type(client) if isinstance(client, clazz) else clazz
-        return self.panels.get(name) or named.message_panel(N_("Could not connect"))
+        return polled.get(name) or named.message_panel(N_("Could not connect"))

@@ -1,8 +1,8 @@
 """The screen's frame record in the store (countdown_core.store.frame_record), and the renderer writing it.
 
-The record is written through the real upload path: DisplayController painting on ServerTarget, which writes the
-record and PUTs the frame to the broker (mocked with `responses`), and DisplayLoop driving them. The store is
-conftest's fake Redis, read back the way the broker reads it: as bytes.
+The record is written by the render (render.render), and the frame then shown through the real upload path:
+DisplayController painting on ServerTarget, which PUTs it to the broker (mocked with `responses`), and DisplayLoop
+driving them. The store is conftest's fake Redis, read back the way the broker reads it: as bytes.
 """
 
 import asyncio
@@ -17,22 +17,18 @@ import pytest
 import redis
 import requests
 import responses
-from fake_target import FakeTarget
-from PIL import Image, ImageFont
-from test_display_controller import frame, show
+from config_factory import make_config
+from PIL import Image
 from test_e2e_render_cycle import DEVICE_ID as E2E_DEVICE_ID
-from test_e2e_render_cycle import _app_config_json, _make_config, _put_stops_and_energy, _StopLoopError
+from test_e2e_render_cycle import _make_config, _put_stops_and_energy, _StopLoopError
 
-from countdown_api.models import ConfigResponse
+from countdown_core import render as render_module
 from countdown_core.config_server.broker_client import BrokerClient
-from countdown_core.core import display_loop
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
-from countdown_core.core.targets import panel_bytes
+from countdown_core.render import Outcome, Result, render
 from countdown_core.store import frame_record, keys, reader
-from countdown_core.utils import utils
 from countdown_credentials.registration import RendererRegistration
-from countdown_server import server_target
 from countdown_server.server_target import REFRESH_HINT_HEADER, ServerTarget
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -122,10 +118,10 @@ def test_the_fixtures_frame_is_a_whole_frame_with_its_etag():
         FIXTURE_FRAME.decode()
 
 
-def test_painting_the_fixtures_frame_writes_the_fixtures_record(stored, clock, broker):
+def test_the_fixtures_frame_is_written_as_the_fixtures_record(stored, clock):
     clock.at = datetime.fromisoformat(FIXTURE["fields"]["rendered_at"])
 
-    _target(FIXTURE["device_id"]).paint(_image(FIXTURE_FRAME))
+    assert frame_record.write_if_changed(stored, FIXTURE["device_id"], FIXTURE_FRAME) is True
 
     key = FIXTURE["key"]
     assert stored.type(key) == FIXTURE["type"].encode()
@@ -135,7 +131,6 @@ def test_painting_the_fixtures_frame_writes_the_fixtures_record(stored, clock, b
         b"rendered_at": FIXTURE["fields"]["rendered_at"].encode(),
     }
     assert stored.ttl(key) == FIXTURE["ttl_s"] == frame_record.TTL_S
-    assert _puts(broker) == [FIXTURE_FRAME]  # and the broker still gets the PUT
 
 
 def test_the_time_is_written_in_utc_whatever_zone_the_clock_gives(stored, clock):
@@ -214,56 +209,69 @@ def test_each_screen_has_its_own(stored, clock):
     assert stored.hget(keys.frame("device-2"), "frame") == b"\xff" * FRAME_BYTES
 
 
-# --- through the real upload path: DisplayController on ServerTarget ----------------------------------------------
+# --- through the real upload path: the render, then DisplayController on ServerTarget -----------------------------
+
+
+def _render(code: str = "ABC123", device_id: str = DEVICE_ID) -> Outcome:
+    """Render a screen showing the pairing code `code`: a picture of its own for each code, read from nowhere."""
+    return render(device_id, AT, config=make_config(pairing_code=code))
+
+
+def _render_and_show(display: DisplayController, code: str = "ABC123") -> Outcome:
+    outcome = _render(code)
+    display.show(outcome.frame)
+    return outcome
 
 
 def test_each_new_picture_is_written_and_put(stored, clock, broker):
     display = DisplayController(_target())
 
-    # A landscape screen's picture isn't turned, so its panel bytes are what goes to the broker.
-    first = bytes(panel_bytes(show(display, frame())))
+    first = _render_and_show(display, "ABC123")
     clock.advance()
-    second = bytes(panel_bytes(show(display, frame("gray"))))
+    second = _render_and_show(display, "XYZ789")
 
-    assert _puts(broker) == [first, second]
-    assert stored.hget(KEY, "frame") == second
-    assert stored.hget(KEY, "etag") == frame_record.frame_etag(second).encode()
+    assert (first.result, second.result) == (Result.WRITTEN, Result.WRITTEN)
+    assert _puts(broker) == [first.data, second.data]
+    assert len(second.data) == FRAME_BYTES
+    assert stored.hget(KEY, "frame") == second.data
+    assert stored.hget(KEY, "etag") == second.etag.encode() == frame_record.frame_etag(second.data).encode()
     assert stored.hget(KEY, "rendered_at") == (AT + timedelta(seconds=60)).isoformat(timespec="milliseconds").encode()
 
 
 def test_an_unchanged_picture_writes_nothing(stored, clock, broker, monkeypatch):
     display = DisplayController(_target())
-    show(display, frame())
+    _render_and_show(display)
     written_at = stored.hget(KEY, "rendered_at")
     writes = _count_writes(monkeypatch)
 
     clock.advance()
-    show(display, frame())
-    show(display, frame())
+    outcomes = [_render_and_show(display), _render_and_show(display)]
 
     assert writes == [False, False]  # each checked, neither written
+    assert [outcome.result for outcome in outcomes] == [Result.UNCHANGED, Result.UNCHANGED]
     assert stored.hget(KEY, "rendered_at") == written_at
     assert len(_puts(broker)) == 1
 
 
 def test_an_unchanged_picture_puts_a_lost_record_back(stored, clock, broker):
     display = DisplayController(_target())
-    first = show(display, frame())
+    first = _render_and_show(display)
     stored.delete(KEY)  # Redis restarted, or the record lapsed after a day of the same picture
 
-    show(display, frame())
+    again = _render_and_show(display)
 
-    assert stored.hget(KEY, "frame") == bytes(panel_bytes(first))
+    assert again.result == Result.WRITTEN
+    assert stored.hget(KEY, "frame") == first.data
     assert len(_puts(broker)) == 1  # the broker has it: no PUT
 
 
 def test_renewing_a_pace_puts_again_but_writes_nothing(stored, clock, broker, monkeypatch):
     display = DisplayController(_target())
     display.set_pace(30)
-    show(display, frame())
+    _render_and_show(display)
     writes = _count_writes(monkeypatch)
 
-    show(display, frame())
+    _render_and_show(display)
 
     assert writes == [False]
     puts = [call for call in broker.calls if call.request.method == "PUT"]
@@ -271,29 +279,28 @@ def test_renewing_a_pace_puts_again_but_writes_nothing(stored, clock, broker, mo
 
 
 def test_a_frame_the_broker_cant_take_still_reaches_the_record(stored, clock):
-    expected = bytes(panel_bytes(show(DisplayController(FakeTarget()), frame())))
     with responses.RequestsMock() as rsps:
         rsps.put(FRAME_URL, status=503)
         display = DisplayController(_target())
 
         with pytest.raises(requests.HTTPError):  # the loop logs it and carries on, as before
-            show(display, frame())
+            _render_and_show(display)
 
-    assert stored.hget(KEY, "frame") == expected
+    assert stored.hget(KEY, "frame") == _render().data
 
 
 def test_a_store_that_cant_be_written_still_lets_the_frame_be_put(clock, broker, monkeypatch):
     monkeypatch.setattr(reader, "binary_store", _unreachable)
     logged = _patch_logger(monkeypatch)
 
-    assert _target().paint(_image(FIXTURE_FRAME)) is True
+    outcome = _render_and_show(DisplayController(_target()))
 
-    assert _puts(broker) == [FIXTURE_FRAME]
+    assert outcome.result == Result.UNRECORDED
+    assert _puts(broker) == [outcome.data]
     assert logged.warning.call_args.args == ("Couldn't write the frame to the store (%s)", "ConnectionError")
 
 
 def test_a_store_that_cant_be_written_is_tried_again_on_the_next_render(stored, clock, broker, monkeypatch):
-    target = _target()
     fail = SimpleNamespace(on=True)
     write = frame_record.write_if_changed
 
@@ -304,32 +311,43 @@ def test_a_store_that_cant_be_written_is_tried_again_on_the_next_render(stored, 
 
     monkeypatch.setattr(frame_record, "write_if_changed", flaky)
     _patch_logger(monkeypatch)
-    display = DisplayController(target)
-    image = show(display, frame())
+    display = DisplayController(_target())
+    first = _render_and_show(display)
     fail.on = False
 
-    show(display, frame())  # the same picture: renew() finds the record without it
+    again = _render_and_show(display)  # the same picture: the record hasn't got it
 
-    assert stored.hget(KEY, "frame") == bytes(panel_bytes(image))
+    assert (first.result, again.result) == (Result.UNRECORDED, Result.WRITTEN)
+    assert stored.hget(KEY, "frame") == first.data
 
 
 def test_without_a_store_there_is_only_the_put(clock, broker, monkeypatch):
     monkeypatch.setattr(reader, "binary_store", lambda: None)
 
+    outcome = _render_and_show(DisplayController(_target()))
+
+    assert outcome.result == Result.UNRECORDED
+    assert _puts(broker) == [outcome.data]
+
+
+def test_painting_puts_the_frame_without_writing_a_record_itself(stored, clock, broker):
+    """The record is the render's to write: the target only PUTs."""
     assert _target().paint(_image(FIXTURE_FRAME)) is True
 
     assert _puts(broker) == [FIXTURE_FRAME]
+    assert not stored.exists(KEY)
 
 
 def test_nothing_logged_says_what_the_frame_shows(clock, broker, monkeypatch):
     monkeypatch.setattr(reader, "binary_store", _unreachable)
     logged = _patch_logger(monkeypatch)
 
-    _target().paint(_image(FIXTURE_FRAME))
+    _render_and_show(DisplayController(_target()))
 
     for call in logged.method_calls:
         assert all(not isinstance(arg, bytes | bytearray) for arg in call.args)
         assert DEVICE_ID not in " ".join(str(arg) for arg in call.args)
+        assert "ABC123" not in " ".join(str(arg) for arg in call.args)
 
 
 def _unreachable() -> fakeredis.FakeRedis:
@@ -354,22 +372,11 @@ def _count_writes(monkeypatch) -> list[bool]:
 
 def _patch_logger(monkeypatch) -> MagicMock:
     logged = MagicMock()
-    monkeypatch.setattr(server_target, "logger", logged)
+    monkeypatch.setattr(render_module, "logger", logged)
     return logged
 
 
 # --- through the display loop -------------------------------------------------------------------------------------
-
-
-@pytest.fixture
-def symbols_font(monkeypatch):
-    """Stand in for Material Symbols, the one font the renderer downloads, with one it ships with (like no_network)."""
-    monkeypatch.setattr(
-        utils, "_cached_font", lambda url, filename: ImageFont.truetype(utils.FONTS_DIR / "Ubuntu-Regular.ttf")
-    )
-    utils.google_symbols.cache_clear()
-    yield
-    utils.google_symbols.cache_clear()  # don't leave the stand-in cached for other tests
 
 
 def test_the_display_loop_keeps_the_record_holding_what_it_put(store, stored, symbols_font, monkeypatch):
@@ -381,18 +388,17 @@ def test_the_display_loop_keeps_the_record_holding_what_it_put(store, stored, sy
     _put_stops_and_energy(store, "490000123W")
     broker_client = BrokerClient(registration)
     asyncio.run(broker_client.initialise())
-    pairing_code_panel = broker_client.get_pairing_code_panel(ConfigResponse.model_validate(_app_config_json()))
-    loop = DisplayLoop(broker_client, config, pairing_code_panel, DisplayController(ServerTarget(registration)))
+    monkeypatch.setattr(broker_client, "get_config", lambda: config)
     sleeps: list[float] = []
 
     async def fake_sleep(seconds: float) -> None:
         sleeps.append(seconds)
         if len(sleeps) == 1:
-            stored.delete(key)  # lost between two cycles: the second puts it back, changed picture or not
+            stored.delete(key)  # lost between two renders: the second puts it back, changed picture or not
         else:
             raise _StopLoopError
 
-    monkeypatch.setattr(display_loop, "asyncio", SimpleNamespace(sleep=fake_sleep))
+    loop = DisplayLoop(broker_client, config, DisplayController(ServerTarget(registration)), sleep=fake_sleep)
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
         rsps.put(FRAME_URL, status=204)
         with pytest.raises(_StopLoopError):

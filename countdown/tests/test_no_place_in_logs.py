@@ -21,10 +21,9 @@ from location_factory import FakeLocations
 from redis.exceptions import RedisError
 from test_utils import REGISTRATION
 
-from countdown_core.core import log_format
+from countdown_core.core import log_format, moment
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.notices import location, norway
-from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.location import lookup_postcode, postcode_coordinates
 from countdown_core.notices.models import FloodWarningsResponse
 from countdown_core.notices.norway import ADDRESSES_URL, lookup_norwegian_postcode
@@ -174,7 +173,8 @@ def clock(monkeypatch):
         def now(cls, tz=None):
             return NOW
 
-    monkeypatch.setattr(board_module, "datetime", FrozenDatetime)
+    # The moment the board draws at (core.moment), as a render sets it.
+    monkeypatch.setattr(moment, "now", lambda: FrozenDatetime.now(UTC))
 
 
 def put_location(store, postcode: str, place: Postcode) -> None:

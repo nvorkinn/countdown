@@ -1,28 +1,26 @@
 """The refresh pace: a provider asks for a faster refresh, and it reaches the loop, the target and the broker.
 
-Provider -> store (`v1:pace:...`, with a TTL) -> ApiRegistry.pace() -> DisplayLoop -> DisplayController -> ServerTarget
--> `X-Refresh-Hint` on the frame upload. The providers' side is in test_provider_runner.py.
+Provider -> store (`v1:pace:...`, with a TTL) -> DisplayLoop (display_loop.read_pace, rendering every PACED_RENDER_S
+while there's one) -> DisplayController -> ServerTarget -> `X-Refresh-Hint` on the frame upload, for brokers that still
+read it (the broker reads the pace keys itself now). The providers' side is in test_provider_runner.py.
 """
 
 import asyncio
+from datetime import datetime
 from pathlib import Path
-from types import SimpleNamespace
 
 import fakeredis
 import pytest
 import responses
-from config_factory import make_config
 from fake_target import FakeTarget
 from PIL import Image
 from test_display_controller import frame, show
 from test_utils import REGISTRATION
 
 from countdown_core.core.abstract_client import AbstractClient
-from countdown_core.core.api_registry import API_NAMES, ApiRegistry
 from countdown_core.core.display import DisplayController
-from countdown_core.core.display_loop import MIN_PACE_S, DisplayLoop
+from countdown_core.core.display_loop import MIN_PACE_S, PACED_RENDER_S, next_render, read_pace
 from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
-from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.store import keys, reader
 from countdown_core.store.developer import StoredDeveloper
 from countdown_credentials.registration import RendererRegistration
@@ -91,30 +89,27 @@ def test_clients_ask_for_no_pace_unless_they_say(store):
     assert AbstractClient.pace_keys(developer_client()) == []
 
 
-# --- the registry ---------------------------------------------------------------------------------------------
+# --- the loop: reading the pace, and rendering faster while there is one -------------------------------------------
 
 
-def registry_with_developer() -> ApiRegistry:
-    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
-    registry.clients["developer"] = developer_client()
-    return registry
-
-
-def test_the_registry_reports_the_pace_a_provider_asks_for(store):
+def test_the_loop_reads_the_pace_a_provider_asks_for(store):
     store.set(PACE_KEY, "20", ex=60)
 
-    assert asyncio.run(registry_with_developer().pace()) == 20
+    assert asyncio.run(read_pace([PACE_KEY])) == 20
 
 
-def test_the_registry_reports_none_once_the_pace_lapses(store):
-    assert asyncio.run(registry_with_developer().pace()) is None
+def test_the_loop_reads_none_once_the_pace_lapses(store):
+    assert asyncio.run(read_pace([PACE_KEY])) is None
 
 
-def test_the_registry_reports_none_without_a_store(store, monkeypatch):
-    registry = registry_with_developer()
+def test_the_loop_reads_none_without_keys_to_read(store):
+    assert asyncio.run(read_pace([])) is None
+
+
+def test_the_loop_reads_none_without_a_store(store, monkeypatch):
     monkeypatch.setattr(reader, "store", lambda: None)
 
-    assert asyncio.run(registry.pace()) is None
+    assert asyncio.run(read_pace([PACE_KEY])) is None
 
 
 def test_a_store_that_cant_be_read_is_no_pace(monkeypatch, store):
@@ -123,33 +118,31 @@ def test_a_store_that_cant_be_read_is_no_pace(monkeypatch, store):
 
     monkeypatch.setattr(reader, "fastest_pace", unreachable)
 
-    assert asyncio.run(registry_with_developer().pace()) is None
+    assert asyncio.run(read_pace([PACE_KEY])) is None
 
 
-# --- the loop's sleep --------------------------------------------------------------------------------------------
-
-
-def loop_at(interval: int, pace: int | None) -> DisplayLoop:
-    config = make_config()
-    config.interval = interval
-    loop = DisplayLoop(SimpleNamespace(registration=REGISTRATION), config, None, DisplayController(FakeTarget()))
-    loop._pace = pace  # what the last cycle read
-    return loop
+def at(text: str) -> datetime:
+    return datetime.fromisoformat(f"2026-10-18T{text}+00:00")
 
 
 @pytest.mark.parametrize(
-    ("interval", "pace", "sleeps"),
+    ("now", "paced", "due"),
     [
-        (60, None, 60),  # nothing asks: the usual
-        (60, 20, 20),  # a release: faster
-        (60, 45, 45),
-        (60, 5, MIN_PACE_S),  # never faster than the floor
-        (60, 300, 60),  # never slower than the usual
-        (0, 20, 0),  # an interval of 0 still ends the loop after the cycle
+        ("12:00:00", False, "12:01:00"),  # on the minute: the next one
+        ("12:00:00.001", False, "12:01:00"),
+        ("12:00:59.999", False, "12:01:00"),
+        ("12:00:00", True, "12:00:20"),  # a pace: every PACED_RENDER_S, on its multiples
+        ("12:00:19.5", True, "12:00:20"),
+        ("12:00:20", True, "12:00:40"),
+        ("12:00:45", True, "12:01:00"),  # which land on the minute too
     ],
 )
-def test_the_loop_sleeps_the_shorter_of_the_interval_and_the_pace(interval, pace, sleeps):
-    assert loop_at(interval, pace).sleep_s() == sleeps
+def test_the_next_render_is_on_the_next_minute_or_while_paced_the_next_20_s(now, paced, due):
+    assert next_render(at(now), paced=paced) == at(due)
+
+
+def test_the_paced_renders_are_the_floor():
+    assert PACED_RENDER_S == MIN_PACE_S == 20
 
 
 # --- the controller and the targets --------------------------------------------------------------------------

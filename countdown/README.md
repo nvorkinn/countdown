@@ -26,28 +26,44 @@ it keeps retrying, backing off from 30 seconds to 5 minutes. Nothing is painted
 until it has a config. Once it's running, a failed config refresh just keeps the
 config it already has.
 
-**The loop** (`display_loop.py`). Every `interval` seconds (the broker's 60; nobody sets it any more), or sooner
-while a provider asks for a faster refresh (see [The pace](#the-pace)), the device is in one of two stages:
+**The render** (`render.py`). Every frame is one call of `render(device_id, now)`, which runs to completion: it reads
+the screen's config, sets its language and time zone, builds the clients fresh, has them read their keys, draws the
+frame as of `now`, hashes it, writes it to the screen's record in the store if the hash changed (see "The frame
+record" below), and returns what happened (an `Outcome`: the frame, whether it was written, the
+clients' statuses, the panels drawn "Not available"). It has no sleeps, no loops beyond its panels and starts no
+threads, and it keeps nothing between calls but the read-only caches (fonts, translations, the Redis clients). Every
+"now" a panel goes by (the page it shows, the minutes to a departure, the energy panel's windows, which notices are in
+force, whose turn the Spotify area is) is the render's `now` (`core/moment.py`), so the same inputs draw the same
+frame. With a pairing code in the config the frame is the pairing screen, drawn full screen. The pool of render
+workers will call the same function (see [Stateless renderers](docs/stateless-renderers.md)).
 
-- *pairing*: the config carries a pairing code, so the device shows it full
-  screen. It's only repainted when the code changes.
-- *running*: the dashboard.
+**The loop** (`display_loop.py`). Until the pool takes over, each screen's renderer calls the render itself:
+
+- on the minute, every minute, as the pages turn on the minute;
+- at once, when the broker says the screen's config changed (the nudge, see [The config](#the-config));
+- every 20 s (`PACED_RENDER_S`, on its multiples since the epoch, so on the minute too) while a provider's pace key is
+  live (see [The pace](#the-pace)).
+
+Before each render it re-reads the config, from the store or else from the broker (which is also how a pairing code
+reaches it). It hands each frame to the display target, which PUTs it to the broker beside the record, and the
+clients' statuses and the stage (*pairing* or *running*) to the metrics. A client that fails other than by its key
+expiring (Redis not answering, say) draws the panel the last render drew for it (the render's `previous`), as long as
+the config's section for it and the language haven't changed since; otherwise its area says it could not connect.
 
 ### The pace
 
-How often the screen refreshes is not a setting: the providers decide. A provider whose data can turn bursty (the
-developer provider, while a release runs) writes `v1:pace:<source>:<id>` to the store with a ~1 minute TTL, holding the
-seconds it wants (see `countdown_core/store/keys.py`). Each cycle the renderer takes the fastest of those its clients
-watch (`AbstractClient.pace_keys`, `ApiRegistry.pace`), sleeps that long (never under 20 s, never over the
-config's interval: `DisplayLoop.sleep_s`), and tells the target (`DisplayTarget.set_pace`). The server target sends it
-with each frame as `X-Refresh-Hint`, and again with the same frame when the picture hasn't changed (`renew`), so the
-broker keeps answering the screen's polls with it as `Retry-After`. When the provider stops asking, the key lapses, the
-header stops, and everything is back to the usual within a lease. Providers that can ask define
-`pace(item_id, fetched)` (see `countdown_providers/provider.py`).
+How often the screen polls is the broker's business alone: auth-broker's pacing function (`services/pace.py`,
+`sleep_s`) works out every `Retry-After` from the server's clock, polling twice a minute just after each render
+boundary, and faster while a provider asks. A provider whose data can turn bursty (the developer provider, while a
+release runs) writes `v1:pace:<source>:<id>` to the store with a ~1 minute TTL, holding the seconds it wants (see
+`countdown_core/store/keys.py`), and the broker reads the screen's pace keys itself.
 
-After each cycle the loop publishes health over OTLP (see
-[Metrics](#metrics)) and re-reads the config, from the store or else from the broker, as soon as the broker says it
-changed, or at the latest when the cycle's interval is up.
+The renderer's only part is to have a frame there to fetch: while any of its clients' pace keys is live
+(`AbstractClient.pace_keys`, read by `display_loop.read_pace`), it renders every 20 s instead of every minute. It still
+passes the pace on to the target (`DisplayTarget.set_pace`), which sends it with each frame as `X-Refresh-Hint`, and
+again with the same frame while the picture hasn't changed (`renew`), for a broker that still reads the header (the
+broker counts it as a legacy hint until every screen is on the pool, which removes it). Providers that can ask define
+`pace(item_id, fetched)` (see `countdown_providers/provider.py`).
 
 ### The config
 
@@ -62,7 +78,7 @@ auth-broker's tests read.
 - **The nudge.** After changing a device's key the broker publishes the device id on `v1:config:changed`. The
   `ConfigWatcher` (`store/config.py`), which the app starts with the loop when it has `REDIS_URL`, listens for its
   own id and cuts the loop's wait short, so a save on the settings page is drawn at once rather than at the next
-  interval. A nudge missed while Redis was away only delays the change until the next cycle, which reads the key
+  minute. A nudge missed while Redis was away only delays the change until the next render, which reads the key
   anyway.
 - **The fallback.** With no key for the device, the renderer asks `GET /api/config` as before: an older broker that
   writes none, a renderer with no store (no `REDIS_URL`), a Redis that doesn't answer, or a stored value that doesn't
@@ -70,8 +86,9 @@ auth-broker's tests read.
   that isn't paired or has a code to show, as only `GET /api/config` gives (and issues) the code. Once the device is
   paired the broker writes the key and nudges, and the renderer moves to the store; the log says each time it moves.
 - **The pace.** Nothing in `GET /api/config`'s response headers reaches the renderer, so nothing had to be carried
-  over: the base `interval` is in the body, and so in the stored value, and a faster pace comes from the providers'
-  `v1:pace:` keys and goes out on the frame upload (see [The pace](#the-pace)), never through the config.
+  over. The config's `interval` is in the body, and so in the stored value, but the renderer no longer goes by it: it
+  renders on the minute. A faster pace comes from the providers' `v1:pace:` keys (see [The pace](#the-pace)), never
+  through the config.
 
 To deploy: auth-broker's side first (it writes keys nothing reads yet), then a release of this; the other order works
 too, with the renderers asking the broker until its keys are there. To check the keys, on the host:
@@ -87,9 +104,9 @@ lists one per paired screen; a renderer's log says "Reading the config from the 
 `07:21` / `18:04` or `7:21 AM` / `6:04 PM`, including `12:00 AM` at midnight and `12:00 PM`
 at noon. This covers portrait weather sunrise/sunset and overnight windows, hourly energy
 chart labels, Met Office warning expiry and clock-change reminders (which previously always
-used compact `1am` / `2am` text). A change takes effect on the next dashboard frame after the
-normal config refresh, including cached panels; it does not restart clients, reset the weather
-carousel or change polling. Layouts receive the preference per frame and do not store it.
+used compact `1am` / `2am` text). A change takes effect on the next frame: every render draws its panels
+afresh with the config's choice, and it doesn't move the weather carousel, which goes by the clock.
+Layouts receive the preference per frame and do not store it.
 Times stay in their data source's time zone. Durations (including arrival countdowns), API
 timestamps/parameters, logs and upstream free-form notice text are not rewritten.
 
@@ -113,16 +130,12 @@ notice board reads its bank holidays (`v1:notices:bank-holidays`), the Met Offic
 (`v1:notices:met-office:<place>`), the Environment Agency's flood warnings (`v1:notices:floods:<place>`), Entur's
 disruptions (`v1:notices:entur:<stop id>`) and TfL's disruptions (`v1:notices:tfl-*`) from the store too; its other
 sources still call their APIs.
-`ApiRegistry` builds a client for every API the config enables.
-When the config changes, it only rebuilds the clients whose `needs_refresh()`
-says the change affects them. Each client has its own `poll_interval`. The
-clients that are due are polled concurrently, with their blocking `requests`
-calls running in worker threads, so a cycle takes as long as the slowest API.
-A client that isn't due, or whose poll failed (Redis not answering, say), keeps its last panel; one whose key in the
-store has expired returns a `MessagePanel` saying "Not available" instead (`AbstractClient.update`), so nothing older
-than its provider's TTL is drawn. An API with no panel at all gets a `MessagePanel` ("Not configured", "Could not
-connect"). A client that failed to initialise tries again on its next poll, and
-one broken API never takes the others down.
+Each render builds an `ApiRegistry` afresh: a client for every API the config enables, each read once, one after
+another, in the render's own thread (`AbstractClient.poll`), and all of them dropped when the render ends. A client
+whose key in the store has expired returns a `MessagePanel` saying "Not available" (and the render counts it in
+`Outcome.expired`), so nothing older than its provider's TTL is drawn. One whose read failed (Redis not answering, say)
+gives the last render's panel, if its caller kept one (see "The loop" above). An API with no panel at all gets
+a `MessagePanel` ("Not configured", "Could not connect"), and one broken API never takes the others down.
 
 **Notice board** (`notice_board_client.py`, `notices/`). This covers TfL line
 status and station disruptions for the configured stops, Met Office warnings,
@@ -138,7 +151,7 @@ ranked by severity, and planned works only fill rows left over. The flood warnin
 (`v1:notices:floods:<place>`), which the floods provider fills from the Environment Agency; the board makes its notices
 from what's there as it reads it.
 
-**Layout** (`rendering/`). For every frame, `DisplayController` asks `LAYOUTS` (a `LayoutRegistry`) for a
+**Layout** (`rendering/`). For every frame, the render asks `LAYOUTS` (a `LayoutRegistry`) for a
 layout, and keeps nothing about the answer. Layouts are registered by the canvas they draw
 on: the screen in the config, as it's hung, so 800x480 landscape or 480x800 portrait. A
 canvas with no layouts yet gets the 800x480 ones. Several layouts can share a canvas (the
@@ -153,13 +166,13 @@ two), so it's picked before the clients are polled, and the TfL client pages thr
 
 **Pages turn with the clock** (`core/rotation.py`). Every panel that rotates (the stops, the weather's tabs, the
 energy panel's three windows, the Spotify area's player and top lists) shows page *minute since the epoch mod its
-number of pages*, worked out when the client is polled. So every screen turns its pages together, on the minute, two
-polls in the same minute show the same page, and nothing about the rotation is kept: a client rebuilt by a config
-change carries on at the clock's page rather than starting again at the first. When Spotify's page has nothing to
+number of pages*, worked out from the render's `now`. So every screen turns its pages together, on the minute, two
+renders in the same minute show the same page, and nothing about the rotation is kept: a config change carries on at
+the clock's page rather than starting again at the first. When Spotify's page has nothing to
 show, the next one is drawn in its place.
 
-**Painting** (`core/display.py`, `core/targets.py`). `DisplayController`
-only paints when the picture changes. If only the arrivals changed, it does a
+**Painting** (`core/display.py`, `core/targets.py`). The loop hands each frame the render drew to
+`DisplayController`, which only paints when the picture changes. If only the arrivals changed, it does a
 quick partial refresh of their box. Otherwise, or once 10 minutes have passed
 since the last full refresh (partial refreshes leave ghosting), it does a full
 refresh. If every API only has a message to show, a "Nothing to show yet" screen
@@ -168,17 +181,16 @@ hung; a vertical screen's 480x800 frame is turned a quarter into the panel's own
 picture before it's painted (`rendering.to_native`), and the pairing and "Nothing to show
 yet" screens are drawn smaller to fit its width. Until a 480x800 layout exists, a vertical
 screen's dashboard is still the landscape one. Frames go to a display target: `ServerTarget` hands each one to the broker for
-the screen to fetch. If the target can't take a frame, the app carries on, and a
-whole-screen picture it couldn't paint (pairing code, checklist) is retried
-every cycle until it can.
+the screen to fetch. If the target can't take a frame, the app carries on, and the next render's frame is painted
+whatever it is, as nothing is known to be on the screen.
 
-**The frame record** (`store/frame_record.py`). `ServerTarget` hands each frame over twice: it writes the picture to
-the screen's record in the store, `v1:frame:<device id>`, and PUTs it to `PUT /api/frame` as before. The record is
-written only when the frame's hash isn't the record's `etag` (one small read, and no write for an unchanged picture),
-and checked again every cycle the picture stays the same, so a record that was lost (Redis restarted, or a day of the
-same picture outlived its TTL) is put back. A broker that reads the record serves it to the screen when it's there and
-newer than what was PUT; an older one ignores it. Redis not answering is logged by the error's type and changes nothing
-else: the PUT still goes. `tests/fixtures/frame_record.json` and `frame_record.bin` pin the record; auth-broker's tests
+**The frame record** (`store/frame_record.py`). Each frame reaches the broker twice: the render writes the picture to
+the screen's record in the store, `v1:frame:<device id>`, and `ServerTarget` PUTs it to `PUT /api/frame` as before. The
+record is written only when the frame's hash isn't the record's `etag` (one small read, and no write for an unchanged
+picture), and checked again by every render, so a record that was lost (Redis restarted, or a day of the same picture
+outlived its TTL) is put back. A broker that reads the record serves it to the screen when it's there and newer than
+what was PUT; an older one ignores it. Redis not answering is logged by the error's type (the render's result is
+`unrecorded`) and changes nothing else: the PUT still goes. `tests/fixtures/frame_record.json` and `frame_record.bin` pin the record; auth-broker's tests
 read the same files. To check the records, on the host:
 
 ```sh
@@ -212,8 +224,7 @@ This directory is a uv workspace:
 The monochrome weather panel rotates through **Now, Tonight, Tomorrow and Weekend**. A filled pill
 marks the selected tab; narrow landscape panels abbreviate the labels. Each time the weather client
 is asked to update, it returns the tab for the minute (see "Pages turn with the clock" above), so the
-tabs come round once every four minutes. Rendering a frame doesn't change it, and the registry keeps the
-current tab while the client is not due for a poll.
+tabs come round once every four minutes. Two renders in the same minute draw the same tab.
 
 The rotation uses the eight-day Open-Meteo forecast the weather provider stores for the place (under the config's
 `weather.key`, see the providers' README, "Weather"), read on every poll, so nothing of it is kept. Once its key has
@@ -457,7 +468,8 @@ OpenTelemetry Python SDK) to the host's Fluent Bit OpenTelemetry input at
 `http://127.0.0.1:4318/v1/metrics`, tagged with `host.name` (the `DEVICE_NAME`
 setting, else the hostname). Gauges:
 
-- `countdown.api.status`: 1 per API, with `api` and `status` attributes
+- `countdown.api.status`: 1 per API, with `api` and `status` attributes: each client's status as of the last render
+  (`Outcome.statuses`; an API with no client is `disabled`)
 - `countdown.problem`: 1 while any API is in `error` or `fatal`
 - `countdown.stage`: 1, with a `stage` attribute
 - `countdown.display.connected`: whether the screen is connected

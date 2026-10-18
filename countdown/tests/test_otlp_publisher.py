@@ -12,9 +12,8 @@ from types import SimpleNamespace
 import pytest
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceRequest
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-from test_utils import REGISTRATION
 
-from countdown_core.core.abstract_client import AbstractClient, ClientStatus
+from countdown_core.core.abstract_client import ClientStatus
 from countdown_core.home_assistant import otlp_publisher
 from countdown_core.home_assistant.device_status import DeviceStatus
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
@@ -22,18 +21,6 @@ from countdown_credentials import device_name
 
 API_NAMES = ["glowmarkt", "tfl"]
 NOW = 1_700_000_000_000_000_000
-
-
-class StubClient(AbstractClient):
-    def __init__(self, status: ClientStatus):
-        super().__init__(REGISTRATION)
-        self.status = status
-
-    def _initialise(self) -> None:
-        pass
-
-    def _update(self):
-        pass
 
 
 def started(pub: OtlpPublisher) -> OtlpPublisher:
@@ -51,10 +38,11 @@ def reader():
     return InMemoryMetricReader()
 
 
-def publisher(reader, clients=None, **kwargs) -> OtlpPublisher:
+def publisher(reader, statuses=None, **kwargs) -> OtlpPublisher:
+    """Start a publisher, with the API clients' `statuses` as the last render handed them over (render.Outcome)."""
     pub = OtlpPublisher(API_NAMES, device_name="sister-hat", reader=reader, **kwargs)
-    if clients is not None:
-        pub.clients = clients
+    if statuses is not None:
+        pub.statuses = statuses
     return started(pub)
 
 
@@ -83,10 +71,10 @@ def test_the_resource_names_the_service_and_device(reader):
     assert attributes["host.name"] == "sister-hat"
 
 
-def test_before_there_are_any_clients_every_api_reads_as_disabled(reader):
+def test_before_the_first_render_every_api_reads_as_disabled(reader):
     pub = publisher(reader)
 
-    assert pub.clients == {}
+    assert pub.statuses == {}
     assert metrics(reader)["countdown.api.status"] == [
         {"api": "glowmarkt", "status": "disabled", "value": 1},
         {"api": "tfl", "status": "disabled", "value": 1},
@@ -94,8 +82,8 @@ def test_before_there_are_any_clients_every_api_reads_as_disabled(reader):
     assert metrics(reader)["countdown.problem"] == [{"value": 0}]
 
 
-def test_each_clients_status_is_reported(reader):
-    publisher(reader, {"glowmarkt": StubClient(ClientStatus.CONNECTED), "tfl": StubClient(ClientStatus.UNINITIALISED)})
+def test_each_apis_status_is_reported(reader):
+    publisher(reader, {"glowmarkt": ClientStatus.CONNECTED, "tfl": ClientStatus.UNINITIALISED})
 
     assert metrics(reader)["countdown.api.status"] == [
         {"api": "glowmarkt", "status": "connected", "value": 1},
@@ -104,24 +92,23 @@ def test_each_clients_status_is_reported(reader):
 
 
 def test_an_api_with_no_client_reads_as_disabled(reader):
-    publisher(reader, {"tfl": StubClient(ClientStatus.CONNECTED)})
+    publisher(reader, {"tfl": ClientStatus.CONNECTED})
 
     assert metrics(reader)["countdown.api.status"][0] == {"api": "glowmarkt", "status": "disabled", "value": 1}
 
 
 @pytest.mark.parametrize("status", [ClientStatus.ERROR, ClientStatus.FATAL])
 def test_problem_is_set_while_any_api_is_in_error(reader, status):
-    publisher(reader, {"glowmarkt": StubClient(ClientStatus.CONNECTED), "tfl": StubClient(status)})
+    publisher(reader, {"glowmarkt": ClientStatus.CONNECTED, "tfl": status})
 
     assert metrics(reader)["countdown.problem"] == [{"value": 1}]
 
 
-def test_metrics_follow_the_clients_as_they_change(reader):
-    tfl = StubClient(ClientStatus.CONNECTED)
-    publisher(reader, {"tfl": tfl})
+def test_metrics_follow_each_renders_statuses(reader):
+    pub = publisher(reader, {"tfl": ClientStatus.CONNECTED})
     assert metrics(reader)["countdown.problem"] == [{"value": 0}]
 
-    tfl.status = ClientStatus.ERROR
+    pub.statuses = {"tfl": ClientStatus.ERROR}  # the next render's
 
     assert metrics(reader)["countdown.problem"] == [{"value": 1}]
 

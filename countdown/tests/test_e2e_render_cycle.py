@@ -1,11 +1,11 @@
 """End-to-end tests for the display refresh cycle, through to a rendered image.
 
-The real clients and ApiRegistry run inside DisplayLoop.run(), reading a fake store (conftest's `store`) that the
-tests fill as the providers would, with any other HTTP (the broker, the notices) mocked with `responses`.
+DisplayLoop.run() calls the render (render.render), which builds the real clients afresh each time, reading a fake
+store (conftest's `store`) that the tests fill as the providers would, with any other HTTP (the broker, the notices)
+mocked with `responses`.
 
-`asyncio.sleep` is replaced by a fake that raises after N calls (see _run_cycles()). Most
-tests leave the broker's /config unmocked, so refreshing the config fails and is swallowed,
-and the loop carries on with the config it was built with.
+The loop's sleep is a fake that raises after N calls (see _run_cycles()). Most tests leave the broker's /config
+unmocked, so refreshing the config fails and is swallowed, and the loop carries on with the config it was built with.
 """
 
 import asyncio
@@ -14,7 +14,6 @@ import io
 import json
 import logging
 import socket
-from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -28,12 +27,14 @@ from weather_factory import forecast_json
 
 from countdown_api.models import ConfigResponse, Screen
 from countdown_core import i18n
+from countdown_core import render as render_module
 from countdown_core.config_server.broker_client import BrokerClient
-from countdown_core.core import display as display_module
 from countdown_core.core import display_loop
+from countdown_core.core.api_registry import API_NAMES
 from countdown_core.core.display import DisplayController
 from countdown_core.core.display_loop import DisplayLoop
 from countdown_core.glow.energy_panel import EnergyPanel
+from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
@@ -52,6 +53,9 @@ from countdown_credentials.registration import RendererRegistration
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+# Material Symbols stood in for (conftest), so every frame draws offline too: these are about what's drawn when.
+pytestmark = pytest.mark.usefixtures("symbols_font")
 
 TEST_BROKER_URL = "https://broker.example.com"
 DEVICE_ID = "test-device"
@@ -153,9 +157,9 @@ def _make_config() -> ConfigResponse:
 def _build_loop(config: ConfigResponse, monkeypatch, pairing_code: str | None = None) -> DisplayLoop:
     broker = BrokerClient(RendererRegistration(TEST_BROKER_URL, "test-secret", DEVICE_ID))
     asyncio.run(broker.initialise())
-    # Via get_pairing_code_panel, to seed the broker's cache like fetch_app_config() does.
-    pairing_code_panel = broker.get_pairing_code_panel(ConfigResponse.model_validate(_app_config_json(pairing_code)))
-    return DisplayLoop(broker, config, pairing_code_panel, DisplayController(FakeTarget()))
+    if pairing_code is not None:
+        config = config.model_copy(update={"pairing_code": pairing_code})
+    return DisplayLoop(broker, config, DisplayController(FakeTarget()), OtlpPublisher(API_NAMES))
 
 
 def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]:
@@ -164,15 +168,15 @@ def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]
     The frame is still drawn and shown for real, so the whole render path is exercised too.
     """
     seen: list[dict] = []
-    original = display_module.render
+    original = render_module.draw
 
-    def spy(panels, screen, available, *, clock_format="24h"):
+    def spy(panels, screen, available, *, clock_format="24h", now=None):
         seen.append(dict(panels))
         if layouts is not None:
             layouts.append(type(layout_for(screen, available)[0]))
-        return original(panels, screen, available, clock_format=clock_format)
+        return original(panels, screen, available, clock_format=clock_format, now=now)
 
-    monkeypatch.setattr(display_module, "render", spy)
+    monkeypatch.setattr(render_module, "draw", spy)
     return seen
 
 
@@ -189,7 +193,7 @@ def _run_cycles(loop: DisplayLoop, monkeypatch, cycles: int = 1) -> None:
         if len(sleeps) >= cycles:
             raise _StopLoopError
 
-    monkeypatch.setattr(display_loop, "asyncio", SimpleNamespace(sleep=fake_sleep))
+    loop._sleep = fake_sleep
     with pytest.raises(_StopLoopError):
         asyncio.run(loop.run())
 
@@ -248,7 +252,7 @@ def test_full_render_cycle_skips_glowmarkt_when_switched_off(isolated_cwd, monke
     _run_cycles(loop, monkeypatch)
 
     assert keys.energy(DEVICE_ID) not in reads
-    assert "glowmarkt" not in loop.api_reg.clients  # never built while switched off
+    assert "glowmarkt" not in loop.last.statuses  # never built while switched off
     assert shown[0]["glowmarkt"].message == "Not configured"
     assert len(shown[0]["tfl"].arrival_panels) == 1
 
@@ -339,12 +343,8 @@ def test_one_provider_being_down_does_not_stop_the_others_reaching_the_screen(is
 
 
 @responses.activate
-def test_later_cycles_reuse_client_state_and_keep_slow_panels_on_screen(isolated_cwd, monkeypatch, store, reads):
-    """Clients live for the whole run.
-
-    On the second cycle the energy and departures clients aren't due yet, so they don't read the store again, but
-    their last panels are still drawn.
-    """
+def test_every_render_builds_its_clients_afresh_and_reads_the_store_again(isolated_cwd, monkeypatch, store, reads):
+    """Nothing is kept from one render to the next: each reads what it draws from the store."""
     config = _make_config()
     stops = [BUS_STOP, TUBE_STATION, "490000456X", "940GZZLUABC"]
     config.tfl.stop_ids = stops
@@ -355,32 +355,25 @@ def test_later_cycles_reuse_client_state_and_keep_slow_panels_on_screen(isolated
     _run_cycles(loop, monkeypatch, cycles=2)
 
     assert len(shown) == 2
-    assert reads.count(keys.energy(DEVICE_ID)) == 1  # not due again yet
-    assert sum(key.startswith("v1:departures:") for key in reads) == loop.api_reg.clients["tfl"].stops_per_update
-    assert shown[1]["glowmarkt"] is shown[0]["glowmarkt"]
-    assert shown[1]["tfl"] is shown[0]["tfl"]
+    assert reads.count(keys.energy(DEVICE_ID)) == 2
+    assert shown[1]["glowmarkt"] is not shown[0]["glowmarkt"]
+    assert shown[1]["tfl"] is not shown[0]["tfl"]
 
 
 @responses.activate
 def test_run_shows_pairing_screen_and_skips_normal_display_while_unpaired(isolated_cwd, monkeypatch):
-    """While a pairing code is active, run() shouldn't fetch anything or paint the normal screen.
+    """While a pairing code is active, run() shouldn't fetch anything or draw the dashboard.
 
     Nothing is mocked, so any request would fail.
     """
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
     shown = _spy_on_frames(monkeypatch)
-    pairing_screens = []
-    monkeypatch.setattr(
-        loop.display,
-        "display_pairing_screen",
-        lambda panel, screen: pairing_screens.append((panel.pairing_code, panel.device_id)),
-    )
 
     _run_cycles(loop, monkeypatch)
 
-    assert pairing_screens == [("ABC123", DEVICE_ID)]
+    assert loop.display.target.paints == [None]  # the pairing screen, in full
     assert shown == []
-    assert loop.api_reg.panels == {}
+    assert loop.last is None
     assert len(responses.calls) == 0
 
 
@@ -388,8 +381,7 @@ def test_run_shows_pairing_screen_and_skips_normal_display_while_unpaired(isolat
 def test_run_only_repaints_pairing_screen_when_code_changes(isolated_cwd, monkeypatch):
     """An unchanged pairing code isn't repainted.
 
-    /config is mocked here (always the same code), so each cycle really re-derives the panel through BrokerClient's
-    cache.
+    /config is mocked here (always the same code), so each cycle really re-reads it from the broker.
     """
     responses.add(
         responses.GET,
@@ -397,20 +389,15 @@ def test_run_only_repaints_pairing_screen_when_code_changes(isolated_cwd, monkey
         json=_app_config_json(pairing_code="ABC123"),
     )
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-    screens_shown = []
-    monkeypatch.setattr(
-        loop.display, "display_pairing_screen", lambda panel, screen: screens_shown.append(panel.pairing_code)
-    )
 
-    # cycle 1: pairing_code_panel seeded by _build_loop, has_changed=True -> repaint
-    # cycle 2: refresh_broker_config() re-fetched the same code -> has_changed=False -> no repaint
     _run_cycles(loop, monkeypatch, cycles=2)
 
-    assert screens_shown == ["ABC123"]
+    assert loop.display.target.paints == [None]
+    assert loop.display.target.renewals == 1
 
 
 @responses.activate
-def test_refresh_broker_config_applies_the_new_interval_and_pairing_state(isolated_cwd, monkeypatch):
+def test_refresh_broker_config_applies_the_new_config_and_pairing_state(isolated_cwd, monkeypatch):
     responses.add(
         responses.GET,
         f"{TEST_BROKER_URL}/api/config",
@@ -420,10 +407,8 @@ def test_refresh_broker_config_applies_the_new_interval_and_pairing_state(isolat
 
     asyncio.run(loop.refresh_broker_config())
 
-    assert loop.interval == 42
     assert loop.config.interval == 42
-    assert loop.pairing_code_panel.pairing_code is None  # the device just got paired
-    assert loop.pairing_code_panel.has_changed is True
+    assert loop.config.pairing_code is None  # the device just got paired
 
 
 @responses.activate
@@ -447,7 +432,7 @@ def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isola
 
 @responses.activate
 @pytest.mark.parametrize("orientation", ["horizontal", "vertical"])
-def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orientation, monkeypatch, store, reads):
+def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monkeypatch, store, reads):
     config = _make_config()
     config.screen.orientation = orientation
     config.tfl.stop_ids = [BUS_STOP]
@@ -468,31 +453,26 @@ def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orie
     )
     monkeypatch.setattr(NoticeBoardClient, "_update", lambda self: notice_panel)
     loop = _build_loop(config, monkeypatch)
+    # The same moment for each render, as if each came at once (as a nudge's does): only the clock format differs.
+    stopped = datetime.datetime.now(datetime.UTC)
+    loop._clock = lambda: stopped
+    monkeypatch.setattr(display_loop, "next_render", lambda now, *, paced: now)
     texts, frames = [], []
     original_text = ImageDraw.ImageDraw.text
-    original_render = display_module.render
+    original_render = render_module.draw
 
     def record_text(draw, xy, text, *args, **kwargs):
         texts.append(text)
         return original_text(draw, xy, text, *args, **kwargs)
 
-    def record_frame(panels, screen, available, *, clock_format="24h"):
+    def record_frame(panels, screen, available, *, clock_format="24h", now=None):
         texts.clear()
-        frame = original_render(panels, screen, available, clock_format=clock_format)
-        frames.append(
-            (
-                dict(panels),
-                clock_format,
-                frame,
-                set(texts),
-                dict(loop.api_reg.clients),
-                {name: c.last_updated for name, c in loop.api_reg.clients.items()},
-            )
-        )
+        frame = original_render(panels, screen, available, clock_format=clock_format, now=now)
+        frames.append((dict(panels), clock_format, frame, set(texts)))
         return frame
 
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", record_text)
-    monkeypatch.setattr(display_module, "render", record_frame)
+    monkeypatch.setattr(render_module, "draw", record_frame)
     _run_cycles(loop, monkeypatch, cycles=3)
 
     assert [f[1] for f in frames] == ["24h", "12h", "24h"]
@@ -501,9 +481,6 @@ def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orie
     assert first[2].image.tobytes() != twelve_hour[2].image.tobytes()
     assert first[2].volatile == twelve_hour[2].volatile == restored[2].volatile
     for frame in frames:
-        assert all(frame[0][name] is first[0][name] for name in first[4])
-        assert frame[4] == first[4]  # the same clients, not just equivalent new ones
-        assert frame[5] == first[5]  # no client was polled early
         assert "Works at 18:00" in frame[3]
     assert any(text.endswith("21:00") for text in first[3])
     assert any(text.endswith("9:00 PM") for text in twelve_hour[3])
@@ -512,15 +489,11 @@ def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orie
         assert {"7:58 AM", "4:22 PM"} <= twelve_hour[3]
     else:
         assert any(text.endswith((" AM", " PM")) and "until" not in text for text in twelve_hour[3])
-    assert reads.count(keys.weather("London")) == 1
-    assert reads.count(keys.energy(DEVICE_ID)) == 1
-    assert reads.count(keys.departures(BUS_STOP)) == 1
-    assert loop.interval == 1
+    # Each render reads what it draws afresh.
+    assert reads.count(keys.weather("London")) == 3
+    assert reads.count(keys.energy(DEVICE_ID)) == 3
+    assert reads.count(keys.departures(BUS_STOP)) == 3
     assert loop.display.target.paints == [None, None, None]
-    loop.display.display_screen(
-        restored[0], loop.config.screen, loop.api_reg.available(), clock_format=loop.config.clock_format
-    )
-    assert loop.display.target.paints == [None, None, None]  # unchanged pictures are still skipped
 
 
 @responses.activate
@@ -542,8 +515,6 @@ def test_the_layout_follows_what_the_config_lets_the_device_show(isolated_cwd, m
     _run_cycles(loop, monkeypatch, cycles=2)
 
     assert layouts == [GlowLayout, BaseLayout]
-    # BaseLayout has room for four stops, and the TfL client was told so.
-    assert loop.api_reg.clients["tfl"].stops_per_update == BaseLayout.stops_shown == 4
 
 
 @responses.activate
@@ -555,7 +526,6 @@ def test_the_first_cycle_reports_how_long_startup_took_once(isolated_cwd, monkey
         json=_app_config_json(pairing_code="ABC123"),
     )
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel, screen: None)
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
@@ -574,13 +544,13 @@ def test_run_reports_the_stage_it_is_in(isolated_cwd, monkeypatch, pairing_code,
 
     _run_cycles(loop, monkeypatch)
 
-    assert loop.api_reg.status.stage == stage
+    assert loop.publisher.device_status.stage == stage
 
 
 def _record_publishes(loop: DisplayLoop, monkeypatch) -> list[str]:
     """Record the stage each time the loop asks the publisher to publish early."""
     stages: list[str] = []
-    monkeypatch.setattr(loop.api_reg.pub, "publish_soon", lambda: stages.append(loop.api_reg.status.stage))
+    monkeypatch.setattr(loop.publisher, "publish_soon", lambda: stages.append(loop.publisher.device_status.stage))
     return stages
 
 
@@ -599,7 +569,6 @@ def test_run_asks_for_an_early_publish_only_when_the_stage_changes(isolated_cwd,
 def test_run_forces_a_publish_when_pairing_completes(isolated_cwd, monkeypatch):
     _mock_config(pairing_code=None)
     loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-    monkeypatch.setattr(loop.display, "display_pairing_screen", lambda panel, screen: None)
     published = _record_publishes(loop, monkeypatch)
 
     _run_cycles(loop, monkeypatch, cycles=2)
@@ -611,24 +580,27 @@ def test_run_forces_a_publish_when_pairing_completes(isolated_cwd, monkeypatch):
 def test_refreshing_the_config_records_when_the_broker_last_answered(isolated_cwd, monkeypatch):
     _mock_config()
     loop = _build_loop(make_config(), monkeypatch)
-    assert loop.api_reg.status.last_broker_sync is None
+    assert loop.publisher.device_status.last_broker_sync is None
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
-    assert loop.api_reg.status.last_broker_sync is not None
+    assert loop.publisher.device_status.last_broker_sync is not None
 
 
 @responses.activate
 @pytest.mark.parametrize("pairing_code", ["ABC123", None], ids=["pairing", "dashboard"])
-def test_run_retries_a_screen_the_panel_could_not_take_every_cycle(isolated_cwd, monkeypatch, pairing_code):
+def test_run_paints_a_screen_the_panel_could_not_take_on_the_next_cycle(isolated_cwd, monkeypatch, pairing_code):
     _mock_config(pairing_code=pairing_code)
     loop = _build_loop(make_config(), monkeypatch, pairing_code=pairing_code)
-    retries = []
-    monkeypatch.setattr(loop.display, "repaint_pending", lambda: retries.append(1))
+    target = loop.display.target
+    target.accepts = False
 
-    _run_cycles(loop, monkeypatch, cycles=2)
+    def the_screen_appears() -> None:
+        target.accepts = True
 
-    assert len(retries) == 2
+    _run_cycles_between(loop, monkeypatch, the_screen_appears)
+
+    assert target.paints == [None]  # the same picture, painted once there was a screen to take it
 
 
 @pytest.fixture
@@ -686,13 +658,21 @@ def test_a_full_render_cycle_reaches_nothing_but_the_broker(monkeypatch, store, 
     responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=config.model_dump(mode="json"))
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
+    placed = []
+    ensure_location = NoticeBoardClient._ensure_location
+
+    def recording(board, now):
+        ensure_location(board, now)
+        placed.append(board.location)
+
+    monkeypatch.setattr(NoticeBoardClient, "_ensure_location", recording)
 
     _run_cycles(loop, monkeypatch, cycles=2)
 
     assert no_network == []
     assert [call.request.url for call in responses.calls if not call.request.url.startswith(TEST_BROKER_URL)] == []
     assert len(shown) == 2
-    assert loop.api_reg.clients["notice_board"].location == place  # placed from the store, not by asking anyone
+    assert placed == [place, place]  # each render's board placed from the store, not by asking anyone
     assert isinstance(shown[0]["tfl"], CombinedArrivalPanel)
     assert isinstance(shown[0]["weather"], WeatherPanel)
     assert isinstance(shown[0]["spotify"], SpotifyPanel)
@@ -702,20 +682,15 @@ def test_a_full_render_cycle_reaches_nothing_but_the_broker(monkeypatch, store, 
 
 
 def _run_cycles_between(loop: DisplayLoop, monkeypatch, *between: Callable[[], None]) -> None:
-    """Run a cycle, then one more after each of `between`, which runs while the loop sleeps (a provider's doing).
-
-    Every client is made due again for each cycle, as a minute's sleep would.
-    """
+    """Run a cycle, then one more after each of `between`, which runs while the loop sleeps (a provider's doing)."""
     steps = list(between)
 
     async def fake_sleep(seconds: float) -> None:
         if not steps:
             raise _StopLoopError
         steps.pop(0)()
-        for client in loop.api_reg.clients.values():
-            client.last_updated = None
 
-    monkeypatch.setattr(display_loop, "asyncio", SimpleNamespace(sleep=fake_sleep))
+    loop._sleep = fake_sleep
     with pytest.raises(_StopLoopError):
         asyncio.run(loop.run())
 
@@ -724,12 +699,13 @@ def _run_cycles_between(loop: DisplayLoop, monkeypatch, *between: Callable[[], N
 def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_down_keeps_the_frame(
     monkeypatch, store, no_network
 ):
-    """The whole render path: the loop, the registry, the real clients reading the store, the layout and the drawing.
+    """The whole render path: the loop, the render, the real clients reading the store, the layout and the drawing.
 
     The screen is in Norwegian. Its departures' key expires between the first and second frames (the TfL provider is
     down), while the energy readings stay: the second frame draws "Ikke tilgjengelig" where the departures were,
     translated as it's drawn, and none of the old departures. Then Redis stops answering: the third frame keeps
-    what the second drew, rather than saying anything has expired.
+    what the second drew (the render draws the last render's panel for a client that fails), rather than saying
+    anything has expired.
     """
     monkeypatch.setattr(i18n, "_language", i18n.language())  # put the language back afterwards
     monkeypatch.setattr(i18n, "_timezone", i18n.local_zone())
@@ -748,15 +724,15 @@ def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_do
     frames: list[tuple[dict, set[str], bytes]] = []
     texts: list[str] = []
     original_text = ImageDraw.ImageDraw.text
-    original_render = display_module.render
+    original_render = render_module.draw
 
     def record_text(draw, xy, text, *args, **kwargs):
         texts.append(text)
         return original_text(draw, xy, text, *args, **kwargs)
 
-    def record_frame(panels, screen, available, *, clock_format="24h"):
+    def record_frame(panels, screen, available, *, clock_format="24h", now=None):
         texts.clear()
-        frame = original_render(panels, screen, available, clock_format=clock_format)
+        frame = original_render(panels, screen, available, clock_format=clock_format, now=now)
         frames.append((dict(panels), set(texts), frame.image.tobytes()))
         return frame
 
@@ -768,7 +744,7 @@ def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_do
         monkeypatch.setattr(store, "mget", unreachable)
 
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", record_text)
-    monkeypatch.setattr(display_module, "render", record_frame)
+    monkeypatch.setattr(render_module, "draw", record_frame)
 
     _run_cycles_between(loop, monkeypatch, lambda: store.delete(keys.departures(BUS_STOP)), redis_down)
 

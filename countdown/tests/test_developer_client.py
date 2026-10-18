@@ -13,11 +13,10 @@ import responses
 from config_factory import make_config
 from test_utils import REGISTRATION
 
-from countdown_core.core.api_registry import API_NAMES, ApiRegistry, FailedClient
+from countdown_core.core.api_registry import ApiRegistry, FailedClient
 from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
 from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.models import AiPlan, DeveloperSummary, Release
-from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.notices.notice import Severity
 from countdown_core.store import keys, reader
 from countdown_core.store.developer import NoStoredDeveloperError
@@ -144,14 +143,12 @@ def test_without_a_device_id_it_cant_be_built():
 @responses.activate  # nothing registered: the notice board's calls fail at once
 def test_a_renderer_without_a_store_shows_the_developer_panel_as_failing(monkeypatch):
     monkeypatch.setattr(reader, "store", lambda: None)
-    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
-
-    asyncio.run(registry.on_config_update(make_config(developer={"enabled": True})))
+    registry = ApiRegistry(REGISTRATION, make_config(developer={"enabled": True}))
 
     failed = registry.clients["developer"]
     assert isinstance(failed, FailedClient)
     assert isinstance(failed.error, reader.StoreNotConfiguredError)
-    assert asyncio.run(registry.update_all())["developer"].message == "Could not connect"
+    assert registry.panels(registry.poll())["developer"].message == "Could not connect"
 
 
 def test_the_notice_source_raises_while_nothing_is_stored_so_the_board_leaves_it_out(client):

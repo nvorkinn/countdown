@@ -21,6 +21,7 @@ from test_utils import REGISTRATION
 
 from countdown_api.models import DepartureStop
 from countdown_core import i18n
+from countdown_core.core import moment
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.entur.entur_client import HEADERS, JOURNEY_PLANNER_URL, EnturClient
 from countdown_core.notices import notice_board_client as board_module
@@ -302,7 +303,8 @@ def clock(monkeypatch):
         def now(cls, tz=None):
             return Clock.now
 
-    monkeypatch.setattr(board_module, "datetime", FrozenDatetime)
+    # The moment the board draws at (core.moment), as a render sets it.
+    monkeypatch.setattr(moment, "now", lambda: FrozenDatetime.now(UTC))
     return Clock
 
 
