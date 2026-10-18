@@ -17,3 +17,8 @@ def test_the_postcode_is_a_subscription_source():
 
 def test_the_met_office_warnings_are_by_place():
     assert keys.met_office("SE17 3LL") == "v1:notices:met-office:SE173LL"
+
+
+@pytest.mark.parametrize("postcode", ["SE17 3LL", "SE173LL", "se17 3ll"])
+def test_a_postcodes_flood_warnings_are_under_its_place(postcode):
+    assert keys.floods(postcode) == "v1:notices:floods:SE173LL"
