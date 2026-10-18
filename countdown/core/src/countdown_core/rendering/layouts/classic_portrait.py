@@ -12,7 +12,7 @@ from PIL import Image
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.screen import Canvas
-from countdown_core.utils.utils import GAP
+from countdown_core.utils.utils import GAP, WEATHER_GAP
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_core.weather.weather_trmnl_panel import HEIGHT as WEATHER_HEIGHT
 from countdown_core.weather.weather_trmnl_panel import WeatherTrmnlPanel
@@ -44,7 +44,7 @@ class ClassicPortraitLayout(Layout):
             weather_panel = WeatherTrmnlPanel(weather_panel.weather)
         self._place(img, weather_panel, (GAP, GAP), (width, WEATHER_HEIGHT), clock_format=clock_format)
 
-        arrivals_y = GAP + WEATHER_HEIGHT + GAP
+        arrivals_y = GAP + WEATHER_HEIGHT + WEATHER_GAP
         spotify_room = SPOTIFY_HEIGHT + GAP if self.SHOWS_SPOTIFY else 0
         notices_room = canvas.height - GAP - spotify_room - (arrivals_y + self.ARRIVALS_HEIGHT + GAP)
         notices_height, spare = self._fit_notices(panels, notices_room)
