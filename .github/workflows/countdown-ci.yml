@@ -111,6 +111,28 @@ jobs:
           echo "$out"
           grep -q "BROKER_URL" <<< "$out"
 
+      - name: Smoke-test the image with its settings
+        # With the environment server/deploy/docker-compose.yml gives it (stand-ins for the deploy's variables, and a
+        # broker that refuses) and the Docker socket, as on the host, but no network: it must load every setting and
+        # get as far as asking the broker for the assignments, then keep going. Removed rather than stopped: it doesn't
+        # handle SIGTERM, so docker stop would wait 10s and kill it.
+        run: |
+          mapfile -t env < <(COUNTDOWN_SERVER_VERSION=ci REDIS_PASSWORD=ci ORCHESTRATOR_TOKEN=ci \
+            docker compose -f server/deploy/docker-compose.yml config --format json \
+            | jq -r '.services.orchestrator.environment + {BROKER_URL: "http://127.0.0.1:9"}
+                     | to_entries[] | "--env=\(.key)=\(.value)"')
+          test "${#env[@]}" -gt 1
+          docker run -d --name smoke --network none -v /var/run/docker.sock:/var/run/docker.sock "${env[@]}" \
+            countdown-orchestrator:ci
+          for _ in $(seq 30); do
+            docker logs smoke 2>&1 | grep -q "Couldn't reach the broker" && break
+            sleep 1
+          done
+          docker logs smoke
+          docker logs smoke 2>&1 | grep -q "Couldn't reach the broker"
+          test "$(docker inspect -f '{{.State.Running}}' smoke)" = true
+          docker rm -f smoke
+
   server-image:
     # The image renderers run (countdown/server/Dockerfile), so a broken one shows up here rather than
     # at release time. Built for amd64 only; the release builds arm64 too.
@@ -171,15 +193,52 @@ jobs:
         run: docker build -f providers/Dockerfile -t countdown-providers:ci .
 
       - name: Smoke-test the image
-        # With no Redis to reach it must say so and keep going (not crash-loop), then stop cleanly: as the
-        # container's PID 1 it must handle SIGTERM itself, or docker stop has to kill it.
+        # Every provider server/deploy/docker-compose.yml runs, with its own command and environment (stand-ins for
+        # the deploy's variables), not just the image's default: a console script that's missing, or that fails as it
+        # starts, would crash-loop on the host. Side by side and with no network, so no Redis and no API: each must
+        # get as far as its loop ("Starting the ... provider") and keep going (not crash-loop), then stop cleanly: as
+        # the container's PID 1 it must handle SIGTERM itself, or docker stop has to kill it.
         run: |
-          docker run -d --name smoke -e REDIS_URL=redis://127.0.0.1:9/0 countdown-providers:ci
-          for _ in $(seq 30); do
-            docker logs smoke 2>&1 | grep -q "couldn't reach Redis" && break
-            sleep 1
+          services="$(COUNTDOWN_SERVER_VERSION=ci REDIS_PASSWORD=ci ORCHESTRATOR_TOKEN=ci \
+            docker compose -f server/deploy/docker-compose.yml config --format json \
+            | jq -c '.services | to_entries[] | select(.value.image | startswith("ghcr.io/nvorkinn/countdown-providers:"))')"
+          test -n "$services"
+          names=()
+          while read -r service; do
+            name="smoke-$(jq -r .key <<< "$service")"
+            mapfile -t env < <(jq -r '.value.environment // {} | to_entries[] | "--env=\(.key)=\(.value)"' <<< "$service")
+            mapfile -t command < <(jq -r '.value.command[]' <<< "$service")
+            docker run -d --name "$name" --network none "${env[@]}" countdown-providers:ci "${command[@]}"
+            names+=("$name")
+          done <<< "$services"
+          echo "Started ${#names[@]} providers: ${names[*]}"
+          test "${#names[@]}" -gt 1
+          for name in "${names[@]}"; do
+            for _ in $(seq 30); do
+              docker logs "$name" 2>&1 | grep -q "Starting the " && break
+              test "$(docker inspect -f '{{.State.Running}}' "$name")" = true || break
+              sleep 1
+            done
           done
-          docker logs smoke
-          docker logs smoke 2>&1 | grep -q "couldn't reach Redis"
-          docker stop smoke
-          test "$(docker inspect -f '{{.State.ExitCode}}' smoke)" = 0
+          failed=0
+          for name in "${names[@]}"; do
+            if ! docker logs "$name" 2>&1 | grep -q "Starting the "; then
+              echo "::error::$name didn't start its loop: $(docker logs "$name" 2>&1 | grep -v '^[[:space:]]*$' | tail -1)"
+              failed=1
+            elif [ "$(docker inspect -f '{{.State.Running}}' "$name")" != true ]; then
+              echo "::error::$name stopped by itself"
+              failed=1
+            fi
+          done
+          docker stop "${names[@]}"
+          for name in "${names[@]}"; do
+            echo "::group::$name"
+            docker logs "$name" 2>&1
+            echo "::endgroup::"
+            code="$(docker inspect -f '{{.State.ExitCode}}' "$name")"
+            if [ "$code" != 0 ]; then
+              echo "::error::$name exited with $code, not 0"
+              failed=1
+            fi
+          done
+          exit "$failed"
