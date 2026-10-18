@@ -146,3 +146,19 @@ services:
         tag: provider-floods
         max-size: 10m
         max-file: "3"
+
+  # MET Norway's weather warnings for the notice boards in Norway, fetched once for the whole country.
+  provider-metalerts:
+    image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    command: countdown-provider-metalerts
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
+    logging:
+      driver: json-file
+      options:
+        tag: provider-metalerts
+        max-size: 10m
+        max-file: "3"

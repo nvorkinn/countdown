@@ -148,3 +148,13 @@ def floods(postcode: str) -> str:
     Written by provider-floods; holds a countdown_core.store.floods.StoredFloods.
     """
     return f"{PREFIX}:notices:floods:{place(postcode)}"
+
+
+def metalerts() -> str:
+    """Return the key of MET Norway's current weather warnings, for all of Norway: `v1:notices:metalerts`.
+
+    One key, not one per place: MetAlerts answers for the whole country at once, and each notice board picks out the
+    warnings whose area covers its postcode. Written by provider-metalerts; holds a
+    countdown_core.store.metalerts.StoredMetAlerts.
+    """
+    return f"{PREFIX}:notices:metalerts"

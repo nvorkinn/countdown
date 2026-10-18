@@ -1,8 +1,10 @@
 """The notice board's sources for a Norwegian postcode.
 
-Where it is (Kartverket), public holidays (worked out here) and weather warnings (MET Norway's MetAlerts).
+Where it is (Kartverket), public holidays (worked out here) and weather warnings (MET Norway's MetAlerts, from the
+store: the MetAlerts provider fetches them for all of Norway, and the board picks out its place's).
 """
 
+import itertools
 import logging
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, override
@@ -12,6 +14,8 @@ from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date, language
 from countdown_core.notices.calendar import when
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
+from countdown_core.store import keys, reader
+from countdown_core.store.metalerts import StoredMetAlerts
 from countdown_core.tfl.models import Postcode
 
 if TYPE_CHECKING:
@@ -22,6 +26,7 @@ logger = logging.getLogger(__name__)
 NORWAY_TIME = ZoneInfo("Europe/Oslo")
 # Kartverket's address search: free, no key. A postcode's addresses all carry its place name and municipality.
 ADDRESSES_URL = "https://ws.geonorge.no/adresser/v1/sok"
+# Only the MetAlerts provider asks MET (countdown_providers.metalerts); the board reads its answer from the store.
 METALERTS_URL = "https://api.met.no/weatherapi/metalerts/2.0/current.json"
 # api.met.no refuses requests that don't say who's asking (https://api.met.no/doc/TermsOfService).
 MET_HEADERS = {"User-Agent": "countdown https://github.com/nvorkinn/pi-dashboard"}
@@ -160,24 +165,87 @@ def parse_metalerts(payload: dict, now: datetime) -> list[Notice]:
     return notices
 
 
-class MetAlertsSource(NoticeSource):
-    """MET Norway's weather warnings for the postcode's location, in the screen's language."""
+def metalerts_language() -> str:
+    """Return the `lang` MetAlerts words its warnings in for this screen: "no" for one in Norwegian, else "en"."""
+    return "no" if language() == "nb" else "en"
+
+
+def _inside(polygon: list, longitude: float, latitude: float) -> bool:
+    """Whether a point is in a GeoJSON polygon: in its outer ring and none of its holes.
+
+    By counting the edges of every ring that a ray from the point crosses (even-odd), so a point in a hole is out.
+    """
+    inside = False
+    for ring in polygon:
+        points = [(point[0], point[1]) for point in ring]  # leaving out any altitude
+        if not points:
+            continue
+        for (x1, y1), (x2, y2) in itertools.pairwise([*points, points[0]]):
+            if (y1 > latitude) != (y2 > latitude) and longitude < x1 + (latitude - y1) * (x2 - x1) / (y2 - y1):
+                inside = not inside
+    return inside
+
+
+def covers(geometry: dict | None, latitude: float, longitude: float) -> bool:
+    """Whether a warning's area covers a point: its GeoJSON geometry, a Polygon or MultiPolygon (longitude first).
+
+    A warning without one covers nowhere: MET gives every warning its area.
+    """
+    if not geometry:
+        return False
+    coordinates = geometry.get("coordinates") or []
+    match geometry.get("type"):
+        case "Polygon":
+            polygons = [coordinates]
+        case "MultiPolygon":
+            polygons = coordinates
+        case _:
+            return False
+    return any(_inside(polygon, longitude, latitude) for polygon in polygons)
+
+
+def warnings_at(payload: dict, location: Postcode) -> dict:
+    """Cut MetAlerts' answer for all of Norway down to the warnings whose area covers `location`.
+
+    What MET answers when asked for the place itself (current.json?lat=...&lon=..., "all alerts covered by the search
+    location"), at the four decimals the board once asked at.
+    """
+    latitude, longitude = round(location.latitude, 4), round(location.longitude, 4)
+    features = [
+        feature for feature in payload.get("features") or [] if covers(feature.get("geometry"), latitude, longitude)
+    ]
+    return {**payload, "features": features}
+
+
+class NoStoredMetAlertsError(LookupError):
+    """The store has no MET weather warnings: the MetAlerts provider is down, or hasn't fetched them yet."""
+
+
+class StoredMetAlertsSource(NoticeSource):
+    """MET Norway's weather warnings for the postcode's location, in the screen's language, from the store.
+
+    `v1:notices:metalerts`, which the MetAlerts provider fills with MET's answers for all of Norway; this picks out the
+    warnings covering the location and words them as it reads them, so in the screen's language as of then.
+    """
 
     name = "MET weather warnings"
-    refresh_interval = timedelta(minutes=10)
+    # The provider asks MET every five minutes; reading its answer costs MET nothing.
+    refresh_interval = timedelta(minutes=5)
 
     def __init__(self, session: requests.Session, location: Postcode) -> None:
-        """Fetch over `session` the warnings for `location`."""
+        """Pick out the warnings for `location`. `session` is the board's, unused: this reads the store, not MET."""
         super().__init__(session)
-        self.params = {"lat": round(location.latitude, 4), "lon": round(location.longitude, 4)}
+        self.location = location
 
     @override
     def fetch(self, now: datetime) -> list[Notice]:
-        response = self.session.get(
-            METALERTS_URL,
-            params=self.params | {"lang": "no" if language() == "nb" else "en"},
-            headers=MET_HEADERS,
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        return parse_metalerts(response.json(), now)
+        """Read the warnings; raises NoStoredMetAlertsError if the store has none, so the board keeps its last ones.
+
+        Raises StoreNotConfiguredError for a renderer without a store, and whatever Redis raises if it can't be read.
+        """
+        stored = reader.read(reader.require_store(), keys.metalerts(), StoredMetAlerts)
+        if stored is None:
+            msg = f"No MET weather warnings in the store ({keys.metalerts()})"
+            raise NoStoredMetAlertsError(msg)
+        answer = stored.no if metalerts_language() == "no" else stored.en
+        return parse_metalerts(warnings_at(answer, self.location), now)
