@@ -46,14 +46,22 @@ def publisher(reader, statuses=None, **kwargs) -> OtlpPublisher:
     return started(pub)
 
 
-def metrics(reader) -> dict[str, list[dict]]:
-    """Get the latest data points by metric name, each as {attributes..., "value": ...}."""
+def metrics(reader, *, keep_device: bool = False) -> dict[str, list[dict]]:
+    """Get the latest data points by metric name, each as {attributes..., "value": ...}.
+
+    Every point's `device` is checked to be "sister-hat" and left out, unless `keep_device`.
+    """
     data = reader.get_metrics_data()
     [resource_metrics] = data.resource_metrics
     [scope_metrics] = resource_metrics.scope_metrics
-    return {
+    points = {
         m.name: [{**dict(p.attributes), "value": p.value} for p in m.data.data_points] for m in scope_metrics.metrics
     }
+    if keep_device:
+        return points
+    for point in (point for named in points.values() for point in named):
+        assert point.pop("device") == "sister-hat"
+    return points
 
 
 def resource_attributes(reader) -> dict:
@@ -69,6 +77,17 @@ def test_the_resource_names_the_service_and_device(reader):
     attributes = resource_attributes(reader)
     assert attributes["service.name"] == "countdown"
     assert attributes["host.name"] == "sister-hat"
+
+
+def test_every_data_point_names_the_device_as_the_render_pool_does(reader):
+    """host.name is the resource's, which the host's Fluent Bit doesn't pass on to VictoriaMetrics; `device` it does."""
+    synced = datetime(2026, 9, 20, 10, 30, tzinfo=UTC)
+    publisher(reader, status=DeviceStatus(last_broker_sync=synced))
+
+    out = metrics(reader, keep_device=True)
+
+    assert set(out) >= {"countdown.api.status", "countdown.problem", "countdown.stage", "countdown.broker.last_sync"}
+    assert all(point["device"] == "sister-hat" for points in out.values() for point in points)
 
 
 def test_before_the_first_render_every_api_reads_as_disabled(reader):
