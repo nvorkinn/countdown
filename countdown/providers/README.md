@@ -375,8 +375,9 @@ keys, and the board show the same notices (`test_place_notices.py`).
 
 To deploy: the provider must be running, and its keys there, before the renderers and the notice providers rely on
 them, as they place a postcode only from the store: until its key is there a board with a postcode shows nothing about
-its place (it keeps its other notices), and no Met Office, flood or road notices are written for it. It needs auth-broker's postcode subscriptions (`v1:sub:postcode`), already
-deployed. The deploy starts it with the other providers, and its first cycle runs as it starts; check, on the host,
+its place (it keeps its other notices), and no Met Office, flood or road notices are written for it. It needs
+auth-broker's postcode subscriptions (`v1:sub:postcode`), already deployed. The deploy starts it with the other
+providers, and its first cycle runs as it starts; check, on the host,
 
 ```sh
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:location:*"'
