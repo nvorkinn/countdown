@@ -12,7 +12,7 @@ from countdown_core import i18n
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.entur.entur_client import JOURNEY_PLANNER_URL
 from countdown_core.notices.calendar import ClockChangeSource
-from countdown_core.notices.entur import EnturSituationsSource
+from countdown_core.notices.entur import EnturSituationsSource, StoredEnturSituationsSource
 from countdown_core.notices.norway import (
     ADDRESSES_URL,
     METALERTS_URL,
@@ -190,7 +190,7 @@ def test_a_norwegian_postcode_brings_norways_sources(api):
 def test_norwegian_stops_bring_their_disruptions_whatever_the_postcode():
     client = DeparturesClient(REGISTRATION, DeparturesSettings((DepartureStop(source="entur", id="NSR:Quay:7333"),)))
     [source] = client.notice_sources()
-    assert isinstance(source, EnturSituationsSource)
+    assert isinstance(source, StoredEnturSituationsSource)
     assert source.stop_ids == ["NSR:Quay:7333"]
 
 

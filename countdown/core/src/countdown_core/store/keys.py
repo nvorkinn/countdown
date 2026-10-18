@@ -96,3 +96,13 @@ def pace(source: str, item_id: str) -> str:
 
 
 # Notices (the notice board's sources), one key per source and what it's fetched for. Keys by place use `place`.
+
+
+def entur_situations(stop_id: str) -> str:
+    """Return the key of the disruptions at an Entur stop, by its id from `v1:sub:entur`.
+
+    For example `v1:notices:entur:NSR:StopPlace:58381` or `v1:notices:entur:NSR:Quay:7333`: Entur's situations on the
+    stop and on the lines leaving it. Written by provider-entur-situations; holds a
+    countdown_core.store.situations.StoredSituations.
+    """
+    return f"{PREFIX}:notices:entur:{stop_id}"
