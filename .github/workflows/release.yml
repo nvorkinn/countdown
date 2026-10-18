@@ -206,7 +206,10 @@ jobs:
           printf '%s\n' "$ORACLE_SSH_TOKEN" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
           printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n' > ~/.ssh/config
+          # One shared SSH connection for the whole deploy. docker compose opens a new `ssh ... docker system
+          # dial-stdio` for every container it starts or waits on, and that burst of logins can exceed the host's
+          # sshd MaxStartups, which resets the excess (v1.28.0's deploy failed that way, with every container up).
+          printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  ControlMaster auto\n  ControlPath ~/.ssh/cm-%%C\n  ControlPersist 10m\n  ServerAliveInterval 15\n' > ~/.ssh/config
       - name: Deploy the renderers
         env:
           ORCHESTRATOR_TOKEN: ${{ secrets.ORCHESTRATOR_TOKEN }}
