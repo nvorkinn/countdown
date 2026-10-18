@@ -62,7 +62,9 @@ timestamps/parameters, logs and upstream free-form notice text are not rewritten
 `AbstractClient` subclass: the departures (TfL and Entur), Open-Meteo weather, Glowmarkt energy,
 Spotify and Apple Music, the
 developer panel (the owner's GitHub pull requests and failing builds, and their AI plans; while one of their repos is
-releasing, the release's jobs as GitHub's workflow graph instead) and the notice board. The departures, weather,
+releasing, the release's jobs as GitHub's workflow graph instead: a finished job is a black box with white ink, a
+running one has its name in bold, and one waiting for the owner's approval or failed has a heavier outline and a
+warning triangle; `developer/release_styles.py`) and the notice board. The departures, weather,
 energy, music and developer clients read only the shared Redis store, which the [providers](providers/README.md) (and
 auth-broker's, for energy, music and the developer panel) fill: the renderer never calls TfL, Entur, Open-Meteo,
 Glowmarkt or GitHub for them, nor the broker, and never holds a Glowmarkt password, a Spotify token or a GitHub token. A

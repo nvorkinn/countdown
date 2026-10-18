@@ -2,6 +2,7 @@ import countdown_core  # noqa: F401, I001  (import order: see test_display_snaps
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from PIL import Image, ImageDraw
 
 from countdown_core import i18n
 from countdown_core.developer import release_styles
@@ -95,3 +96,81 @@ def test_each_style_draws_a_release_with_no_jobs_and_one_too_crowded_to_show_who
     for release in (_release("running", *crowded), _release("running")):  # the broker may find no jobs yet
         image = release_styles.STYLES[style](release, 0, NOW, 300, 120)
         assert image.size == (300, 120)
+
+
+# --- the boxes: black when done, a warning sign when the owner is needed ----------------------------------
+
+
+BOX_WIDTH = 150
+
+
+def _box(state, style="hero", name="deploy", total=None):
+    """Draw one job's box on a white canvas, in `style`'s look, the way graph() does; return the picture."""
+    look = release_styles.LOOKS[style]()
+    job = ReleaseJob(key="job", name=name, state=state, done=1 if total else None, total=total)
+    img = Image.new("RGB", (BOX_WIDTH + 4, release_styles.NODE_HEIGHT + 4), "white")
+    release_styles._box(ImageDraw.Draw(img), job, (2, 2), BOX_WIDTH, look)
+    return img
+
+
+def _ink(img, left, right):
+    """Return how many pixels from column `left` to `right`, between the box's top and bottom edges, aren't white."""
+    rows = range(7, img.height - 7)
+    return sum(1 for x in range(left, right) for y in rows if img.getpixel((x, y)) != (255, 255, 255))
+
+
+@pytest.mark.parametrize("style", list(release_styles.STYLES))
+def test_a_finished_job_is_a_black_box_with_white_ink(style):
+    img = _box("done", style)
+    middle = img.height // 2
+
+    assert img.getpixel((BOX_WIDTH - 40, middle)) == (0, 0, 0)  # the box itself
+    inside = [img.getpixel((x, y)) for x in range(8, BOX_WIDTH - 8) for y in range(5, img.height - 5)]
+    assert (255, 255, 255) in inside  # the check mark and the name
+
+
+@pytest.mark.parametrize("style", list(release_styles.STYLES))
+@pytest.mark.parametrize("state", ["running", "queued", "skipped", "approve", "failed"])
+def test_a_job_that_is_not_finished_is_a_white_box(style, state):
+    img = _box(state, style)
+
+    assert img.getpixel((BOX_WIDTH - 40, img.height // 2)) == (255, 255, 255)
+
+
+@pytest.mark.parametrize("style", list(release_styles.STYLES))
+@pytest.mark.parametrize("state", ["approve", "failed"])
+def test_a_job_that_needs_the_owner_has_a_warning_sign_at_its_end(style, state):
+    cell = (BOX_WIDTH - 6 - release_styles.LOOKS[style]().icon_size, BOX_WIDTH - 5)  # the sign's, inside the outline
+
+    assert _ink(_box(state, style), *cell) > 20
+    assert _ink(_box("queued", style), *cell) == 0
+
+
+@pytest.mark.parametrize("state", ["running", "skipped"])
+def test_the_other_unfinished_jobs_have_no_warning_sign(state):
+    edge = (BOX_WIDTH - 24, BOX_WIDTH - 8)
+
+    assert _ink(_box(state, "hero"), *edge) == _ink(_box("queued", "hero"), *edge)
+
+
+def test_a_running_jobs_name_is_bolder_than_a_queued_ones():
+    left = release_styles.LOOKS["hero"]().icon_size + 10
+    assert _ink(_box("running", "hero", name="build"), left, BOX_WIDTH - 8) > _ink(
+        _box("queued", "hero", name="build"), left, BOX_WIDTH - 8
+    )
+
+
+@pytest.mark.parametrize("style", list(release_styles.STYLES))
+def test_a_long_name_stops_short_of_the_warning_sign(style):
+    """The sign's own cell looks the same under a name that fits and under one that has to be cut short."""
+    cell = (BOX_WIDTH - 6 - release_styles.LOOKS[style]().icon_size, BOX_WIDTH - 5)
+    long = _box("approve", style, name="a-job-with-a-name-far-too-long-to-fit-in-its-box")
+
+    assert _ink(long, *cell) == _ink(_box("approve", style, name="x"), *cell)
+
+
+def test_the_icons_are_bare_glyphs_not_ones_inside_a_circle():
+    circled = {0xE86C, 0xE5C9, 0xF08F, 0xE836}  # check_circle, cancel, do_not_disturb_on, radio_button_unchecked
+
+    assert not circled & {ord(icon) for icon in release_styles.ICONS.values()}
+    assert set(release_styles.ICONS) == {"done", "failed", "running", "approve", "queued", "skipped"}
