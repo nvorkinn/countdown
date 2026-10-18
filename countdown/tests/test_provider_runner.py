@@ -461,3 +461,21 @@ def test_serve_all_runs_each_provider_on_one_connection_and_sigint_stops_them_al
     assert [r.provider for r in runners] == providers
     assert runners[0].redis is runners[1].redis
     assert all(r.stopped.is_set() for r in runners)
+
+
+def test_serve_runs_on_the_client_its_given_and_closes_it(monkeypatch):
+    """A main() whose provider reads the store too (where postcodes are) makes one client for both, and passes it."""
+    provider = FakeProvider()
+    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    closed = []
+
+    async def aclose():
+        closed.append(True)
+
+    monkeypatch.setattr(redis, "aclose", aclose)
+    monkeypatch.setattr(Settings, "redis", lambda self: pytest.fail("made a second client"))
+
+    [runner] = serve_until(serve(provider, Settings(), redis=redis), monkeypatch, signal.SIGTERM, 1)
+
+    assert runner.redis is redis
+    assert closed == [True]

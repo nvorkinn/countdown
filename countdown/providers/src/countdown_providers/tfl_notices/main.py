@@ -8,12 +8,14 @@ Three providers in one process (runner.serve_all), one for each kind of TfL disr
 - Stations, for the same stops: /StopPoint/{id}/Disruption for each, every five minutes, at
   `v1:notices:tfl-stations:<stop id>`.
 - Roads, for the UK postcodes in `v1:sub:postcode` (a Norwegian one, four digits, has no TfL roads): one
-  /Road/all/Disruption every five minutes, cut to what's within ROAD_RADIUS_KM of each postcode (placed by
-  postcodes.io, once), at `v1:notices:tfl-roads:<place>`.
+  /Road/all/Disruption every five minutes, cut to what's within ROAD_RADIUS_KM of each postcode, at
+  `v1:notices:tfl-roads:<place>`. Where a postcode is comes from the store, as provider-locations placed it
+  (`v1:location:<place>`, read each cycle by locations.reader.LocationReader, on the process's one Redis client); one
+  it hasn't placed, or that doesn't exist, is left out until it has.
 
 What's stored is TfL's own answers (store/tfl_notices.py); the renderer makes the notices from them as it draws. The
-requests are countdown-core's (TflSource, lookup_postcode), which are synchronous (requests), so each batch runs in a
-worker thread (asyncio.to_thread), with a session of its own.
+requests are countdown-core's (TflSource), which are synchronous (requests), so each batch runs in a worker thread
+(asyncio.to_thread), with a session of its own.
 """
 
 import asyncio
@@ -25,18 +27,17 @@ from typing import TYPE_CHECKING
 
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.log_format import configure_logging, error_reason
-from countdown_core.notices.location import FULL_POSTCODE, lookup_postcode
+from countdown_core.notices.location import FULL_POSTCODE
 from countdown_core.notices.tfl import ROAD_SEVERITY, is_near
 from countdown_core.store import keys
 from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
 from countdown_core.tfl.tfl_client import TflSource
 from countdown_providers.config import Settings
+from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import serve_all
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    import requests
 
     from countdown_core.tfl.models import Line, Postcode
 
@@ -165,15 +166,15 @@ class TflRoadProvider:
     batch_size = EVERY_ID
 
     def __init__(
-        self, tfl: TflSource, session: requests.Session, now: Callable[[], datetime] = lambda: datetime.now(UTC)
+        self, tfl: TflSource, locations: LocationReader, now: Callable[[], datetime] = lambda: datetime.now(UTC)
     ) -> None:
-        """Ask TfL through `tfl` and postcodes.io over `session`; `now` stamps fetched_at (a parameter for tests)."""
+        """Ask TfL through `tfl`, and the store where each postcode is through `locations`.
+
+        `now` stamps fetched_at (a parameter for tests).
+        """
         self.tfl = tfl
-        self.session = session
+        self.locations = locations
         self.now = now
-        # Postcode -> where postcodes.io placed it. A postcode's place doesn't change, so this only grows (a few dozen
-        # bytes each); one postcodes.io doesn't know is asked about again next cycle.
-        self.places: dict[str, Postcode] = {}
 
     def output_key(self, item_id: str) -> str:
         """Write to `v1:notices:tfl-roads:<place>`."""
@@ -181,25 +182,14 @@ class TflRoadProvider:
 
     async def fetch(self, ids: list[str]) -> dict[str, StoredRoadDisruptions]:
         """Fetch the disruptions near each UK postcode, leaving out (and logging) any that can't be placed."""
-        return await asyncio.to_thread(self._fetch_blocking, ids)
-
-    def _fetch_blocking(self, ids: list[str]) -> dict[str, StoredRoadDisruptions]:
-        # Postcodes stay out of the logs: they say where someone lives.
-        places: dict[str, Postcode] = {}
-        for postcode in ids:
-            if not FULL_POSTCODE.fullmatch(postcode):
-                continue  # a Norwegian one: TfL has nothing to say about Norway's roads
-            try:
-                place = self._place(postcode)
-            except Exception as e:  # noqa: BLE001 -- one bad postcode mustn't lose the rest of the batch
-                logger.warning("Couldn't look up a postcode: %s", error_reason(e))
-                continue
-            if place is None:
-                logger.warning("A subscribed postcode isn't one postcodes.io knows; no road notices for it")
-                continue
-            places[postcode] = place
+        # A Norwegian postcode is left out: TfL has nothing to say about Norway's roads.
+        postcodes = [postcode for postcode in ids if FULL_POSTCODE.fullmatch(postcode)]
+        places = await self.locations.places(postcodes, notices="TfL road notices")
         if not places:
             return {}
+        return await asyncio.to_thread(self._fetch_blocking, places)
+
+    def _fetch_blocking(self, places: dict[str, Postcode]) -> dict[str, StoredRoadDisruptions]:
         fetched_at = self.now()
         try:
             disruptions = self.tfl.road_disruptions(ROAD_SEVERITY)
@@ -215,24 +205,20 @@ class TflRoadProvider:
             for postcode, place in places.items()
         }
 
-    def _place(self, postcode: str) -> Postcode | None:
-        if postcode not in self.places:
-            place = lookup_postcode(self.session, postcode)
-            if place is None:
-                return None
-            self.places[postcode] = place
-        return self.places[postcode]
 
+def providers(
+    locations: LocationReader, app_key: str = ""
+) -> list[TflLineStatusProvider | TflStationProvider | TflRoadProvider]:
+    """Make the three providers, each with a session of its own (they run in threads side by side).
 
-def providers(app_key: str = "") -> list[TflLineStatusProvider | TflStationProvider | TflRoadProvider]:
-    """Make the three providers, each with a session of its own (they run in threads side by side)."""
+    The road provider reads where the postcodes are through `locations`.
+    """
     # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
     session = AbstractClient._build_retrying_session  # noqa: SLF001 -- shared with the renderer's clients on purpose
-    roads = session()
     return [
         TflLineStatusProvider(TflSource(session(), app_key)),
         TflStationProvider(TflSource(session(), app_key)),
-        TflRoadProvider(TflSource(roads, app_key), roads),
+        TflRoadProvider(TflSource(session(), app_key), locations),
     ]
 
 
@@ -240,7 +226,10 @@ def main() -> None:
     """Run the `countdown-provider-tfl-notices` console script. TFL_APP_KEY is optional (TfL rate-limits harder)."""
     configure_logging()
     settings = Settings.from_env()
-    asyncio.run(serve_all(providers(os.environ.get("TFL_APP_KEY", "")), settings))
+    # One client for the three runners and the locations the roads read.
+    redis = settings.redis()
+    serving = providers(LocationReader(redis), os.environ.get("TFL_APP_KEY", ""))
+    asyncio.run(serve_all(serving, settings, redis=redis))
 
 
 if __name__ == "__main__":

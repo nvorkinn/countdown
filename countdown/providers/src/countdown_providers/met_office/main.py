@@ -1,11 +1,12 @@
 """The Met Office provider: the weather warnings for every UK postcode in `v1:sub:postcode`.
 
-Each postcode is placed once with postcodes.io (countdown_core.notices.location.lookup_postcode: a postcode's place
-doesn't change), which gives the Met Office warning region it's in (countdown_core.notices.met_office.region_for). The
-Met Office publishes a warnings RSS feed per region, so each region's feed is fetched once a cycle however many
-postcodes are in it, and written under each of them, `v1:notices:met-office:<place>`, as a StoredMetOfficeWarnings:
-the feed's items, which the renderer makes its notices from when it draws. A Norwegian postcode (four digits) is MET
-Norway's to warn about, not the Met Office's, so it's left alone.
+Where each postcode is comes from the store, as provider-locations placed it (`v1:location:<place>`, read each cycle
+by locations.reader.LocationReader; one it hasn't placed, or that doesn't exist, is left out until it has), and gives
+the Met Office warning region it's in (countdown_core.notices.met_office.region_for). The Met Office publishes a
+warnings RSS feed per region, so each region's feed is fetched once a cycle however many postcodes are in it, and
+written under each of them, `v1:notices:met-office:<place>`, as a StoredMetOfficeWarnings: the feed's items, which the
+renderer makes its notices from when it draws. A Norwegian postcode (four digits) is MET Norway's to warn about, not
+the Met Office's, so it's left alone.
 
 Where the screens are stays out of the logs, as it does in the renderer's: nothing logged here names a postcode, or
 the region one is in.
@@ -23,17 +24,20 @@ from typing import TYPE_CHECKING
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
 from countdown_core.core.log_format import configure_logging, error_reason
-from countdown_core.notices.location import FULL_POSTCODE, lookup_postcode
+from countdown_core.notices.location import FULL_POSTCODE
 from countdown_core.notices.met_office import region_for
 from countdown_core.store import keys
 from countdown_core.store.met_office import FeedItem, StoredMetOfficeWarnings
 from countdown_providers.config import Settings
+from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import serve
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     import requests
+
+    from countdown_core.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 
@@ -75,13 +79,23 @@ class MetOfficeProvider:
     # interval later.
     feed_reuse = timedelta(seconds=interval_s / 2)
 
-    def __init__(self, session: requests.Session, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
-        """Ask postcodes.io and the Met Office through `session`; `now` stamps fetched_at (a parameter for tests)."""
+    def __init__(
+        self,
+        session: requests.Session,
+        locations: LocationReader,
+        now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        """Ask the Met Office through `session`, and the store where each postcode is through `locations`.
+
+        `now` stamps fetched_at (a parameter for tests).
+        """
         self.session = session
+        self.locations = locations
         self.now = now
-        # Postcode -> the Met Office region it's in, or None if postcodes.io doesn't know it. Only grows (a few dozen
-        # bytes each): a place doesn't move, and, as in the renderer, an unknown postcode isn't asked about again.
-        self.regions: dict[str, str | None] = {}
+        # Postcode -> where it was last read to be, and the Met Office region that's in: worked out again only if
+        # provider-locations moves it, so region_for's warning about a place in no region it knows is logged once,
+        # not every cycle. Only grows (a hundred bytes or so each), like provider-locations' own.
+        self.regions: dict[str, tuple[Postcode, str]] = {}
         # Region -> its feed as last fetched (or tried); at most one per region.
         self.feeds: dict[str, Feed] = {}
 
@@ -91,18 +105,18 @@ class MetOfficeProvider:
 
     async def fetch(self, ids: list[str]) -> dict[str, StoredMetOfficeWarnings]:
         """Fetch the warnings for each UK postcode, leaving out (and logging) any that can't be placed or fetched."""
+        # UK postcodes only: a Norwegian one ("0150") gets MET Norway's warnings instead.
+        postcodes = [postcode for postcode in ids if FULL_POSTCODE.fullmatch(postcode)]
+        places = await self.locations.places(postcodes, notices="Met Office warnings")
+        if not places:
+            return {}
         # One thread for the whole batch, one request after another: the requests session isn't shared across threads.
-        return await asyncio.to_thread(self._fetch_blocking, ids)
+        return await asyncio.to_thread(self._fetch_blocking, places)
 
-    def _fetch_blocking(self, ids: list[str]) -> dict[str, StoredMetOfficeWarnings]:
+    def _fetch_blocking(self, places: dict[str, Postcode]) -> dict[str, StoredMetOfficeWarnings]:
         results: dict[str, StoredMetOfficeWarnings] = {}
-        for postcode in ids:
-            # UK postcodes only: a Norwegian one ("0150") gets MET Norway's warnings instead.
-            if not FULL_POSTCODE.fullmatch(postcode):
-                continue
-            region = self._region(postcode)
-            if region is None:
-                continue
+        for postcode, location in places.items():
+            region = self._region(postcode, location)
             feed = self._feed(region)
             if feed.items is not None:
                 results[postcode] = StoredMetOfficeWarnings(
@@ -110,19 +124,13 @@ class MetOfficeProvider:
                 )
         return results
 
-    def _region(self, postcode: str) -> str | None:
-        """Return the Met Office region `postcode` is in, looked up the first time; None if it can't be placed."""
-        if postcode not in self.regions:
-            try:
-                location = lookup_postcode(self.session, postcode)
-            except Exception as e:  # noqa: BLE001 -- one postcode mustn't lose the batch; it's tried again next cycle
-                # Not the exception's own text: it quotes the URL, postcode and all.
-                logger.warning("Couldn't look up a postcode: %s", type(e).__name__)
-                return None
-            if location is None:
-                logger.warning("postcodes.io doesn't know one of the postcodes, so it gets no Met Office warnings")
-            self.regions[postcode] = region_for(location) if location is not None else None
-        return self.regions[postcode]
+    def _region(self, postcode: str, location: Postcode) -> str:
+        """Return the Met Office region `location` is in, worked out the first time and again if it moves."""
+        known = self.regions.get(postcode)
+        if known is None or known[0] != location:
+            known = (location, region_for(location))
+            self.regions[postcode] = known
+        return known[1]
 
     def _feed(self, region: str) -> Feed:
         """Return the region's feed, fetching it unless that was already done (or tried) this cycle."""
@@ -147,11 +155,14 @@ class MetOfficeProvider:
 
 
 def main() -> None:
-    """Run the `countdown-provider-met-office` console script. The Met Office's feeds and postcodes.io are keyless."""
+    """Run the `countdown-provider-met-office` console script. The Met Office's feeds are keyless."""
     configure_logging()
+    settings = Settings.from_env()
+    # One client for the runner and the locations it reads.
+    redis = settings.redis()
     # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
     session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
-    asyncio.run(serve(MetOfficeProvider(session), Settings.from_env()))
+    asyncio.run(serve(MetOfficeProvider(session, LocationReader(redis)), settings, redis=redis))
 
 
 if __name__ == "__main__":

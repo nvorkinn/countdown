@@ -204,18 +204,23 @@ class ProviderRunner:
             await asyncio.sleep(RESUBSCRIBE_S)
 
 
-async def serve(provider: Provider, settings: Settings) -> None:
-    """Run `provider` with `settings` until SIGINT or SIGTERM, then close the Redis connection."""
-    await serve_all([provider], settings)
+async def serve(provider: Provider, settings: Settings, *, redis: Redis | None = None) -> None:
+    """Run `provider` with `settings` until SIGINT or SIGTERM, then close the Redis connection (see serve_all)."""
+    await serve_all([provider], settings, redis=redis)
 
 
-async def serve_all(providers: Sequence[Provider], settings: Settings) -> None:
+async def serve_all(providers: Sequence[Provider], settings: Settings, *, redis: Redis | None = None) -> None:
     """Run `providers` side by side, each in its own loop, until SIGINT or SIGTERM; then close the Redis connection.
 
     For one API's process that writes several kinds of key, each fetched at its own pace or for its own subscriptions
     (the TfL notices: the lines and the stations by stop, the roads by place).
+
+    The runners use `redis` if given, else a client made from `settings`. A provider that reads the store as well
+    (where a postcode is: locations.reader.LocationReader) is given the same client by its main(), passed here too,
+    so the process has one connection pool, which this closes when they stop.
     """
-    redis = settings.redis()
+    if redis is None:
+        redis = settings.redis()
     runners = [ProviderRunner(provider, redis, shard=settings.shard) for provider in providers]
 
     def stop() -> None:

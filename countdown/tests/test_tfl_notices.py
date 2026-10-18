@@ -1,8 +1,9 @@
 """TfL's disruptions on the notice board, through the store: the TfL notices provider and the sources reading it.
 
-fixtures/tfl_notices.json is a set of TfL's (and postcodes.io's) answers, and fixtures/tfl_notices_expected.json
-the notices the renderer made from them when it asked TfL itself, at the fixture's `now`. The provider stores those
-answers, and the renderer's sources must make the same notices from what it stored.
+fixtures/tfl_notices.json is a set of TfL's answers (and postcodes.io's, which provider-locations stores as where the
+fixture's postcode is: the roads provider reads it there), and fixtures/tfl_notices_expected.json the notices the
+renderer made from them when it asked TfL itself, at the fixture's `now`. The provider stores those answers, and the
+renderer's sources must make the same notices from what it stored.
 """
 
 import asyncio
@@ -15,9 +16,9 @@ import fakeredis
 import pytest
 import requests
 import responses
+from location_factory import FakeLocations
 
 from countdown_core import i18n
-from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.tfl import (
     NoStoredTflNoticesError,
@@ -31,10 +32,11 @@ from countdown_core.notices.tfl import (
 )
 from countdown_core.store import keys, reader
 from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
+from countdown_core.tfl.models import PostcodeResponse
 from countdown_core.tfl.tfl_client import TFL_URL, DisruptedPoints, Lines, RoadDisruptions, TflSource
 from countdown_providers import runner as runner_module
-from countdown_providers.config import Settings
-from countdown_providers.runner import ProviderRunner, serve_all
+from countdown_providers.locations.reader import LocationReader
+from countdown_providers.runner import ProviderRunner
 from countdown_providers.tfl_notices import main as provider_module
 from countdown_providers.tfl_notices.main import (
     EVERY_ID,
@@ -42,7 +44,6 @@ from countdown_providers.tfl_notices.main import (
     TflLineStatusProvider,
     TflRoadProvider,
     TflStationProvider,
-    providers,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -52,6 +53,8 @@ EXPECTED = json.loads((FIXTURES / "tfl_notices_expected.json").read_text())
 NOW = datetime.fromisoformat(FIXTURE["now"])
 STOPS = FIXTURE["stops"]
 POSTCODE = FIXTURE["postcode"]
+# Where it is, as provider-locations stores it.
+PLACE = PostcodeResponse.model_validate(FIXTURE["postcodes_io"]).result
 NORWEGIAN = "0150"
 
 
@@ -102,9 +105,8 @@ class FakeTfl:
 
 @pytest.fixture
 def api():
-    """Mock HTTP, with postcodes.io placing the fixture's postcode (the `tfl` fixture adds TfL)."""
+    """Mock HTTP, with nothing answered yet (the `tfl` fixture adds TfL): any other request fails."""
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
-        rsps.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", json=FIXTURE["postcodes_io"])
         yield rsps
 
 
@@ -122,19 +124,29 @@ def paths(api, prefix: str = "") -> list[str]:
 
 
 @pytest.fixture
-def redis(store, monkeypatch):
-    """Return the providers' (async) side of a store, whose (sync) other side the renderer reads."""
+def located(store, monkeypatch):
+    """Return a store with the fixture's postcode in it, as provider-locations places it, read by the renderer too."""
     server = fakeredis.FakeServer()
     monkeypatch.setattr(reader, "store", lambda: fakeredis.FakeRedis(server=server, decode_responses=True))
-    return fakeredis.FakeAsyncRedis(server=server, decode_responses=True)
+    return FakeLocations(PLACE, server=server)
 
 
-def make_providers() -> tuple[TflLineStatusProvider, TflStationProvider, TflRoadProvider]:
+@pytest.fixture
+def redis(located):
+    """Return the providers' (async) side of the store, whose (sync) other side the renderer reads."""
+    return located.redis
+
+
+def make_providers(
+    located: FakeLocations | None = None,
+) -> tuple[TflLineStatusProvider, TflStationProvider, TflRoadProvider]:
+    """Make the three providers, the roads reading where the postcodes are from `located` (else just the fixture's)."""
     session = requests.Session()
+    located = located or FakeLocations(PLACE)
     return (
         TflLineStatusProvider(TflSource(session), now=lambda: NOW),
         TflStationProvider(TflSource(session), now=lambda: NOW),
-        TflRoadProvider(TflSource(session), session, now=lambda: NOW),
+        TflRoadProvider(TflSource(session), located.reader, now=lambda: NOW),
     )
 
 
@@ -162,8 +174,8 @@ def stored_sources() -> tuple[StoredTflLineStatusSource, StoredTflStationSource,
 # --- Parity ------------------------------------------------------------------------
 
 
-def test_the_stored_answers_make_the_notices_the_renderer_made_from_tfl(api, tfl, redis):
-    run_cycles(redis, *make_providers())
+def test_the_stored_answers_make_the_notices_the_renderer_made_from_tfl(api, tfl, located, redis):
+    run_cycles(redis, *make_providers(located))
     lines, stations, roads = stored_sources()
 
     assert as_json(lines.fetch(NOW)) == EXPECTED["line_status"]
@@ -171,9 +183,9 @@ def test_the_stored_answers_make_the_notices_the_renderer_made_from_tfl(api, tfl
     assert as_json(roads.fetch(NOW)) == EXPECTED["roads"]
 
 
-def test_the_notices_are_worked_out_when_read(api, tfl, redis):
+def test_the_notices_are_worked_out_when_read(api, tfl, located, redis):
     """Nothing about now is stored: the same values, read later, leave out what has ended since."""
-    run_cycles(redis, *make_providers())
+    run_cycles(redis, *make_providers(located))
     lines, stations, roads = stored_sources()
     later = NOW + timedelta(hours=10)  # the severe delays, the bus diversion and the platform closure are over
 
@@ -186,8 +198,8 @@ def test_the_notices_are_worked_out_when_read(api, tfl, redis):
     assert len(roads.fetch(later)) == len(EXPECTED["roads"])
 
 
-def test_the_tags_are_in_the_screens_language_when_read(api, tfl, redis):
-    run_cycles(redis, *make_providers())
+def test_the_tags_are_in_the_screens_language_when_read(api, tfl, located, redis):
+    run_cycles(redis, *make_providers(located))
     lines, _, roads = stored_sources()
     i18n.set_locale("nb", "Europe/Oslo")
     try:
@@ -197,8 +209,8 @@ def test_the_tags_are_in_the_screens_language_when_read(api, tfl, redis):
         i18n.set_locale("en", "Europe/London")
 
 
-def test_what_is_stored_is_tfls_answers_under_tfls_names(api, tfl, redis):
-    run_cycles(redis, *make_providers())
+def test_what_is_stored_is_tfls_answers_under_tfls_names(api, tfl, located, redis):
+    run_cycles(redis, *make_providers(located))
     stored = json.loads(asyncio.run(redis.get(keys.tfl_line_status("940GZZLUKNG"))))
 
     [northern] = stored["lines"]
@@ -301,14 +313,14 @@ def test_line_status_a_line_tfl_leaves_out_has_nothing_to_report(api, tfl):
     assert [line.id for line in results["490000077E"].lines] == ["133"]
 
 
-def test_the_app_key_goes_with_every_request_to_tfl_and_stays_out_of_the_logs(api, tfl, redis, caplog):
+def test_the_app_key_goes_with_every_request_to_tfl_and_stays_out_of_the_logs(api, tfl, located, redis, caplog):
     tfl.failures["/StopPoint/490000077E"] = 500
     session = requests.Session()
     run_cycles(
         redis,
         TflLineStatusProvider(TflSource(session, "secret"), now=lambda: NOW),
         TflStationProvider(TflSource(session, "secret"), now=lambda: NOW),
-        TflRoadProvider(TflSource(session, "secret"), session, now=lambda: NOW),
+        TflRoadProvider(TflSource(session, "secret"), located.reader, now=lambda: NOW),
     )
 
     tfl_calls = [call for call in api.calls if call.request.url.startswith(TFL_URL)]
@@ -334,10 +346,9 @@ def test_stations_leaves_out_a_stop_it_cant_ask_about(api, tfl, caplog):
     assert "Couldn't fetch the disruptions at TfL stop 490000077E: HTTPError 404" in caplog.messages
 
 
-def test_roads_asks_tfl_once_for_every_place_and_keeps_whats_near_each(api, tfl, redis):
-    elsewhere = dict(FIXTURE["postcodes_io"]["result"], postcode="E1 6AN", latitude=51.5196, longitude=-0.0567)
-    api.add(responses.GET, f"{POSTCODES_URL}/E1%206AN", json={"status": 200, "result": elsewhere})
-    _, _, roads = make_providers()
+def test_roads_asks_tfl_once_for_every_place_and_keeps_whats_near_each(api, tfl, located, redis):
+    located.put(PLACE.model_copy(update={"postcode": "E1 6AN", "latitude": 51.5196, "longitude": -0.0567}))
+    _, _, roads = make_providers(located)
 
     asyncio.run(redis.sadd(keys.subscription(keys.POSTCODE), "E1 6AN"))
     run_cycles(redis, roads)
@@ -355,35 +366,44 @@ def test_roads_asks_tfl_once_for_every_place_and_keeps_whats_near_each(api, tfl,
     assert asyncio.run(redis.exists(keys.tfl_roads(NORWEGIAN))) == 0
 
 
-def test_roads_places_a_postcode_once_and_never_asks_about_a_norwegian_one(api, tfl):
+def test_roads_asks_only_tfl_and_never_about_a_norwegian_postcode(api, tfl):
     _, _, roads = make_providers()
 
     asyncio.run(roads.fetch([NORWEGIAN, POSTCODE]))
     results = asyncio.run(roads.fetch([NORWEGIAN, POSTCODE]))
 
     assert list(results) == [POSTCODE]
-    postcode_calls = [call for call in api.calls if call.request.url.startswith(POSTCODES_URL)]
-    assert [call.request.url for call in postcode_calls] == [f"{POSTCODES_URL}/SE17%203LL"]
+    # Where the postcode is came from the store, each time.
+    assert [call.request.url.split("?")[0] for call in api.calls] == [f"{TFL_URL}/Road/all/Disruption"] * 2
 
 
-def test_roads_asks_again_about_a_postcode_postcodes_io_doesnt_know_and_never_logs_it(api, tfl, caplog):
-    api.add(responses.GET, f"{POSTCODES_URL}/ZZ1%201ZZ", status=404, json={"status": 404, "error": "Not found"})
-    _, _, roads = make_providers()
+def test_roads_leaves_out_a_postcode_that_doesnt_exist_and_never_logs_it(api, tfl, caplog):
+    _, _, roads = make_providers(FakeLocations(not_found=("ZZ1 1ZZ",)))
 
     assert asyncio.run(roads.fetch(["ZZ1 1ZZ"])) == {}
-    assert asyncio.run(roads.fetch(["ZZ1 1ZZ"])) == {}
 
-    assert sum(call.request.url.startswith(POSTCODES_URL) for call in api.calls) == 2
     assert paths(api, "/Road/") == []  # nowhere to be near
     assert "ZZ1" not in caplog.text
 
 
-def test_roads_leaves_out_a_postcode_postcodes_io_cant_be_asked_about_and_never_logs_it(api, tfl, caplog):
-    api.add(responses.GET, f"{POSTCODES_URL}/E1%206AN", body=requests.ConnectionError(f"{POSTCODES_URL}/E1%206AN"))
+def test_roads_leaves_out_a_postcode_not_placed_yet_and_keeps_the_others(api, tfl, caplog):
     _, _, roads = make_providers()
 
-    assert list(asyncio.run(roads.fetch(["E1 6AN", POSTCODE]))) == [POSTCODE]
-    assert caplog.messages == ["Couldn't look up a postcode: ConnectionError"]
+    with caplog.at_level("INFO"):
+        assert list(asyncio.run(roads.fetch(["E1 6AN", POSTCODE]))) == [POSTCODE]
+    assert caplog.messages == [
+        (
+            "No location in the store yet for 1 of 2 postcodes, so no TfL road notices for them this cycle "
+            "(provider-locations writes them)"
+        )
+    ]
+
+
+def test_roads_asks_tfl_nothing_while_no_postcode_is_placed(api, tfl):
+    _, _, roads = make_providers(FakeLocations())
+
+    assert asyncio.run(roads.fetch([POSTCODE])) == {}
+    assert len(api.calls) == 0
 
 
 def test_roads_logs_a_failure_without_the_postcodes(api, tfl, caplog):
@@ -394,8 +414,8 @@ def test_roads_logs_a_failure_without_the_postcodes(api, tfl, caplog):
     assert caplog.messages == ["Couldn't fetch TfL's road disruptions: HTTPError 503"]
 
 
-def test_each_kind_is_written_under_its_key_with_its_ttl(api, tfl, redis):
-    lines, stations, roads = make_providers()
+def test_each_kind_is_written_under_its_key_with_its_ttl(api, tfl, located, redis):
+    lines, stations, roads = make_providers(located)
     run_cycles(redis, lines, stations, roads)
 
     for key, ttl_s in [
@@ -416,7 +436,8 @@ def test_each_provider_outlives_its_interval():
         assert provider.ttl_s >= 3 * provider.interval_s
 
 
-def test_the_process_runs_the_three_side_by_side_on_one_connection(monkeypatch):
+def test_the_process_runs_the_three_side_by_side_on_one_connection_which_the_roads_read_locations_on(monkeypatch):
+    """Through main(), as the container starts it: one Redis client for the runners and the roads' locations."""
     ran = []
 
     class FakeRunner:
@@ -425,28 +446,32 @@ def test_the_process_runs_the_three_side_by_side_on_one_connection(monkeypatch):
             self.redis = redis
 
         async def run(self):
-            ran.append((self.provider.name, type(self.provider).__name__, self.redis))
+            ran.append((self.provider, self.redis))
 
         def stop(self):
             pass
 
     monkeypatch.setattr(runner_module, "ProviderRunner", FakeRunner)
+    monkeypatch.setattr(provider_module, "configure_logging", lambda: None)
+    monkeypatch.setenv("TFL_APP_KEY", "key")
 
-    asyncio.run(serve_all(providers("key"), Settings()))
+    provider_module.main()
 
-    assert [(name, kind) for name, kind, _ in ran] == [
+    assert [(provider.name, type(provider).__name__) for provider, _ in ran] == [
         ("tfl", "TflLineStatusProvider"),
         ("tfl", "TflStationProvider"),
         ("postcode", "TflRoadProvider"),
     ]
-    assert len({id(redis) for _, _, redis in ran}) == 1
+    [redis] = {id(redis): redis for _, redis in ran}.values()
+    roads = ran[2][0]
+    assert roads.locations.redis is redis
 
 
 def test_main_serves_the_three_with_the_app_key_and_the_store_from_the_environment(monkeypatch):
     served = []
 
-    async def fake_serve_all(serving, settings):
-        served.append((serving, settings))
+    async def fake_serve_all(serving, settings, *, redis):
+        served.append((serving, settings, redis))
 
     monkeypatch.setattr(provider_module, "serve_all", fake_serve_all)
     monkeypatch.setattr(provider_module, "configure_logging", lambda: None)
@@ -455,12 +480,15 @@ def test_main_serves_the_three_with_the_app_key_and_the_store_from_the_environme
 
     provider_module.main()
 
-    [(serving, settings)] = served
+    [(serving, settings, redis)] = served
     assert [type(p) for p in serving] == [TflLineStatusProvider, TflStationProvider, TflRoadProvider]
     assert all(p.tfl.params == {"app_key": "key"} for p in serving)
-    assert serving[2].session is serving[2].tfl.session  # the roads' postcodes.io and TfL, one after the other
     assert len({id(p.tfl.session) for p in serving}) == 3  # a session per thread
     assert settings.redis_url == "redis://redis.example:6379/0"
+    # The roads read where the postcodes are on the runners' own client.
+    assert isinstance(serving[2].locations, LocationReader)
+    assert serving[2].locations.redis is redis
+    assert redis.connection_pool.connection_kwargs["host"] == "redis.example"
 
 
 # --- The renderer's sources --------------------------------------------------------
@@ -475,8 +503,8 @@ def test_a_source_with_nothing_in_the_store_raises_a_lookup_error(index):
         source.fetch(NOW)
 
 
-def test_a_source_with_one_of_its_stops_missing_raises_rather_than_show_half(api, tfl, redis):
-    run_cycles(redis, *make_providers())
+def test_a_source_with_one_of_its_stops_missing_raises_rather_than_show_half(api, tfl, located, redis):
+    run_cycles(redis, *make_providers(located))
     reader.store().delete(keys.tfl_line_status("490000077F"))
     lines, _, _ = stored_sources()
 

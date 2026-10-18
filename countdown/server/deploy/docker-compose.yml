@@ -180,8 +180,8 @@ services:
         max-file: "3"
 
   # Where each of the notice boards' postcodes (v1:sub:postcode) is, from postcodes.io and Kartverket, looked up once
-  # for every screen and kept for days. The renderers place their postcode only from the store, so a board with a
-  # postcode shows no local notices without this.
+  # for every screen and kept for days. The renderers, and the Met Office, floods and TfL roads providers, place a
+  # postcode only from the store, so a board with a postcode shows no local notices without this.
   provider-locations:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
     command: countdown-provider-locations
