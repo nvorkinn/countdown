@@ -27,6 +27,8 @@ class OrchestratorBroker:
                 slug=item["slug"],
                 claim_token=item["claim_token"],
                 status=Status(item["status"]),
+                # From a broker that lists it (auth-broker #202 on): without it, the screen can't go to the pool.
+                device_id=item.get("device_id"),
             )
             for item in response.json()["assignments"]
         ]

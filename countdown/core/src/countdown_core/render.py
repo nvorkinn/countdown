@@ -6,9 +6,10 @@ store.frame_record) if the hash changed, and returns what happened (an Outcome).
 panels, starts no threads and keeps nothing between calls but the read-only caches every render shares: the fonts,
 the translations and the Redis clients (reader.store). So the same inputs draw the same frame, whoever calls it.
 
-Today each screen's own renderer calls it (core.display_loop: on the minute, on the broker's nudge, and every 20 s
-while a provider asks for a faster refresh), and still PUTs the frame to the broker beside the record. A pool of
-workers will call it from a job queue (docs/stateless-renderers.md, "The pool, the queue and the render function").
+Each screen's own renderer calls it (core.display_loop: on the minute, on the broker's nudge, and every 20 s while a
+provider asks for a faster refresh), and still PUTs the frame to the broker beside the record. The render pool's
+workers (countdown_server.render_worker) call it from a job queue (store.render_queue), for the screens moved to the
+pool (docs/stateless-renderers.md, "The pool, the queue and the render function").
 """
 
 import logging
@@ -105,6 +106,7 @@ def render(
     *,
     config: ConfigResponse | None = None,
     previous: Outcome | None = None,
+    raise_store_errors: bool = False,
 ) -> Outcome:
     """Draw the screen `device_id` as of `now` (aware), write its frame to its record if changed, and say how it went.
 
@@ -113,6 +115,10 @@ def render(
     With a pairing code it's the pairing screen. A client that fails other than by its key expiring draws its panel
     from `previous`, the last render's outcome, if that drew one with the same section of the config and in the same
     language and time zone; otherwise its area says it could not connect.
+
+    With `raise_store_errors` (the render pool's worker), a client that can't ask Redis raises its RedisError instead,
+    and nothing is written: the screen keeps the frame it has, rather than one saying it could not connect. A key that
+    has expired still draws "Not available": that's the data's expiry, not Redis failing.
 
     Raises RedisError if the config can't be read from the store, and pydantic's ValidationError if what's there
     isn't a config. A record that can't be written is logged, and the frame still returned (Result.UNRECORDED).
@@ -133,7 +139,7 @@ def render(
         registry = ApiRegistry(RendererRegistration(broker_url="", device_secret="", device_id=device_id), config)
         available = registry.available()
         registry.show_stops(layout_for(config.screen, available)[0].stops_shown)
-        polled = registry.poll(_still_drawable(previous, registry, locale))
+        polled = registry.poll(_still_drawable(previous, registry, locale), raise_store_errors=raise_store_errors)
         drawn = draw(registry.panels(polled), config.screen, available, clock_format=config.clock_format, now=now)
         frame = to_native(drawn, config.screen)
         data = bytes(panel_bytes(frame.image))

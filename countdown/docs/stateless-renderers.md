@@ -436,6 +436,17 @@ off as a draft PR titled "[after … deployed]".
 - **Safe alone:** with `POOL_SLUGS` empty nothing changes, and a worker drops jobs for screens not listed.
 - **Rollback:** take the slug out of `POOL_SLUGS`. The orchestrator removes it from the hash, waits for its lease to
   lapse, and starts its container again.
+- **Done** (pi-dashboard and auth-broker #202, this step's PRs):
+  - `store/render_queue.py` (the scripts, in Lua), `countdown_server/render_pool.py` (`countdown-render-worker`,
+    `countdown-render-ticker`) and `pool_metrics.py`; `render-worker-1`, `render-worker-2` and `render-ticker` in the
+    compose file; the orchestrator's `pool.py`.
+  - The claim checks `v1:render:screens` in the same script that takes the lease, so once the orchestrator has taken a
+    screen out of the hash no render of it can start, and its lease is all it waits for.
+  - A pool render that can't read the store fails and writes nothing (`render`'s `raise_store_errors`; the departures
+    and the notice board's postcode now raise Redis's own error rather than wrap or swallow it). An expired key still
+    draws "Not available".
+  - `POOL_SLUGS` is the `deploy-renderers` job's repository variable; the orchestrator now has host networking, for
+    Redis.
 
 **7. Jobs from the broker and the providers** (auth-broker, and pi-dashboard where a provider there bursts).
 
@@ -506,6 +517,7 @@ These follow from the decisions but weren't asked about; say if any should go an
   | `LEAD_S` | 3 |
   | `HINT_FLOOR_S` | 20 |
   | `MIN_SLEEP_S` | 5 |
-  | the lease | 30 s |
-  | the render deadline | 20 s |
-  | worker processes | 2 |
+  | the lease | 30 s (settled in step 6; the follow-up flag the same) |
+  | the render deadline | 20 s (settled in step 6) |
+  | the queued flag's TTL | 60 s (added in step 6: a worker dying between the pop and the claim frees the screen) |
+  | worker processes | 2 (settled in step 6: two compose services, so each has its own name in the logs and metrics) |

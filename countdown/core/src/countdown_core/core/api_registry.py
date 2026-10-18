@@ -5,6 +5,8 @@ from datetime import timedelta
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from redis.exceptions import RedisError
+
 from countdown_api.models import ConfigResponse, Glowmarkt
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
 from countdown_core.core.style import panel_style
@@ -150,20 +152,27 @@ class ApiRegistry:
                 source for client in self.clients.values() if client is not board for source in client.notice_sources()
             )
 
-    def poll(self, previous: Mapping[str, Panel] | None = None) -> dict[str, Panel]:
+    def poll(
+        self, previous: Mapping[str, Panel] | None = None, *, raise_store_errors: bool = False
+    ) -> dict[str, Panel]:
         """Read every client's data, one after another, and return the panel each gave, by API.
 
         A client that raises (Redis not answering, a bug) gives its panel in `previous` if there's one there: the panel
         the screen last had from it, which the caller has checked is still this config's. Otherwise it gives none, and
         its area says it could not connect (see panels()). A key that has expired is no failure: the client gives a
         "Not available" panel (AbstractClient.poll).
+
+        With `raise_store_errors`, a client that can't ask Redis (a RedisError) raises it instead, unlogged, and the
+        rest aren't read: the render pool's render then fails and writes nothing, so the screen keeps the frame it has.
         """
         previous = previous or {}
         polled: dict[str, Panel] = {}
         for name, client in self.clients.items():
             try:
                 polled[name] = client.poll()
-            except Exception:
+            except Exception as e:
+                if raise_store_errors and isinstance(e, RedisError):
+                    raise
                 if not isinstance(client, FailedClient):  # whose constructor's error was logged as it was built
                     logger.exception("Error updating %s", name)
                 if name in previous:
