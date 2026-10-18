@@ -12,7 +12,7 @@ from countdown_core.notices.calendar import BankHolidaySource, ClockChangeSource
 from countdown_core.notices.floods import FloodWarningsSource
 from countdown_core.notices.location import lookup_postcode
 from countdown_core.notices.met_office import MetOfficeWarningsSource
-from countdown_core.notices.norway import MetAlertsSource, NorwegianHolidaySource, lookup_norwegian_postcode
+from countdown_core.notices.norway import NorwegianHolidaySource, StoredMetAlertsSource, lookup_norwegian_postcode
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.tfl import TflRoadSource
 
@@ -129,7 +129,7 @@ class NoticeBoardClient(AbstractClient):
             return
         self.location = location
         if self.norwegian:
-            self.sources += [NorwegianHolidaySource(self.session), MetAlertsSource(self.session, location)]
+            self.sources += [NorwegianHolidaySource(self.session), StoredMetAlertsSource(self.session, location)]
             logger.info("Notice board: location lookup succeeded: %s", location.admin_district or "Norway")
             return
         bank_holidays = BankHolidaySource(self.session, location.country)

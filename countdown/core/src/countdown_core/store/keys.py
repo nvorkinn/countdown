@@ -96,3 +96,13 @@ def pace(source: str, item_id: str) -> str:
 
 
 # Notices (the notice board's sources), one key per source and what it's fetched for. Keys by place use `place`.
+
+
+def metalerts() -> str:
+    """Return the key of MET Norway's current weather warnings, for all of Norway: `v1:notices:metalerts`.
+
+    One key, not one per place: MetAlerts answers for the whole country at once, and each notice board picks out the
+    warnings whose area covers its postcode. Written by provider-metalerts; holds a
+    countdown_core.store.metalerts.StoredMetAlerts.
+    """
+    return f"{PREFIX}:notices:metalerts"

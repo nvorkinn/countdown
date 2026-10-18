@@ -184,7 +184,7 @@ def test_a_norwegian_postcode_brings_norways_sources(api):
     client = board("0150", "NO")
     client._ensure_location(NOW)
     names = [type(source).__name__ for source in client.sources]
-    assert names == ["ClockChangeSource", "NorwegianHolidaySource", "MetAlertsSource"]
+    assert names == ["ClockChangeSource", "NorwegianHolidaySource", "StoredMetAlertsSource"]
 
 
 def test_norwegian_stops_bring_their_disruptions_whatever_the_postcode():

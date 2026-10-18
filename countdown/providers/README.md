@@ -44,6 +44,7 @@ countdown-core so the providers and renderers share them.
 | `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): the GitHub summary (pull requests, builds, releases with their jobs) and the AI plans, as the broker's `/api/developer` answers them; the renderer reads only this, never the route |
 | `v1:pace:<source>:<id>` | integer string, TTL ~1 min | any provider that has bursty data (the developer provider, per device, while a release runs) | the seconds it wants the screen to refresh at; renderers take the fastest of those they watch, see the renderer's README, "The pace" |
 | `v1:spotify-top:<device id>` | string, TTL 2 h | auth-broker's `spotify-provider`, every 30 min | `StoredTop` JSON (`store/music.py`): each service's top tracks and artists by time range |
+| `v1:notices:metalerts` | string, TTL 30 min | provider-metalerts, every 5 min while any screen's postcode is Norwegian | `StoredMetAlerts` JSON (`store/metalerts.py`): MetAlerts' `current.json` for all of Norway, in Norwegian and English, as MET answered; one key, not one per place, see [Norway's weather warnings](#norways-weather-warnings) |
 
 The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
 own tokens, which never leave it (auth-broker's README, "Music in the store"). As the two repositories can't share
@@ -92,6 +93,39 @@ fetches every 15 minutes, and keeps each value for an hour. `tests/fixtures/glow
 Glowmarkt's answers to the stored value, and auth-broker's tests read the same file: change both together.
 `tests/fixtures/glow_energy_pages.json` is the pages the renderer drew from those answers when it still asked
 Glowmarkt itself, which the stored value must still draw.
+
+### Norway's weather warnings
+
+The notice board's MET Norway weather warnings are one key for the whole country, `v1:notices:metalerts`, rather than
+one per place: MetAlerts' `current.json` answers for all of Norway at once, each warning with its area as a GeoJSON
+polygon, and the renderer picks out those covering its postcode's place (as MET does when asked for a `lat` and `lon`)
+and words them when it draws (`notices/norway.py`, `StoredMetAlertsSource`). So `provider-metalerts` reads
+`v1:sub:postcode` only to know whether any screen is in Norway (a four-digit postcode; the UK's are left alone), asks
+MET nothing while none is, and needs no postcode's place:
+
+```json
+{"fetched_at": "2026-10-16T12:00:00+00:00",
+ "no": {"type": "FeatureCollection", "lang": "no", "lastChange": "...", "features": [{"geometry": {...}, "properties": {...}, "when": {...}}]},
+ "en": {"type": "FeatureCollection", "lang": "en", ...}}
+```
+
+`no` and `en` are MET's answers with `lang=no` and `lang=en`: a screen in Norwegian reads `no`, any other `en`. MET's
+[terms](https://api.met.no/doc/TermsOfService) want an identifying `User-Agent` (`MET_HEADERS`) and caching: the
+provider keeps each answer until its `Expires`, then asks again with `If-Modified-Since`, so an unchanged one costs a
+304, two small requests every five minutes however many screens there are. `fetched_at` is when MET last sent, or
+confirmed, the older of the two. If MET can't be reached the key is left as it was until its TTL runs out, and the
+board then keeps its last warnings for up to an hour. `tests/fixtures/metalerts_current.json` is an example, which
+the provider's and the renderer's tests both read; `metalerts_notices.json` is what the board showed from it when it
+still asked MET for its own place, which the stored value must still give.
+
+The renderers read the warnings only from the store, so a Norwegian board has none until `provider-metalerts` is
+running and the broker writes `v1:sub:postcode` (auth-broker #174). To check, on the host:
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 SMEMBERS v1:sub:postcode'   # a four-digit one
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:metalerts*"'
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 TTL v1:notices:metalerts'
+```
 
 ## Running locally
 

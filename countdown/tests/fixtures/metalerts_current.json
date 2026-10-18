@@ -1,0 +1,631 @@
+{
+  "fetched_at": "2026-10-16T12:00:00+00:00",
+  "no": {
+    "features": [
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [10.31, 59.62],
+              [11.42, 59.66],
+              [11.37, 60.21],
+              [10.72, 60.29],
+              [10.28, 60.02],
+              [10.31, 59.62]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Oslo og Akershus",
+          "awarenessSeriousness": "Utfordrende situasjon",
+          "awareness_level": "3; orange; Severe",
+          "awareness_type": "1; Wind",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": ["03", "32"],
+          "event": "wind",
+          "eventAwarenessName": "Vind",
+          "eventEndingTime": "2026-10-16T19:00:00+00:00",
+          "geographicDomain": "land",
+          "id": "2.49.0.1.578.0.20261016050512.001",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261016050512.001"
+            }
+          ],
+          "riskMatrixColor": "Orange",
+          "severity": "Severe",
+          "status": "Actual",
+          "title": "Vind, oransje nivå, Oslo og Akershus, 16 oktober 08:00 UTC til 16 oktober 21:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-16T06:00:00+00:00", "2026-10-16T19:00:00+00:00"]
+        }
+      },
+      {
+        "geometry": {
+          "type": "MultiPolygon",
+          "coordinates": [
+            [
+              [
+                [5.02, 60.08],
+                [5.71, 60.11],
+                [5.62, 60.69],
+                [4.98, 60.52],
+                [5.02, 60.08]
+              ]
+            ],
+            [
+              [
+                [10.52, 59.81],
+                [10.97, 59.83],
+                [10.95, 60.07],
+                [10.55, 60.05],
+                [10.52, 59.81]
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Bergen og Oslo",
+          "awarenessSeriousness": "Utfordrende situasjon",
+          "awareness_level": "2; yellow; Moderate",
+          "awareness_type": "10; Rain",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": ["46", "03"],
+          "event": "rain",
+          "eventAwarenessName": "Regn",
+          "eventEndingTime": "2026-10-17T06:00:00+00:00",
+          "geographicDomain": "land",
+          "id": "2.49.0.1.578.0.20261016051033.002",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261016051033.002"
+            }
+          ],
+          "severity": "Moderate",
+          "status": "Actual",
+          "title": "Regn, gult nivå, Bergen og Oslo, 16 oktober 08:00 UTC til 17 oktober 08:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-16T06:00:00+00:00", "2026-10-17T06:00:00+00:00"]
+        }
+      },
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [10.31, 59.62],
+              [11.42, 59.66],
+              [11.37, 60.21],
+              [10.72, 60.29],
+              [10.28, 60.02],
+              [10.31, 59.62]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Oslo og Akershus",
+          "awarenessSeriousness": "Utfordrende situasjon",
+          "awareness_level": "2; yellow; Moderate",
+          "awareness_type": "5; Ice",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": ["03", "32"],
+          "event": "icing",
+          "eventAwarenessName": "Ising",
+          "eventEndingTime": "2026-10-15T09:00:00+00:00",
+          "geographicDomain": "land",
+          "id": "2.49.0.1.578.0.20261014181500.003",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261014181500.003"
+            }
+          ],
+          "riskMatrixColor": "Yellow",
+          "severity": "Moderate",
+          "status": "Actual",
+          "title": "Ising, gult nivå, Oslo og Akershus, 15 oktober 08:00 UTC til 15 oktober 11:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-15T06:00:00+00:00", "2026-10-15T09:00:00+00:00"]
+        }
+      },
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [9.48, 59.02],
+              [12.01, 59.08],
+              [11.93, 61.03],
+              [9.52, 60.97],
+              [9.48, 59.02]
+            ],
+            [
+              [10.61, 59.86],
+              [10.89, 59.86],
+              [10.88, 59.97],
+              [10.62, 59.98],
+              [10.61, 59.86]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Østlandet utenom Oslo",
+          "awarenessSeriousness": "Utfordrende situasjon",
+          "awareness_level": "2; yellow; Moderate",
+          "awareness_type": "2; snow-ice",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": ["32", "33", "34"],
+          "event": "snow",
+          "eventAwarenessName": "Snø",
+          "eventEndingTime": "2026-10-17T00:00:00+00:00",
+          "geographicDomain": "land",
+          "id": "2.49.0.1.578.0.20261016052245.004",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261016052245.004"
+            }
+          ],
+          "riskMatrixColor": "Yellow",
+          "severity": "Moderate",
+          "status": "Actual",
+          "title": "Snø, gult nivå, Østlandet utenom Oslo, 16 oktober 14:00 UTC til 17 oktober 02:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-16T12:00:00+00:00", "2026-10-17T00:00:00+00:00"]
+        }
+      },
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [18.02, 69.01],
+              [20.11, 69.08],
+              [19.94, 70.21],
+              [18.07, 70.12],
+              [18.02, 69.01]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Kysten av Troms",
+          "awarenessSeriousness": "Utfordrende situasjon",
+          "awareness_level": "4; red; Extreme",
+          "awareness_type": "7; coastalevent",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": ["55"],
+          "event": "stormSurge",
+          "eventAwarenessName": "Stormflo",
+          "eventEndingTime": "2026-10-16T21:00:00+00:00",
+          "geographicDomain": "land",
+          "id": "2.49.0.1.578.0.20261016070000.005",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261016070000.005"
+            }
+          ],
+          "riskMatrixColor": "Red",
+          "severity": "Extreme",
+          "status": "Actual",
+          "title": "Stormflo, rødt nivå, Kysten av Troms, 16 oktober 11:00 UTC til 16 oktober 23:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-16T09:00:00+00:00", "2026-10-16T21:00:00+00:00"]
+        }
+      },
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [8.03, 57.52],
+              [11.02, 57.61],
+              [10.94, 58.79],
+              [8.11, 58.71],
+              [8.03, 57.52]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Skagerrak",
+          "awarenessSeriousness": "Utfordrende situasjon",
+          "awareness_level": "2; yellow; Moderate",
+          "awareness_type": "1; Wind",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": [],
+          "event": "gale",
+          "eventAwarenessName": "Kuling",
+          "eventEndingTime": "2026-10-17T03:00:00+00:00",
+          "geographicDomain": "marine",
+          "id": "2.49.0.1.578.0.20261016043000.006",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261016043000.006"
+            }
+          ],
+          "riskMatrixColor": "Yellow",
+          "severity": "Moderate",
+          "status": "Actual",
+          "title": "Kuling, gult nivå, Skagerrak, 16 oktober 05:00 UTC til 17 oktober 05:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-16T03:00:00+00:00", "2026-10-17T03:00:00+00:00"]
+        }
+      }
+    ],
+    "lang": "no",
+    "lastChange": "2026-10-16T07:00:00+00:00",
+    "type": "FeatureCollection"
+  },
+  "en": {
+    "features": [
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [10.31, 59.62],
+              [11.42, 59.66],
+              [11.37, 60.21],
+              [10.72, 60.29],
+              [10.28, 60.02],
+              [10.31, 59.62]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Oslo and Akershus",
+          "awarenessSeriousness": "Challenging situation",
+          "awareness_level": "3; orange; Severe",
+          "awareness_type": "1; Wind",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": ["03", "32"],
+          "event": "wind",
+          "eventAwarenessName": "Wind",
+          "eventEndingTime": "2026-10-16T19:00:00+00:00",
+          "geographicDomain": "land",
+          "id": "2.49.0.1.578.0.20261016050512.001",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261016050512.001"
+            }
+          ],
+          "riskMatrixColor": "Orange",
+          "severity": "Severe",
+          "status": "Actual",
+          "title": "Wind, orange level, Oslo and Akershus, 16 October 08:00 UTC to 16 October 21:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-16T06:00:00+00:00", "2026-10-16T19:00:00+00:00"]
+        }
+      },
+      {
+        "geometry": {
+          "type": "MultiPolygon",
+          "coordinates": [
+            [
+              [
+                [5.02, 60.08],
+                [5.71, 60.11],
+                [5.62, 60.69],
+                [4.98, 60.52],
+                [5.02, 60.08]
+              ]
+            ],
+            [
+              [
+                [10.52, 59.81],
+                [10.97, 59.83],
+                [10.95, 60.07],
+                [10.55, 60.05],
+                [10.52, 59.81]
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Bergen and Oslo",
+          "awarenessSeriousness": "Challenging situation",
+          "awareness_level": "2; yellow; Moderate",
+          "awareness_type": "10; Rain",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": ["46", "03"],
+          "event": "rain",
+          "eventAwarenessName": "Rain",
+          "eventEndingTime": "2026-10-17T06:00:00+00:00",
+          "geographicDomain": "land",
+          "id": "2.49.0.1.578.0.20261016051033.002",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261016051033.002"
+            }
+          ],
+          "severity": "Moderate",
+          "status": "Actual",
+          "title": "Rain, yellow level, Bergen and Oslo, 16 October 08:00 UTC to 17 October 08:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-16T06:00:00+00:00", "2026-10-17T06:00:00+00:00"]
+        }
+      },
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [10.31, 59.62],
+              [11.42, 59.66],
+              [11.37, 60.21],
+              [10.72, 60.29],
+              [10.28, 60.02],
+              [10.31, 59.62]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Oslo and Akershus",
+          "awarenessSeriousness": "Challenging situation",
+          "awareness_level": "2; yellow; Moderate",
+          "awareness_type": "5; Ice",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": ["03", "32"],
+          "event": "icing",
+          "eventAwarenessName": "Icing",
+          "eventEndingTime": "2026-10-15T09:00:00+00:00",
+          "geographicDomain": "land",
+          "id": "2.49.0.1.578.0.20261014181500.003",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261014181500.003"
+            }
+          ],
+          "riskMatrixColor": "Yellow",
+          "severity": "Moderate",
+          "status": "Actual",
+          "title": "Icing, yellow level, Oslo and Akershus, 15 October 08:00 UTC to 15 October 11:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-15T06:00:00+00:00", "2026-10-15T09:00:00+00:00"]
+        }
+      },
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [9.48, 59.02],
+              [12.01, 59.08],
+              [11.93, 61.03],
+              [9.52, 60.97],
+              [9.48, 59.02]
+            ],
+            [
+              [10.61, 59.86],
+              [10.89, 59.86],
+              [10.88, 59.97],
+              [10.62, 59.98],
+              [10.61, 59.86]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Eastern Norway outside Oslo",
+          "awarenessSeriousness": "Challenging situation",
+          "awareness_level": "2; yellow; Moderate",
+          "awareness_type": "2; snow-ice",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": ["32", "33", "34"],
+          "event": "snow",
+          "eventAwarenessName": "Snow",
+          "eventEndingTime": "2026-10-17T00:00:00+00:00",
+          "geographicDomain": "land",
+          "id": "2.49.0.1.578.0.20261016052245.004",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261016052245.004"
+            }
+          ],
+          "riskMatrixColor": "Yellow",
+          "severity": "Moderate",
+          "status": "Actual",
+          "title": "Snow, yellow level, Eastern Norway outside Oslo, 16 October 14:00 UTC to 17 October 02:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-16T12:00:00+00:00", "2026-10-17T00:00:00+00:00"]
+        }
+      },
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [18.02, 69.01],
+              [20.11, 69.08],
+              [19.94, 70.21],
+              [18.07, 70.12],
+              [18.02, 69.01]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "The coast of Troms",
+          "awarenessSeriousness": "Challenging situation",
+          "awareness_level": "4; red; Extreme",
+          "awareness_type": "7; coastalevent",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": ["55"],
+          "event": "stormSurge",
+          "eventAwarenessName": "Storm surge",
+          "eventEndingTime": "2026-10-16T21:00:00+00:00",
+          "geographicDomain": "land",
+          "id": "2.49.0.1.578.0.20261016070000.005",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261016070000.005"
+            }
+          ],
+          "riskMatrixColor": "Red",
+          "severity": "Extreme",
+          "status": "Actual",
+          "title": "Storm surge, red level, The coast of Troms, 16 October 11:00 UTC to 16 October 23:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-16T09:00:00+00:00", "2026-10-16T21:00:00+00:00"]
+        }
+      },
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [8.03, 57.52],
+              [11.02, 57.61],
+              [10.94, 58.79],
+              [8.11, 58.71],
+              [8.03, 57.52]
+            ]
+          ]
+        },
+        "properties": {
+          "altitude_above_sea_level": 0,
+          "area": "Skagerrak",
+          "awarenessSeriousness": "Challenging situation",
+          "awareness_level": "2; yellow; Moderate",
+          "awareness_type": "1; Wind",
+          "ceiling_above_sea_level": 274,
+          "certainty": "Likely",
+          "contact": "https://www.met.no/kontakt-oss",
+          "county": [],
+          "event": "gale",
+          "eventAwarenessName": "Gale",
+          "eventEndingTime": "2026-10-17T03:00:00+00:00",
+          "geographicDomain": "marine",
+          "id": "2.49.0.1.578.0.20261016043000.006",
+          "municipality": [],
+          "resources": [
+            {
+              "description": "CAP file",
+              "mimeType": "application/xml",
+              "uri": "https://api.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261016043000.006"
+            }
+          ],
+          "riskMatrixColor": "Yellow",
+          "severity": "Moderate",
+          "status": "Actual",
+          "title": "Gale, yellow level, Skagerrak, 16 October 05:00 UTC to 17 October 05:00 UTC.",
+          "type": "Alert",
+          "web": "https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler"
+        },
+        "type": "Feature",
+        "when": {
+          "interval": ["2026-10-16T03:00:00+00:00", "2026-10-17T03:00:00+00:00"]
+        }
+      }
+    ],
+    "lang": "en",
+    "lastChange": "2026-10-16T07:00:00+00:00",
+    "type": "FeatureCollection"
+  }
+}
