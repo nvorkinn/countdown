@@ -238,10 +238,10 @@ def test_the_runner_logs_a_failed_batch_of_postcodes_by_its_size_and_reason_alon
 
     assert asyncio.run(cycle()) == 0
 
+    assert_nothing_says_where(caplog, [*traces("SE17 3LL"), *traces("YO1 7HH")])
     [failed] = [record for record in caplog.records if record.levelno >= logging.ERROR]
     assert failed.getMessage() == "postcode: couldn't fetch 2 ids: ConnectionError"
     assert "in fetch" in caplog.text  # the traceback is kept, where it was raised: just not what it said
-    assert_nothing_says_where(caplog, [*traces("SE17 3LL"), *traces("YO1 7HH")])
 
 
 @pytest.mark.usefixtures("production_logging")
