@@ -157,9 +157,9 @@ class NoticeBoardClient(AbstractClient):
         try:
             self.fetched[source] = (now, source.fetch(now))
         except LookupError as e:
-            # A stored source whose provider hasn't written its key (yet): expected, so not worth a traceback each
-            # poll. Its last notices are kept all the same.
-            logger.warning("%s: %s", source.name, e)
+            # A stored source raises one of its own when its provider hasn't written its keys (yet): expected, so not
+            # worth a traceback each poll (unlike a KeyError or IndexError, a bug). Its last notices are kept too.
+            logger.warning("%s: %s", source.name, e, exc_info=isinstance(e, KeyError | IndexError))
         except Exception as e:
             # Keep its last notices (until they go stale); the others carry on regardless.
             logger.warning("%s: %s", source.name, e, exc_info=True)

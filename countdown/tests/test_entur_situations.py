@@ -30,7 +30,7 @@ from countdown_core.notices.entur import (
     NoStoredSituationsError,
     StoredEnturSituationsSource,
 )
-from countdown_core.notices.notice import Notice, Severity
+from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
 from countdown_core.store.situations import StoredSituations
@@ -314,7 +314,25 @@ def test_the_board_keeps_its_last_entur_notices_while_the_store_has_none(store, 
 
     [record] = [r for r in caplog.records if r.name == board_module.__name__]
     assert record.getMessage().startswith("Entur disruptions: No situations in the store for Entur stops")
-    assert record.exc_info is None  # expected, so no traceback
+    assert not record.exc_info  # expected, so no traceback
+
+
+def test_a_key_error_in_a_source_is_still_a_bug_with_its_traceback(clock, caplog):
+    class Broken(NoticeSource):
+        name = "Broken"
+        refresh_interval = timedelta(minutes=1)
+
+        def fetch(self, now):
+            return {}["items"]
+
+    board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
+    board.sources = []
+    board.use_client_sources([Broken(requests.Session())])
+    with pytest.raises(RuntimeError):
+        asyncio.run(board.update())
+
+    [record] = [r for r in caplog.records if r.name == board_module.__name__]
+    assert record.exc_info is not None
 
 
 def test_the_board_reads_the_store_each_time_it_draws(store, provide, clock):
