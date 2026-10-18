@@ -140,6 +140,16 @@ def test_cycle_fetches_in_batches(redis):
     assert [len(call) for call in provider.calls] == [2, 2, 1]
 
 
+def test_a_provider_can_ask_for_its_own_batch_size(redis):
+    subscribe(redis, *[f"s{n}" for n in range(25)])
+    provider = FakeProvider()
+    provider.batch_size = 100  # e.g. one request for what every id shares
+
+    asyncio.run(ProviderRunner(provider, redis).run_cycle())
+
+    assert [len(call) for call in provider.calls] == [25]
+
+
 def test_cycle_only_fetches_its_shard(redis):
     ids = [f"stop-{n}" for n in range(20)]
     subscribe(redis, *ids)

@@ -24,7 +24,13 @@ from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
 from countdown_core.notices.notice_styles import STYLES
-from countdown_core.notices.tfl import TFL_URL, TflLineStatusSource, TflRoadSource, TflStationSource
+from countdown_core.notices.tfl import (
+    TFL_URL,
+    StoredTflRoadSource,
+    TflLineStatusSource,
+    TflRoadSource,
+    TflStationSource,
+)
 from countdown_core.tfl.models import Postcode
 from countdown_core.utils.clock import format_clock
 
@@ -682,7 +688,7 @@ def test_board_adds_local_sources_once_the_postcode_is_found(api, clock):
         BankHolidaySource,
         MetOfficeWarningsSource,
         FloodWarningsSource,
-        TflRoadSource,
+        StoredTflRoadSource,
     ]
 
 

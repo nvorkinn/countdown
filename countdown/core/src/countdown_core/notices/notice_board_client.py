@@ -14,7 +14,7 @@ from countdown_core.notices.location import lookup_postcode
 from countdown_core.notices.met_office import MetOfficeWarningsSource
 from countdown_core.notices.norway import MetAlertsSource, NorwegianHolidaySource, lookup_norwegian_postcode
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
-from countdown_core.notices.tfl import TflRoadSource
+from countdown_core.notices.tfl import StoredTflRoadSource
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -138,7 +138,7 @@ class NoticeBoardClient(AbstractClient):
             bank_holidays,
             met_office,
             FloodWarningsSource(self.session, location),
-            TflRoadSource(self.session, self.tfl_config, location),
+            StoredTflRoadSource(self.session, self.postcode),
         ]
         # Otherwise a quiet board gives no sign the postcode was placed.
         area = ", ".join(part for part in (location.region or location.country, location.admin_district) if part)

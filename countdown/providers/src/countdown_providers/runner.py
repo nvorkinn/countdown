@@ -20,7 +20,7 @@ from countdown_core.store import keys
 from countdown_providers.sharding import Shard
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from pydantic import BaseModel
     from redis.asyncio import Redis
@@ -54,14 +54,17 @@ class ProviderRunner:
         redis: Redis,
         *,
         shard: Shard | None = None,
-        batch_size: int = DEFAULT_BATCH_SIZE,
+        batch_size: int | None = None,
         clock: Callable[[], float] = time.time,
     ) -> None:
-        """Fetch `shard`'s share of the ids (all of them by default), `batch_size` at a time; `clock` is for tests."""
+        """Fetch `shard`'s share of the ids (all of them by default), `batch_size` at a time; `clock` is for tests.
+
+        The batch size is, by default, the provider's own `batch_size` if it has one, else DEFAULT_BATCH_SIZE.
+        """
         self.provider = provider
         self.redis = redis
         self.shard = shard or Shard()
-        self.batch_size = batch_size
+        self.batch_size = batch_size or getattr(provider, "batch_size", DEFAULT_BATCH_SIZE)
         self.clock = clock
         self._stopping = asyncio.Event()
         # Set by a `v1:sub:changed` message; cleared as each cycle starts, so one arriving mid-cycle runs another.
@@ -172,13 +175,27 @@ class ProviderRunner:
 
 async def serve(provider: Provider, settings: Settings) -> None:
     """Run `provider` with `settings` until SIGINT or SIGTERM, then close the Redis connection."""
+    await serve_all([provider], settings)
+
+
+async def serve_all(providers: Sequence[Provider], settings: Settings) -> None:
+    """Run `providers` side by side, each in its own loop, until SIGINT or SIGTERM; then close the Redis connection.
+
+    For one API's process that writes several kinds of key, each fetched at its own pace or for its own subscriptions
+    (the TfL notices: the lines and the stations by stop, the roads by place).
+    """
     redis = settings.redis()
-    runner = ProviderRunner(provider, redis, shard=settings.shard)
+    runners = [ProviderRunner(provider, redis, shard=settings.shard) for provider in providers]
+
+    def stop() -> None:
+        for runner in runners:
+            runner.stop()
+
     loop = asyncio.get_running_loop()
     # As a container's PID 1 nothing handles SIGTERM unless we do, and docker stop would have to kill us.
     for signum in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(signum, runner.stop)
+        loop.add_signal_handler(signum, stop)
     try:
-        await runner.run()
+        await asyncio.gather(*(runner.run() for runner in runners))
     finally:
         await redis.aclose()

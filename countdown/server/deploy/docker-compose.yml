@@ -51,6 +51,23 @@ services:
         max-size: 10m
         max-file: "3"
 
+  # TfL's disruptions for the notice boards: the lines and stations at the stops, the roads near the postcodes.
+  provider-tfl-notices:
+    image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    command: countdown-provider-tfl-notices
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
+      TFL_APP_KEY: ${TFL_APP_KEY:-}
+    logging:
+      driver: json-file
+      options:
+        tag: provider-tfl-notices
+        max-size: 10m
+        max-file: "3"
+
   provider-weather:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
     command: countdown-provider-weather

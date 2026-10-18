@@ -44,6 +44,9 @@ countdown-core so the providers and renderers share them.
 | `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): the GitHub summary (pull requests, builds, releases with their jobs) and the AI plans, as the broker's `/api/developer` answers them; the renderer reads only this, never the route |
 | `v1:pace:<source>:<id>` | integer string, TTL ~1 min | any provider that has bursty data (the developer provider, per device, while a release runs) | the seconds it wants the screen to refresh at; renderers take the fastest of those they watch, see the renderer's README, "The pace" |
 | `v1:spotify-top:<device id>` | string, TTL 2 h | auth-broker's `spotify-provider`, every 30 min | `StoredTop` JSON (`store/music.py`): each service's top tracks and artists by time range |
+| `v1:notices:tfl-lines:<stop id>` | string, TTL 10 min | provider-tfl-notices, every 2 min | `StoredLineStatus` JSON (`store/tfl_notices.py`): TfL's `/Line/{ids}/Status` for the lines serving the stop, every stop's lines asked about in one request; see [TfL notices](#tfl-notices) |
+| `v1:notices:tfl-stations:<stop id>` | string, TTL 30 min | provider-tfl-notices, every 5 min | `StoredStationDisruptions` JSON: TfL's `/StopPoint/{id}/Disruption` (lifts, entrances...) |
+| `v1:notices:tfl-roads:<place>` | string, TTL 30 min | provider-tfl-notices, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredRoadDisruptions` JSON: the entries of TfL's `/Road/all/Disruption` (one request for every place) within 3 km of the postcode, placed by postcodes.io; `<place>` is `keys.place(postcode)`, e.g. `SE173LL` |
 
 The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
 own tokens, which never leave it (auth-broker's README, "Music in the store"). As the two repositories can't share
@@ -92,6 +95,40 @@ fetches every 15 minutes, and keeps each value for an hour. `tests/fixtures/glow
 Glowmarkt's answers to the stored value, and auth-broker's tests read the same file: change both together.
 `tests/fixtures/glow_energy_pages.json` is the pages the renderer drew from those answers when it still asked
 Glowmarkt itself, which the stored value must still draw.
+
+### TfL notices
+
+The notice board's TfL disruptions are written by `provider-tfl-notices` (`tfl_notices/main.py`): one process running
+three providers side by side (`runner.serve_all`), each with its own subscriptions, pace and key. They store TfL's
+answers, read with the models of TfL's answers (`tfl/models.py`) and written back under TfL's names, and the
+renderer's sources (`notices/tfl.py`) make the notices from them as the board polls: which statuses are worth a
+notice, which have ended, the shortened station names, the tags in the screen's language.
+
+- **Line status**, by stop (`v1:sub:tfl`): each stop's lines are looked up once a day (`/StopPoint/{id}`), then
+  every line any stop needs is asked about at once (`/Line/{ids}/Status`; its `batch_size` makes every stop one
+  batch), and each stop gets its own lines' statuses. A line's status is the same for every screen, so ten screens on
+  the Northern line cost one request, not ten.
+- **Stations**, by stop: `/StopPoint/{id}/Disruption`, a request per stop.
+- **Roads**, by place (`v1:sub:postcode`, UK postcodes only; Norway's have no TfL roads): `/Road/all/Disruption` once,
+  cut to what's within 3 km of each postcode, placed by postcodes.io once per postcode (a postcode doesn't move).
+
+A stop with nothing wrong, or that isn't a bus stop or Tube station, is still written (with nothing in it), and so is
+a place outside London, so "nothing to report" isn't "no data". A missing key is a failed poll (a `LookupError`), and
+the board keeps that source's last notices. Postcodes stay out of the logs, and so does the app key (a failed
+request is logged as its error's name and status, not its URL). `tests/fixtures/tfl_notices.json` is a set of TfL's
+answers and `tfl_notices_expected.json` the notices the renderer made from them when it asked TfL itself, which the
+stored values must still make.
+
+The renderers read these keys only, so the provider must be running, and its keys there, for their TfL notices. Its
+first cycle runs as it starts; to check, on the host:
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:tfl*"'
+```
+
+lists a `tfl-lines` and a `tfl-stations` key for each stop in `v1:sub:tfl`, and a `tfl-roads` key for each UK
+postcode in `v1:sub:postcode`. The broker writes that set on every config save, so it's empty (and there are no road
+keys) until a config has been saved since the broker started writing it.
 
 ## Running locally
 
@@ -157,8 +194,9 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL, weather, Entur) are on: they're services in `../server/deploy/docker-compose.yml`,
-so every deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s
+This repository's providers (TfL, TfL notices, weather, Entur) are on: they're services in
+`../server/deploy/docker-compose.yml`, so every deploy starts and upgrades them, and `--wait` fails the deploy if one
+won't stay up. `release.yml`'s
 `deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`)
 and `TFL_APP_KEY`; without the password the deploy fails rather than start them unauthenticated. They need the broker
 writing subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking).
@@ -170,8 +208,9 @@ the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to e
 as an upgrade, like a new image. The renderers read TfL's and Entur's departures (`v1:departures:<stop>`), the weather
 (`v1:weather:<location>`), the energy readings (`v1:energy:<device id>`, from auth-broker's `glow-provider`) and the
 Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
-the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; only the
-disruption notices still come straight from their APIs. So each provider must be running for its panels to have anything
+the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) and the notice
+board's TfL disruptions (`v1:notices:tfl-*`, from `provider-tfl-notices`) too; only the other disruption notices still
+come straight from their APIs. So each provider must be running for its panels to have anything
 to draw.
 
 A renderer started without the store (`RENDERER_REDIS_URL` set to empty, so no `REDIS_URL`) can't build the clients

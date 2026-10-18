@@ -8,13 +8,13 @@ from dataclasses import dataclass
 from math import ceil
 from typing import TYPE_CHECKING, Any, Protocol, override
 
-from countdown_api.models import ConfigResponse, DepartureStop, Tfl
+from countdown_api.models import ConfigResponse, DepartureStop
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.style import panel_style
 from countdown_core.entur.stored_source import StoredEnturSource
 from countdown_core.i18n import N_
 from countdown_core.notices.entur import EnturSituationsSource
-from countdown_core.notices.tfl import TflLineStatusSource, TflStationSource
+from countdown_core.notices.tfl import StoredTflLineStatusSource, StoredTflStationSource
 from countdown_core.store import reader
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
 from countdown_core.tfl.stored_source import StoredTflSource
@@ -97,8 +97,10 @@ class DeparturesClient(AbstractClient):
         """Build the disruption sources for the stops: TfL's line status and stations, and Entur's situations."""
         sources: list[NoticeSource] = []
         if tfl_stops := config.stop_ids("tfl"):
-            tfl = Tfl(app_key=config.tfl_app_key, stop_ids=tfl_stops)
-            sources += [TflLineStatusSource(self.session, tfl), TflStationSource(self.session, tfl)]
+            sources += [
+                StoredTflLineStatusSource(self.session, tfl_stops),
+                StoredTflStationSource(self.session, tfl_stops),
+            ]
         if entur_stops := config.stop_ids("entur"):
             sources.append(EnturSituationsSource(self.session, entur_stops))
         return sources

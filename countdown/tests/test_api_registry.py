@@ -312,7 +312,7 @@ def test_new_stops_change_the_disruptions_without_rebuilding_the_notice_board():
     asyncio.run(registry.on_config_update(london))
 
     assert registry.clients["notice_board"] is board
-    assert source_names(registry) == ["TflLineStatusSource", "TflStationSource"]
+    assert source_names(registry) == ["StoredTflLineStatusSource", "StoredTflStationSource"]
 
 
 @responses.activate
@@ -323,7 +323,7 @@ def test_a_rebuilt_notice_board_gets_the_departures_disruptions_too():
 
     asyncio.run(registry.on_config_update(make_config(departures=stops, notice_board={"postcode": "SE17 3LL"})))
 
-    assert source_names(registry) == ["TflLineStatusSource", "TflStationSource"]
+    assert source_names(registry) == ["StoredTflLineStatusSource", "StoredTflStationSource"]
 
 
 def test_on_config_update_skips_disabled_clients():

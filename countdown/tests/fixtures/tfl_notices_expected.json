@@ -1,0 +1,62 @@
+{
+  "line_status": [
+    {
+      "source": "Northern",
+      "severity": "WARNING",
+      "text": "Severe delays between Kennington and Morden due to an earlier signal failure at Clapham Common.",
+      "valid_until": "2026-09-25T21:00:00+00:00"
+    },
+    {
+      "source": "Northern",
+      "severity": "PLANNED",
+      "text": "Until Sunday 4 October, no service between Kennington and Battersea Power Station.",
+      "valid_until": "2026-10-04T12:00:00+00:00"
+    },
+    {
+      "source": "Bus 155",
+      "severity": "INFO",
+      "text": "Issues Reported",
+      "valid_until": null
+    },
+    {
+      "source": "Buses",
+      "severity": "SEVERE",
+      "text": "KENNINGTON PARK ROAD, Kennington: Routes 333 and 415 are diverted away from Kennington Park Road due to emergency gas works.",
+      "valid_until": "2026-09-25T18:00:00+00:00"
+    }
+  ],
+  "stations": [
+    {
+      "source": "TfL",
+      "severity": "INFO",
+      "text": "Kennington: The southbound Charing Cross branch platform is closed for cleaning.",
+      "valid_until": "2026-09-25T14:00:00+00:00"
+    },
+    {
+      "source": "TfL",
+      "severity": "INFO",
+      "text": "Kennington: No step-free access to the platforms.",
+      "valid_until": null
+    },
+    {
+      "source": "TfL",
+      "severity": "INFO",
+      "text": "Kennington: Stop F is closed because of road works. Use stop E.",
+      "valid_until": "2026-09-28T12:00:00+00:00"
+    }
+  ],
+  "roads": [
+    {
+      "source": "Roads",
+      "severity": "WARNING",
+      "text": "Collisions: [A3] Kennington Park Road (SE11) (Lambeth) - Northbound closed at Kennington Cross after a collision.",
+      "valid_until": "2026-09-25T15:00:00+00:00"
+    },
+    {
+      "source": "Roads",
+      "severity": "INFO",
+      "text": "Works: [A202] Camberwell New Road (SE5) (Lambeth) - Lane restrictions for gas main repairs.",
+      "valid_until": null
+    }
+  ]
+}

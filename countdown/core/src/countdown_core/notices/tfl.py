@@ -12,13 +12,18 @@ from pydantic import TypeAdapter
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import _
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
+from countdown_core.store import keys, reader
+from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
 from countdown_core.tfl.models import DisruptedPoint, Line, Postcode, RoadDisruption, StopPointUnion
 from countdown_core.tfl.tfl_client import _find_stop_child
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     import requests
 
     from countdown_api.models import Tfl
+    from countdown_core.store.models import Stored
 
 logger = logging.getLogger(__name__)
 
@@ -214,3 +219,157 @@ class TflRoadSource(TflSource):
             for d in disruptions
             if d.severity in ROAD_SEVERITY and self._is_nearby(d)
         ]
+
+
+# --- From the store ----------------------------------------------------------------
+# The TfL notices provider asks TfL once for every screen and stores its answers (store/tfl_notices.py); these make
+# the notices from them as the board polls, so the tags are in the screen's language and what's current is as of now.
+
+
+class NoStoredTflNoticesError(LookupError):
+    """The store has nothing for a stop or place: the TfL notices provider is down, or hasn't fetched it yet."""
+
+
+class StoredTflNoticeSource(NoticeSource):
+    """A notice source reading what the TfL notices provider stored, rather than asking TfL."""
+
+    def _read_all[M: Stored](self, item_keys: list[str], model: type[M]) -> list[M]:
+        """Return the values stored under `item_keys`, in order, in one round trip.
+
+        Raises NoStoredTflNoticesError if any is missing, so the board keeps the last notices rather than show half of
+        them, StoreNotConfiguredError without a store, and RedisError if Redis can't be asked. The store is looked up
+        here rather than when the source is made, so the board can build its sources without one.
+        """
+        if not item_keys:
+            return []
+        values = reader.require_store().mget(item_keys)
+        if missing := [key for key, value in zip(item_keys, values, strict=True) if value is None]:
+            msg = f"Nothing in the store at {', '.join(missing)}"
+            raise NoStoredTflNoticesError(msg)
+        return [model.model_validate_json(value) for value in values]
+
+
+class StoredTflLineStatusSource(StoredTflNoticeSource):
+    """Delays, closures and suspensions on the lines and bus routes serving the stops, as stored by stop."""
+
+    name = "TfL line status"
+    # The provider asks TfL every two minutes; reading the store is cheap.
+    refresh_interval = timedelta(minutes=2)
+
+    def __init__(self, session: requests.Session, stop_ids: list[str]) -> None:
+        """Read the status of the lines serving the TfL stops `stop_ids`; `session` is the board's (unused)."""
+        super().__init__(session)
+        self.stop_ids = stop_ids
+
+    @override
+    def fetch(self, now: datetime) -> list[Notice]:
+        # Every line once, in the order the stops list them: a line serving two stops is one line.
+        lines: dict[str, Line] = {}
+        for stored in self._read_all([keys.tfl_line_status(stop_id) for stop_id in self.stop_ids], StoredLineStatus):
+            for line in stored.lines:
+                lines.setdefault(line.id, line)
+        return line_status_notices(lines.values(), now)
+
+
+class StoredTflStationSource(StoredTflNoticeSource):
+    """Lifts out of order, closed entrances and the like at the stops themselves, as stored by stop."""
+
+    name = "TfL stations"
+    # The provider asks TfL every five minutes.
+    refresh_interval = timedelta(minutes=5)
+
+    def __init__(self, session: requests.Session, stop_ids: list[str]) -> None:
+        """Read what's wrong at the TfL stops `stop_ids`; `session` is the board's (unused)."""
+        super().__init__(session)
+        self.stop_ids = stop_ids
+
+    @override
+    def fetch(self, now: datetime) -> list[Notice]:
+        stored = self._read_all([keys.tfl_stations(stop_id) for stop_id in self.stop_ids], StoredStationDisruptions)
+        return station_notices([point for stop in stored for point in stop.disruptions], now)
+
+
+class StoredTflRoadSource(StoredTflNoticeSource):
+    """Serious and severe road incidents near the postcode, as stored by place. London only, as TfL's are."""
+
+    name = "TfL roads"
+    # The provider asks TfL every five minutes.
+    refresh_interval = timedelta(minutes=5)
+
+    def __init__(self, session: requests.Session, postcode: str) -> None:
+        """Read the incidents near `postcode` (the broker's, as the provider was subscribed to it)."""
+        super().__init__(session)
+        self.postcode = postcode
+
+    @override
+    def fetch(self, now: datetime) -> list[Notice]:
+        [stored] = self._read_all([keys.tfl_roads(self.postcode)], StoredRoadDisruptions)
+        return road_notices(stored.disruptions)
+
+
+def line_status_notices(lines: Iterable[Line], now: datetime) -> list[Notice]:
+    """Make the notices for TfL's statuses of `lines`: the ones worth a notice that apply at `now`."""
+    # Keyed by reason: a bus closure is reported word for word on every route it affects, so it's one notice, not one
+    # per route.
+    notices: dict[str | tuple[str, str], Notice] = {}
+    for line in lines:
+        for status in line.line_statuses:
+            if status.description in CURRENT_STATUSES:
+                severity = CURRENT_STATUSES[status.description]
+            elif status.description in PLANNED_STATUSES:
+                severity = Severity.PLANNED
+            else:
+                continue
+            current = [p for p in status.validity_periods if p.from_date <= now <= p.to_date]
+            if status.validity_periods and not current:
+                continue  # e.g. a planned closure later this week
+            tag = _("Bus {route}").format(route=line.name) if line.mode_name == "bus" else line.name
+            headline = _headline(status.reason, line.name)
+            text = headline or status.description
+            key = headline or (tag, status.description)
+            valid_until = max((p.to_date for p in current), default=None)
+            if key in notices:
+                seen = notices[key]
+                severity = min(severity, seen.severity)
+                valid_until = None if None in (valid_until, seen.valid_until) else max(valid_until, seen.valid_until)
+                if seen.source != tag:
+                    tag = _("Buses") if line.mode_name == "bus" else "TfL"
+            notices[key] = Notice(tag, severity, text, valid_until)
+    return list(notices.values())
+
+
+def station_notices(points: Iterable[DisruptedPoint], now: datetime) -> list[Notice]:
+    """Make the notices for what TfL says is wrong at the stops (`points`), leaving out what's over by `now`."""
+    notices: list[Notice] = []
+    seen: set[str] = set()
+    for point in points:
+        if point.to_date is not None and point.to_date < now:
+            continue
+        # Descriptions lead with the station's name in capitals ("ELEPHANT & CASTLE UNDERGROUND STATION: ..."); swap
+        # it for a short one that reads better.
+        _, colon, rest = point.description.partition(":")
+        detail = rest.strip() if colon else point.description.strip()
+        text = f"{_short_station_name(point.common_name)}: {detail}"
+        # TfL often lists the same notice more than once, for different dates.
+        if text not in seen:
+            seen.add(text)
+            notices.append(Notice("TfL", Severity.INFO, text, point.to_date))
+    return notices
+
+
+def is_near(disruption: RoadDisruption, latitude: float, longitude: float) -> bool:
+    """Whether a road disruption is within ROAD_RADIUS_KM of a place; one TfL gives no point for isn't."""
+    try:
+        lon, lat = json.loads(disruption.point or "")
+    except ValueError, TypeError:
+        return False
+    return _distance_km(latitude, longitude, lat, lon) <= ROAD_RADIUS_KM
+
+
+def road_notices(disruptions: Iterable[RoadDisruption]) -> list[Notice]:
+    """Make the notices for the serious and severe road disruptions among `disruptions` (already the nearby ones)."""
+    return [
+        Notice(_("Roads"), ROAD_SEVERITY[d.severity], f"{d.category}: {d.comments}", d.end_date_time)
+        for d in disruptions
+        if d.severity in ROAD_SEVERITY
+    ]
