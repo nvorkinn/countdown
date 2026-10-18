@@ -112,18 +112,26 @@ class OtlpPublisher:
     def _statuses(self) -> dict[str, ClientStatus]:
         return {name: self.statuses.get(name, ClientStatus.DISABLED) for name in self.api_names}
 
+    def _attributes(self, **attributes: str) -> dict[str, str]:
+        """Return a data point's attributes: `attributes`, and the device as `device`, as the render pool reports it.
+
+        The resource's host.name names the device too, but the host's Fluent Bit doesn't pass a resource's attributes
+        on to VictoriaMetrics, so without this every renderer's gauges would share one series there.
+        """
+        return {"device": self.device_name, **attributes}
+
     def _api_status(self, _options: CallbackOptions) -> Iterable[Observation]:
-        return [Observation(1, {"api": n, "status": s.value}) for n, s in self._statuses().items()]
+        return [Observation(1, self._attributes(api=n, status=s.value)) for n, s in self._statuses().items()]
 
     def _problem(self, _options: CallbackOptions) -> Iterable[Observation]:
-        return [Observation(int(any(s in UNHEALTHY for s in self._statuses().values())))]
+        return [Observation(int(any(s in UNHEALTHY for s in self._statuses().values())), self._attributes())]
 
     def _stage(self, _options: CallbackOptions) -> Iterable[Observation]:
-        return [Observation(1, {"stage": self.device_status.stage})]
+        return [Observation(1, self._attributes(stage=self.device_status.stage))]
 
     def _display_connected(self, _options: CallbackOptions) -> Iterable[Observation]:
-        return [Observation(int(self.device_status.display_connected))]
+        return [Observation(int(self.device_status.display_connected), self._attributes())]
 
     def _last_sync(self, _options: CallbackOptions) -> Iterable[Observation]:
         synced = self.device_status.last_broker_sync
-        return [Observation(synced.timestamp())] if synced else []
+        return [Observation(synced.timestamp(), self._attributes())] if synced else []

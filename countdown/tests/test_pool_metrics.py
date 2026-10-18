@@ -109,6 +109,9 @@ def test_the_resource_is_the_worker_and_each_render_is_counted_by_device_and_out
     counts = {p["outcome"]: p["value"] for p in points["countdown.render.count"]}
     assert counts == {WRITTEN: 1, UNCHANGED: 2, FAILED: 1}
     assert all(p["device"] == SLUG for p in points["countdown.render.count"])
+    # The worker as an attribute too: Fluent Bit doesn't pass the resource's host.name on to VictoriaMetrics.
+    assert all(p["worker"] == "render-worker-1" for p in points["countdown.render.count"])
+    assert all(p["worker"] == "render-worker-1" for p in points["countdown.render.duration"])
     durations = {p["outcome"]: p["count"] for p in points["countdown.render.duration"]}
     assert durations == {WRITTEN: 1, UNCHANGED: 2, FAILED: 1}
     resource = dict(reader.get_metrics_data().resource_metrics[0].resource.attributes)
@@ -192,7 +195,7 @@ def test_the_wait_and_the_queue_are_the_pools_capacity_signals(metrics, reader):
 
     points = collect(reader)
 
-    assert points["countdown.render.lag"] == [{"device": SLUG, "value": None, "count": 2}]
+    assert points["countdown.render.lag"] == [{"device": SLUG, "worker": "render-worker-1", "value": None, "count": 2}]
     assert points["countdown.render.queued"] == [{"value": 3, "count": None}]
 
 

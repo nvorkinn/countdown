@@ -10,12 +10,16 @@ screen, so each screen is the `device` attribute, and each render's outcome, whe
 - `countdown.render.expired_panels` (gauge): by `device` and `panel`, 1 if that panel was drawn "Not available" because
   its key had expired, else 0.
 - `countdown.render.lag` (histogram, s): how long each job waited in the queue, by `device`.
+- The counter and the histograms also have `worker`, the worker's name (its `host.name`).
 - `countdown.render.queued` (gauge): how many jobs are waiting (the queue's, so no `device`).
 - `countdown.api.status`, `countdown.problem`, `countdown.stage` (gauges): as the per-screen renderer's
   (home_assistant.otlp_publisher), by `device`.
 
-Two workers report side by side, each its own counters and histograms (they differ by `host.name`), so sum those across
-workers. `last_success` is each worker's latest for every screen still in the pool: take the highest across workers.
+Two workers report side by side, each its own counters and histograms, so sum those across workers. Those also carry
+the worker as a `worker` attribute: the host's Fluent Bit drops the resource's attributes (`host.name` among them) on
+the way to VictoriaMetrics, and without it the two workers' counters would land in one series there and read as a
+reset at every sample. `last_success` is each worker's latest for every screen still in the pool: take the highest
+across workers.
 The other gauges describe the screen as its latest render left it, so each render's are reported once, at the next
 export, by the worker that drew it; a screen that hasn't been drawn since the last export has none from that worker.
 
@@ -133,13 +137,13 @@ class PoolMetrics:
     def waited(self, slug: str, seconds: float) -> None:
         """Record how long a job for the screen `slug` waited in the queue."""
         if self._provider is not None:
-            self._lag.record(max(seconds, 0.0), {"device": slug})
+            self._lag.record(max(seconds, 0.0), {"device": slug, "worker": self.worker_name})
 
     def rendered(self, device_id: str, slug: str, outcome: Outcome | None, duration_s: float) -> None:
         """Record a render of the screen: its Outcome, or None if it raised, and how long it took."""
         result = outcome_of(outcome)
         if self._provider is not None:
-            attributes = {"device": slug, "outcome": result}
+            attributes = {"device": slug, "outcome": result, "worker": self.worker_name}
             self._duration.record(duration_s, attributes)
             self._count.add(1, attributes)
         with self._lock:

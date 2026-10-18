@@ -324,6 +324,9 @@ render, `outcome`:
 
 - **The existing gauges** (`countdown.api.status`, `countdown.problem`, `countdown.stage`) move from the resource's
   `host.name` to the `device` attribute, since a worker's `host.name` is the worker.
+- **Resource attributes don't reach VictoriaMetrics**: the host's Fluent Bit keeps them as metadata that its remote
+  write doesn't send. So the counter and histograms also carry the worker as `worker` (else two workers' counters
+  share a series), and a screen's own renderer puts `device` on its gauges too.
 - **The dashboards** in auth-broker are updated to match.
 - **Logs** are for what goes wrong only:
   - a render that fails, with its traceback;

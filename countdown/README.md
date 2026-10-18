@@ -488,13 +488,17 @@ The render pool's workers report their metrics by screen, with a `device` attrib
 `countdown.render.duration`, `countdown.render.count` (by `outcome`: `written`, `unchanged` or `failed`),
 `countdown.render.last_success`, `countdown.render.expired_panels` (by `panel`), `countdown.render.lag`,
 `countdown.render.queued`, and the gauges below (`countdown.api.status`, `countdown.problem`, `countdown.stage`) by
-`device` rather than by `host.name`, which for them is the worker (`render-worker-1`, `-2`). See
-`server/src/countdown_server/pool_metrics.py` for how to read them across the two workers.
+`device` rather than by `host.name`, which for them is the worker (`render-worker-1`, `-2`). The counter and the
+histograms also carry the worker as `worker`, since the host's Fluent Bit doesn't pass a resource's attributes
+(`host.name`) on to VictoriaMetrics: without it the two workers' counters would share one series there. See
+`server/src/countdown_server/pool_metrics.py` for how to read them across the two workers, and auth-broker's README
+("Dashboards") for the dashboards.
 
 The per-screen renderer reports its health as OTLP/HTTP metrics (protobuf, via the
 OpenTelemetry Python SDK) to the host's Fluent Bit OpenTelemetry input at
 `http://127.0.0.1:4318/v1/metrics`, tagged with `host.name` (the `DEVICE_NAME`
-setting, else the hostname). Gauges:
+setting, else the hostname), and with the same name as every data point's `device` attribute, as the pool reports a
+screen (the resource's `host.name` doesn't reach VictoriaMetrics). Gauges:
 
 - `countdown.api.status`: 1 per API, with `api` and `status` attributes: each client's status as of the last render
   (`Outcome.statuses`; an API with no client is `disabled`)
