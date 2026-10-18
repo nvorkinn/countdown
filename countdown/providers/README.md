@@ -131,10 +131,10 @@ Then, once a release with `provider-met-office` is deployed (its first cycle run
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:met-office*"'
 ```
 
-There should be one per UK postcode in `v1:sub:postcode` (`docker logs provider-met-office` says why one is missing).
-A renderer whose key isn't there logs "No Met Office warnings in the store for the board's postcode", shows the rest
-of its notices, and keeps whatever Met Office warnings it last read (for up to an hour); it reads again every 5
-minutes.
+There should be one per UK postcode in `v1:sub:postcode`; the provider's log says why one is missing (`docker logs
+countdown-renderers-provider-met-office-1`). A renderer whose key isn't there logs "No Met Office warnings in the store
+for the board's postcode", shows the rest of its notices, and keeps whatever Met Office warnings it last read (for up
+to an hour); it reads again every 5 minutes.
 
 ## Running locally
 
