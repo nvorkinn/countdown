@@ -16,6 +16,7 @@ from countdown_core.notices.calendar import (
     BANK_HOLIDAYS_URL,
     BankHolidaySource,
     ClockChangeSource,
+    StoredBankHolidaySource,
 )
 from countdown_core.notices.floods import FLOODS_URL, FloodWarningsSource
 from countdown_core.notices.location import POSTCODES_URL
@@ -25,6 +26,8 @@ from countdown_core.notices.notice_board_client import NoticeBoardClient, Notice
 from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
 from countdown_core.notices.notice_styles import STYLES
 from countdown_core.notices.tfl import TFL_URL, TflLineStatusSource, TflRoadSource, TflStationSource
+from countdown_core.store import keys
+from countdown_core.store.bank_holidays import StoredBankHolidays
 from countdown_core.tfl.models import Postcode
 from countdown_core.utils.clock import format_clock
 
@@ -664,7 +667,7 @@ def test_board_with_nothing_configured_still_has_bank_holidays_and_the_clocks():
     client = NoticeBoardClient(REGISTRATION, board_settings(postcode=None))
 
     assert not client.is_disabled()
-    assert [type(s) for s in client.sources] == [ClockChangeSource, BankHolidaySource]
+    assert [type(s) for s in client.sources] == [ClockChangeSource, StoredBankHolidaySource]
     assert client.sources[1].division == "england-and-wales"
 
 
@@ -679,7 +682,7 @@ def test_board_adds_local_sources_once_the_postcode_is_found(api, clock):
 
     assert [type(s) for s in client.sources] == [
         ClockChangeSource,
-        BankHolidaySource,
+        StoredBankHolidaySource,
         MetOfficeWarningsSource,
         FloodWarningsSource,
         TflRoadSource,
@@ -700,9 +703,9 @@ def test_board_logs_that_it_resolved_postcode(api, clock, caplog):
     )
 
 
-def test_board_with_an_unknown_postcode_says_so(api, clock, caplog):
+def test_board_with_an_unknown_postcode_says_so(api, clock, caplog, store):
     api.add(responses.GET, f"{POSTCODES_URL}/ZZ1%201ZZ", status=404, json={"error": "Invalid postcode"})
-    api.add(responses.GET, BANK_HOLIDAYS_URL, json=BANK_HOLIDAYS)
+    store.set(keys.bank_holidays(), StoredBankHolidays(fetched_at=NOW, divisions=BANK_HOLIDAYS).model_dump_json())
 
     with caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"):
         panel = update(NoticeBoardClient(REGISTRATION, board_settings(postcode="ZZ1 1ZZ")))
