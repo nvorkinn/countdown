@@ -1,7 +1,7 @@
 """The render function (render.render): one screen's frame from the store, run to completion, and the loop calling it.
 
 fixtures/render_parity.json is the parity check. It was recorded from the per-screen loop as it was before the render
-function (DisplayLoop.run with ApiRegistry and DisplayController, pi-dashboard main at 024d31b), before that code
+function (DisplayLoop.run with ApiRegistry and DisplayController, pi-dashboard main at 1b3743d), before that code
 changed: for each case a config, the store as the providers left it and a moment, and the etag of the frame that loop
 PUT. From the same inputs, render(device_id, now) must draw exactly the same frames, and so must the loop that now
 calls it. The cases cover both orientations and both clock formats, every panel, the developer panel in the Spotify
