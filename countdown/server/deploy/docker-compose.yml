@@ -19,6 +19,12 @@ services:
       # (RENDERER_REDIS_URL set to empty: `-`, not `:-`, so an empty value is kept) those panels can't be drawn.
       RENDERER_REDIS_URL: ${RENDERER_REDIS_URL-redis://127.0.0.1:6379/0}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      # The screens (by slug, separated by commas) the render pool draws instead of their own renderers: each one's
+      # renderer is stopped, kept with its volumes, and the screen written into v1:render:screens. Empty: none. From
+      # the deploy-renderers job's POOL_SLUGS variable (see ../../orchestrator/README.md, "The render pool").
+      POOL_SLUGS: ${POOL_SLUGS:-}
+    # For the host's Redis on 127.0.0.1:6379 (RENDERER_REDIS_URL), which it writes the pool's screens to.
+    network_mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     # The tag is the stream's `service` in VictoriaLogs (the renderers' is renderer-<slug>, see runtime.py).
@@ -194,5 +200,64 @@ services:
       driver: json-file
       options:
         tag: provider-locations
+        max-size: 10m
+        max-file: "3"
+
+  # The render pool (docs/stateless-renderers.md, "The pool, the queue and the render function"): workers that take
+  # render jobs off the queue in the host's Redis and draw the screens in v1:render:screens, and a ticker that queues
+  # each of those screens every minute. From the renderers' image, with another entrypoint. Idle until the
+  # orchestrator's POOL_SLUGS puts a screen in the pool. Host networking for Redis and the host's Fluent Bit (metrics).
+  render-worker-1: &render-worker
+    image: ghcr.io/nvorkinn/countdown-server:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    entrypoint: ["countdown-render-worker"]
+    pull_policy: always
+    # Also when a render passes its deadline, which ends the worker.
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 512m
+    # The image declares these for a screen's own renderer's identity and key; the pool keeps nothing, so no volumes.
+    tmpfs:
+      - /data
+      - /keys
+    environment: &render-pool-environment
+      REDIS_URL: redis://127.0.0.1:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
+      # Names the worker in its logs and as its metrics' host.name; each screen is their `device` attribute.
+      WORKER_NAME: render-worker-1
+    logging:
+      driver: json-file
+      options:
+        tag: render-worker-1
+        max-size: 10m
+        max-file: "3"
+
+  render-worker-2:
+    <<: *render-worker
+    environment:
+      <<: *render-pool-environment
+      WORKER_NAME: render-worker-2
+    logging:
+      driver: json-file
+      options:
+        tag: render-worker-2
+        max-size: 10m
+        max-file: "3"
+
+  render-ticker:
+    image: ghcr.io/nvorkinn/countdown-server:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    entrypoint: ["countdown-render-ticker"]
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    tmpfs:
+      - /data
+      - /keys
+    environment:
+      REDIS_URL: redis://127.0.0.1:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
+    logging:
+      driver: json-file
+      options:
+        tag: render-ticker
         max-size: 10m
         max-file: "3"

@@ -4,6 +4,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
+import redis
 import requests
 import responses
 from test_departures_client import make_config
@@ -97,7 +98,8 @@ def test_requiring_a_store_doesnt_connect_so_redis_being_down_isnt_fatal(monkeyp
     client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
     asyncio.run(client.initialise())
 
-    with pytest.raises(RuntimeError, match="Could not fetch departures"):
+    # Redis's own error, which the render pool's render fails on (render.render's raise_store_errors).
+    with pytest.raises(redis.exceptions.ConnectionError):
         client._update()
 
 

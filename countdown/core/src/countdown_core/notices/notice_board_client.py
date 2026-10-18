@@ -99,9 +99,9 @@ class NoticeBoardClient(AbstractClient):
     def _ensure_location(self, now: datetime) -> None:
         """Add the sources about the postcode's place once the store says where it is (provider-locations writes it).
 
-        Until it does, a board with nothing else to show says it's not available (or, while the store can't be read,
-        that it couldn't look the postcode up yet), and reads again after LOCATION_RETRY. A postcode the store says
-        doesn't exist gets "Unknown postcode", for good.
+        Until it does, a board with nothing else to show says it's not available (or, while there's no store or what's
+        there can't be read, that it couldn't look the postcode up yet), and reads again after LOCATION_RETRY. Redis not
+        answering raises its RedisError. A postcode the store says doesn't exist gets "Unknown postcode", for good.
         """
         if not self.postcode or self.location is not None:
             return
@@ -111,7 +111,11 @@ class NoticeBoardClient(AbstractClient):
         self.location_missing = False
         try:
             stored = reader.read(reader.require_store(), keys.location(self.postcode), StoredLocation)
-        except Exception as e:  # noqa: BLE001 -- no store, Redis down, a provider on another version: tried again
+        except RedisError:
+            # Redis not answering, as for the sources (_read): the registry keeps the last board, and the render pool's
+            # render fails, keeping the screen's frame, rather than draw the board without its local notices.
+            raise
+        except Exception as e:  # noqa: BLE001 -- no store, a provider on another version: tried again
             logger.warning("Couldn't read the postcode's location from the store: %s", type(e).__name__)
             return
         if stored is None:

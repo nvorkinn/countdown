@@ -27,6 +27,10 @@ holds an image's own bytes, not JSON, one key per image however many screens sho
 
 Frames (written by the renderers, read by auth-broker): `v1:frame:<device id>` is a hash of the screen's latest frame,
 its ETag and when it was drawn, which the broker serves the screen. See `frame`.
+
+The render queue (the render pool's, store.render_queue): `v1:render:jobs`, a list of device ids to render, with a
+flag, a lease and a follow-up flag per device; and `v1:render:screens`, the hash of the screens the pool renders (device
+id to slug). See `RENDER_JOBS`.
 """
 
 import hashlib
@@ -150,6 +154,39 @@ def frame(device_id: str) -> str:
     raw bytes, its ETag and when it was first drawn, read by auth-broker with a client that doesn't decode values.
     """
     return f"{PREFIX}:frame:{device_id}"
+
+
+# The render pool's queue (store.render_queue; docs/stateless-renderers.md, "The pool, the queue and the render
+# function"). The jobs are a list of device ids, which the workers BRPOP; a screen is in it at most once.
+RENDER_JOBS = f"{PREFIX}:render:jobs"
+# The screens the pool renders: a hash of device id to slug (the slug names the screen in the metrics). The orchestrator
+# writes it during the migration, for the screens in its POOL_SLUGS; a worker drops a job for a device not in it.
+RENDER_SCREENS = f"{PREFIX}:render:screens"
+
+
+def render_queued(device_id: str) -> str:
+    """Return the flag that a job for the screen is in the queue, e.g. `v1:render:queued:a1b2c3d4e5f6`.
+
+    Set (to when it was queued, in Unix milliseconds) by enqueue, taken by the claim; with a TTL, so a worker that dies
+    between the pop and the claim can't keep the screen out of the queue for long.
+    """
+    return f"{PREFIX}:render:queued:{device_id}"
+
+
+def render_lease(device_id: str) -> str:
+    """Return the lease on the screen's render, e.g. `v1:render:lease:a1b2c3d4e5f6`: the token of the worker drawing it.
+
+    With a TTL longer than the render's deadline, so a worker that dies mid-render frees the screen by itself.
+    """
+    return f"{PREFIX}:render:lease:{device_id}"
+
+
+def render_again(device_id: str) -> str:
+    """Return the flag that a job came for the screen while its render was in flight, e.g. `v1:render:again:<id>`.
+
+    The release queues one follow-up render for it, however many jobs came.
+    """
+    return f"{PREFIX}:render:again:{device_id}"
 
 
 # Notices (the notice board's sources), one key per source and what it's fetched for. Keys by place use `place`.

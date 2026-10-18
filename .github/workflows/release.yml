@@ -213,4 +213,7 @@ jobs:
           # For the providers: Redis's password (the same as auth-broker's secrets/redis.env) and TfL's app key.
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
           TFL_APP_KEY: ${{ secrets.TFL_APP_KEY }}
+          # The screens the render pool draws instead of their own renderers (the orchestrator's POOL_SLUGS): a repo
+          # variable (Settings > Secrets and variables > Actions > Variables), read when the job runs. Unset: none.
+          POOL_SLUGS: ${{ vars.POOL_SLUGS }}
         run: bash countdown/server/deploy/deploy.sh "$GITHUB_REF_NAME"

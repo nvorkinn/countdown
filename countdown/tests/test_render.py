@@ -310,6 +310,97 @@ def test_an_expired_key_is_not_available_rather_than_the_last_panel(store):
     assert expired.expired == {"tfl", "notice_board"}
 
 
+# --- the render pool's render: the store unreachable fails it ------------------------------------------------
+
+
+def _departures_down(monkeypatch, store) -> None:
+    """Make Redis fail every read of a departures key, as if it stopped answering mid-render; the config still reads."""
+    get = store.get
+
+    def failing(key, *args, **kwargs):
+        if key.startswith("v1:departures:"):
+            raise reader.redis.exceptions.ConnectionError
+        return get(key, *args, **kwargs)
+
+    monkeypatch.setattr(store, "get", failing)
+
+
+def test_the_pools_render_fails_and_writes_nothing_when_the_store_cant_be_read(store, monkeypatch):
+    put_departures(store, "490000123W", [("N155", "Morden", 300)], now=_now(RICH))
+    store.set(keys.config(DEVICE_ID), _stop_config().model_dump_json())
+    first = render(DEVICE_ID, _now(RICH), raise_store_errors=True)
+    before = reader.binary_store().hgetall(keys.frame(DEVICE_ID))
+    _departures_down(monkeypatch, store)
+
+    with pytest.raises(reader.redis.exceptions.ConnectionError):
+        render(DEVICE_ID, _now(RICH) + timedelta(minutes=1), raise_store_errors=True)
+
+    assert first.result is Result.WRITTEN
+    # Not a frame saying it could not connect: the screen keeps the one it has.
+    assert reader.binary_store().hgetall(keys.frame(DEVICE_ID)) == before
+
+
+EVERY_PANEL = json.loads((Path(__file__).parent / "fixtures" / "config_store.json").read_text(encoding="utf-8"))[
+    "value"
+]
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "v1:departures:",
+        "v1:weather:",
+        "v1:energy:",
+        "v1:spotify:",
+        "v1:developer:",
+        "v1:notices:",
+        "v1:location:",
+        "v1:",
+    ],
+)
+def test_the_pools_render_fails_whichever_panels_key_redis_cant_answer_for(store, monkeypatch, prefix):
+    store.set(keys.config(DEVICE_ID), json.dumps(EVERY_PANEL))
+    config_key = keys.config(DEVICE_ID)
+
+    def failing(name):
+        real = getattr(store, name)
+
+        def call(*args, **kwargs):
+            names = args[0] if isinstance(args[0], list) else [args[0]]
+            if any(key.startswith(prefix) and key != config_key for key in names):
+                raise reader.redis.exceptions.TimeoutError
+            return real(*args, **kwargs)
+
+        return call
+
+    for name in ("get", "mget"):
+        monkeypatch.setattr(store, name, failing(name))
+
+    with pytest.raises(reader.redis.exceptions.RedisError):
+        render(DEVICE_ID, _now(RICH), raise_store_errors=True)
+    assert not reader.binary_store().exists(keys.frame(DEVICE_ID))
+
+
+def test_without_raise_store_errors_a_client_redis_cant_answer_says_it_could_not_connect(store, monkeypatch):
+    store.set(keys.config(DEVICE_ID), _stop_config().model_dump_json())
+    _departures_down(monkeypatch, store)
+
+    outcome = render(DEVICE_ID, _now(RICH))
+
+    assert outcome.result is Result.WRITTEN
+    assert "tfl" not in outcome.panels
+
+
+def test_the_pools_render_still_draws_an_expired_key_not_available(store):
+    store.set(keys.config(DEVICE_ID), _stop_config().model_dump_json())
+
+    outcome = render(DEVICE_ID, _now(RICH), raise_store_errors=True)
+
+    assert outcome.result is Result.WRITTEN
+    assert outcome.panels["tfl"].message == "Not available"
+    assert "tfl" in outcome.expired
+
+
 # --- the per-screen loop's triggers, through DisplayLoop.run --------------------------------------------------
 
 

@@ -29,7 +29,7 @@ countdown-providers = { workspace = true }
 
 [dependency-groups]
 dev = [
-    "fakeredis>=2.40.0",
+    "fakeredis[lua]>=2.40.0",
     "pyinstrument>=5.1.3",
     "pyproject-runner>=0.3.0",
     "pytest>=8.4.2",

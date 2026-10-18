@@ -81,6 +81,19 @@ def test_the_renderer_knows_its_device_from_the_environment(monkeypatch):
     assert json.loads(handlers[0].formatter.format(record()))["device"] == "kitchen"
 
 
+def test_a_process_drawing_many_screens_names_itself_instead_of_a_device(monkeypatch):
+    """The render pool's worker: each line names the screen it's about, and `device` would name the host."""
+    monkeypatch.setenv("DEVICE_NAME", "Kitchen")
+    handlers = []
+    monkeypatch.setattr(renderer.logging, "basicConfig", lambda **kwargs: handlers.extend(kwargs["handlers"]))
+
+    renderer.configure_logging({"worker": "render-worker-1"})
+
+    entry = json.loads(handlers[0].formatter.format(record()))
+    assert entry["worker"] == "render-worker-1"
+    assert "device" not in entry
+
+
 @pytest.fixture
 def levels_kept():
     """Put the third-party loggers' levels back after a test that configures the logging."""

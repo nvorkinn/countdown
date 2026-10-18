@@ -58,6 +58,24 @@ Set up once, in the repo's Settings:
   the same values as auth-broker's. The user must be able to use Docker (be in the `docker` group).
 - Secret `ORCHESTRATOR_TOKEN`: the orchestrator's credential on the broker, which the deploy hands to it.
 
+## The render pool
+
+The compose file also runs the render pool ([Stateless renderers](../../docs/stateless-renderers.md), step 6), from
+the renderers' image with another entrypoint: `render-worker-1` and `render-worker-2` (`countdown-render-worker`) and
+`render-ticker` (`countdown-render-ticker`), on the host's network, with the repo secret `REDIS_PASSWORD`. They're
+idle until a screen is in the pool: the orchestrator's `POOL_SLUGS`, from the repository variable of the same name,
+puts it there ([The render pool](../../orchestrator/README.md#the-render-pool) says how, and how to roll back).
+
+To check on the host:
+
+```sh
+docker logs countdown-renderers-render-worker-1-1      # warnings and errors only: no line per frame
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli HGETALL v1:render:screens'
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli HMGET v1:frame:<device id> etag rendered_at'
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli LLEN v1:render:jobs'   # 0, between minutes
+docker ps -a --filter name=renderer-<slug>             # Exited: the pool draws it
+```
+
 ## Providers
 
 The compose file also has a service per provider (`provider-tfl`, `provider-tfl-notices`, `provider-entur`,

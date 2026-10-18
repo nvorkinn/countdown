@@ -26,6 +26,8 @@ later only changes where `reconcile()` places an assignment.
 | `MAX_RENDERERS` | optional capacity, of renderers *running*; assignments beyond it stay `pending`; `0` means unlimited |
 | `RENDERER_MEM_LIMIT` | default `256m` |
 | `POLL_INTERVAL_S` | default 10 |
+| `RENDERER_REDIS_URL`, `REDIS_PASSWORD` | the store the renderers read (handed to them as `REDIS_URL`), which the orchestrator writes the render pool's screens to |
+| `POOL_SLUGS` | optional: the slugs, separated by commas, of the screens the render pool draws instead of their own renderers (see [The render pool](#the-render-pool)); empty: none |
 
 It runs as a container beside the renderers: the `orchestrator` service in
 `../server/deploy/docker-compose.yml`, deployed with every release (`ORCHESTRATOR_TOKEN` is a repo secret, read by
@@ -44,6 +46,29 @@ Each pass is idempotent (a reboot or crash just runs it again):
 - **`deleting`** assignments are removed **with their volumes** (identity and key).
 - Each outcome is reported to the broker.
 
+## The render pool
+
+Step 6 of [Stateless renderers](../docs/stateless-renderers.md#migration): the render pool's workers draw the screens
+listed in `v1:render:screens` (device id to slug), and until the broker writes that hash itself, the orchestrator does,
+for the screens in `POOL_SLUGS` (`pool.py`):
+
+- **Handing over**, on every pass: a screen in `POOL_SLUGS` that's wanted on (pending, provisioned or failed) has its
+  renderer **stopped**, keeping the container and its volumes, and is then written into the hash. It's reported
+  `provisioned`. Every pass, so a Redis restart (which empties the hash) is undone within one.
+- **Handing back**: a screen in the hash that isn't to be pooled any more (taken out of `POOL_SLUGS`, suspended, being
+  deleted, or gone) is taken out of it, and its renderer is started again (on the current image, with its volumes)
+  once its lease `v1:render:lease:<device id>` has gone: a render of it in flight finishes first, and no new one can
+  start, since the workers' claim checks the hash.
+- It needs the screen's `device_id` from the broker (auth-broker #202). Without it, the screen is logged once and left
+  on its own renderer.
+- With `POOL_SLUGS` empty nothing changes. With Redis unreachable, the screens in `POOL_SLUGS` are left as they are.
+
+`POOL_SLUGS` comes from the `deploy-renderers` job's repository variable of the same name (Settings > Secrets and
+variables > Actions > Variables). **To move a screen to the pool**, add its slug there (e.g. `nvorkinn-test`) and
+deploy (re-run the latest release's `deploy-renderers` job, or release). **To roll back**, take it out (or clear the
+variable) and deploy again: the orchestrator removes it from the hash, waits for its lease to lapse, and starts its
+renderer again.
+
 ## The broker's side (to build in auth-broker)
 
 Authenticated with `Authorization: Bearer <ORCHESTRATOR_TOKEN>`.
@@ -51,9 +76,10 @@ Authenticated with `Authorization: Bearer <ORCHESTRATOR_TOKEN>`.
 **`GET /api/orchestrator/assignments`** returns every assignment that is not `deleted`:
 
 ```json
-{"assignments": [{"id": "a1", "slug": "lisa", "claim_token": "…", "status": "pending"}]}
+{"assignments": [{"id": "a1", "slug": "lisa", "claim_token": "…", "status": "pending", "device_id": "a1b2c3d4e5f6"}]}
 ```
 
+`device_id` is the screen's (null once the device is forgotten); a broker before auth-broker #202 leaves it out.
 `status` is `pending`, `provisioned`, `suspended`, `failed` (retried on every pass) or `deleting`.
 
 **The broker owns the policy** for suspending: when the assignment's screen hasn't been seen for 24 hours it

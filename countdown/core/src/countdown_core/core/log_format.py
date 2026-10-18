@@ -12,11 +12,14 @@ coordinates, nor a URL with one in it. A failed request's text quotes its URL, s
 import json
 import logging
 import os
-from typing import override
+from typing import TYPE_CHECKING, override
 
 import requests
 
 from countdown_credentials.device_name import device_name_from_env
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 # Python's names for the two levels that differ from the shared vocabulary: debug, info, warn, error, fatal.
 LEVELS = {"WARNING": "warn", "CRITICAL": "fatal"}
@@ -50,13 +53,18 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(entry, default=str)
 
 
-def configure_logging() -> None:
-    """JSON lines on stderr. An unrecognised LOG_LEVEL falls back to INFO."""
+def configure_logging(fixed: Mapping[str, str] | None = None) -> None:
+    """JSON lines on stderr, with the `fixed` fields on every line. An unrecognised LOG_LEVEL falls back to INFO.
+
+    By default that's the `device` the process renders (DEVICE_NAME, else the hostname). A process that renders many
+    screens (the render pool's) names itself instead, and each line names the screen it's about.
+    """
     level = logging.getLevelNamesMapping().get(os.environ.get("LOG_LEVEL", "").upper(), logging.INFO)
-    try:
-        fixed = {"device": device_name_from_env()}
-    except ValueError:
-        fixed = {}
+    if fixed is None:
+        try:
+            fixed = {"device": device_name_from_env()}
+        except ValueError:
+            fixed = {}
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter(**fixed))
     logging.basicConfig(level=level, handlers=[handler])

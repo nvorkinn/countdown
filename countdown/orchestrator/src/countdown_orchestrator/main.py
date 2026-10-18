@@ -8,6 +8,7 @@ import requests
 
 from countdown_orchestrator.broker import OrchestratorBroker
 from countdown_orchestrator.log_format import configure_logging
+from countdown_orchestrator.pool import Pool
 from countdown_orchestrator.reconcile import reconcile
 from countdown_orchestrator.runtime import DockerRuntime
 
@@ -36,11 +37,13 @@ def run() -> None:
     )
     max_renderers = int(os.environ["MAX_RENDERERS"]) if os.environ.get("MAX_RENDERERS") else None
     poll_s = int(os.environ.get("POLL_INTERVAL_S", DEFAULT_POLL_S))
+    # The screens in POOL_SLUGS go to the render pool (pool.py); made with it empty too, to hand screens back.
+    pool = Pool.from_env()
 
     delay = poll_s
     while True:
         try:
-            reconcile(broker, runtime, max_renderers)
+            reconcile(broker, runtime, max_renderers, pool)
             delay = poll_s
         except requests.RequestException as e:
             delay = min(delay * 2, MAX_BACKOFF_S)
