@@ -14,6 +14,7 @@ countdown-provider-entur = "countdown_providers.entur.main:main"
 countdown-provider-entur-situations = "countdown_providers.entur_situations.main:main"
 countdown-provider-floods = "countdown_providers.floods.main:main"
 countdown-provider-met-office = "countdown_providers.met_office.main:main"
+countdown-provider-metalerts = "countdown_providers.metalerts.main:main"
 countdown-provider-tfl = "countdown_providers.tfl.main:main"
 countdown-provider-weather = "countdown_providers.weather.main:main"
 
