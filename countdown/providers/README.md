@@ -100,7 +100,7 @@ The notice board's MET Norway weather warnings are one key for the whole country
 one per place: MetAlerts' `current.json` answers for all of Norway at once, each warning with its area as a GeoJSON
 polygon, and the renderer picks out those covering its postcode's place (as MET does when asked for a `lat` and `lon`)
 and words them when it draws (`notices/norway.py`, `StoredMetAlertsSource`). So `provider-metalerts` reads
-`v1:sub:postcode` only to know whether any screen is in Norway (a four-digit postcode; the UK's are left alone), asks
+`v1:sub:postcode` only to know whether any screen is in Norway (a four-digit postcode; it skips the UK's), asks
 MET nothing while none is, and needs no postcode's place:
 
 ```json
@@ -112,7 +112,7 @@ MET nothing while none is, and needs no postcode's place:
 `no` and `en` are MET's answers with `lang=no` and `lang=en`: a screen in Norwegian reads `no`, any other `en`. MET's
 [terms](https://api.met.no/doc/TermsOfService) want an identifying `User-Agent` (`MET_HEADERS`) and caching: the
 provider keeps each answer until its `Expires`, then asks again with `If-Modified-Since`, so an unchanged one costs a
-304, two small requests every five minutes however many screens there are. `fetched_at` is when MET last sent, or
+304: at most two requests every five minutes, however many screens there are. `fetched_at` is when MET last sent, or
 confirmed, the older of the two. If MET can't be reached the key is left as it was until its TTL runs out, and the
 board then keeps its last warnings for up to an hour. `tests/fixtures/metalerts_current.json` is an example, which
 the provider's and the renderer's tests both read; `metalerts_notices.json` is what the board showed from it when it
@@ -191,8 +191,8 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL, weather, Entur) are on: they're services in `../server/deploy/docker-compose.yml`,
-so every deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s
+This repository's providers (TfL, weather, Entur, MetAlerts) are on: they're services in
+`../server/deploy/docker-compose.yml`, so every deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s
 `deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`)
 and `TFL_APP_KEY`; without the password the deploy fails rather than start them unauthenticated. They need the broker
 writing subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking).

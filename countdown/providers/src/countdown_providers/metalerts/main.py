@@ -8,8 +8,8 @@ nothing while none is, and needs no postcode's place.
 
 It keeps to MET's terms (https://api.met.no/doc/TermsOfService): every request says who's asking (MET_HEADERS), an
 answer is kept until its Expires before MET is asked again, and then with If-Modified-Since, so an unchanged answer
-costs a 304. It asks in both languages the screens are drawn in, Norwegian (lang=no) and English (lang=en): two small
-requests every five minutes, however many screens.
+costs a 304. It asks in both languages the screens are drawn in, Norwegian (lang=no) and English (lang=en): at most
+two requests every five minutes, however many screens.
 
 The HTTP calls are synchronous (requests), so they run in a worker thread (asyncio.to_thread), like the TfL provider's.
 """

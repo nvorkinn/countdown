@@ -13,13 +13,10 @@ from pathlib import Path
 import pytest
 import requests
 import responses
-from responses import matchers
 from test_utils import REGISTRATION
 
 from countdown_core import i18n
 from countdown_core.notices.norway import (
-    METALERTS_URL,
-    MetAlertsSource,
     NoStoredMetAlertsError,
     StoredMetAlertsSource,
     covers,
@@ -36,8 +33,6 @@ FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "metalerts_current.json").read_text(encoding="utf-8"))
 RECORDED = json.loads((FIXTURES / "metalerts_notices.json").read_text(encoding="utf-8"))["cases"]
 NOW = datetime(2026, 10, 16, 12, 0, tzinfo=UTC)
-# After the wind has died down (19:00 UTC), before the rain and the snow have.
-EVENING = datetime(2026, 10, 16, 20, 0, tzinfo=UTC)
 
 OSLO = Postcode(postcode="0150", latitude=59.9116, longitude=10.7505, country="Norway", admin_district="Oslo")
 TROMSO = Postcode(postcode="9008", latitude=69.6489, longitude=18.9551, country="Norway", admin_district="Tromsø")
@@ -59,32 +54,10 @@ COVERING = {
 }
 
 
-@pytest.fixture(params=["en", "nb"])
-def screen_language(request):
-    """Draw in English, then in Norwegian, on Oslo time."""
-    i18n.set_locale(request.param, "Europe/Oslo")
-    yield request.param
-    i18n.set_locale("en", "Europe/London")
-
-
 def stored_path(store, place: Postcode, now: datetime):
     """Make the board's notices as it does now: from the warnings the provider stored, for all of Norway."""
     store.set(keys.metalerts(), StoredMetAlerts.model_validate(FIXTURE).model_dump_json())
     return StoredMetAlertsSource(requests.Session(), place).fetch(now)
-
-
-def old_path(place: Postcode, now: datetime):
-    """Make them as the board once did: asking MET for the place, which answers with the warnings covering it."""
-    lang = "no" if i18n.language() == "nb" else "en"
-    answer = FIXTURE[lang]
-    answer = {
-        **answer,
-        "features": [f for f in answer["features"] if f["properties"]["id"] in COVERING[place.postcode]],
-    }
-    query = {"lat": str(round(place.latitude, 4)), "lon": str(round(place.longitude, 4)), "lang": lang}
-    with responses.RequestsMock() as api:
-        api.get(METALERTS_URL, json=answer, match=[matchers.query_param_matcher(query)])
-        return MetAlertsSource(requests.Session(), place).fetch(now)
 
 
 def recorded(case: dict) -> list[Notice]:
@@ -100,13 +73,6 @@ def recorded(case: dict) -> list[Notice]:
     ]
 
 
-@pytest.mark.parametrize("now", [NOW, EVENING], ids=["midday", "evening"])
-@pytest.mark.parametrize("postcode", sorted(COVERING))
-def test_the_stored_warnings_make_the_notices_that_asking_met_for_the_place_did(store, screen_language, postcode, now):
-    place = PLACES[postcode]
-    assert stored_path(store, place, now) == old_path(place, now)
-
-
 @pytest.mark.parametrize(
     "case", RECORDED, ids=lambda case: f"{case['postcode']}-{case['language']}-{case['now'][11:16]}"
 )
@@ -117,17 +83,6 @@ def test_the_stored_warnings_make_the_notices_the_board_made_when_it_asked_met(s
     finally:
         i18n.set_locale("en", "Europe/London")
     assert made == recorded(case)
-
-
-def test_the_recorded_notices_are_the_ones_asking_met_made():
-    for case in RECORDED:
-        i18n.set_locale(case["language"], "Europe/Oslo")
-        try:
-            made = old_path(PLACES[case["postcode"]], datetime.fromisoformat(case["now"]))
-        finally:
-            i18n.set_locale("en", "Europe/London")
-        assert made == recorded(case)
-    assert sum(len(case["notices"]) for case in RECORDED) == 14
 
 
 @pytest.mark.parametrize("postcode", sorted(COVERING))

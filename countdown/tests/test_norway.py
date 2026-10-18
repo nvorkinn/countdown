@@ -15,8 +15,6 @@ from countdown_core.notices.calendar import ClockChangeSource
 from countdown_core.notices.entur import EnturSituationsSource
 from countdown_core.notices.norway import (
     ADDRESSES_URL,
-    METALERTS_URL,
-    MetAlertsSource,
     NorwegianHolidaySource,
     lookup_norwegian_postcode,
     norwegian_holidays,
@@ -129,19 +127,6 @@ def test_metalerts_become_notices_until_their_end_in_oslo_time():
         "Yellow warning: regn until Sat",
         "08:00",
     )
-
-
-def test_metalerts_are_asked_for_in_the_screens_language(api):
-    api.get(METALERTS_URL, json={"features": []})
-    i18n.set_locale("nb", "Europe/Oslo")
-    try:
-        MetAlertsSource(requests.Session(), OSLO).fetch(NOW)
-    finally:
-        i18n.set_locale("en", "Europe/London")
-    request = api.calls[0].request
-    assert "lang=no" in request.url
-    assert "lat=59.9116" in request.url
-    assert request.headers["User-Agent"].startswith("countdown")
 
 
 def test_entur_situations_are_said_once_tagged_with_their_line_in_the_screens_language(api):

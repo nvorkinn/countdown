@@ -173,7 +173,7 @@ def metalerts_language() -> str:
 def _inside(polygon: list, longitude: float, latitude: float) -> bool:
     """Whether a point is in a GeoJSON polygon: in its outer ring and none of its holes.
 
-    By counting the edges a ray from the point crosses, over every ring (even-odd), so a hole's take it back out.
+    By counting the edges of every ring that a ray from the point crosses (even-odd), so a point in a hole is out.
     """
     inside = False
     for ring in polygon:
@@ -249,26 +249,3 @@ class StoredMetAlertsSource(NoticeSource):
             raise NoStoredMetAlertsError(msg)
         answer = stored.no if metalerts_language() == "no" else stored.en
         return parse_metalerts(warnings_at(answer, self.location), now)
-
-
-class MetAlertsSource(NoticeSource):
-    """MET Norway's weather warnings for the postcode's location, in the screen's language."""
-
-    name = "MET weather warnings"
-    refresh_interval = timedelta(minutes=10)
-
-    def __init__(self, session: requests.Session, location: Postcode) -> None:
-        """Fetch over `session` the warnings for `location`."""
-        super().__init__(session)
-        self.params = {"lat": round(location.latitude, 4), "lon": round(location.longitude, 4)}
-
-    @override
-    def fetch(self, now: datetime) -> list[Notice]:
-        response = self.session.get(
-            METALERTS_URL,
-            params=self.params | {"lang": "no" if language() == "nb" else "en"},
-            headers=MET_HEADERS,
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        return parse_metalerts(response.json(), now)
