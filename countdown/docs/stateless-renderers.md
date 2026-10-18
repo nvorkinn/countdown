@@ -466,6 +466,15 @@ These follow from the decisions but weren't asked about; say if any should go an
   - A Redis reader could then see a live code. That's the same trust as the config, and the firmware never asks for a
     code itself: it's only the fallback for handing a screen to a new owner.
   - Until step 7, a pooled screen with a code requested keeps showing its dashboard.
+  - **Confirmed by Nikolai (2026-10-18):** the live code goes in Redis, accepting that every Redis reader on the host
+    can see it for those 10 minutes. Rejected: the broker drawing the pairing screen (he'd rather the broker draw no
+    screens); the worker fetching the code from the broker at render time (it needs a pool-wide broker token, and the
+    rendered frame still lands in `v1:frame:<device id>` with the code on it); revealing it digit by digit with
+    partial refreshes (a reader watching the frame key still collects every digit). The config copy still never carries
+    the code.
+  - **Possible later hardening:** encrypt `v1:pairing:<device id>` *and* the frame records with one key held only by
+    the broker and the render workers (SOPS, both repos), so the providers, which hold only the Redis password, can't
+    read a live code. Encrypting the pairing key alone isn't enough: the rendered frame shows the code. Plaintext for now.
 - **Hints by key, read by the broker.** The broker reads the screen's `v1:pace:` keys itself, so the minimum, the floor
   and the expiry live in its one function. The render side never computes an interval.
 - **Bursts come from the provider's cycle.** The ticker only ticks on the minute.
