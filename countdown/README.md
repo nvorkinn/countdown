@@ -71,8 +71,9 @@ Glowmarkt or GitHub for them, nor the broker, nor the music services' image host
 a Glowmarkt password, a Spotify token or a GitHub token. A
 renderer started without `REDIS_URL` can't build those five, so their areas say "Could not connect" and the log says
 why (`store.reader.require_store`); a key missing from the store, or Redis not answering, is just a failed poll. The
-notice board and its disruption sources still call their APIs, except for the Met Office's warnings, which the board
-reads from the store too (`v1:notices:met-office:<place>`). `ApiRegistry` builds a client for every API the config enables.
+notice board reads its bank holidays (`v1:notices:bank-holidays`) and the Met Office's warnings
+(`v1:notices:met-office:<place>`) from the store too; its other sources, and the disruptions, still call their APIs.
+`ApiRegistry` builds a client for every API the config enables.
 When the config changes, it only rebuilds the clients whose `needs_refresh()`
 says the change affects them. Each client has its own `poll_interval`. The
 clients that are due are polled concurrently, with their blocking `requests`
@@ -145,8 +146,8 @@ marks the selected tab; narrow landscape panels abbreviate the labels. Each time
 is asked to update, it returns the next tab, wrapping back to Now. Rendering a frame does not advance
 it, and the registry keeps the current tab while the client is not due for a poll.
 
-The rotation uses a cached eight-day Open-Meteo forecast, which the weather provider stores for the location, not a
-read per tab. It's read again every 10 minutes, or when the date changes at the weather location. A failed read (the
+The rotation uses a cached eight-day Open-Meteo forecast, which the weather provider stores for the place (under the
+config's `weather.key`, see the providers' README, "Weather"), not a read per tab. It's read again every 10 minutes, or when the date changes at the weather location. A failed read (the
 forecast not in the store, or Redis not answering) keeps the last good frame and does not skip a tab; changing the
 configured location starts a new carousel. With no location configured the panel says it needs configuring.
 

@@ -39,3 +39,8 @@ class Provider(Protocol):
     # returning the seconds it wants the screen to refresh at for what it just fetched, or None if it needs no more
     # than usual. The runner writes that to `v1:pace:<name>:<item id>` with a TTL of PACE_TTL_S (and deletes the key on
     # None), so the pace lapses by itself if the provider stops, and a renderer takes the fastest of those it reads.
+    #
+    # Also optional: a provider that fetches the same thing for every screen, whatever they subscribe to (gov.uk's one
+    # bank holidays file for all of the UK), defines `fixed_ids`, a tuple of the ids it always fetches. The runner
+    # fetches those every cycle instead of reading `v1:sub:<name>` (`name` then only names it in the logs), and doesn't
+    # listen for subscription changes, which can't change what it fetches.
