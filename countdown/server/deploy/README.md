@@ -61,8 +61,13 @@ Set up once, in the repo's Settings:
 ## Providers
 
 The compose file also has a service per provider (`provider-tfl`, `provider-entur`, `provider-weather`,
-`provider-met-office`, `provider-metalerts`), which every deploy starts and upgrades. They need the repo secrets
-`REDIS_PASSWORD` and `TFL_APP_KEY`. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
+`provider-met-office`, `provider-bank-holidays`, `provider-metalerts`), which every deploy starts and upgrades. They
+need the repo secrets `REDIS_PASSWORD` and `TFL_APP_KEY`. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
+
+The notice boards read the bank holidays only from the store, so after the first deploy with `provider-bank-holidays`,
+check its key is there ([Bank holidays](../../providers/README.md#bank-holidays) says how).
+The Norwegian boards' MET weather warnings are the same, from `provider-metalerts`
+([Norway's weather warnings](../../providers/README.md#norways-weather-warnings)).
 
 ## Day to day
 

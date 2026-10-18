@@ -97,7 +97,7 @@ class ProviderRunner:
 
         Raises RedisError if Redis can't be read or written; a failing provider only loses its batch.
         """
-        wanted = await self.redis.smembers(keys.subscription(self.provider.name))
+        wanted = await self._wanted()
         # Sorted so batches (and logs) come out the same each cycle.
         mine = sorted(item_id for item_id in wanted if self.shard.owns(item_id))
         written = 0
@@ -121,6 +121,13 @@ class ProviderRunner:
             written += len(fetched)
         logger.debug("%s: wrote %d of %d ids", self.provider.name, written, len(mine))
         return written
+
+    async def _wanted(self) -> set[str]:
+        """Return the ids to fetch: the provider's fixed_ids if it has them (see provider.Provider), else its set's."""
+        fixed = getattr(self.provider, "fixed_ids", None)
+        if fixed is not None:
+            return set(fixed)
+        return await self.redis.smembers(keys.subscription(self.provider.name))
 
     def _write_pace(self, pipe: Pipeline, item_id: str, model: BaseModel) -> None:
         """Queue the pace the provider wants for `item_id`, if it asks for any: set while bursty, else deleted."""
@@ -156,7 +163,10 @@ class ProviderRunner:
         """Set _nudged on every `v1:sub:changed` message, resubscribing (forever) if Redis goes away.
 
         A missed message only delays a change until the next tick, as every cycle re-reads the subscriptions anyway.
+        A provider with fixed_ids reads no subscriptions, so it has nothing to listen for.
         """
+        if getattr(self.provider, "fixed_ids", None) is not None:
+            return
         while True:
             try:
                 async with self.redis.pubsub() as pubsub:

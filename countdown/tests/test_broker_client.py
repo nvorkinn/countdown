@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core import app
+from countdown_core.weather.weather_client import location_key
 from countdown_credentials import device_name
 from countdown_credentials.registration import RendererRegistration
 
@@ -146,6 +147,33 @@ def test_get_config_reads_a_broker_that_still_sends_the_glowmarkt_credentials_as
 
     assert config.glowmarkt.enabled is True
     assert config.pairing_code == "ABC123"
+
+
+@responses.activate
+def test_get_config_parses_the_weathers_place_key(isolated_cwd):
+    client = _initialised_client()
+    responses.add(
+        responses.GET, CONFIG_URL, json=broker_payload(weather={"location": "London", "key": "london-gb-2643743"})
+    )
+
+    config = client.get_config()
+
+    assert config.weather.location == "London"
+    assert location_key(config.weather) == "london-gb-2643743"
+
+
+@responses.activate
+def test_get_config_from_a_broker_without_the_weathers_key_reads_under_the_location(isolated_cwd):
+    """An older broker subscribes the location's text, and sends no key, which parses as null."""
+    client = _initialised_client()
+    payload = broker_payload(weather={"location": "London"})
+    del payload["weather"]["key"]
+    responses.add(responses.GET, CONFIG_URL, json=payload)
+
+    config = client.get_config()
+
+    assert config.weather.key is None
+    assert location_key(config.weather) == "London"
 
 
 @responses.activate
