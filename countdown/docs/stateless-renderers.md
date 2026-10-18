@@ -1,495 +1,484 @@
 # Stateless renderers
 
-**Status:** proposal, for review. Nothing here is built yet, apart from the render state's shape and its handoff
-rule (`countdown_core/core/render_state.py`), which nothing uses yet.
+**Status:** decided. The design below follows Nikolai's answers to the proposal's open questions
+([#205](https://github.com/nvorkinn/pi-dashboard/pull/205#issuecomment-6246057069), 2026-10-18), and is being built
+in the steps of the [migration](#migration). Step 1, rotation from the clock, is the first.
 
-The goal is that a renderer stops being a long-lived container per screen that sleeps and polls. Instead it becomes
-a job that runs, draws one frame and exits, started when the screen needs a new frame. Every panel already reads
-only the store. Two pieces of work in flight remove the last two things a renderer fetches for itself: the postcode
-lookup (`v1:location:<place>`) and the screen's config (`v1:config:<device>`, with a nudge). Once they land, a render
-is a pure function of what's in Redis and the time, plus a little state carried from the frame before.
+Today every screen has its own long-lived renderer container that sleeps, wakes, draws and uploads. The goal is a
+render that runs to completion and keeps nothing: read Redis, build the frame, write it, done. A small pool of warm
+workers calls that render whenever a job for a screen arrives on a Redis queue.
 
-## The recommendation, in short
+## The design, in short
 
-- **Who renders:** a small pool of warm worker processes (a compose service, `render-worker`, sharded by device id
-  the way the providers are), not a container per render. A cold container costs about 12 to 24 times the CPU of a
-  render in a warm process (see [Capacity](#capacity)).
-- **When:** a per-screen clock, which is what the loop does now: every 60 s, or the providers' pace while one asks
-  for faster. A config save renders at once. Later, renders can be timed to land just before the screen's next poll,
-  because the broker knows when that will be. Data-change events (keyspace notifications, or a channel the
-  providers publish) aren't needed: the screen only sees a new frame when it next polls (at most every 20 s), so a
-  frame drawn the moment the data changes shows no sooner than one drawn just before that poll.
-- **State:** almost none is left once page rotation is worked out from the clock and "keep the last good data" moves
-  into the store's own keys (a longer TTL, with `fetched_at` saying how fresh the value is). What remains is the
-  handoff (the last frame's hash and the pace it carried), about 100 bytes, in `v1:render-state:<device id>` with a
-  TTL.
-- **Handoff:** hash the 48,000-byte frame as the broker does. Skip the upload when the hash and pace say the broker
-  already has it, by the rule the renderer follows now (`RenderState.needs_put`). Later, consider handing frames
-  over through Redis instead of `PUT /api/frame`. Then a renderer needs no broker identity at all, and the
-  orchestrator, the claim tokens and the per-screen volumes can go.
-- **Migration:** eight steps, each shippable and reversible on its own. The per-screen containers keep running until
-  the pool has rendered every screen for a while. See [Migration](#migration-strangler-fig).
+- **Who renders.** A pool of warm worker processes on the Oracle ARM host. Each is a thin wrapper that blocks on a
+  Redis job queue and calls the render function for each job. The render function has no sleeps and no loops of its
+  own.
+- **What triggers a render.** A job on the queue, from one of three places:
+  - a ticker, every minute on the minute, for every screen;
+  - the broker, when a screen's config is saved;
+  - a provider whose data has turned bursty (the developer provider when a release starts), for the screens
+    subscribed to that data.
+- **One render per screen at a time.** A job for a screen whose render is in flight is never dropped: it leaves exactly
+  one follow-up render queued.
+- **Frames go through Redis.** The render writes the screen's latest frame to `v1:frame:<device id>`, but only when its
+  hash changed, and the broker serves it to the screen from there. Renderers hold no secrets, so the orchestrator,
+  the claim flow and the per-screen volumes go.
+- **Expiry.** Each provider's TTL is the only expiry there is. A panel whose key has expired says its data isn't
+  available. There are no last-good copies, no per-screen state and no freshness check on top.
+- **Rotation.** Each panel shows page `current minute mod its page count`, so every screen turns its pages together,
+  on the minute.
+- **Pacing.** One pure, well-tested function in the broker decides how long a screen sleeps after each poll, from the
+  server's clock: just after the next render boundary, polling twice as fast as renders are made (renders every
+  60 s, polls about every 30 s), faster while a provider's refresh hint is live. That logic lives nowhere else.
+- **Metrics and logs.** Metrics carry a `device` attribute: render duration, success or failure, when the screen last
+  got a good frame, panels drawn empty because their data expired, and frames skipped because nothing changed. Logs
+  are for what goes wrong; there's no line per frame.
+- **Not in this design:** partial e-paper refresh. That's a separate follow-up in the ESP32 firmware only (diff the new
+  frame against the one shown, partially refresh one small 8-px-aligned box, a full refresh every N partials or few
+  minutes), with no server or contract change.
 
 ## Where we are
 
-### The orchestrator (`countdown/orchestrator/`)
+### What runs now
 
-The renderer itself is `countdown/server/` (`countdown_server`, its `ServerTarget` and its image), drawing with
-`countdown/core/`. Its deploy, `server/deploy/docker-compose.yml`, runs the orchestrator and the providers, not the
-renderers.
+- **The orchestrator** (`countdown/orchestrator/`). It polls the broker every 10 s for assignments, and keeps one
+  `renderer-<slug>` container per screen through `DockerRuntime` (`runtime.py`). Each container has host networking,
+  256 MB and half a CPU, and two volumes: the renderer's identity and its key. A renderer whose image or store label is
+  out of date is made again, keeping its volumes. `suspended` stops a renderer and `deleting` removes it with its
+  volumes.
+- **The renderer** (`countdown/server/`, drawing with `countdown/core/`). It claims its screen once with the claim
+  token (`POST /api/renderers/claim`), then `DisplayLoop.run()` cycles forever:
+  - `ApiRegistry.update_all()` polls the clients that are due, and keeps each client's last panel when it raises.
+  - `ApiRegistry.pace()` reads the fastest `v1:pace:<source>:<id>` the clients watch.
+  - `DisplayController.display_screen()` draws, and `ServerTarget` PUTs the 48,000-byte frame to `PUT /api/frame`
+    when the picture changed, with `X-Refresh-Hint`. `renew()` sends the same frame again while a pace is asked for,
+    or once more after one ends.
+  - It sleeps `DisplayLoop.sleep_s()`: the config's 60 s interval, or the pace, never under `MIN_PACE_S` (20).
+- **The config is in the store** (auth-broker #186, pi-dashboard #208). The broker writes `v1:config:<device id>` (the
+  `GET /api/config` body, less its secrets and with no pairing code) on every save and as it starts. Then it publishes
+  the device id on `v1:config:changed` (`keys.CONFIG_CHANGED`). The renderer reads the copy (`store.config.read`),
+  falls back to `GET /api/config` when there's none (an older broker, or a pairing code to show), and
+  `ConfigWatcher` wakes the loop on the nudge.
+- **Places are in the store.** `provider-locations` writes `v1:location:<place>` (`store.location.StoredLocation`).
+  The notice board reads it, and so do the providers that need a postcode's place. So no renderer calls an upstream
+  API any more. Its only calls to the broker are `PUT /api/frame`, and `GET /api/config` when the store has no copy.
+- **Pacing is spread over five places**, which the broker's pacing function will replace:
+  - providers write `v1:pace:<source>:<id>`, with `PACE_TTL_S` of 60 s;
+  - the renderer reads the fastest of those (`ApiRegistry.pace`), sleeps for it (`DisplayLoop.sleep_s`) and sends it
+    as `X-Refresh-Hint`, renewing it with repeat uploads (`ServerTarget.renew`);
+  - the broker keeps the hint for `PACE_LEASE_S` (180 s) in the frame's row (`services/pace.py`);
+  - the broker answers the screen's poll with `Retry-After`: `BASE_INTERVAL` (60), or the hint, or
+    `NO_FRAME_RETRY_AFTER` (20) before the first frame.
+- **The screen** (the ESP32) polls `POST /api/frame` with `If-None-Match`, repaints only on a 200, and sleeps for
+  `Retry-After`. It has no clock of its own.
+- **Redis** (on the broker's host, 127.0.0.1:6379) has 128 MB, `volatile-lru`, and no persistence. Keys without a TTL
+  are never evicted.
+- **Already in the code:** `countdown_core/core/render_state.py` (#205), used by nothing yet:
+  - `frame_etag()`, the broker's ETag;
+  - `RenderState.needs_put()`, today's upload rule;
+  - a `RenderStateStore`.
 
-`main.run()` polls the broker every `POLL_INTERVAL_S` (10 s) for assignments and calls `reconcile()`, which makes
-the renderers match them through `DockerRuntime` (`runtime.py`).
+  Step 4 keeps `frame_etag()` and removes the rest: the frame record in Redis holds the one piece of state that's left,
+  the frame's hash.
 
-- **One container per assignment.** `DockerRuntime` has no pool, warm or otherwise: its README says "there's no pool
-  to wait in". `_run()` makes `renderer-<slug>` from `RENDERER_IMAGE` with host networking, `restart: unless-stopped`,
-  256 MB and half a CPU, and two volumes (`renderer-<slug>-data` for the identity, `-key` for its Fernet key).
-- **Environment:** `BROKER_URL`, `DEVICE_NAME=<slug>`, `CLAIM_TOKEN` (the real one until claimed, then
-  `already-claimed`), and `REDIS_URL` and `REDIS_PASSWORD` when `RENDERER_REDIS_URL` is set.
-- **Labels:** `countdown.managed=1`, `countdown.slug`, `countdown.image` and `countdown.store`. A container whose
-  image or store label isn't the current one is removed and made again, keeping its volumes (`_is_current`), so a
-  release upgrades every renderer.
-- **Statuses:** `suspended` stops a renderer (container and volumes kept) and `deleting` removes it with its volumes.
-  A renderer no assignment wants is logged and left alone. `MAX_RENDERERS` (20 in the compose file) caps how many
-  run at once.
-- **Claiming:** the renderer claims its screen once, with `POST /api/renderers/claim {secret, claim_token}`
-  (`countdown_credentials.registration.RendererRegistrar`). From then on its own secret, kept encrypted in its
-  volume, is its identity for `GET /api/config` and `PUT /api/frame`.
+### What a renderer keeps between frames, and what becomes of it
 
-### The renderer's loop (`countdown_core/core/`)
+| State | Where now | Becomes |
+|---|---|---|
+| Last panel per API | `ApiRegistry.panels`, kept when a client raises | nothing: an expired key draws "Not available" (step 2) |
+| Departures page | `DeparturesClient.current_page` | the clock (step 1) |
+| Weather tab, and its 10-minute cache | `WeatherClient._next_page`, `_pages`, `_panel`, `_last_attempt` | the clock (step 1); the store read on every render (step 2) |
+| Energy page | `GlowClient.page_index` | the clock (step 1) |
+| Spotify page | `SpotifyClient.page` | the clock, the next page if this one is empty (step 1) |
+| Developer summary | `DeveloperClient.summary`, read by `DeveloperNoticeSource` | the source reads the store itself (step 2) |
+| Notice board's last notices | `NoticeBoardClient.fetched`, kept up to `STALE_AFTER` (1 h) | nothing: an expired source adds no notices (step 2) |
+| Per-source refresh intervals | `NoticeBoardClient.last_tried` | every source read every render: they're all store reads or local sums (step 2) |
+| Client lifecycle | `AbstractClient.status`, `last_updated`, `ApiRegistry`'s rebuilds | clients built fresh for each render; the status goes to the metrics (step 5) |
+| The picture shown | `DisplayController._shown`, `_last_full_refresh`, `_pending` | the frame record's hash (step 4). Partial refresh moves to the firmware |
+| What the broker has | `ServerTarget._last_frame`, `_sent_pace` | the frame record (step 4); the pace isn't the renderer's business any more (step 3) |
+| Locale | `i18n._language`, `_timezone`, module globals | set at the start of each render; a worker runs one render at a time |
+| Health | `OtlpPublisher` and `DeviceStatus`, per process | per-render metrics with a `device` attribute (step 6) |
+| Identity | `/data/.auth_broker_device` in the renderer's volume | none: frames go through Redis (steps 4 and 9) |
+| Caches | fonts, translations, Redis clients | kept per worker process, shared by every render; read-only |
 
-`app.run()` registers, waits for a config (`wait_for_config`), then runs `DisplayLoop.run()` forever. Each cycle:
+## The decisions, in detail
 
-1. `ApiRegistry.update_all()` polls the clients that are due (`AbstractClient.is_due`: a full `poll_interval`
-   since `last_updated`; one minute by default, every cycle for the developer client). They run concurrently, in
-   threads. A client that raises, or isn't due, keeps its last panel (`ApiRegistry.panels`).
-2. `ApiRegistry.pace()` reads the fastest `v1:pace:<source>:<id>` among the keys its clients watch
-   (`AbstractClient.pace_keys`, `reader.fastest_pace`), and `DisplayController.set_pace` passes it to the target.
-3. `DisplayController.display_screen()` draws the frame (`rendering.render`, with the layout picked again every
-   frame) and paints it only if the picture differs from the last one (`_show`). Otherwise it calls the target's
-   `renew()`.
-4. It sleeps `DisplayLoop.sleep_s()`: the config's `interval` (60), or the pace if that's shorter, never under
-   `MIN_PACE_S` (20).
-5. It re-reads the config (`refresh_broker_config`), rebuilding only the clients whose `needs_refresh()` says so. A
-   new language or time zone rebuilds them all, as `set_locale()` is process-global.
+### Frames through Redis
 
-The pace: a provider whose data turns bursty (the developer provider, while a release runs) defines `pace()`, and
-`ProviderRunner._write_pace` writes it to `v1:pace:<source>:<id>` with `PACE_TTL_S` (60 s), or deletes it.
+`v1:frame:<device id>` is a Redis hash with no TTL, so `volatile-lru` never evicts it. The broker deletes it when it
+forgets the device. Fields:
 
-### How a frame reaches the screen
+- `frame`: the 48,000 bytes, as `PUT /api/frame` takes them now;
+- `etag`: `frame_etag(frame)`, the same 8-byte BLAKE2b the broker uses for its ETag;
+- `rendered_at`: when this picture was first written.
 
-- **Upload:** `ServerTarget.paint()` (`countdown_server/server_target.py`) PUTs the whole 800x480 1-bit frame (48,000
-  bytes) to `PUT /api/frame`, with `X-Refresh-Hint: <pace>` while there is one. `renew()` PUTs the last frame again
-  while a pace is asked for, or once more after it stops.
-- **The broker** (auth-broker `routes/frames.py`) keeps one frame per device in SQLite, with an ETag
-  (`blake2b(frame, digest_size=8)`), `rendered_at`, and the pace leased for `PACE_LEASE_S` (180 s)
-  (`services/pace.py`).
-- **The screen** (the ESP32) polls `POST /api/frame` with `If-None-Match`, gets 200 or 304, and sleeps `Retry-After`:
-  `BASE_INTERVAL` (60), or the leased pace (20 to 59), or `NO_FRAME_RETRY_AFTER` (20) before the first frame. It
-  repaints only on a 200.
+It's one latest value per screen, the same pattern as the providers' keys, so Redis doesn't become a messaging
+platform.
 
-### The providers' nudge
+**The render** compares the new frame's hash with `HGET v1:frame:<id> etag` and writes the record only if it differs.
+An unchanged frame costs one small read and no write. When the screen last had a good render is a metric, not a field
+(see [Observability](#observability)), so a skipped write stays skipped.
 
-`ProviderRunner` (`countdown_providers/runner.py`) runs a cycle at once, then on every epoch-aligned tick of its
-`interval_s`, or early when the broker publishes on `v1:sub:changed` after rewriting the subscriptions (auth-broker
-`routes/pages.py`, `_write_subscriptions_to_redis`). `serve_all()` runs several providers in one process, each in its
-own loop (the TfL notices). Each cycle writes every subscribed key with `SET ... EX ttl_s`, **whether or not the value
-changed**: departures every 30 s, weather every 10 min, and so on.
+**The broker** answers `GET` and `POST /api/frame` from the record:
 
-### Redis
+- it reads `etag` first, and answers 304 when it matches `If-None-Match`, without reading the 48 KB;
+- otherwise it sends `frame`;
+- with no record, it falls back to its SQLite row, then to 404 while there's neither.
 
-On the broker's host, `127.0.0.1:6379`: 128 MB, `maxmemory-policy volatile-lru` (only keys with a TTL are evicted),
-**no persistence** (`save ""`, `appendonly no`) and no keyspace notifications (`notify-keyspace-events` unset)
-(auth-broker `docker-compose.yml`).
+The config page's preview and "Drawn" time read the same record.
 
-### What a renderer keeps in memory between frames
+**Trust.** This doesn't widen what Redis can do: whoever can write it can already put any text on any screen through
+the providers' keys. With the frame in Redis, the renderer secret guards nothing. So steps 4 and 9 retire it, with the
+claim tokens, the orchestrator and the per-screen volumes.
 
-Everything a run-and-exit job would lose, and what it becomes:
+**A Redis restart.** The records are gone. The broker serves its SQLite copy while it still has one, or 404 with a
+short sleep. The e-paper keeps its picture, and the next minute's tick writes every record again.
 
-| State | Where | What it does | Stateless |
+### Expiry: the provider's TTL is all there is
+
+Each provider's TTL is a few multiples of its own polling interval. One missed poll doesn't blank a panel, but a dead
+provider does. When a key has expired, the panel says "Not available". The notice board leaves that source's notices
+out, and says "Not available" if every source it needed has expired. There's no last-good copy, per-screen state or
+freshness check. The screen's own picture is the only memory.
+
+| Key | Interval | TTL now | Change |
 |---|---|---|---|
-| Last panel per API | `ApiRegistry.panels` | a client that raises (a `LookupError` for a missing key, `RedisError`) keeps its last panel, for as long as the client lives | the last good *data* stays in the store key (longer TTL, `fetched_at` for freshness); see [Last good](#last-good-data) |
-| Departures page | `DeparturesClient.current_page`, `stops_per_update` | a page of stops per poll, `stops_per_update` from the layout (`ApiRegistry.show_stops`) | page from the clock; per-page count from the layout each render |
-| Weather tab | `WeatherClient._next_page`, `_pages`, `_panel`, `_last_attempt`, `_utc_offset` | a tab per poll; the store read again only every 10 min or when the date changes | tab from the clock; read every render (a GET) |
-| Energy page | `GlowClient.page_index` | 24 h, 31 days, year in turn | page from the clock |
-| Spotify page | `SpotifyClient.page` | player, then top lists, a page per poll; an empty page gives way to the next | page from the clock, the next one if empty |
-| Developer summary | `DeveloperClient.summary` | `DeveloperNoticeSource` reads the client's last answer | the source reads the store itself. Today it's racy: the clients run concurrently, so it reads the cycle before's |
-| Notice board | `NoticeBoardClient.fetched`, `last_tried` | each source's last notices, kept up to `STALE_AFTER` (1 h) when it fails; each source polled on its own `refresh_interval` | every source read every render (they're all store reads or local sums); last good in the store keys |
-| Notice board place | `location`, `location_tried`, `unknown_postcode`, `sources` | the postcode looked up once, retried every 10 min | read from `v1:location:<place>` each render (in flight) |
-| Client lifecycle | `AbstractClient.status`, `last_updated`, `cache` | due-ness, the status the metrics report, the pairing code's change check (`BrokerClient`) | clients built fresh each render (all cheap: a few ms); status per render |
-| The picture on the screen | `DisplayController._shown`, `_last_full_refresh`, `_pending` | skip a repaint of the same picture; partial versus full refresh; retry a pairing screen | the frame's hash in the render state. Partial refresh doesn't apply: `ServerTarget` always sends the whole frame and the screen decides |
-| What the broker has | `ServerTarget._last_frame`, `_sent_pace`, `_pace` | renew the pace with the same frame | `RenderState.handoff` (this PR) |
-| Loop | `DisplayLoop.interval`, `_pace`, `_published_stage`, `pairing_code_panel` | when to wake, reporting a new stage at once | per render |
-| Locale | `i18n._language`, `_timezone` (module globals) | `_()` and `local_zone()` | set per render, one render at a time per process (or a `ContextVar` later) |
-| Health | `OtlpPublisher`, `DeviceStatus` | gauges every minute from a background thread | per-render metrics from the worker; see [Observability](#observability) |
-| Identity | `/data/.auth_broker_device` (volume, not memory) | authenticates config and frames | see [Identity](#identity) |
-| Caches | fonts (`utils.fitted_font`, `_font_at`), catalogues (`i18n._catalogue`), Redis clients (`reader.store`) | | shared by every render in a warm worker; what a cold job pays again each time |
+| `v1:departures:*` (TfL, Entur) | 30 s | 2 min | none |
+| `v1:weather:*` | 10 min | 30 min | none |
+| `v1:energy:*` (auth-broker glow-provider) | 15 min | 1 h | **about a day**, as decided for energy (step 2) |
+| `v1:spotify:*` | 1 min | 3 min | none |
+| `v1:spotify-top:*` | 30 min | 2 h | none |
+| `v1:developer:*` | 2 min (20 s in a release) | 15 min | none |
+| `v1:notices:met-office:*`, `floods:*`, `metalerts`, `tfl-stations:*`, `tfl-roads:*` | 5 min | 30 min | none |
+| `v1:notices:tfl-lines:*` | 2 min | 10 min | none |
+| `v1:notices:entur:*` | 5 min | 15 min | none |
+| `v1:notices:bank-holidays` | 6 h | 7 days | none: gov.uk's file changes yearly, and its being down for days must change nothing |
+| `v1:location:*` | 5 min | 7 days | none: a postcode doesn't move, and this is an input to the providers and the board, not drawn data |
+| `v1:art:*` | renewed every minute while shown | 5 min | none |
+| `v1:pace:*` | each provider cycle | 60 s | none: this is the hint's expiry (see [Pacing](#pacing)) |
 
-Clock-dependent text means a frame can change while no data does. Departures count down from `expected_at` when the
-panel is made (`StoredArrival.of`). "Today" and "Tomorrow" in notices, the weather's "Tonight" and the energy
-windows depend on the hour. And `rendering.share_spotify_area` gives the developer panel Spotify's area one minute in
-three (`DEVELOPER_TURN`). Whatever triggers renders, something has to tick at least once a minute.
+**Redis being unreachable isn't expiry.** In today's renderer, a read that fails with `RedisError` keeps its last
+panel, as it does now (step 2 changes only missing keys). In the pool, a render that can't reach Redis fails and
+writes nothing, so the screen keeps the frame it has.
 
-## Triggers
+### Rotation from the clock
 
-| Trigger | How | For | Against |
-|---|---|---|---|
-| **Keyspace notifications** | `notify-keyspace-events K$` on Redis; subscribe to `__keyspace@0__:v1:*` | no provider changes | off now (an auth-broker Redis config change); fire on every `SET`, and the providers rewrite every key every cycle unchanged (each stop every 30 s); need a reverse index from key to screens, which nothing keeps; fire-and-forget (lost while no one is subscribed); CPU on every write |
-| **Provider-published changes** | the runner compares each value with the one it replaces (`SET ... GET`, leaving `fetched_at` out, as it changes every time) and publishes the ids that really changed on `v1:changed:<source>`, once per cycle | only real changes; one message per cycle | changes the runner here and the broker's three provider loops; still needs key-to-screen mapping; lossy like any pub/sub |
-| **Polling (a clock)** | each screen due every `interval`, or its pace | what we do now; covers clock-dependent text; no new moving parts | renders when nothing changed (made cheap by the hash check) |
-| **Config nudge** | the broker publishes after writing `v1:config:<device>` (in flight); the worker makes that screen due now | a saved setting shows at the next poll instead of up to a minute and a poll later | none |
-| **Screen fetch** | when the broker answers a poll with `Retry-After: R`, it records when the next poll is due (`v1:poll:<device id>`, epoch seconds, TTL a few R); the worker renders that screen a few seconds before | renders exactly as often as frames are fetched, freshest at fetch time; a screen that's off costs nothing | a write to Redis on each poll (one `SET` per screen per minute); the broker learns about rendering |
-| **Render on fetch, synchronously** | the broker renders, or waits for a render, inside the screen's request | always fresh | the ESP32 waits for the render (100 ms to seconds), a gunicorn worker is held, a slow render stalls the screen |
+Each panel shows page `epoch_minute mod pages`, where `pages` is that panel's own count at that moment:
 
-**Recommendation.**
+| Panel | Pages |
+|---|---|
+| Departures | the stops in pages of the layout's size |
+| Weather | four tabs |
+| Energy | three windows |
+| Spotify | four or eight |
 
-1. Start with the clock (exactly today's cadence) plus the config nudge.
-2. Add screen-fetch timing when the pool is in, to drop wasted renders and make each frame as fresh as possible when
-   it's fetched.
-3. Don't build data-change events. The screen polls at least 20 s apart (`MIN_INTERVAL`), so a frame made the moment
-   data changes is seen no sooner than one made just before the next poll. On average either is half a poll after
-   the change, where the loop now averages a whole one. The one place an event would help is the start of a burst:
-   the first fast refresh waits for the next 60-s poll, as it does now. If that matters, the developer provider can
-   nudge the screen when it first writes a pace key; it already knows the device.
+It's "the current minute" counted from the epoch, not the minute of the hour. Then a count that doesn't divide 60
+(seven pages of stops, say) doesn't jump back to page 0 on the hour. When Spotify's page has nothing to show, the next
+one is drawn in its place, as now.
 
-## Who runs the job
+- Every screen turns together, on the minute; that's accepted. A small fixed per-device offset can spread the reads if
+  that ever matters.
+- A config change doesn't start the departures on page 0 any more.
+- Two renders in the same minute draw the same page, so a nudge or a retry draws what the tick would have.
+- The renders on the minute only read Redis; the providers keep their own schedules, so there's no upstream load.
 
-### A. The orchestrator starts a short-lived container per render
+`share_spotify_area` already works like this (`now.minute % DEVELOPER_TURN`; 3 divides 60).
 
-`docker run --rm` with the screen's volumes, per trigger.
+### Pacing
 
-- **For:** the strongest isolation. Each job sees only its own identity, under its own memory and CPU limits, and a
-  crash takes one frame with it. It's literally run-and-exit.
-- **Against:** the cost and the moving parts.
-  - Each render pays Docker's create and start (not measured here: no daemon in the sandbox; typically 0.5 to 1.5 s
-    and a few hundred ms of dockerd, containerd and runc CPU), then Python's imports (0.6 s) and a cold first render
-    (0.15 s CPU). That's roughly 1 CPU-second per render against 0.05 s warm.
-  - It puts `docker.sock`, root on the host, on the hot path of every frame.
-  - The orchestrator turns from a 10-s reconciler into a scheduler.
-  - The log driver makes a new json-file per container run.
-  - Each frame has 1 to 2 s of latency.
+**One pure function in the broker** (auth-broker `services/pace.py`) decides every sleep. Nothing else computes a poll
+or refresh time, and the renderer drops out of pacing altogether.
 
-### B. A pool of warm workers (recommended)
-
-A compose service, `render-worker`, from the renderer's image with another command. It runs as a few processes, each
-rendering the screens in its shard (`sha256(device id) % SHARD_COUNT`, `providers/sharding.py`, as the providers do).
-For each screen that's due it:
-
-1. reads the config (`v1:config:<device id>`), the render state and the panels' keys;
-2. builds the clients fresh, draws, encodes and hashes the frame;
-3. hands it off if `needs_put` says so;
-4. saves the state and works out when the screen is next due.
-
-- **For:**
-  - Imports, fonts and catalogues are paid once per process, so a render is about 50 ms of CPU.
-  - About 120 MB per worker, however many screens, where now it's about 115 MB per screen (20 screens are 2.3 GB).
-  - Nothing runs for a screen between frames, and adding workers is changing `SHARD_COUNT`.
-  - No `docker.sock`.
-  - One place for per-render logs and metrics.
-- **Against:**
-  - One worker draws many screens. The locale is a module global, so a process renders one screen at a time (or
-    `i18n` moves to a `ContextVar`).
-  - A render that hangs or crashes the process holds up its shard until it's killed and restarted (see
-    [Failure](#failure-and-backoff)).
-  - The workers need a way to hand off any screen's frame (see [Identity](#identity)).
-
-**B2, a shared due-queue,** is the variant for later, if shards turn out uneven or the broker should schedule renders
-directly: one sorted set, `v1:render:due` (member: device id, score: when due), claimed by any worker with a short Lua
-script (take the earliest due without a lease, take its lease, push its score out by the lease so a crashed worker's
-screen comes due again), and rescheduled with `ZADD XX` only if no nudge moved it meanwhile. It coalesces triggers per
-screen and gives work-stealing, at the cost of the Lua and of rebuilding the set after a Redis restart (no
-persistence). Start with shards (B), which need none of that.
-
-### C. In-process workers in a service that already runs
-
-- **In the orchestrator:** no. It holds `docker.sock`, and rendering decodes untrusted input (upstream text, cover
-  JPEGs through Pillow), so a decoder bug there would be root on the host.
-- **In the broker:** no. It's the hub for every identity and secret, and a render is CPU-bound work in its gunicorn
-  workers.
-- **Keep a container per screen, but make it wait for a nudge instead of sleeping:** this is a good stepping stone
-  (state moves out, triggers arrive), but not an end state. It keeps one process, 115 MB and an identity per screen.
-
-## Per-screen state
-
-### Page rotation: from the clock
-
-Every rotating client turns a page per poll, and every one polls once a minute. So the page is a function of the
-time: `page = epoch_minute % pages`. Spotify's skip-an-empty-page becomes "this minute's page, else the next one".
-`share_spotify_area` already works this way (`now.minute % DEVELOPER_TURN`). Spotify has 4 or 8 pages and the
-developer panel's turn comes every 3rd minute, so every Spotify page still gets shown.
-
-- **What it gives:** two renders in the same minute draw the same page. So a nudge or a retry doesn't skip a page,
-  the hash check sees "nothing new", and the state needs no counters.
-- **What changes:** every screen turns its pages on the minute, together, and a config change no longer starts the
-  departures on page 0. A per-device phase (`hash(device) % pages`) would desynchronise the screens if that's wanted.
-
-### Last good data
-
-Today a client that can't read its key keeps its last panel for as long as the client lives. That's frozen, too: a
-kept departures panel still says "in 5 min" an hour later, because the minutes are counted when the panel is made. The
-notice board keeps each source's notices for at most an hour. A job that exits keeps nothing, so where does "last
-good" go?
-
-| | How | For | Against |
-|---|---|---|---|
-| **L1: per-screen copies** | the render state holds the raw value of each key it read, with when; a read that misses falls back to it, within a maximum age | no provider changes | a copy per screen of everything it reads: 30 to 150 KB with weather and notices (MetAlerts is all of Norway), rewritten as often as the data changes |
-| **L2: shared copies** | `v1:last:<key>`, written by whichever renderer reads a changed value | one copy per key | the renderers write the store; double the memory for every key read |
-| **L3: the store's own key (recommended)** | the providers keep each key for a "give up" horizon (an hour, as the notice board's `STALE_AFTER`) instead of about twice their interval, and `reader.read()` checks `fetched_at` against how fresh the data must be | no copies and no extra writes; every stored value already has `fetched_at` (`store.models.Stored`); a kept departures panel counts down properly instead of freezing | changes the providers' TTLs in both repos, and "missing key means the provider is down" becomes "old `fetched_at` means the provider is down"; keys outlive their subscription by up to an hour (a few KB each) |
-
-With L3, a read too old to trust is drawn as the kept panel is now, but the client reports `error` so the metrics
-still show the provider's down. The pace keys keep their 60 s (a pace must lapse), and the covers keep theirs
-(renewed while shown).
-
-### The render state key
-
-`v1:render-state:<device id>`, a string of `RenderState` JSON, with a TTL of a day. A screen gone for a day is
-suspended by the broker anyway. A lost state (expired, evicted under `volatile-lru`, or a Redis restart) only means
-the next frame is handed off whatever it is.
-
-```json
-{"version": 1, "handoff": {"etag": "cf4d49a0c56195f9", "pace": 20, "at": "2026-10-18T12:00:00Z"}}
+```python
+def sleep_s(now: datetime, hints: Sequence[Hint]) -> int:
+    """How long the screen should sleep before its next poll, from the server's clock."""
 ```
 
-- **Writes:** one `GET` before each render and one `SET ... EX 86400` after any render that hands a frame off.
-- **Fields:** a version bump is for changes an older reader can't read, and a state that can't be read is treated
-  as none (`render_state.decode`). Later fields, such as the failure count for backoff, are added with defaults.
-- **Keys:** the builder goes in `keys.py` and its row in the providers' README key table, with the step that first
-  writes it.
+- **Renders** happen on the minute (the ticker), so a render boundary is every multiple of `RENDER_INTERVAL_S` (60).
+- **Polls** come twice as often as renders (`POLLS_PER_RENDER = 2`). The screen sleeps until `LEAD_S` (about 3 s) after
+  the next half-interval boundary, so it wakes just after a render has landed. With no hint, that's polls at about
+  :03 and :33 of every minute. Out-of-cycle renders (a config save, a burst) then show within about half an interval.
+  Unchanged frames cost a 304, and the extra polls flush the screen's piggybacked logs and metrics more often.
+- **Hints** are the providers' `v1:pace:<source>:<id>` keys for the screen's own panels:
+  - the route reads them with the frame record, in one round trip (a read, not a write, per poll), and passes them
+    in as `Hint(seconds, until)`, where `until` comes from the key's TTL;
+  - the function takes the shortest hint whose `until` is after `now`, never under `HINT_FLOOR_S` (20) and never over
+    60, and polls at half of it, aligned to its multiples plus `LEAD_S`;
+  - which keys are the screen's comes from its config (today: `v1:pace:developer:<device id>` while the developer panel
+    is on), in `pace.hint_keys(config)` beside the function.
+- **Network delay** never accumulates: each answer is worked out afresh from the server's clock. If the next slot is
+  under `MIN_SLEEP_S` (5) away, the one after is used.
+- **Before the first frame** it's the same function.
 
-### Identity
+During the migration, the function also counts the legacy hint today's renderers send (`X-Refresh-Hint`, kept in the
+frame's row for `PACE_LEASE_S`). So it works with every renderer deployed, and the header can go in step 9.
 
-After config-in-store, the only call a renderer makes to the broker is `PUT /api/frame` (and `GET /api/config` while
-its screen has a pairing code to show: the store's copy never carries one, so the broker keeps no copy for that
-screen meanwhile). That's the only thing a pool's identity question is about:
+**The pacing component's tests:**
 
-1. **Hand frames over through Redis.** The worker writes `v1:frame:<device id>` (the 48,000 bytes, with its ETag,
-   pace and `rendered_at`), and the broker's `GET` and `POST /api/frame` read it there, falling back to the SQLite
-   row. Then renderers need no broker secret, no claim, no volumes and no orchestrator: the broker writes the list
-   of screens to render itself.
-   - **Trust:** this doesn't widen trust. Whoever can write Redis can already put any text on any screen, through
-     the providers' keys.
-   - **Memory:** 48 KB per screen, kept without a TTL so `volatile-lru` never evicts it, and deleted when the broker
-     forgets the device.
-   - **Redis restart:** the frames go too. The broker falls back to SQLite, or answers 404 with `Retry-After: 20`,
-     and the e-paper keeps its picture until the next render.
-2. **Keep `PUT /api/frame`, with each screen's identity copied into a volume the pool shares.** The orchestrator
-   copies `renderer-<slug>-data/.auth_broker_device` and `renderer-<slug>-key/countdown/credentials-key`. `Registrar`
-   already takes `credentials_file` and `cipher`, so the format is unchanged. The pool then holds every renderer
-   secret, as the host's volumes do now. New screens are claimed by the worker with the claim token, from a list
-   the orchestrator writes.
-3. **A broker credential for the pool** (`RENDER_TOKEN`, like `ORCHESTRATOR_TOKEN`) allowed to `PUT
-   /api/devices/{id}/frame` for any device. That's an additive route and one secret, but a new power: today the
-   orchestrator token can't paint a claimed screen.
+- a frozen clock at many offsets within the minute;
+- hints shorter, longer and equal to the interval;
+- the floor;
+- an expired hint;
+- several hints at once;
+- a slot too close to now;
+- that each sleep lands `LEAD_S` after a boundary.
 
-Option 1 is the simplest end state. Option 2 changes nothing in the broker. See the open questions.
+### The pool, the queue and the render function
 
-## Handoff and de-duplication
+**The render function** is `render(device_id, now) -> Outcome`, in countdown-core. It runs to completion:
 
-- **The hash:** `render_state.frame_etag()`, the broker's own ETag.
-- **When to upload:** `RenderState.needs_put(etag, pace)`. A frame whose hash differs from the last one handed off
-  always goes. The same one again goes only while a pace is asked for, which renews the broker's 180-s lease, or once
-  after it stops, which ends the pace at once. Otherwise the upload is skipped.
-- **After an upload:** `handed_off()` records the hash, the pace and when, but only after the broker answered 2xx. A
-  refused frame goes again next time.
-- **Proof:** `tests/test_render_state.py` runs the same sequence of pictures, paces and broker failures through
-  today's `DisplayController` and `ServerTarget` and through the rule with an in-memory store. The uploads (bodies
-  and hints) are the same.
-- **Later:** while a pace holds, the same frame needn't go every 20 s. Once its lease is half used (90 s) is enough.
-  That cuts the re-uploads of an unchanged frame during a release by about 4 times. It's a small change to the rule, and the state already
-  keeps `at` for it.
-- **The broker's "Drawn" time:** it shows `rendered_at`, so a skipped upload stops it moving. That's already so for
-  an unchanged picture now. A worker's own metrics are the liveness signal (see [Observability](#observability)).
+1. read `v1:config:<device id>` (none: nothing to render);
+2. set the locale;
+3. build the clients fresh;
+4. read their keys;
+5. draw;
+6. hash;
+7. write the frame record if the hash changed;
+8. return what happened, for the metrics.
 
-## Concurrency
+It has no sleeps, no loops beyond its panels, and no state kept between calls except read-only caches (fonts,
+translations, the Redis connection). The pairing screen is one of its outcomes (see
+[Decided here](#decided-here-not-in-the-answers)).
 
-There's one render per screen at a time:
+**The worker** (`countdown-render-worker`, the renderer's image with another command, a compose service on the host)
+is a thin wrapper:
 
-- **Shards:** each screen belongs to one worker (B). Within a worker, renders are serial.
-- **The lease:** a worker takes `v1:render:lease:<device id>` (`SET NX PX 30000`, its own token) before rendering
-  and deletes it after, if it's still its own. That covers the moments two workers think they own a screen: a deploy
-  that changes `SHARD_COUNT`, or a worker replaced while its old copy finishes.
-- **Moving a screen between a container and the pool:** the orchestrator does it in one direction at a time, and the
-  container's renders take the same lease once the state is in Redis (step 4). So even a mistaken overlap can't draw
-  one screen twice at once.
-- **A stalled worker:** the lease doesn't fence the PUT. A worker that stalls beyond its lease and then uploads
-  could overwrite a newer frame with an older one, for one poll. Checking the lease is still its own just before the
-  upload narrows that window, and the next render puts it right.
+```text
+loop: BRPOP v1:render:jobs → claim → render(device_id, now) → release → metrics
+```
 
-## The pace and bursts
+It runs one render at a time per process, because the locale is a module global. It has a deadline per render
+(`faulthandler.dump_traceback_later(20, exit=True)`); compose restarts a worker that hits it. There are two worker
+processes to start with.
 
-- **Unchanged:** providers write `v1:pace:<source>:<id>` (60 s TTL). Each render reads the fastest the screen's
-  clients watch (`ApiRegistry.pace()`, `reader.fastest_pace`).
-- **The next render:** the screen is due again in `sleep_s()`: `min(interval, max(pace, MIN_PACE_S))`. Moved to a
-  pure function, it's what the worker's schedule uses.
-- **The hint:** the upload carries `X-Refresh-Hint`, and `needs_put` renews it while the pace holds.
-- **With screen-fetch timing:** the broker's `Retry-After` already follows the pace, so the renders follow it too.
-- **Possible later:** the broker could read `v1:pace:developer:<device id>` itself, as it knows the screen's
-  developer panel is on. Then renderers wouldn't carry the pace at all. That's not needed for this work.
+**The queue** is three small scripts, each atomic in Redis, over these keys (each with the device id):
 
-## Failure and backoff
+| Key | Kind | What it's for |
+|---|---|---|
+| `v1:render:jobs` | list | the job queue |
+| `v1:render:queued:<id>` | flag | a job for the screen is in the queue |
+| `v1:render:lease:<id>` | string with a token, 30 s TTL | a render for the screen is in flight |
+| `v1:render:again:<id>` | flag, 30 s TTL | a job came while one was in flight |
+
+- **enqueue(id):** `SET queued NX`; only if that set it, `LPUSH jobs id`. So a screen is in the queue at most once,
+  however many triggers fire.
+- **claim(id), after the BRPOP:** `DEL queued`; then `SET lease token NX PX 30000`. If the lease is taken, `SET again`
+  instead, and the job is done.
+- **release(id):** if the lease is still this worker's token, `DEL lease`; if `DEL again` removed one, `enqueue(id)`.
+
+The guarantees:
+
+- At most one render per screen is in flight.
+- A job that arrives during a render, from a nudge or a tick, leaves **exactly one** follow-up render: claim and
+  release are atomic over the same keys, so either the job's claim sees the lease and flags `again` before the release
+  checks it, or it runs after the release and renders itself.
+- A worker that dies mid-render loses its job and its follow-up. The lease and the flag lapse in 30 s, and the next
+  minute's tick covers it.
+- A Redis restart loses the queue; the next tick refills it.
+
+**The ticker** (`countdown-render-ticker`, one small process) pushes `enqueue(id)` for every screen the pool renders,
+on every minute. Its sleep-until-the-minute loop is the only clock on the render side. Running two by mistake is
+harmless: enqueue coalesces.
+
+**Which screens the pool renders:** `v1:render:screens`, a hash of device id to slug (the slug names the screen in
+metrics). During the migration the orchestrator writes it for the screens it has moved to the pool. At the end the
+broker writes it, as it writes the configs. A worker drops any job for a device not listed, so a screen that still has
+its own container is never drawn twice.
+
+### Config saves and bursts push jobs
+
+- **A config save** pushes `enqueue(device id)` for that screen, after writing its config. The new frame is drawn at
+  once, and shows at the screen's next poll, within about half an interval. That replaces the `v1:config:changed`
+  channel for the pool. The channel stays as long as any screen has its own renderer, and goes in step 9.
+- **A burst.** When a provider's data turns bursty (the developer provider when a release starts, and on each cycle
+  while it runs), it pushes `enqueue(id)` for the screens subscribed to it, and writes its pace key as now.
+  "Subscribed" comes from the existing subscription sets: `v1:sub:developer` lists device ids already. A provider keyed
+  by stop or place would need to map ids to screens first; none needs to yet.
+- **Out-of-cycle renders** follow the providers' own epoch-aligned cycles (20 s for the developer one), and the pacing
+  function's hint makes the screen poll at half that.
+
+### Observability
+
+**Metrics** (OTLP to the host's Fluent Bit, from the worker), each with `device` (the slug) and, where it's per
+render, `outcome`:
+
+| Metric | Kind | What it shows |
+|---|---|---|
+| `countdown.render.duration` | histogram | how long each render took |
+| `countdown.render.count` | counter | `outcome` is `written`, `unchanged` (frames skipped because nothing changed) or `failed` |
+| `countdown.render.last_success` | gauge, Unix time | when the screen last got a good frame. The one that shows a single stuck screen: alert when it's more than a few minutes old |
+| `countdown.render.expired_panels` | gauge | panels drawn "Not available" because their key expired, with `panel` |
+| `countdown.render.lag` and `countdown.render.queued` | histogram, gauge | how long jobs wait, and how many are waiting: the pool's capacity signals |
+
+- **The existing gauges** (`countdown.api.status`, `countdown.problem`, `countdown.stage`) move from the resource's
+  `host.name` to the `device` attribute, since a worker's `host.name` is the worker.
+- **The dashboards** in auth-broker are updated to match.
+- **Logs** are for what goes wrong only:
+  - a render that fails, with its traceback;
+  - Redis unreachable;
+  - a job for an unknown device;
+  - a worker past its deadline.
+
+  There's no line per frame. As now, nothing logged names a postcode, place or URL (`countdown_core.core.log_format`).
+
+### Failure
 
 | What fails | What happens |
 |---|---|
-| A panel's read (missing or stale key, `RedisError` on one read) | the panel's problem, not the render's: the stale value or a `MessagePanel`, as now |
-| The render raises | logged with its traceback, as the loop does now, counted, and the screen is due again after 30 s, doubling to 5 min (`app.py`'s `INITIAL_RETRY_S` and `MAX_RETRY_S`); the count is kept in the render state and cleared by a success; the broker keeps serving the last frame |
-| The upload fails | the state isn't moved, so the next render sends it again; scheduled as usual (a broker outage isn't the screen's fault); logged by error type and status, never the URL |
-| A render hangs | the worker's watchdog (a deadline per render, e.g. `faulthandler.dump_traceback_later(30, exit=True)`) ends the process; compose restarts it; the lease lapses |
-| A screen crashes its worker every time (a decoder bug on one cover, say) | the attempt is counted in the state *before* the render and cleared after, so a crash still counts. After 3 in a row the screen is quarantined (due every 10 min, an `error` log and metric) and the rest of its shard carries on |
-| Redis is down | workers can't read config, data or state: they retry every 5 s (as the providers' `RESUBSCRIBE_S`), and every screen keeps the last frame the broker has. After a restart the state is gone (one extra upload each) |
-| The broker is down | the screen can't fetch anyway; renders carry on and their uploads fail and are retried |
+| A panel's key has expired | "Not available" in that area; counted in `expired_panels`; not a failed render |
+| The render raises | the job fails (logged, counted, `last_success` doesn't move); the next tick tries again; the screen keeps its frame |
+| A render hangs | the deadline ends the worker, compose restarts it, the lease lapses, the next tick re-renders |
+| One screen crashes its worker every time | its `last_success` stops while the rest of the pool carries on, since every job is separate |
+| Redis is down | nothing renders, the broker serves its SQLite copy or the record it last read, and the screen keeps its picture |
+| The broker is down | the screen can't poll; renders carry on into Redis |
 
-## Observability
+### Capacity
 
-**Logs.** One JSON line per render at `debug`. At `info` only when a frame was handed off (about one a minute per
-screen) or a render failed. The fields:
+The host is the Oracle ARM server. Measured on a 2-vCPU x86 sandbox (an order of magnitude only; to be re-measured on
+the host):
 
-- `device`: the slug, as the renderer logs now;
-- `trigger`: clock, config, poll or retry;
-- `duration_ms`, split into reading, drawing, encoding and the upload;
-- `changed`, `put_status` and `pace`;
-- `stale`: the key families read stale, e.g. `v1:notices:floods`.
+| | Cost |
+|---|---|
+| A warm render, clients built fresh | about 50 ms of CPU, p95 about 70 ms |
+| A process importing the renderer, before its first render | 0.6 s of CPU |
+| A process, resident | about 115 MB |
 
-Never key ids, which hold places (`v1:notices:floods:SE173LL`), and never URLs.
+So one worker process manages about 800 renders a minute flat out, against today's 115 MB and one container per
+screen. A render reads 10 to 15 keys, and at most writes one record.
 
-**Metrics** (OTLP to the host's Fluent Bit, as now):
+**The burst on the minute** is the real limit, not the throughput. Every screen is enqueued at :00, and its frame
+should land before the poll at :03 (`LEAD_S`). Two workers at 75 ms a render finish 80 screens in those 3 s. Beyond
+that, three things help, in order of cost:
 
-- `countdown.render.duration` (histogram), `countdown.render.count` (by `outcome`: handed off, unchanged, failed)
-  and `countdown.render.put` (by status);
-- `countdown.render.lag`: when the render started, less when it was due. This is the pool's capacity signal: if it
-  grows, add a worker;
-- `countdown.render.due`: screens due and not yet rendered;
-- the existing per-screen gauges (`countdown.api.status`, `countdown.problem`, `countdown.stage`,
-  `countdown.broker.last_sync`), published by the worker. They carry a `device` attribute, because the resource's
-  `host.name` is now the worker. That moves the auth-broker dashboards that group by `host.name`.
+1. more workers;
+2. a larger `LEAD_S`;
+3. the per-device offset.
 
-## Capacity
+## Migration
 
-Measured in this sandbox, on 2 vCPUs of an Intel Xeon at 2.8 GHz, shared with other jobs, so the spread is wide. The
-store was fakeredis in-process, and the screen 800x480 landscape with a Tube station and a bus stop, the weather,
-energy and the notice board. Material Symbols couldn't be downloaded here, so a bundled font stood in for it. The
-production host's CPU isn't known here; these are orders of magnitude, not a benchmark.
+Nikolai merges and releases as soon as a PR is green, so **every step below is safe to merge and release on its own,
+in any order, against whatever is deployed**. Where a change truly needs something else deployed first, it's split
+off as a draft PR titled "[after … deployed]".
 
-| | Wall | CPU |
-|---|---|---|
-| `python -c pass` | 20 ms | 20 ms |
-| `import countdown_server.main` (pydantic, requests, redis, Pillow and fonts, babel, OpenTelemetry, countdown_api) | 0.60 to 0.68 s | 0.55 to 0.6 s |
-| First render in a fresh process (build clients, read, draw, encode, hash) | 120 to 220 ms | 145 ms |
-| A fresh process to its first frame | 0.7 to 1.2 s | about 0.7 s |
-| A warm render, clients built fresh each time, median (p95) | 51 to 84 ms (68 to 146) | 49 ms (63 to 73) |
-| of which drawing / reading / encoding and hashing (median) | 35 to 62 / 4 to 6 / 6 to 10 ms | |
-| Resident memory of one process after rendering | | 115 MB |
-| `docker run` of a cached image | not measured (no Docker daemon here); typically 0.5 to 1.5 s | a few hundred ms in the daemon |
+**1. Rotation from the clock** (pi-dashboard).
 
-To measure the container's cost on the host:
-`time docker run --rm --network host --entrypoint python ghcr.io/nvorkinn/countdown-server:<release> -c "import countdown_server.main"`.
-
-A render per screen per minute (a screen in a release renders three times as often while it lasts):
-
-| Screens | Renders a minute | A: a container per render | B: warm workers | Today: a container per screen |
-|---|---|---|---|---|
-| 10 | 10 | about 10 CPU-s a minute (17% of a core) | 0.5 to 0.75 CPU-s (about 1%), 1 to 2 workers | 1.2 GB resident |
-| 100 | 100 | about 100 CPU-s (1.7 cores) | 5 to 7.5 CPU-s (8 to 12% of a core), 2 workers | 11.5 GB (past `MAX_RENDERERS`) |
-| 1,000 | 1,000 | about 1,000 CPU-s (17 cores) | 50 to 75 CPU-s (0.8 to 1.25 cores), 3 to 4 workers | not feasible |
-
-One worker rendering one screen at a time manages about 800 renders a minute at full load (75 ms each), so it's
-comfortable up to about 400 screens at a minute each. Two workers give headroom and survive one restarting. Redis
-costs per render: about 10 to 15 GETs and MGETs, plus one GET and at most one SET for the state, on loopback.
-
-## Migration (strangler fig)
-
-Each step ships on its own, in a normal release, and can be rolled back without the steps after it.
-
-**1. Rotation from the clock.**
-
-- **Change:**
-  - Departures, weather, energy and Spotify pick their page from the minute, not from a counter.
-  - `DeveloperNoticeSource` reads the store, not `DeveloperClient.summary`.
-  - The weather reads the store every poll.
+- **Change:** departures, weather, energy and Spotify pick their page from `epoch_minute mod pages`
+  (`core/rotation.py`), in place of their counters. A config change no longer restarts the departures at page 0.
+- **Safe alone:** it's internal to the renderer.
 - **Rollback:** revert the release.
 
-**2. Last good in the store (L3).**
-
-- **2a:** the providers' TTLs become the give-up horizon of an hour: pi-dashboard's in one release, auth-broker's
-  (glow, spotify, developer) in its own. A down provider now gives older values, which re-render, and departures
-  count down rather than freeze.
-- **2b:** `reader.read()` checks `fetched_at` against each kind's freshness, and the clients report `error` on stale
-  data.
-- **Rollback:** the old TTLs.
-
-**3. Config and locations in the store (in flight).** `v1:config:<device>` with its nudge, and `v1:location:<place>`.
-The loop wakes on the nudge.
-
-**4. A render is a function.**
+**2. Expired means "Not available"** (pi-dashboard; auth-broker for the energy TTL).
 
 - **Change:**
-  - Extract `render_once()` from `DisplayLoop`, `ApiRegistry` and `DisplayController`: build the clients from the
-    config, read, draw, hash, `needs_put`, upload, save the state.
-  - `DisplayLoop` calls it each cycle, with a `RedisRenderStateStore` (`v1:render-state:<device id>`) behind a
-    setting (`RENDER_STATE=redis`, `memory` by default), and takes the lease.
-  - Still a container per screen. A restart no longer re-uploads or forgets the pace.
-- **Rollback:** the setting.
+  - A client whose key is missing returns a "Not available" panel instead of raising to keep its last one.
+  - The notice board drops `STALE_AFTER` and `last_tried`: an expired source adds nothing.
+  - The weather reads the store on every poll.
+  - `DeveloperNoticeSource` reads `v1:developer:<id>` itself.
+  - A `RedisError` still keeps the last panel.
+  - In auth-broker, glow-provider's TTL goes to about a day.
+- **Safe alone:** each half is internal; a longer TTL only means the energy panel survives a longer Glowmarkt outage.
+- **Rollback:** revert either.
 
-**5. Frames through the store (if chosen; see [Identity](#identity)).**
+**3. The pacing function** (auth-broker).
 
-- **Change:** the renderer writes `v1:frame:<device id>` as well as PUTting, and the broker serves Redis first, then
-  SQLite. When that has run for a while, the PUT goes.
-- **Rollback:** a broker setting to serve SQLite only, while the renderer still PUTs.
+- **Change:** `services/pace.py` becomes the one pure `sleep_s(now, hints)`, as above. `GET` and `POST /api/frame`
+  answer with it. The hints are read from the screen's `v1:pace:` keys, plus the legacy `X-Refresh-Hint` lease from
+  today's renderers.
+- **Safe alone:** the ESP32 sleeps whatever it's told. Polls double, to about two a minute per screen, with no Redis
+  write.
+- **Rollback:** revert the release.
 
-**6. The pool, one screen first.**
+**4. The frame record** (pi-dashboard and auth-broker, each a PR that's safe alone).
+
+- **pi-dashboard:** today's renderer writes `v1:frame:<device id>` when the hash changes, as well as PUTting. The
+  record replaces `render_state.RenderState`, `needs_put` and `RenderStateStore` (`frame_etag` stays).
+- **auth-broker:** serves the record when it's there and newer than the SQLite row, else the row.
+- **Safe alone:** an old broker ignores the record, and a new broker with no record serves the row.
+- **Rollback:** revert either. The broker then serves SQLite, which today's renderers still write.
+
+**5. The render function** (pi-dashboard).
 
 - **Change:**
-  - Add the `render-worker` service to `server/deploy/docker-compose.yml` (two shards).
-  - The orchestrator gets `POOL_SLUGS`. For each of those screens it stops the container (keeping it and its
-    volumes) and lists the screen in `v1:render:devices` (device id to slug; the assignments list gains
-    `device_id`, an additive change in auth-broker). It lists them again every pass, so a Redis restart heals in 10 s.
-  - Without step 5, it first copies the identity into the pool's volume.
-  - Canary on one screen for a few days, then all.
-- **Rollback:** take the slug out of `POOL_SLUGS`. The orchestrator unlists the screen, waits for its lease to lapse,
-  and starts its container again.
+  - Extract `render(device_id, now)` from `DisplayLoop`, `ApiRegistry` and `DisplayController`.
+  - Today's per-screen loop calls it on the minute, on the config nudge (`ConfigWatcher`), and every 20 s while a pace
+    key is live. It still PUTs alongside the record, and still reads `GET /api/config` for a pairing code.
+  - Clients are built fresh each render; their status goes to the metrics.
+- **Safe alone:** the same screens, the same frames, now on the minute.
+- **Rollback:** revert the release.
 
-**7. Renders timed to the screen's polls.**
+**6. The pool, one screen first** (pi-dashboard; auth-broker for one additive field).
 
-- **Change:** the broker records each screen's next poll (`v1:poll:<device id>`), and the workers render a few
-  seconds before it, with the clock as a fallback at most 5 min apart.
-- **Rollback:** the workers ignore it.
+- **pi-dashboard adds:**
+  - the `render-worker` and `render-ticker` services in `server/deploy/docker-compose.yml`, with the queue and its
+    scripts, tested through the real entry points the way CI starts the providers;
+  - the metrics, with the `device` attribute;
+  - `POOL_SLUGS` in the orchestrator. For each of those screens it stops the container (keeping it and its volumes),
+    and writes the screen into `v1:render:screens` on every pass.
+- **auth-broker adds:** `device_id` in `GET /api/orchestrator/assignments` (additive). Without it the orchestrator
+  logs and leaves that screen on its container.
+- **Canary:** Nikolai's own screen first, for a few days, then all.
+- **Safe alone:** with `POOL_SLUGS` empty nothing changes, and a worker drops jobs for screens not listed.
+- **Rollback:** take the slug out of `POOL_SLUGS`. The orchestrator removes it from the hash, waits for its lease to
+  lapse, and starts its container again.
 
-**8. Retire the per-screen containers.**
+**7. Jobs from the broker and the providers** (auth-broker, and pi-dashboard where a provider there bursts).
 
-- **Change:** the orchestrator removes them, and their volumes a few weeks later. With step 5 the claim flow and the
-  orchestrator can then go too, with the broker writing `v1:render:devices` itself.
-- **Rollback:** until the volumes are deleted, put the slugs back on containers.
+- **Change:**
+  - A config save pushes `enqueue(device id)`, alongside the `v1:config:changed` publish the per-screen renderers
+    still need.
+  - The developer provider pushes jobs for its devices on each burst cycle.
+  - The broker writes the pairing key (see below) and pushes a job when it issues a code.
+- **Safe alone:** a job for a screen the pool doesn't render is dropped, and the publish carries on.
+- **Rollback:** revert.
 
-## What lands with this proposal
+**8. The dashboards** (auth-broker). The panels read the new `device`-attributed series beside the old ones. Safe at
+any time.
 
-`countdown_core/core/render_state.py`, used by nothing yet:
+**9. Retire the per-screen path** (both repos). Every change here waits for every screen to be on the pool, so each
+is a draft PR titled "[after every screen is pooled]".
 
-- `RenderState`: the handoff, versioned and frozen;
-- `RenderState.needs_put` and `handed_off`: today's upload rule, over hashes;
-- `frame_etag`: the broker's ETag;
-- `encode` and `decode`: an unreadable state counts as none;
-- `RenderStateStore`: the interface, with `InMemoryRenderStateStore`, which keeps the JSON a Redis store would.
+- **pi-dashboard:**
+  - the orchestrator removes the containers, and their volumes a few weeks later;
+  - the code goes: `DisplayLoop`, `ServerTarget`, `ConfigWatcher`, `BrokerClient`'s `GET /api/config` fallback, the
+    claim (`RendererRegistrar`), `DisplayController`'s partial-refresh logic, `ApiRegistry.pace` and
+    `AbstractClient.pace_keys`, and the per-process `OtlpPublisher` gauges.
+- **auth-broker:**
+  - the broker writes `v1:render:screens` from its paired devices, in place of the orchestrator;
+  - the `v1:config:changed` publish goes (the job queue has replaced it for every screen by then);
+  - `PUT /api/frame`, the frames table, the `X-Refresh-Hint` lease and `PACE_LEASE_S` go;
+  - the claim flow goes (`/api/renderers/claim`, claim tokens);
+  - the orchestrator's endpoints and token go.
+- **Then:** the orchestrator itself, with the `countdown-orchestrator` image, once the broker writes the screens.
+- **Rollback:** up to the deletion of the volumes, put the slugs back on containers. After it, a screen needs a new
+  renderer assignment.
 
-`tests/test_render_state.py` pins the hash, the rule and the round trip, and checks the rule against today's
-`DisplayController` and `ServerTarget`. The Redis-backed store (step 4) is a `GET` and a `SET ... EX`.
+**When the channel and the per-screen path go.** The job queue replaces `v1:config:changed` from step 7, for every
+screen the pool renders. The channel's publisher and `ConfigWatcher`, and the per-screen renderer path with them, are
+removed in step 9, once no screen has its own container.
 
-## Open questions
+## Decided here, not in the answers
 
-1. **Identity:** hand frames over through Redis (no renderer secrets, and the orchestrator can go), keep `PUT
-   /api/frame` with identities copied into the pool, or a broker token for the pool?
-2. **Last good:** may the providers' TTLs become an hour, with freshness judged by `fetched_at` (L3)? Or would you
-   rather keep TTLs as they are and have per-screen copies in the render state (L1)? And how stale may a departures
-   value be before it's hidden rather than drawn?
-3. **Rotation:** is it fine for every screen to turn its pages together on the minute? And for a config change not
-   to start the departures from page 0? Or do you want a per-screen phase?
-4. **Metrics:** may the per-screen gauges move from the resource's `host.name` to a `device` attribute, with the
-   auth-broker dashboards updated to match?
-5. **Logging:** an `info` line per handed-off frame (about one a minute per screen into VictoriaLogs), or `debug`
-   only, with metrics for the rest?
-6. **Screen-fetch timing (step 7):** worth a Redis write on every poll in the broker? Or is the clock enough?
-7. **The host:** what CPU does the renderers' host have, and how many screens should this plan for in a year? The
-   capacity numbers come from an x86 sandbox.
-8. **The config nudge:** which channel will `v1:config:<device>` publish on? The workers subscribe to it. (Answered
-   by config-in-store: `v1:config:changed`, `keys.CONFIG_CHANGED`, with the device id as the payload, published only
-   for the devices whose key changed.)
-9. **Bursts:** should the developer provider nudge the screen when a release starts, so the fast refresh begins
-   within seconds rather than at the next 60-s poll?
+These follow from the decisions but weren't asked about; say if any should go another way.
+
+- **The pairing screen.** The config copy in the store deliberately carries no pairing code. So in the pool, the
+  broker writes the live code to `v1:pairing:<device id>` (its TTL the code's own 10 minutes) and pushes a job, and the
+  render draws the pairing screen while the key exists.
+  - A Redis reader could then see a live code. That's the same trust as the config, and the firmware never asks for a
+    code itself: it's only the fallback for handing a screen to a new owner.
+  - Until step 7, a pooled screen with a code requested keeps showing its dashboard.
+- **Hints by key, read by the broker.** The broker reads the screen's `v1:pace:` keys itself, so the minimum, the floor
+  and the expiry live in its one function. The render side never computes an interval.
+- **Bursts come from the provider's cycle.** The ticker only ticks on the minute.
+- **No `v1:render-state` key.** The frame record's `etag` is the only state a render needs.
+- **Epoch minutes, not minute of the hour.** So a page count that doesn't divide 60 doesn't jump on the hour.
+- **A `RedisError` keeps today's renderer's last panel** in step 2. Only an expired key is "not available".
+- **Numbers to settle in the step that builds each:**
+
+  | Setting | Value |
+  |---|---|
+  | `LEAD_S` | 3 |
+  | `HINT_FLOOR_S` | 20 |
+  | `MIN_SLEEP_S` | 5 |
+  | the lease | 30 s |
+  | the render deadline | 20 s |
+  | worker processes | 2 |
