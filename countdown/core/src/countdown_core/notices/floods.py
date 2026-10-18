@@ -1,11 +1,12 @@
-"""Flood warnings near the screen, from the Environment Agency."""
+"""Flood warnings near the screen: the Environment Agency's, from the store (written by the floods provider).
+
+The renderer never asks the EA itself; the provider fetches each postcode's warnings once for every screen there.
+"""
 
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, override
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _
-from countdown_core.notices.models import FloodWarningsResponse
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.store import keys, reader
 from countdown_core.store.floods import StoredFloods
@@ -13,10 +14,7 @@ from countdown_core.store.floods import StoredFloods
 if TYPE_CHECKING:
     import requests
 
-    from countdown_core.tfl.models import Postcode
-
-FLOODS_URL = "https://environment.data.gov.uk/flood-monitoring/id/floods"
-RADIUS_KM = 5
+    from countdown_core.notices.models import FloodWarningsResponse
 
 # severityLevel 4 is "warning no longer in force", which isn't worth showing.
 SEVERITY_BY_LEVEL = {
@@ -73,29 +71,3 @@ class StoredFloodWarningsSource(NoticeSource):
             msg = "No flood warnings in the store for the screen's postcode"
             raise NoStoredFloodsError(msg)
         return flood_notices(stored.floods)
-
-
-class FloodWarningsSource(NoticeSource):
-    """Environment Agency flood alerts and warnings near the postcode.
-
-    England only: elsewhere the feed just has nothing to report.
-    """
-
-    name = "Flood warnings"
-    refresh_interval = timedelta(minutes=10)
-
-    def __init__(self, session: requests.Session, location: Postcode) -> None:
-        """Fetch over `session` the warnings within RADIUS_KM of `location`."""
-        super().__init__(session)
-        self.params = {"lat": location.latitude, "long": location.longitude, "dist": RADIUS_KM}
-
-    @override
-    def fetch(self, now: datetime) -> list[Notice]:
-        response = self.session.get(FLOODS_URL, params=self.params, timeout=DEFAULT_TIMEOUT)
-        response.raise_for_status()
-        notices = []
-        for warning in FloodWarningsResponse.model_validate_json(response.content).items:
-            if warning.severity_level in SEVERITY_BY_LEVEL:
-                severity, label = SEVERITY_BY_LEVEL[warning.severity_level]
-                notices.append(Notice(_("Floods"), severity, f"{_(label)}: {warning.description}"))
-        return notices

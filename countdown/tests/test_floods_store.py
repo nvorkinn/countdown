@@ -17,16 +17,10 @@ from test_utils import REGISTRATION
 
 from countdown_core import i18n
 from countdown_core.notices import notice_board_client as board_module
-from countdown_core.notices.floods import (
-    FLOODS_URL,
-    FloodWarningsSource,
-    NoStoredFloodsError,
-    StoredFloodWarningsSource,
-)
+from countdown_core.notices.floods import NoStoredFloodsError, StoredFloodWarningsSource
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
 from countdown_core.store.floods import StoredFloods
-from countdown_core.tfl.models import PostcodeResponse
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "floods.json").read_text())
@@ -83,25 +77,6 @@ def test_the_notices_from_the_store_are_the_ones_the_board_made_from_the_ea(stor
 
     assert [as_json(notice) for notice in notices] == EA_NOTICES[postcode][lang]
     assert len(no_http.calls) == 0
-
-
-@pytest.mark.parametrize("lang", ["en", "nb"])
-@pytest.mark.parametrize("postcode", POSTCODES)
-def test_the_old_path_made_the_same_notices_from_the_eas_answer(store, language, postcode, lang):
-    """Parity: the EA answering /id/floods?lat&long&dist with the warnings for the areas near the postcode."""
-    place = FIXTURE["places"][postcode]
-    near = {area["notation"] for area in place["flood_areas"]["items"]}
-    answer = {**FIXTURE["in_force"], "items": [w for w in FIXTURE["in_force"]["items"] if w["floodAreaID"] in near]}
-    store.set(keys.floods(postcode), json.dumps(place["stored"]))
-    language(lang)
-
-    with responses.RequestsMock() as api:
-        api.add(responses.GET, FLOODS_URL, json=answer)
-        location = PostcodeResponse.model_validate(place["postcodes_io"]).result
-        from_the_ea = FloodWarningsSource(requests.Session(), location).fetch(NOW)
-
-    assert from_the_ea == StoredFloodWarningsSource(requests.Session(), postcode).fetch(NOW)
-    assert [as_json(notice) for notice in from_the_ea] == EA_NOTICES[postcode][lang]
 
 
 def test_the_language_is_worked_out_as_the_notices_are_read(store, language):
