@@ -40,7 +40,7 @@ countdown-core so the providers and renderers share them.
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages), one per place however many screens show it; see [Weather](#weather) |
 | `v1:energy:<device id>` | string, TTL ~1 h | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
-| `v1:spotify:<device id>` | string, TTL 3 min | auth-broker's `spotify-provider`, every minute | `StoredPlayer` JSON (`store/music.py`): each service's queue, as the broker's `/queue` route answers it |
+| `v1:spotify:<device id>` | string, TTL 3 min | auth-broker's `spotify-provider`, every minute | `StoredPlayer` JSON (`store/music.py`): each service's queue, in the shape of Spotify's `/me/player/queue` |
 | `v1:art:<sha1 of the image URL>` | string of raw bytes, TTL 5 min, renewed every minute while a `v1:spotify:` key shows it | auth-broker's `spotify-provider`, before the player key that shows it | the playing track's cover, the image file as its host served it (a JPEG of about 30 KB); one per image, shared by every screen showing it; see [Covers](#covers) |
 | `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): `github`, the GitHub summary (pull requests, builds, releases with their jobs), null until the owner gives a token, and `plans`, the AI plans; the broker has no route for the panel, so this key is the renderer's only source |
 | `v1:pace:<source>:<id>` | integer string, TTL ~1 min | any provider that has bursty data (the developer provider, per device, while a release runs) | the seconds it wants the screen to refresh at; renderers take the fastest of those they watch, see the renderer's README, "The pace" |
@@ -56,9 +56,9 @@ countdown-core so the providers and renderers share them.
 
 The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
 own tokens, which never leave it (auth-broker's README, "Music in the store"). As the two repositories can't share
-code, each service's part is exactly what the broker's proxy route answers a renderer (`/api/spotify/queue`,
-`/api/apple-music/top/tracks?time_range=long_term&limit=5`, ...), read with the models the renderer already has
-(`spotify/models.py`); only the wrappers in `store/music.py` are new. Both repositories' tests read the same examples
+code, each service's part is in Spotify's own shapes (`/me/player/queue`, `/me/top/tracks?time_range=long_term&limit=5`,
+...; Apple Music's made to look like them), read with the models in `spotify/models.py`; only the wrappers in
+`store/music.py` are the store's own. Both repositories' tests read the same examples
 (`tests/fixtures/music_*.json`), so keep them in step:
 
 ```json

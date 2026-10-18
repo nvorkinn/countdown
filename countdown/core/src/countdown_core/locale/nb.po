@@ -46,7 +46,7 @@ msgstr "Alle bygg er grønne"
 
 #, python-brace-format
 msgid "Amber warning: {hazard}"
-msgstr "Gult farevarsel: {hazard}"
+msgstr "Oransje farevarsel: {hazard}"
 
 msgid "Apple Music"
 msgstr "Apple Music"
