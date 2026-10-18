@@ -19,6 +19,7 @@ from countdown_core.core.log_format import configure_logging
 from countdown_core.core.targets import DisplayTarget
 from countdown_core.home_assistant.device_status import DeviceStatus
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
+from countdown_core.store.config import ConfigWatcher
 from countdown_credentials.registration import RendererRegistrar, RendererRegistration
 
 if TYPE_CHECKING:
@@ -50,7 +51,7 @@ async def wait_for_config(
     broker: BrokerClient,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> tuple[ConfigResponse, PairingCodePanel]:
-    """Block until the broker returns a valid config, retrying with backoff."""
+    """Block until there's a valid config (in the store, or from the broker), retrying with backoff."""
     delay = INITIAL_RETRY_S
     while True:
         try:
@@ -98,4 +99,6 @@ async def run(make_target: MakeTarget) -> None:
     broker = BrokerClient(registration)
     config, pairing_code_panel = await wait_for_config(broker)
     status.last_broker_sync = datetime.now(UTC)
-    await DisplayLoop(broker, config, pairing_code_panel, display, registry).run()
+    # Wakes the loop when the broker changes this screen's config in the store; None without a store.
+    watcher = ConfigWatcher.from_env(registration.device_id)
+    await DisplayLoop(broker, config, pairing_code_panel, display, registry, watcher=watcher).run()

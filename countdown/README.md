@@ -19,8 +19,9 @@ orchestrator sets them) and claims its screen with the broker before it does any
 else (`countdown_credentials/registration.py`). On first run it makes up a secret, sends
 it with the one-time claim token, which matches it to its screen at once, and saves the
 credentials to `.auth_broker_device` in the working directory; later runs just load them
-and ignore the token. Then it sets up the display target and waits for a valid config. The app can't run without that config, so there's no
-empty fallback: if the broker can't be reached or sends back something invalid,
+and ignore the token. Then it sets up the display target and waits for a valid config, from the store or else from
+the broker (see [The config](#the-config)). The app can't run without that config, so there's no
+empty fallback: if neither has one, or the broker sends back something invalid,
 it keeps retrying, backing off from 30 seconds to 5 minutes. Nothing is painted
 until it has a config. Once it's running, a failed config refresh just keeps the
 config it already has.
@@ -45,10 +46,41 @@ header stops, and everything is back to the usual within a lease. Providers that
 `pace(item_id, fetched)` (see `countdown_providers/provider.py`).
 
 After each cycle the loop publishes health over OTLP (see
-[Metrics](#metrics)) and re-reads the config from the
-broker. The broker has no change notification, so this poll is how changes to
-stops, credentials and so on reach the device, and how the pairing code stays
-current.
+[Metrics](#metrics)) and re-reads the config, from the store or else from the broker, as soon as the broker says it
+changed, or at the latest when the cycle's interval is up.
+
+### The config
+
+The screen's config is in the store: auth-broker keeps its database as the source of truth, and writes each screen's
+config to `v1:config:<device id>` (`store/keys.py`'s `config`) on every config save and as it starts. The value is
+exactly what `GET /api/config` answers the device, the contract's `ConfigResponse`, less its secrets
+(`weather.api_key` empty, which the renderer doesn't use, and no `pairing_code`), so the renderer reads it with the
+same model (`store/config.py`'s `read`, through `BrokerClient.get_config`). It's self-contained: a fresh process can
+draw the screen from it and the providers' keys alone. `tests/fixtures/config_store.json` pins it, the same file as
+auth-broker's tests read.
+
+- **The nudge.** After changing a device's key the broker publishes the device id on `v1:config:changed`. The
+  `ConfigWatcher` (`store/config.py`), which the app starts with the loop when it has `REDIS_URL`, listens for its
+  own id and cuts the loop's wait short, so a save on the settings page is drawn at once rather than at the next
+  interval. A nudge missed while Redis was away only delays the change until the next cycle, which reads the key
+  anyway.
+- **The fallback.** With no key for the device, the renderer asks `GET /api/config` as before: an older broker that
+  writes none, a renderer with no store (no `REDIS_URL`), a Redis that doesn't answer, or a stored value that doesn't
+  validate (each logged). It's also how the pairing code reaches the screen: the broker keeps no key for a device
+  that isn't paired or has a code to show, as only `GET /api/config` gives (and issues) the code. Once the device is
+  paired the broker writes the key and nudges, and the renderer moves to the store; the log says each time it moves.
+- **The pace.** Nothing in `GET /api/config`'s response headers reaches the renderer, so nothing had to be carried
+  over: the base `interval` is in the body, and so in the stored value, and a faster pace comes from the providers'
+  `v1:pace:` keys and goes out on the frame upload (see [The pace](#the-pace)), never through the config.
+
+To deploy: auth-broker's side first (it writes keys nothing reads yet), then a release of this; the other order works
+too, with the renderers asking the broker until its keys are there. To check the keys, on the host:
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:config:*"'
+```
+
+lists one per paired screen; a renderer's log says "Reading the config from the store" once it reads its own.
 
 **Clock format.** The config website's clock choice is the top-level `clock_format` in
 `GET /api/config`: `"24h"` (the default when omitted) or `"12h"`. Generated clock times use
@@ -228,11 +260,12 @@ Here it is a git submodule and a member of the uv workspace:
   release's version, not countdown-api's own.
 - countdown-api also publishes each of its releases as a package index (https://nvorkinn.github.io/countdown-api/),
   for projects that want a pinned version. This repository doesn't use it.
-- `BrokerClient.get_config` calls `countdown_api.clients.ApiConfigClient`, through the device's session, so the
+- `BrokerClient.get_config` reads the broker's copy of the config from the store, and otherwise
+  (`BrokerClient.fetch_config`) calls `countdown_api.clients.ApiConfigClient`, through the device's session, so the
   path, the method, the headers and the shape of the response all come from the contract.
-- The app reads the contract's own `ConfigResponse` (and its sections) as `get_config` returns it, with no model of
-  its own beside it, so the two can't diverge. A response that doesn't match the contract (a section missing, an
-  `interval` that isn't positive) is rejected, and the renderer keeps the config it has.
+- The app reads the contract's own `ConfigResponse` (and its sections) as `get_config` returns it, whichever way it
+  came, with no model of its own beside it, so the two can't diverge. A response that doesn't match the contract (a
+  section missing, an `interval` that isn't positive) is rejected, and the renderer keeps the config it has.
   `tests/test_broker_contract.py` fails if the contract (the package carries `countdown_api/openapi.yaml`) and the
   client stop agreeing on the path, the security and the headers the app sends.
 
