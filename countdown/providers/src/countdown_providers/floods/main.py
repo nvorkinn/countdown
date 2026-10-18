@@ -11,7 +11,9 @@ them (/id/floodAreas?lat&long&dist): the areas /id/floods?lat&long&dist would ha
 once (postcodes.io: a postcode's place doesn't change), and its flood areas are asked for again once a day, as the EA
 redraws them now and then.
 
-The logs name a postcode only by its district ("SE17"): the full postcode says where a screen, and someone's home, is.
+Nothing logged names a postcode or anything worked out from one (its district, its coordinates, a URL with either in
+it): a postcode says where a screen, and someone's home, is, and the logs go to the central log store. So a failure is
+logged by the error's type alone, and urllib3's warnings, which quote the URL they retried, are kept out.
 
 The HTTP calls are synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread), like the TfL
 provider's.
@@ -66,11 +68,6 @@ def fetch_flood_areas(session: requests.Session, latitude: float, longitude: flo
     return frozenset(area.notation for area in FloodAreasResponse.model_validate_json(response.content).items)
 
 
-def district(postcode: str) -> str:
-    """Return a UK postcode's district, its outward code ("SE17 3LL" -> "SE17"): what the logs name it by."""
-    return postcode.replace(" ", "")[:-3].upper()
-
-
 class FloodsProvider:
     """Flood warnings near the subscribed UK postcodes, from the Environment Agency (keyless, so no API key)."""
 
@@ -113,8 +110,8 @@ class FloodsProvider:
             try:
                 areas = self._areas_near(postcode)
             except Exception as e:  # noqa: BLE001 -- one bad postcode mustn't lose the rest of the batch
-                # Not the error's own text: an HTTP error's quotes the URL, postcode and all.
-                logger.warning("Couldn't place a postcode in %s: %s", district(postcode), type(e).__name__)
+                # Not the error's own text: an HTTP error's quotes the URL, with the postcode or its place in it.
+                logger.warning("Couldn't place a subscribed postcode for its floods: %s", type(e).__name__)
                 continue
             if areas is None:
                 continue
@@ -150,7 +147,7 @@ class FloodsProvider:
             return cached[1]
         coordinates = self._coordinates(postcode)
         if coordinates is None:
-            logger.warning("postcodes.io doesn't know a postcode in %s; no floods for it", district(postcode))
+            logger.warning("postcodes.io doesn't know a subscribed postcode; no floods for it")
             areas = None
         else:
             areas = fetch_flood_areas(self.session, *coordinates)
@@ -166,9 +163,18 @@ class FloodsProvider:
         return self.coordinates[postcode]
 
 
+def configure_provider_logging() -> None:
+    """Log as every provider does, less urllib3's warnings: each retry's quotes its URL, a postcode's or its place's.
+
+    urllib3 logs nothing above a warning, and a request that fails for good is logged here, by the error's type.
+    """
+    configure_logging()
+    logging.getLogger("urllib3").setLevel(logging.ERROR)
+
+
 def main() -> None:
     """Run the `countdown-provider-floods` console script."""
-    configure_logging()
+    configure_provider_logging()
     # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
     session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
     asyncio.run(serve(FloodsProvider(session), Settings.from_env()))

@@ -6,6 +6,8 @@ stored for it, which test_floods_store.py reads back.
 
 import asyncio
 import json
+import logging
+import socket
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -16,14 +18,32 @@ import requests
 import responses
 from responses import matchers
 
+from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.notices import location
 from countdown_core.notices.location import POSTCODES_URL
+from countdown_core.notices.models import FloodWarningsResponse
 from countdown_core.store import keys
-from countdown_providers.floods.main import FLOOD_AREAS_URL, FLOODS_URL, FloodsProvider, district
+from countdown_providers.floods import main as floods_main
+from countdown_providers.floods.main import FLOOD_AREAS_URL, FLOODS_URL, FloodsProvider
 from countdown_providers.runner import ProviderRunner
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "floods.json").read_text())
 PLACES = FIXTURE["places"]
 POSTCODES = list(PLACES)
+UNKNOWN = "ZZ1 1ZZ"
+
+
+def traces(postcode: str) -> list[str]:
+    """Return what the logs mustn't hold about `postcode`: it, its place, its district, and its coordinates."""
+    compact = postcode.replace(" ", "").upper()
+    found = PLACES.get(postcode, {}).get("postcodes_io", {}).get("result", {})
+    return [postcode.upper(), compact, compact[:-3], *(str(found[k]) for k in ("latitude", "longitude") if k in found)]
+
+
+def assert_no_postcode_in(text: str, postcodes: list[str]) -> None:
+    for postcode in postcodes:
+        for trace in traces(postcode):
+            assert trace not in text.upper(), f"the logs mention {trace!r} ({postcode})"
 
 
 class Clock:
@@ -171,8 +191,8 @@ def test_a_postcode_postcodes_io_doesnt_know_is_left_out_and_looked_up_again_a_d
     assert calls_starting(api, POSTCODES_URL) == 2
 
     assert calls_to(api, FLOOD_AREAS_URL) == 0
-    assert "postcodes.io doesn't know a postcode in ZZ1; no floods for it" in caplog.messages
-    assert "ZZ1 1ZZ" not in caplog.text
+    assert caplog.messages.count("postcodes.io doesn't know a subscribed postcode; no floods for it") == 2  # once a day
+    assert_no_postcode_in(caplog.text, [UNKNOWN])
 
 
 def test_one_postcode_that_cant_be_placed_doesnt_lose_the_rest_of_the_batch(api, clock, caplog):
@@ -183,9 +203,9 @@ def test_one_postcode_that_cant_be_placed_doesnt_lose_the_rest_of_the_batch(api,
     results = fetch(make_provider(clock), ["SE17 3LL", "YO1 7HH"])
 
     assert list(results) == ["YO1 7HH"]
-    # The district, not the postcode, nor the HTTP error's text (which quotes the URL, postcode and all).
-    assert "Couldn't place a postcode in SE17: HTTPError" in caplog.messages
-    assert "3LL" not in caplog.text
+    # Not the postcode, nor the HTTP error's text (which quotes the URL, postcode and all).
+    assert caplog.messages == ["Couldn't place a subscribed postcode for its floods: HTTPError"]
+    assert_no_postcode_in(caplog.text, POSTCODES)
 
 
 def test_flood_areas_the_ea_cant_give_leave_the_postcode_out_until_they_can(api, clock):
@@ -213,12 +233,72 @@ def test_the_ea_being_down_writes_nothing_without_naming_a_postcode(api, clock, 
     assert calls_to(api, FLOODS_URL) == 1
     assert calls_starting(api, POSTCODES_URL) == 0
     assert any(message.startswith("Couldn't fetch the flood warnings in force") for message in caplog.messages)
-    assert not any(district(postcode) in caplog.text for postcode in POSTCODES)
+    assert_no_postcode_in(caplog.text, POSTCODES)
 
 
-@pytest.mark.parametrize(("postcode", "expected"), [("SE17 3LL", "SE17"), ("YO1 7HH", "YO1"), ("sw1a1aa", "SW1A")])
-def test_a_postcode_is_logged_by_its_district(postcode, expected):
-    assert district(postcode) == expected
+def test_nothing_logged_names_a_postcode_or_its_district_or_place(api, clock, caplog):
+    """Every way a cycle can go, logged at DEBUG by the provider and the runner: a postcode says where someone lives."""
+    caplog.set_level(logging.DEBUG)
+    add_in_force(api)
+    api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", status=500)  # can't be placed
+    yo1 = PLACES["YO1 7HH"]["postcodes_io"]
+    api.add(responses.GET, f"{POSTCODES_URL}/YO1%207HH", json=yo1)
+    near_yo1 = {"lat": str(yo1["result"]["latitude"]), "long": str(yo1["result"]["longitude"])}
+    # Its flood areas can't be had.
+    api.add(
+        responses.GET, FLOOD_AREAS_URL, status=500, match=[matchers.query_param_matcher(near_yo1, strict_match=False)]
+    )
+    add_place(api, "CF10 1EP")  # written
+    api.add(responses.GET, f"{POSTCODES_URL}/ZZ1%201ZZ", status=404, json={"status": 404, "error": "Invalid postcode"})
+    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    provider = make_provider(clock)
+
+    async def cycles():
+        await redis.sadd(keys.subscription(keys.POSTCODE), *POSTCODES, UNKNOWN, "0150")
+        runner = ProviderRunner(provider, redis, batch_size=2)
+        first = await runner.run_cycle()
+        api.replace(responses.GET, FLOODS_URL, status=503)  # then the EA goes down
+        clock.now += timedelta(seconds=provider.interval_s)
+        return first, await runner.run_cycle()
+
+    assert asyncio.run(cycles()) == (1, 0)
+    assert len(caplog.messages) >= 4
+    assert_no_postcode_in(caplog.text, [*POSTCODES, UNKNOWN])
+    assert "0150" not in caplog.text
+
+
+@pytest.fixture
+def provider_logging(monkeypatch):
+    """Configure the logs as the provider's main() does (bar the JSON handler), then put urllib3's level back."""
+    monkeypatch.setattr(floods_main, "configure_logging", lambda: None)
+    urllib3 = logging.getLogger("urllib3")
+    level = urllib3.level
+    floods_main.configure_provider_logging()
+    yield
+    urllib3.setLevel(level)
+
+
+def test_urllib3s_retry_warnings_which_quote_the_postcodes_url_are_kept_out(
+    provider_logging, clock, caplog, monkeypatch
+):
+    """A real connection failure, retried by the renderer's own retrying session: urllib3 warns with each URL."""
+    with socket.socket() as s:  # a port nothing listens on
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    monkeypatch.setattr(location, "POSTCODES_URL", f"http://127.0.0.1:{port}/postcodes")
+    session = AbstractClient._build_retrying_session(backoff_factor=0)
+    session.trust_env = False  # straight to the closed port, not through a proxy
+    provider = FloodsProvider(session, now=clock)
+    provider.in_force = (clock.now, FloodWarningsResponse())  # only postcodes.io is asked
+    caplog.set_level(logging.DEBUG)
+
+    assert asyncio.run(provider.fetch(["SE17 3LL"])) == {}
+
+    assert [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING] == [
+        "Couldn't place a subscribed postcode for its floods: ConnectionError"
+    ]
+    assert not [r for r in caplog.records if r.name.startswith("urllib3")]
+    assert_no_postcode_in(caplog.text, ["SE17 3LL"])
 
 
 def test_the_runner_writes_each_place_under_its_key_with_the_ttl(api, clock):

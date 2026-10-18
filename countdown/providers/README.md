@@ -159,10 +159,12 @@ The value is the EA's own answer, the warnings' items in the EA's names (those n
 ```
 
 The renderer makes the notices from it as it reads it (`notices/floods.py`, `StoredFloodWarningsSource`), so their
-words are in the screen's language then; a missing key keeps the board's last flood notices. The provider's logs name
-a postcode only by its district (`SE17`), as the renderer's never name it at all. `tests/fixtures/floods.json` is one
-cycle, from the EA's answers to the stored values, and `tests/fixtures/floods_notices.json` the notices the board made
-from the same warnings when it asked the EA itself, which the stored values must still make.
+words are in the screen's language then; a missing key keeps the board's last flood notices. Nothing the provider logs
+names a postcode or anything worked out from one (not its district, nor a URL with it or its coordinates in it): a
+failure is logged by the error's type alone, and urllib3's retry warnings, which quote their URLs, are turned off.
+`tests/fixtures/floods.json` is one cycle, from the EA's answers to the stored values, and
+`tests/fixtures/floods_notices.json` the notices the board made from the same warnings when it asked the EA itself,
+which the stored values must still make.
 
 To deploy: auth-broker's [#174](https://github.com/nvorkinn/auth-broker/pull/174), which writes `v1:sub:postcode`,
 must be deployed first, or the provider has no postcodes and no board shows a flood. Then deploy a release with
