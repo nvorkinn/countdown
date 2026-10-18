@@ -24,7 +24,7 @@ def _forecast_at(time: str) -> dict:
 
 def weather_section(location: str = "London", key: str | None = None) -> WeatherSection:
     """Return the broker's weather section; with no key, as a broker that predates it sends it."""
-    return WeatherSection(api_key="", location=location, key=key)
+    return WeatherSection(location=location, key=key)
 
 
 def make_client(location: str = "London", key: str | None = None) -> WeatherClient:
@@ -298,10 +298,10 @@ def test_a_forecast_missing_at_first_is_read_on_the_next_cycle(store):
 
 
 def test_needs_refresh_only_when_the_location_changes():
-    client = WeatherClient(REGISTRATION, WeatherSection(api_key="old", location="London"))
+    client = WeatherClient(REGISTRATION, WeatherSection(location="London"))
 
-    assert not client.needs_refresh(WeatherSection(api_key="new", location="London"))  # keyless API
-    assert client.needs_refresh(WeatherSection(api_key="old", location="Paris"))
+    assert not client.needs_refresh(WeatherSection(location="London"))
+    assert client.needs_refresh(WeatherSection(location="Paris"))
 
 
 def test_needs_refresh_when_the_key_changes_or_the_broker_starts_sending_one():

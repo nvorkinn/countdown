@@ -41,7 +41,7 @@ class WeatherClient(AbstractClient):
     """A forecast carousel, read from the store under the location key the broker subscribes to.
 
     That's `v1:weather:<key>` (see location_key), written by the weather provider from Open-Meteo
-    (countdown_core.weather.open_meteo), which is keyless, so the config's api_key is unused. With no location
+    (countdown_core.weather.open_meteo), which is keyless, so the config carries no key. With no location
     configured there's nothing to read, and the panel says it needs configuring.
     """
 
@@ -64,8 +64,8 @@ class WeatherClient(AbstractClient):
 
     @override
     def needs_refresh(self, new_config: WeatherSection) -> bool:
-        # Open-Meteo is keyless, so api_key changing changes nothing. The key changes with the place, and when a
-        # broker starts sending it; location too, as the forecast falls back to it (see _stored_forecast).
+        # The key changes with the place, and when a broker starts sending it; location too, as the forecast falls
+        # back to it (see _stored_forecast).
         return (self.key, self.location) != (location_key(new_config), new_config.location)
 
     @override

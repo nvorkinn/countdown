@@ -58,7 +58,7 @@ def _full_response() -> ConfigResponse:
         device_id="abc",
         interval=30,
         screen={"orientation": "horizontal", "width": 800, "height": 480},
-        weather={"api_key": "weather-key", "location": "London"},
+        weather={"location": "London"},
         notice_board={"postcode": "SW1A 1AA"},
         tfl={"stop_ids": ["940GZZLUKNG", "490000077E"]},
         spotify={"enabled": True},
