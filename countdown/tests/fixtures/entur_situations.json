@@ -1,0 +1,370 @@
+{
+  "now": "2026-10-16T12:00:00+00:00",
+  "stop_ids": [
+    "NSR:StopPlace:58381",
+    "NSR:Quay:7333",
+    "NSR:StopPlace:1"
+  ],
+  "answers": {
+    "NSR:StopPlace:58381": {
+      "stopPlace": {
+        "name": "Majorstuen",
+        "situations": [
+          {
+            "summary": [
+              {
+                "value": "Heisen er ute av drift",
+                "language": "no"
+              },
+              {
+                "value": "The lift is out of order",
+                "language": "en"
+              }
+            ],
+            "validityPeriod": {
+              "endTime": "2026-10-30T23:00:00+01:00"
+            },
+            "severity": "normal"
+          },
+          {
+            "summary": [
+              {
+                "value": "Rulletrappen var stengt",
+                "language": "no"
+              },
+              {
+                "value": "The escalator was closed",
+                "language": "en"
+              }
+            ],
+            "validityPeriod": {
+              "endTime": "2026-10-15T12:00:00+02:00"
+            },
+            "severity": "severe"
+          },
+          {
+            "summary": [
+              {
+                "value": "  Trikk 19\n  er innstilt  ",
+                "language": "NOB"
+              }
+            ],
+            "validityPeriod": null,
+            "severity": "verySevere"
+          },
+          {
+            "summary": [],
+            "validityPeriod": {
+              "endTime": "2026-10-30T23:00:00+01:00"
+            },
+            "severity": "severe"
+          }
+        ],
+        "estimatedCalls": [
+          {
+            "serviceJourney": {
+              "line": {
+                "publicCode": "5"
+              }
+            },
+            "situations": [
+              {
+                "summary": [
+                  {
+                    "value": "Buss for T-bane",
+                    "language": "no"
+                  },
+                  {
+                    "value": "Bus for metro",
+                    "language": "en"
+                  }
+                ],
+                "validityPeriod": {
+                  "endTime": "2026-10-20T00:00:00+02:00"
+                },
+                "severity": "severe"
+              }
+            ]
+          },
+          {
+            "serviceJourney": {
+              "line": {
+                "publicCode": "5"
+              }
+            },
+            "situations": [
+              {
+                "summary": [
+                  {
+                    "value": "Buss for T-bane",
+                    "language": "no"
+                  },
+                  {
+                    "value": "Bus for metro",
+                    "language": "en"
+                  }
+                ],
+                "validityPeriod": {
+                  "endTime": "2026-10-20T00:00:00+02:00"
+                },
+                "severity": "severe"
+              }
+            ]
+          },
+          {
+            "serviceJourney": {
+              "line": {
+                "publicCode": "19"
+              }
+            },
+            "situations": [
+              {
+                "summary": [
+                  {
+                    "value": "Forsinkelser",
+                    "language": "nob"
+                  },
+                  {
+                    "value": "Delays",
+                    "language": "eng"
+                  }
+                ],
+                "validityPeriod": {
+                  "endTime": null
+                },
+                "severity": "slight"
+              },
+              {
+                "summary": [
+                  {
+                    "value": "",
+                    "language": "en"
+                  },
+                  {
+                    "value": null,
+                    "language": "no"
+                  }
+                ],
+                "severity": "severe"
+              }
+            ]
+          },
+          {
+            "serviceJourney": null,
+            "situations": [
+              {
+                "summary": [
+                  {
+                    "value": "Plattform 2 er stengt",
+                    "language": "no"
+                  },
+                  {
+                    "value": "Platform 2 is closed",
+                    "language": "en"
+                  }
+                ],
+                "validityPeriod": {
+                  "endTime": "2026-10-30T23:00:00+01:00"
+                }
+              }
+            ]
+          },
+          {
+            "serviceJourney": {
+              "line": null
+            },
+            "situations": [
+              {
+                "summary": [
+                  {
+                    "value": "Plattform 2 er stengt",
+                    "language": "no"
+                  },
+                  {
+                    "value": "Platform 2 is closed",
+                    "language": "en"
+                  }
+                ],
+                "validityPeriod": {
+                  "endTime": "2026-10-30T23:00:00+01:00"
+                }
+              }
+            ]
+          },
+          {
+            "serviceJourney": {
+              "line": {
+                "publicCode": "3"
+              }
+            },
+            "situations": []
+          },
+          {
+            "serviceJourney": {
+              "line": {
+                "publicCode": "4"
+              }
+            },
+            "situations": null
+          }
+        ]
+      }
+    },
+    "NSR:Quay:7333": {
+      "quay": {
+        "name": "Majorstuen",
+        "situations": [
+          {
+            "summary": [
+              {
+                "value": "Buss for T-bane",
+                "language": "no"
+              },
+              {
+                "value": "Bus for metro",
+                "language": "en"
+              }
+            ],
+            "validityPeriod": {
+              "endTime": "2026-10-20T00:00:00+02:00"
+            },
+            "severity": "severe"
+          }
+        ],
+        "estimatedCalls": [
+          {
+            "serviceJourney": {
+              "line": {
+                "publicCode": "1"
+              }
+            },
+            "situations": [
+              {
+                "summary": [
+                  {
+                    "value": "Buss erstatter banen til Frognerseteren",
+                    "language": "no"
+                  },
+                  {
+                    "value": "Buses replace the train to Frognerseteren",
+                    "language": "en"
+                  }
+                ],
+                "validityPeriod": {
+                  "endTime": "2026-10-25T03:00:00+01:00"
+                },
+                "severity": "severe"
+              }
+            ]
+          },
+          {
+            "serviceJourney": {
+              "line": {
+                "publicCode": "5"
+              }
+            },
+            "situations": [
+              {
+                "summary": [
+                  {
+                    "value": "Buss for T-bane",
+                    "language": "no"
+                  },
+                  {
+                    "value": "Bus for metro",
+                    "language": "en"
+                  }
+                ],
+                "validityPeriod": {
+                  "endTime": "2026-10-20T00:00:00+02:00"
+                },
+                "severity": "severe"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "NSR:StopPlace:1": {
+      "stopPlace": null
+    }
+  },
+  "notices": {
+    "en": [
+      {
+        "source": "Majorstuen",
+        "severity": "INFO",
+        "text": "The lift is out of order",
+        "valid_until": "2026-10-30T23:00:00+01:00"
+      },
+      {
+        "source": "Majorstuen",
+        "severity": "WARNING",
+        "text": "Trikk 19 er innstilt",
+        "valid_until": null
+      },
+      {
+        "source": "Line 5",
+        "severity": "WARNING",
+        "text": "Bus for metro",
+        "valid_until": "2026-10-20T00:00:00+02:00"
+      },
+      {
+        "source": "Line 19",
+        "severity": "INFO",
+        "text": "Delays",
+        "valid_until": null
+      },
+      {
+        "source": "Majorstuen",
+        "severity": "INFO",
+        "text": "Platform 2 is closed",
+        "valid_until": "2026-10-30T23:00:00+01:00"
+      },
+      {
+        "source": "Line 1",
+        "severity": "WARNING",
+        "text": "Buses replace the train to Frognerseteren",
+        "valid_until": "2026-10-25T03:00:00+01:00"
+      }
+    ],
+    "nb": [
+      {
+        "source": "Majorstuen",
+        "severity": "INFO",
+        "text": "Heisen er ute av drift",
+        "valid_until": "2026-10-30T23:00:00+01:00"
+      },
+      {
+        "source": "Majorstuen",
+        "severity": "WARNING",
+        "text": "Trikk 19 er innstilt",
+        "valid_until": null
+      },
+      {
+        "source": "Linje 5",
+        "severity": "WARNING",
+        "text": "Buss for T-bane",
+        "valid_until": "2026-10-20T00:00:00+02:00"
+      },
+      {
+        "source": "Linje 19",
+        "severity": "INFO",
+        "text": "Forsinkelser",
+        "valid_until": null
+      },
+      {
+        "source": "Majorstuen",
+        "severity": "INFO",
+        "text": "Plattform 2 er stengt",
+        "valid_until": "2026-10-30T23:00:00+01:00"
+      },
+      {
+        "source": "Linje 1",
+        "severity": "WARNING",
+        "text": "Buss erstatter banen til Frognerseteren",
+        "valid_until": "2026-10-25T03:00:00+01:00"
+      }
+    ]
+  }
+}

@@ -13,7 +13,7 @@ from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.style import panel_style
 from countdown_core.entur.stored_source import StoredEnturSource
 from countdown_core.i18n import N_
-from countdown_core.notices.entur import EnturSituationsSource
+from countdown_core.notices.entur import StoredEnturSituationsSource
 from countdown_core.notices.tfl import TflLineStatusSource, TflStationSource
 from countdown_core.store import reader
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
@@ -84,7 +84,7 @@ class DeparturesClient(AbstractClient):
         """Never touches the network: stops are resolved in _initialise(). Raises without a store to read."""
         super().__init__(registration, config)
         # Departures come from the store (the TfL and Entur providers fetch them once for every screen); raises
-        # without one. The disruption notices are still asked for directly.
+        # without one. So do Entur's disruption notices; TfL's are still asked of TfL.
         store = reader.require_store()
         self.sources: dict[str, StopSource] = {"tfl": StoredTflSource(store), "entur": StoredEnturSource(store)}
         self._notice_sources = self._build_notice_sources(config)
@@ -100,7 +100,7 @@ class DeparturesClient(AbstractClient):
             tfl = Tfl(app_key=config.tfl_app_key, stop_ids=tfl_stops)
             sources += [TflLineStatusSource(self.session, tfl), TflStationSource(self.session, tfl)]
         if entur_stops := config.stop_ids("entur"):
-            sources.append(EnturSituationsSource(self.session, entur_stops))
+            sources.append(StoredEnturSituationsSource(reader.require_store(), entur_stops))
         return sources
 
     @override

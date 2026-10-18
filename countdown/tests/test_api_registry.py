@@ -272,7 +272,7 @@ def test_the_notice_board_polls_the_departures_disruptions_for_their_stops():
     asyncio.run(registry.on_config_update(config))
 
     assert registry.clients["notice_board"].client_sources == registry.clients["tfl"].notice_sources()
-    assert source_names(registry) == ["EnturSituationsSource"]
+    assert source_names(registry) == ["StoredEnturSituationsSource"]
 
 
 @responses.activate

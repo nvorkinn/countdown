@@ -10,9 +10,8 @@ from test_utils import REGISTRATION
 from countdown_api.models import DepartureStop
 from countdown_core import i18n
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
-from countdown_core.entur.entur_client import JOURNEY_PLANNER_URL
 from countdown_core.notices.calendar import ClockChangeSource
-from countdown_core.notices.entur import EnturSituationsSource
+from countdown_core.notices.entur import StoredEnturSituationsSource
 from countdown_core.notices.norway import (
     ADDRESSES_URL,
     NorwegianHolidaySource,
@@ -129,23 +128,6 @@ def test_metalerts_become_notices_until_their_end_in_oslo_time():
     )
 
 
-def test_entur_situations_are_said_once_tagged_with_their_line_in_the_screens_language(api):
-    situation = {
-        "summary": [{"value": "Buss for T-bane", "language": "no"}, {"value": "Bus for metro", "language": "en"}],
-        "validityPeriod": {"endTime": "2026-10-20T00:00:00+00:00"},
-        "severity": "severe",
-    }
-    calls = [{"serviceJourney": {"line": {"publicCode": "5"}}, "situations": [situation]}] * 3
-    api.post(
-        JOURNEY_PLANNER_URL,
-        json={"data": {"stopPlace": {"name": "Majorstuen", "situations": [], "estimatedCalls": calls}}},
-    )
-
-    [notice] = EnturSituationsSource(requests.Session(), ["NSR:StopPlace:58381"]).fetch(NOW)
-
-    assert (notice.source, notice.severity, notice.text) == ("Line 5", Severity.WARNING, "Bus for metro")
-
-
 def test_the_clocks_change_in_the_screens_time_zone(oslo_screen):
     [notice] = ClockChangeSource(requests.Session()).fetch(datetime(2026, 10, 24, 18, tzinfo=UTC))
     # 01:00 UTC is 03:00 in Oslo, before the clocks go back to 02:00.
@@ -175,7 +157,7 @@ def test_a_norwegian_postcode_brings_norways_sources(api):
 def test_norwegian_stops_bring_their_disruptions_whatever_the_postcode():
     client = DeparturesClient(REGISTRATION, DeparturesSettings((DepartureStop(source="entur", id="NSR:Quay:7333"),)))
     [source] = client.notice_sources()
-    assert isinstance(source, EnturSituationsSource)
+    assert isinstance(source, StoredEnturSituationsSource)
     assert source.stop_ids == ["NSR:Quay:7333"]
 
 
