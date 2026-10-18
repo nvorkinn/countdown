@@ -61,13 +61,19 @@ Set up once, in the repo's Settings:
 ## Providers
 
 The compose file also has a service per provider (`provider-tfl`, `provider-entur`, `provider-weather`,
-`provider-met-office`, `provider-bank-holidays`, `provider-metalerts`), which every deploy starts and upgrades. They
-need the repo secrets `REDIS_PASSWORD` and `TFL_APP_KEY`. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
+`provider-met-office`, `provider-bank-holidays`, `provider-floods`, `provider-metalerts`), which every deploy starts
+and upgrades. They need the repo secrets `REDIS_PASSWORD` and `TFL_APP_KEY`. See
+[`../../providers/README.md`](../../providers/README.md#enabling-in-production).
 
 The notice boards read the bank holidays only from the store, so after the first deploy with `provider-bank-holidays`,
 check its key is there ([Bank holidays](../../providers/README.md#bank-holidays) says how).
-The Norwegian boards' MET weather warnings are the same, from `provider-metalerts`
-([Norway's weather warnings](../../providers/README.md#norways-weather-warnings)).
+
+The flood warnings too are read only from the store: after the first deploy with `provider-floods` (and auth-broker's
+postcode subscriptions), check its keys are there ([Flood warnings](../../providers/README.md#flood-warnings) says how).
+
+So are the Norwegian boards' MET weather warnings, from `provider-metalerts`: after its first deploy (and auth-broker's
+postcode subscriptions), check its key is there ([Norway's weather warnings](../../providers/README.md#norways-weather-warnings)
+says how).
 
 ## Day to day
 

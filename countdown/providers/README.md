@@ -46,6 +46,7 @@ countdown-core so the providers and renderers share them.
 | `v1:spotify-top:<device id>` | string, TTL 2 h | auth-broker's `spotify-provider`, every 30 min | `StoredTop` JSON (`store/music.py`): each service's top tracks and artists by time range |
 | `v1:notices:met-office:<place>` | string, TTL ~30 min | provider-met-office, every 5 min | `StoredMetOfficeWarnings` JSON (`store/met_office.py`): the Met Office's warnings RSS for the region a UK postcode in `v1:sub:postcode` is in, its items as JSON; the renderer makes the notices. See [Weather warnings](#weather-warnings) |
 | `v1:notices:bank-holidays` | string, TTL 7 days | provider-bank-holidays, every 6 h, for everyone, with no subscription (`fixed_ids`) | `StoredBankHolidays` JSON (`store/bank_holidays.py`): gov.uk's bank-holidays.json, every division's; each board picks its own (England and Wales, Scotland, Northern Ireland) and words the notice when it draws; see [Bank holidays](#bank-holidays) |
+| `v1:notices:floods:<place>` | string, TTL ~30 min | provider-floods, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredFloods` JSON (`store/floods.py`): the Environment Agency's warnings for the flood areas within 5 km of the postcode, as the EA gives them; the renderer makes the notices; see [Flood warnings](#flood-warnings) |
 | `v1:notices:metalerts` | string, TTL 30 min | provider-metalerts, every 5 min while any screen's postcode is Norwegian | `StoredMetAlerts` JSON (`store/metalerts.py`): MetAlerts' `current.json` for all of Norway, in Norwegian and English, as MET answered; one key, not one per place, see [Norway's weather warnings](#norways-weather-warnings) |
 
 The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
@@ -155,6 +156,51 @@ countdown-renderers-provider-met-office-1`). A renderer whose key isn't there lo
 for the board's postcode", shows the rest of its notices, and keeps whatever Met Office warnings it last read (for up
 to an hour); it reads again every 5 minutes.
 
+### Flood warnings
+
+`provider-floods` (`floods/main.py`) writes the Environment Agency's flood warnings near each UK postcode in
+`v1:sub:postcode` to `v1:notices:floods:<place>` (`keys.floods`, by `keys.place()`: `SE173LL`); the notice board reads
+them there. Norwegian postcodes (four digits) are skipped: the EA covers England, and a Welsh or Scottish postcode is
+written with nothing in force.
+
+One fetch serves every postcode. The EA's `/id/floods` lists every warning in force, and its documentation asks callers
+to keep to such common requests, which it caches, rather than filter each its own way. So each cycle fetches that list
+once, and each postcode gets the warnings for the flood areas within 5 km of it, as the EA lists them
+(`/id/floodAreas?lat&long&dist`): the same areas the renderer's own `/id/floods?lat&long&dist` once picked. A postcode
+is placed once (postcodes.io, `notices.location.lookup_postcode`), and its flood areas are asked for again once a day.
+The value is the EA's own answer, the warnings' items in the EA's names (those no longer in force too), with
+`fetched_at`:
+
+```json
+{"fetched_at": "2026-10-18T12:00:00Z", "postcode": "SE17 3LL",
+ "floods": {"items": [{"description": "River Thames at Southwark", "severity": "Flood Warning", "severityLevel": 2,
+                       "floodAreaID": "062FWF46Southwrk"}, ...]}}
+```
+
+The renderer makes the notices from it as it reads it (`notices/floods.py`, `StoredFloodWarningsSource`), so their
+words are in the screen's language then; a missing key keeps the board's last flood notices. Nothing the provider logs
+names a postcode or anything worked out from one (not its district, nor a URL with it or its coordinates in it): a
+failure is logged by the error's type alone, and urllib3's retry warnings, which quote their URLs, are turned off.
+`tests/fixtures/floods.json` is one cycle, from the EA's answers to the stored values, and
+`tests/fixtures/floods_notices.json` the notices the board made from the same warnings when it asked the EA itself,
+which the stored values must still make.
+
+To deploy: auth-broker's [#174](https://github.com/nvorkinn/auth-broker/pull/174), which writes `v1:sub:postcode`,
+must be deployed first, or the provider has no postcodes and no board shows a flood. Then deploy a release with
+`provider-floods`: the deploy starts it with the other providers, and the same release's renderers read the floods only
+from the store, so they show none until the provider has written the keys (its first cycle, at once on start). Check
+they're there before relying on them; on the host,
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:floods*"'
+```
+
+should list a key for each UK postcode in `v1:sub:postcode` (the same command with `SMEMBERS v1:sub:postcode` in place
+of `--scan --pattern ...` lists those). None at all means the provider isn't running, or the broker isn't writing the
+postcodes; the provider's log says why one is missing (`docker logs countdown-renderers-provider-floods-1`). A renderer
+whose key isn't there logs "No flood warnings in the store for the board's postcode", shows the rest of its notices,
+and keeps whatever flood warnings it last read (for up to an hour); it reads again every 5 minutes.
+
 ### Norway's weather warnings
 
 The notice board's MET Norway weather warnings are one key for the whole country, `v1:notices:metalerts`, rather than
@@ -255,8 +301,8 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL, weather, Entur, Met Office, bank holidays, MetAlerts) are on: they're services in
-`../server/deploy/docker-compose.yml`, so every deploy starts and upgrades them, and `--wait` fails the deploy if one
+This repository's providers (TfL, weather, Entur, Met Office, bank holidays, floods, MetAlerts) are on: they're services
+in `../server/deploy/docker-compose.yml`, so every deploy starts and upgrades them, and `--wait` fails the deploy if one
 won't stay up. `release.yml`'s `deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as
 auth-broker's `secrets/redis.env`) and `TFL_APP_KEY`; without the password the deploy fails rather than start them
 unauthenticated. They need the broker writing subscriptions (auth-broker) and Redis running on the host
@@ -270,9 +316,13 @@ as an upgrade, like a new image. The renderers read TfL's and Entur's departures
 (`v1:weather:<key>`, by the config's `weather.key`), the energy readings (`v1:energy:<device id>`, from auth-broker's
 `glow-provider`) and the Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
 the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; of the
-notice board's sources, the Met Office's warnings (`v1:notices:met-office:<place>`) and the bank holidays
-(`v1:notices:bank-holidays`) come from the store, and the rest still straight from their APIs. So each provider must be
-running for its panels to have anything to draw.
+notice board's sources, the Met Office's warnings (`v1:notices:met-office:<place>`), the bank holidays
+(`v1:notices:bank-holidays`) and the Environment Agency's flood warnings (`v1:notices:floods:<place>`) come from the
+store, and the rest still straight from their APIs. So each provider must be running for its panels to have anything
+to draw.
+
+The notice providers need auth-broker's postcode subscriptions (`v1:sub:postcode`) deployed first; see [Weather
+warnings](#weather-warnings) and [Flood warnings](#flood-warnings) for how to check their keys are there.
 
 A renderer started without the store (`RENDERER_REDIS_URL` set to empty, so no `REDIS_URL`) can't build the clients
 that read it: their areas say "Could not connect", the device reports them as in error, and the log names

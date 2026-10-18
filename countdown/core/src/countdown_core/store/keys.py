@@ -116,6 +116,14 @@ def bank_holidays() -> str:
     return f"{PREFIX}:notices:bank-holidays"
 
 
+def floods(postcode: str) -> str:
+    """Return the key of the Environment Agency's flood warnings near a UK postcode, e.g. `v1:notices:floods:SE173LL`.
+
+    Written by provider-floods; holds a countdown_core.store.floods.StoredFloods.
+    """
+    return f"{PREFIX}:notices:floods:{place(postcode)}"
+
+
 def metalerts() -> str:
     """Return the key of MET Norway's current weather warnings, for all of Norway: `v1:notices:metalerts`.
 

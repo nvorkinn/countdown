@@ -113,6 +113,23 @@ services:
         max-size: 10m
         max-file: "3"
 
+  # The Environment Agency's flood warnings near the notice boards' UK postcodes (v1:sub:postcode, which auth-broker
+  # writes). The renderers read them from the store, so a board shows no floods without this.
+  provider-floods:
+    image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    command: countdown-provider-floods
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
+    logging:
+      driver: json-file
+      options:
+        tag: provider-floods
+        max-size: 10m
+        max-file: "3"
+
   # MET Norway's weather warnings for the notice boards in Norway, fetched once for the whole country.
   provider-metalerts:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}

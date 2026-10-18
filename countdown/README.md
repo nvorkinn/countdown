@@ -70,8 +70,9 @@ auth-broker's, for energy, music and the developer panel) fill: the renderer nev
 Glowmarkt or GitHub for them, nor the broker, and never holds a Glowmarkt password, a Spotify token or a GitHub token. A
 renderer started without `REDIS_URL` can't build those five, so their areas say "Could not connect" and the log says
 why (`store.reader.require_store`); a key missing from the store, or Redis not answering, is just a failed poll. The
-notice board reads its bank holidays (`v1:notices:bank-holidays`) and the Met Office's warnings
-(`v1:notices:met-office:<place>`) from the store too; its other sources, and the disruptions, still call their APIs.
+notice board reads its bank holidays (`v1:notices:bank-holidays`), the Met Office's warnings
+(`v1:notices:met-office:<place>`) and the Environment Agency's flood warnings (`v1:notices:floods:<place>`) from the
+store too; its other sources, and the disruptions, still call their APIs.
 `ApiRegistry` builds a client for every API the config enables.
 When the config changes, it only rebuilds the clients whose `needs_refresh()`
 says the change affects them. Each client has its own `poll_interval`. The
@@ -90,7 +91,8 @@ has its own refresh interval. The board's own sources are about the postcode's p
 come from the departures client, as every client can hand the board notice sources about what it shows
 (`AbstractClient.notice_sources`, passed on by the registry). A failing source keeps its last notices for a
 while (at least an hour) before they're dropped. Notices are ranked by severity, and planned works only fill rows left
-over.
+over. The flood warnings come from the shared store (`v1:notices:floods:<place>`), which the floods provider fills from
+the Environment Agency; the board makes its notices from what's there as it reads it.
 
 **Layout** (`rendering/`). For every frame, `DisplayController` asks `LAYOUTS` (a `LayoutRegistry`) for a
 layout, and keeps nothing about the answer. Layouts are registered by the canvas they draw
