@@ -8,15 +8,16 @@ name less " Underground Station". The provider has already turned TfL's arrivals
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, override
 
+from countdown_core.core import moment
 from countdown_core.store import keys, reader
 from countdown_core.store.models import StopDepartures
 from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from datetime import datetime
 
     import redis
 
@@ -47,7 +48,7 @@ class StoredArrivalPanel(AbstractArrivalPanel):
 
     def __init__(self, stored: StopDepartures, style: Style = "hero", now: datetime | None = None) -> None:
         """Draw `stored` in `style`, counting down from `now` (by default, now)."""
-        now = now or datetime.now(UTC)
+        now = now or moment.now()
         super().__init__([StoredArrival.of(departure, now) for departure in stored.departures], style)
         self.stored = stored
 
@@ -107,7 +108,7 @@ def stored_panel(stored: StopDepartures, style: Style = "hero", now: datetime | 
 class StoredTflSource:
     """TfL stops for the departures client, read from the store rather than asked of TfL."""
 
-    def __init__(self, client: redis.Redis, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
+    def __init__(self, client: redis.Redis, now: Callable[[], datetime] = moment.now) -> None:
         """Read from `client`; `now` is what departures count down from (a parameter for the tests)."""
         self.client = client
         self.now = now

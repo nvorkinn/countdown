@@ -5,9 +5,9 @@ The panel is an EnturArrivalPanel, so it draws exactly as one from Entur does: t
 its quay code and modes, and each departure's mode, and is turned back into Entur's stop and departures to draw.
 """
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from countdown_core.core import moment
 from countdown_core.entur.entur_arrival_panel import EnturArrivalPanel
 from countdown_core.entur.entur_client import DEPARTED_GRACE, EnturDeparture, EnturStop, TransportMode
 from countdown_core.store import keys, reader
@@ -16,6 +16,7 @@ from countdown_core.tfl.stored_source import NoStoredDeparturesError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from datetime import datetime
 
     import redis
 
@@ -45,7 +46,7 @@ class StoredEnturPanel(EnturArrivalPanel):
 
     def __init__(self, stored: StopDepartures, style: Style = "hero", now: datetime | None = None) -> None:
         """Draw `stored` in `style`, counting down from `now` (by default, now)."""
-        now = now or datetime.now(UTC)
+        now = now or moment.now()
         stop = EnturStop(
             id=stored.stop_id,
             name=stored.name,
@@ -60,7 +61,7 @@ class StoredEnturPanel(EnturArrivalPanel):
 class StoredEnturSource:
     """Entur stops for the departures client, read from the store rather than asked of Entur."""
 
-    def __init__(self, client: redis.Redis, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
+    def __init__(self, client: redis.Redis, now: Callable[[], datetime] = moment.now) -> None:
         """Read from `client`; `now` is what departures count down from (a parameter for the tests)."""
         self.client = client
         self.now = now

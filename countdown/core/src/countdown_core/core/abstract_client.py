@@ -49,9 +49,8 @@ class AbstractClient(ABC):
 
     See https://github.com/nvorkinn/pi-dashboard/issues/8 for wider use of the cache.
 
-    _initialise() and _update() are blocking and run in a worker thread, so they must not
-    touch anything main-thread-only: build the panel's data there and leave rendering
-    (Pillow, SPI) to the display.
+    _initialise() and _update() are blocking, and run in whatever thread the render runs in (initialise() and update()
+    run them in a worker thread): build the panel's data there, and leave drawing it to the layout.
     """
 
     poll_interval: timedelta = timedelta(minutes=1)
@@ -69,13 +68,19 @@ class AbstractClient(ABC):
         self.cache: dict[str, object] = {}
         self.status: ClientStatus = ClientStatus.UNINITIALISED
         self.last_updated: datetime | None = None
+        # Whether the last poll drew "Not available" because the store had nothing for it (its key had expired).
+        self.expired = False
 
     def __del__(self) -> None:
         """Close the session's connections."""
         self.session.close()
 
     async def initialise(self) -> None:
-        """Run _initialise() and track the outcome in self.status (ERROR, re-raised, on failure).
+        """Run initialise_now() in a worker thread."""
+        await asyncio.to_thread(self.initialise_now)
+
+    def initialise_now(self) -> None:
+        """Run _initialise() and track the outcome in self.status (ERROR, re-raised, on failure). Blocking.
 
         A disabled client makes no calls.
         """
@@ -84,7 +89,7 @@ class AbstractClient(ABC):
         self.status = ClientStatus.INITIALISING
         started = time.monotonic()
         try:
-            await asyncio.to_thread(self._initialise)
+            self._initialise()
         except Exception:
             self.status = ClientStatus.ERROR
             raise
@@ -150,31 +155,37 @@ class AbstractClient(ABC):
         return datetime.now() - self.last_updated >= self.poll_interval  # noqa: DTZ005 -- last_updated is naive local time, as callers set it; only the elapsed interval matters
 
     async def update(self) -> Panel | None:
-        """Poll the API and return its panel, initialising first if not yet CONNECTED.
+        """Run poll() in a worker thread."""
+        return await asyncio.to_thread(self.poll)
+
+    def poll(self) -> Panel | None:
+        """Read the API's data and return its panel, initialising first if not yet CONNECTED. Blocking.
 
         If the store has nothing for it (a NoStoredDataError: the provider's key has expired, or isn't there yet), the
-        panel says "Not available": the provider's TTL is the only expiry there is, so nothing older is drawn. Anything
-        else that fails, Redis not answering among them, raises, and the registry keeps the last panel.
+        panel says "Not available", and `expired` is set: the provider's TTL is the only expiry there is, so nothing
+        older is drawn. Anything else that fails, Redis not answering among them, raises, and the render draws the
+        panel the screen last had, if it has one (render.render's `previous`).
 
-        last_updated is stamped even when that fails, so the retry waits a full poll_interval (Glowmarkt
-        rate-limits bad logins).
+        last_updated is stamped even when that fails.
         """
+        self.expired = False
         if self.is_disabled():
             panel = None
         else:
             if self.status in (ClientStatus.UNINITIALISED, ClientStatus.ERROR):
                 try:
-                    await self.initialise()
+                    self.initialise_now()
                 except Exception:
                     self.last_updated = datetime.now()  # noqa: DTZ005 -- last_updated is naive local time, as callers set it; only the elapsed interval matters
                     raise
             started = time.monotonic()
             try:
-                panel = await asyncio.to_thread(self._update)
+                panel = self._update()
             except NoStoredDataError as e:
                 # Expected while a provider is down, so no traceback; the message names no place (see its raisers).
                 logger.warning("%s: %s; its panel says it's not available", type(self).__name__, e)
                 panel = self.message_panel(NOT_AVAILABLE)
+                self.expired = True
             finally:
                 self._log_if_slow("update", started)
         self.last_updated = datetime.now()  # noqa: DTZ005 -- last_updated is naive local time, as callers set it; only the elapsed interval matters

@@ -2,7 +2,7 @@
 
 **Status:** decided. The design below follows Nikolai's answers to the proposal's open questions
 ([#205](https://github.com/nvorkinn/pi-dashboard/pull/205#issuecomment-6246057069), 2026-10-18), and is being built
-in the steps of the [migration](#migration). Step 1, rotation from the clock, is the first.
+in the steps of the [migration](#migration). Step 1, rotation from the clock, was the first.
 
 Today every screen has its own long-lived renderer container that sleeps, wakes, draws and uploads. The goal is a
 render that runs to completion and keeps nothing: read Redis, build the frame, write it, done. A small pool of warm
@@ -47,13 +47,17 @@ workers calls that render whenever a job for a screen arrives on a Redis queue.
   out of date is made again, keeping its volumes. `suspended` stops a renderer and `deleting` removes it with its
   volumes.
 - **The renderer** (`countdown/server/`, drawing with `countdown/core/`). It claims its screen once with the claim
-  token (`POST /api/renderers/claim`), then `DisplayLoop.run()` cycles forever:
-  - `ApiRegistry.update_all()` polls the clients that are due, and keeps each client's last panel when it raises.
-  - `ApiRegistry.pace()` reads the fastest `v1:pace:<source>:<id>` the clients watch.
-  - `DisplayController.display_screen()` draws, and `ServerTarget` PUTs the 48,000-byte frame to `PUT /api/frame`
+  token (`POST /api/renderers/claim`), then `DisplayLoop.run()` calls the render function (step 5,
+  `countdown_core/render.py`) for ever:
+  - `render(device_id, now)` builds the clients fresh (`ApiRegistry`, one per render), reads their keys, draws as of
+    `now` (`core/moment.py`), writes the frame record if the hash changed, and returns an `Outcome`.
+  - The loop calls it on the minute, at once on the config nudge, and every `PACED_RENDER_S` (20) while one of the
+    clients' `v1:pace:<source>:<id>` keys is live (`display_loop.read_pace`).
+  - `DisplayController.show()` hands the frame to `ServerTarget`, which PUTs the 48,000-byte frame to `PUT /api/frame`
     when the picture changed, with `X-Refresh-Hint`. `renew()` sends the same frame again while a pace is asked for,
     or once more after one ends.
-  - It sleeps `DisplayLoop.sleep_s()`: the config's 60 s interval, or the pace, never under `MIN_PACE_S` (20).
+  - It passes the last render's `Outcome` back in as `previous`, so a client that fails other than by its key expiring
+    draws its last panel (see "Redis being unreachable isn't expiry").
 - **The config is in the store** (auth-broker #186, pi-dashboard #208). The broker writes `v1:config:<device id>` (the
   `GET /api/config` body, less its secrets and with no pairing code) on every save and as it starts. Then it publishes
   the device id on `v1:config:changed` (`keys.CONFIG_CHANGED`). The renderer reads the copy (`store.config.read`),
@@ -62,13 +66,11 @@ workers calls that render whenever a job for a screen arrives on a Redis queue.
 - **Places are in the store.** `provider-locations` writes `v1:location:<place>` (`store.location.StoredLocation`).
   The notice board reads it, and so do the providers that need a postcode's place. So no renderer calls an upstream
   API any more. Its only calls to the broker are `PUT /api/frame`, and `GET /api/config` when the store has no copy.
-- **Pacing is spread over five places**, which the broker's pacing function will replace:
-  - providers write `v1:pace:<source>:<id>`, with `PACE_TTL_S` of 60 s;
-  - the renderer reads the fastest of those (`ApiRegistry.pace`), sleeps for it (`DisplayLoop.sleep_s`) and sends it
-    as `X-Refresh-Hint`, renewing it with repeat uploads (`ServerTarget.renew`);
-  - the broker keeps the hint for `PACE_LEASE_S` (180 s) in the frame's row (`services/pace.py`);
-  - the broker answers the screen's poll with `Retry-After`: `BASE_INTERVAL` (60), or the hint, or
-    `NO_FRAME_RETRY_AFTER` (20) before the first frame.
+- **Pacing is the broker's** (step 3, auth-broker #195): its one function, `services/pace.py`'s `sleep_s`, answers
+  every poll's `Retry-After` from the server's clock and the screen's `v1:pace:` keys, which providers write with
+  `PACE_TTL_S` of 60 s. The renderer only renders faster while a key is live, and still sends the pace as
+  `X-Refresh-Hint` (renewed with repeat uploads, `ServerTarget.renew`), which the broker counts as a legacy hint until
+  step 9.
 - **The screen** (the ESP32) polls `POST /api/frame` with `If-None-Match`, repaints only on a 200, and sleeps for
   `Retry-After`. It has no clock of its own.
 - **Redis** (on the broker's host, 127.0.0.1:6379) has 128 MB, `volatile-lru`, and no persistence. Keys without a TTL
@@ -90,7 +92,7 @@ workers calls that render whenever a job for a screen arrives on a Redis queue.
 | Developer summary | `DeveloperClient.summary`, read by `DeveloperNoticeSource` | the source reads the store itself (step 2) |
 | Notice board's last notices | `NoticeBoardClient.fetched`, kept up to `STALE_AFTER` (1 h) | nothing: an expired source adds no notices (step 2) |
 | Per-source refresh intervals | `NoticeBoardClient.last_tried` | every source read every render: they're all store reads or local sums (step 2) |
-| Client lifecycle | `AbstractClient.status`, `last_updated`, `ApiRegistry`'s rebuilds | clients built fresh for each render; the status goes to the metrics (step 5) |
+| Client lifecycle | `AbstractClient.status`, `last_updated`, `ApiRegistry`'s rebuilds | clients built fresh for each render; the status goes to the metrics (step 5, done: `Outcome.statuses`) |
 | The picture shown | `DisplayController._shown`, `_last_full_refresh`, `_pending` | the frame record's hash (step 4). Partial refresh moves to the firmware |
 | What the broker has | `ServerTarget._last_frame`, `_sent_pace` | the frame record (step 4); the pace isn't the renderer's business any more (step 3) |
 | Locale | `i18n._language`, `_timezone`, module globals | set at the start of each render; a worker runs one render at a time |
@@ -164,8 +166,12 @@ freshness check. The screen's own picture is the only memory.
 | `v1:pace:*` | each provider cycle | 60 s | none: this is the hint's expiry (see [Pacing](#pacing)) |
 
 **Redis being unreachable isn't expiry.** In today's renderer, a read that fails with `RedisError` keeps its last
-panel, as it does now (step 2 changes only missing keys). In the pool, a render that can't reach Redis fails and
-writes nothing, so the screen keeps the frame it has.
+panel, as it does now (step 2 changes only missing keys). With the clients built fresh for each render (step 5), that
+panel is the previous render's: the per-screen loop keeps the last `Outcome` and passes it back in as `render`'s
+`previous`, and a client that fails draws the panel it gave there, as long as its section of the config and the
+language and time zone are the same (a panel from another config is never drawn). The frame record can't stand in for
+it: it's a picture, not panels, and it's in the Redis that isn't answering. In the pool, a render that can't reach
+Redis fails and writes nothing, so the screen keeps the frame it has.
 
 ### Rotation from the clock
 
@@ -412,6 +418,9 @@ off as a draft PR titled "[after … deployed]".
   - Clients are built fresh each render; their status goes to the metrics.
 - **Safe alone:** the same screens, the same frames, now on the minute.
 - **Rollback:** revert the release.
+- **Done** (pi-dashboard, this step's PR): `render(device_id, now, *, config=None, previous=None) -> Outcome` in
+  `countdown_core/render.py`; `tests/fixtures/render_parity.json` pins its frames against the loop before it. The
+  config's `interval` is no longer what the renderer goes by.
 
 **6. The pool, one screen first** (pi-dashboard; auth-broker for one additive field).
 
@@ -487,7 +496,9 @@ These follow from the decisions but weren't asked about; say if any should go an
 - **Bursts come from the provider's cycle.** The ticker only ticks on the minute.
 - **No `v1:render-state` key.** The frame record's `etag` is the only state a render needs.
 - **Epoch minutes, not minute of the hour.** So a page count that doesn't divide 60 doesn't jump on the hour.
-- **A `RedisError` keeps today's renderer's last panel** in step 2. Only an expired key is "not available".
+- **A `RedisError` keeps today's renderer's last panel** in step 2. Only an expired key is "not available". From step
+  5 that's the previous render's panel, passed back in by the per-screen loop (`render`'s `previous`); a worker passes
+  none.
 - **Numbers to settle in the step that builds each:**
 
   | Setting | Value |

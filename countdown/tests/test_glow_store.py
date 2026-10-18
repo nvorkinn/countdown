@@ -17,8 +17,8 @@ import responses
 from test_utils import REGISTRATION
 
 from countdown_api.models import Glowmarkt
+from countdown_core.core import moment
 from countdown_core.core.abstract_client import ClientStatus
-from countdown_core.glow import glow_client
 from countdown_core.glow.glow_client import GlowClient, NoStoredEnergyError
 from countdown_core.store import keys, reader
 from countdown_core.store.energy import StoredEnergy
@@ -46,7 +46,8 @@ def clock(monkeypatch):
         def now(cls, tz=None):
             return Clock.now if tz is None else Clock.now.astimezone(tz)
 
-    monkeypatch.setattr(glow_client, "datetime", FrozenDatetime)
+    # The moment the board draws at (core.moment), as a render sets it.
+    monkeypatch.setattr(moment, "now", lambda: FrozenDatetime.now(UTC))
     yield Clock
     monkeypatch.undo()
     time.tzset()

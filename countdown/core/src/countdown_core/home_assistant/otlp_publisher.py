@@ -10,7 +10,7 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import HOST_NAME, SERVICE_NAME, Resource
 
-from countdown_core.core.abstract_client import AbstractClient, ClientStatus
+from countdown_core.core.abstract_client import ClientStatus
 from countdown_core.home_assistant.device_status import DeviceStatus
 from countdown_credentials.device_name import device_name_from_env
 
@@ -34,8 +34,8 @@ class OtlpPublisher:
     """Reports the API clients' health and the device's stage as OTLP metrics to the local Fluent Bit.
 
     It runs from boot, while the device is still registering. The gauges read the live state each time the SDK
-    exports (every EXPORT_INTERVAL_MS, or on publish_soon()). `clients` is empty until ApiRegistry points it at its
-    own dict, so rebuilt clients are picked up automatically.
+    exports (every EXPORT_INTERVAL_MS, or on publish_soon()). `statuses` is each API client's status as of the last
+    render (render.Outcome.statuses), which the display loop hands over after each one; empty until the first.
 
     `reader` is for tests; by default metrics go to METRICS_URL.
     """
@@ -48,7 +48,7 @@ class OtlpPublisher:
         reader: MetricReader | None = None,
     ) -> None:
         """`api_names` are every API reported on, set up or not; `status` is the device's, shared with the app."""
-        self.clients: Mapping[str, AbstractClient] = {}
+        self.statuses: Mapping[str, ClientStatus] = {}
         self.device_status = status or DeviceStatus()
         self.api_names = list(api_names)
         self.device_name = device_name
@@ -110,10 +110,7 @@ class OtlpPublisher:
             self._provider.shutdown()
 
     def _statuses(self) -> dict[str, ClientStatus]:
-        return {
-            name: self.clients[name].status if name in self.clients else ClientStatus.DISABLED
-            for name in self.api_names
-        }
+        return {name: self.statuses.get(name, ClientStatus.DISABLED) for name in self.api_names}
 
     def _api_status(self, _options: CallbackOptions) -> Iterable[Observation]:
         return [Observation(1, {"api": n, "status": s.value}) for n, s in self._statuses().items()]

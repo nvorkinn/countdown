@@ -9,15 +9,20 @@ The minute is counted from the epoch rather than within the hour, so a count tha
 stops, say) doesn't jump back to its first page on the hour. See docs/stateless-renderers.md, "Rotation from the clock".
 """
 
-from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from countdown_core.core import moment
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 # How long each page is shown, in seconds.
 PAGE_S = 60
 
 
 def now() -> datetime:
-    """Return the time the pages turn by: now. The tests replace it to freeze the clock."""
-    return datetime.now(UTC)
+    """Return the time the pages turn by: the moment being drawn (core.moment). The tests replace it to freeze it."""
+    return moment.now()
 
 
 def page(pages: int, at: datetime | None = None) -> int:
@@ -28,5 +33,5 @@ def page(pages: int, at: datetime | None = None) -> int:
     if pages < 1:
         msg = f"There must be at least one page to show, not {pages}"
         raise ValueError(msg)
-    moment = at if at is not None else now()
-    return int(moment.timestamp() // PAGE_S) % pages
+    at = at if at is not None else now()
+    return int(at.timestamp() // PAGE_S) % pages

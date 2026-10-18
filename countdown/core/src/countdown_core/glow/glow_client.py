@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, override
 
-from countdown_core.core import rotation
+from countdown_core.core import moment, rotation
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.glow.energy_panel import PAGES, EnergyPanel
 from countdown_core.i18n import N_
@@ -73,7 +73,7 @@ class GlowClient(AbstractClient):
             msg = f"No energy readings in the store for device {self.device_id}"
             raise NoStoredEnergyError(msg)
         page_index = rotation.page(len(PAGES))
-        current = datetime.now(UTC).astimezone(stored.zone())
+        current = moment.now().astimezone(stored.zone())
         window_start, period = self._page_config(page_index, current)
         window_start = self._truncate(window_start, period)
         buckets = dict(_bucket_starts(stored.readings(period).data, current.tzinfo))

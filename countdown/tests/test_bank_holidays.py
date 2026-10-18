@@ -16,7 +16,7 @@ import responses
 from test_utils import REGISTRATION
 
 from countdown_core import i18n
-from countdown_core.notices import notice_board_client as board_module
+from countdown_core.core import moment
 from countdown_core.notices.calendar import NoStoredBankHolidaysError, StoredBankHolidaySource
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
@@ -218,7 +218,8 @@ def test_the_board_drops_the_bank_holiday_once_its_key_has_expired(server, monke
         def now(cls, tz=None):
             return now
 
-    monkeypatch.setattr(board_module, "datetime", FrozenDatetime)
+    # The moment the board draws at (core.moment), as a render sets it.
+    monkeypatch.setattr(moment, "now", lambda: FrozenDatetime.now(UTC))
     provide(server)
     client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
     [notice] = asyncio.run(client.update()).notices

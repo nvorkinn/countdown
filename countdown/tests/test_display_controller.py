@@ -1,9 +1,9 @@
 """How DisplayController decides what to send its target: skip, partial or full refresh.
 
-Also what it remembers about what's on the screen, and how it copes with a screen that can't take a picture.
+Also what it remembers about what's on the screen, and how it copes with a screen that can't take a picture. The
+frames are drawn as render.render draws them (rendering.render, to_native), then shown.
 """
 
-import logging
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
@@ -20,6 +20,9 @@ from countdown_core.core.display import FULL_REFRESH_INTERVAL_S, DisplayControll
 from countdown_core.core.panel import Panel
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
+from countdown_core.rendering import render, to_native
+from countdown_core.rendering.layout import Frame
+from countdown_core.rendering.screen import canvas_for
 from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
@@ -51,13 +54,23 @@ def frame(arrivals: str = "black", weather: str = "gray", arrivals_width: int = 
 LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
 
 
-def show(controller: DisplayController, panels: dict) -> Image.Image:
-    """Show `panels` on an 800x480 landscape screen, in the layout with room for everything."""
-    return controller.display_screen(panels, LANDSCAPE, frozenset(ClientClasses))
+def show(
+    controller: DisplayController, panels: dict, screen: Screen = LANDSCAPE, *, clock_format: ClockFormat = "24h"
+) -> Image.Image:
+    """Draw `panels` (by default on an 800x480 landscape screen, in the layout with room for everything) and show it.
+
+    Returns the picture upright, as the viewer sees it.
+    """
+    drawn = render(panels, screen, frozenset(ClientClasses), clock_format=clock_format)
+    controller.show(to_native(drawn, screen))
+    return drawn.image
 
 
-def _pairing_panel() -> PairingCodePanel:
-    return PairingCodePanel("ABC123", "device-1", has_changed=True)
+def show_pairing(controller: DisplayController, screen: Screen = LANDSCAPE) -> Image.Image:
+    """Draw the pairing screen as the render does, and show it. Returns the picture upright."""
+    img = PairingCodePanel("ABC123", "device-1", has_changed=True).render(*canvas_for(screen).size)
+    controller.show(to_native(Frame(img), screen))
+    return img
 
 
 @pytest.fixture
@@ -104,9 +117,9 @@ def test_clock_switches_repaint_fully_and_subsequent_arrivals_still_refresh_part
     panels["glowmarkt"] = EnergyPanel(
         [{"start": f"2026-09-25T{hour:02d}:00:00+01:00", "kwh": 1} for hour in (0, 12)], 0
     )
-    controller.display_screen(panels, LANDSCAPE, frozenset(ClientClasses), clock_format="12h")
+    show(controller, panels, clock_format="12h")
     panels["tfl"] = Solid("red", (300, 185))
-    controller.display_screen(panels, LANDSCAPE, frozenset(ClientClasses), clock_format="12h")
+    show(controller, panels, clock_format="12h")
     show(controller, panels)
     panels["tfl"] = Solid("black", (300, 185))
     show(controller, panels)
@@ -208,7 +221,7 @@ def test_the_pairing_screen_replaces_the_picture_so_the_next_frame_is_repainted_
     target = FakeTarget()
     controller = DisplayController(target)
     show(controller, frame())
-    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
+    show_pairing(controller)
     target.paints.clear()
 
     show(controller, frame())  # identical to what was shown before the pairing screen
@@ -244,7 +257,7 @@ def test_the_pairing_screen_is_one_full_paint_and_resets_what_is_remembered(cloc
     show(controller, frame())
     target.paints.clear()
 
-    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
+    show_pairing(controller)
     assert target.paints == [FULL]
 
     target.paints.clear()
@@ -252,69 +265,30 @@ def test_the_pairing_screen_is_one_full_paint_and_resets_what_is_remembered(cloc
     assert target.paints == [FULL]
 
 
-def test_the_pairing_code_goes_to_the_log_when_there_is_no_screen_to_show_it(caplog):
-    caplog.set_level(logging.INFO)
-    controller = DisplayController(FakeTarget(accepts=False))
-
-    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
-
-    assert "ABC123" in caplog.text
-
-
-def test_the_pairing_code_is_not_logged_when_the_screen_shows_it(caplog):
-    caplog.set_level(logging.INFO)
-    controller = DisplayController(FakeTarget())
-
-    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
-
-    assert "ABC123" not in caplog.text
-
-
-def test_a_whole_screen_that_found_no_screen_is_painted_once_one_appears():
+def test_a_pairing_screen_that_found_no_screen_is_painted_once_one_appears():
     target = FakeTarget(accepts=False)
     controller = DisplayController(target)
-    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
+    show_pairing(controller)
 
     target.accepts = True
-    controller.repaint_pending()
+    show_pairing(controller)
     assert target.paints == [FULL]
 
-    controller.repaint_pending()
+    show_pairing(controller)  # the same picture: left alone
     assert target.paints == [FULL]
 
 
-def test_the_dashboard_supersedes_a_screen_still_waiting_for_a_screen(clock):
-    target = FakeTarget(accepts=False)
-    controller = DisplayController(target)
-    controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
-
-    target.accepts = True
-    show(controller, frame())
-    target.paints.clear()
-    controller.repaint_pending()
-
-    assert target.paints == []
-
-
-def test_a_whole_screen_paint_that_failed_midway_is_retried():
+def test_a_pairing_screen_paint_that_failed_midway_is_painted_again():
     target = FakeTarget()
     controller = DisplayController(target)
     target.fail = True
     with pytest.raises(RuntimeError):
-        controller.display_pairing_screen(_pairing_panel(), LANDSCAPE)
+        show_pairing(controller)
 
     target.fail = False
-    controller.repaint_pending()
+    show_pairing(controller)
 
     assert target.paints == [FULL]
-
-
-def test_nothing_is_pending_with_nothing_to_retry():
-    target = FakeTarget()
-
-    DisplayController(target).repaint_pending()
-
-    assert target.paints == []
 
 
 def test_shutdown_closes_the_target():
@@ -343,7 +317,7 @@ class Recording(FakeTarget):
 def test_a_vertical_screen_gets_its_pairing_screen_upright_and_the_panel_its_own_landscape_picture():
     target = Recording()
 
-    img = DisplayController(target).display_pairing_screen(_pairing_panel(), VERTICAL)
+    img = show_pairing(DisplayController(target), VERTICAL)
 
     assert img.size == (480, 800)
     assert target.sizes == [(800, 480)]
@@ -352,7 +326,7 @@ def test_a_vertical_screen_gets_its_pairing_screen_upright_and_the_panel_its_own
 def test_a_vertical_screen_with_nothing_to_show_says_so_upright(clock):
     target = Recording()
 
-    img = DisplayController(target).display_screen({}, VERTICAL, frozenset(ClientClasses))
+    img = show(DisplayController(target), {}, VERTICAL)
 
     assert img.size == (480, 800)
     assert target.sizes == [(800, 480)]
@@ -361,7 +335,7 @@ def test_a_vertical_screen_with_nothing_to_show_says_so_upright(clock):
 def test_a_vertical_screen_gets_the_portrait_dashboard_upright_and_the_panel_its_own_landscape_picture(clock):
     target = Recording()
 
-    img = DisplayController(target).display_screen(frame(), VERTICAL, frozenset(ClientClasses))
+    img = show(DisplayController(target), frame(), VERTICAL)
 
     assert img.size == (480, 800)
     assert target.sizes == [(800, 480)]

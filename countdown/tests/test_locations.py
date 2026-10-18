@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 import socket
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -23,10 +23,9 @@ import responses
 from responses import matchers
 from test_utils import REGISTRATION
 
-from countdown_core.core import log_format
+from countdown_core.core import log_format, moment
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.notices import location as location_module
-from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.norway import ADDRESSES_URL
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
@@ -393,7 +392,8 @@ def freeze_board_clock(monkeypatch, now: datetime) -> None:
         def now(cls, tz=None):
             return now
 
-    monkeypatch.setattr(board_module, "datetime", Frozen)
+    # The moment the board draws at (core.moment), as a render sets it.
+    monkeypatch.setattr(moment, "now", lambda: Frozen.now(UTC))
 
 
 @pytest.mark.parametrize("case", BOARD, ids=[case["postcode"] for case in BOARD])

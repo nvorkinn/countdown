@@ -7,7 +7,7 @@ fixtures/floods_notices.json is what it made then, from the same warnings, in ea
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -16,7 +16,7 @@ import responses
 from test_utils import REGISTRATION
 
 from countdown_core import i18n
-from countdown_core.notices import notice_board_client as board_module
+from countdown_core.core import moment
 from countdown_core.notices.floods import NoStoredFloodsError, StoredFloodWarningsSource
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
@@ -134,7 +134,8 @@ def clock(monkeypatch):
         def now(cls, tz=None):
             return Clock.now
 
-    monkeypatch.setattr(board_module, "datetime", FrozenDatetime)
+    # The moment the board draws at (core.moment), as a render sets it.
+    monkeypatch.setattr(moment, "now", lambda: FrozenDatetime.now(UTC))
     return Clock
 
 

@@ -1,4 +1,21 @@
-"""The refresh loop: draw and paint the screen, re-read the config, and again."""
+"""The per-screen loop: it calls the render on the minute, on the broker's nudge, and faster while a provider asks.
+
+Each screen still has its own renderer process, which runs this loop until the pool replaces it
+(docs/stateless-renderers.md, steps 6 and 9). Everything that draws is render.render, run to completion each time;
+the loop only decides when to call it, keeps the config current (from the store, else GET /api/config, which also
+gives a pairing code), and hands the frame on: to the display, which PUTs it to the broker, beside the record the
+render wrote.
+
+A render is due:
+
+- on the minute, every minute: the pages turn on the minute (core.rotation), as the pool's ticker will render;
+- at once, when the broker says this screen's config changed (`watcher`, the `v1:config:changed` nudge);
+- every PACED_RENDER_S (on the multiples of it since the epoch) while a provider's pace key is live (keys.pace), as
+  the developer provider's is during a release.
+
+How often the screen polls is the broker's business alone (auth-broker's services/pace.py): the loop only passes the
+pace on, as `X-Refresh-Hint` with each PUT, for brokers that still read it.
+"""
 
 import asyncio
 import logging
@@ -8,23 +25,29 @@ from typing import TYPE_CHECKING
 
 import pydantic
 import requests
+from redis.exceptions import RedisError
 
-from countdown_core.core.api_registry import API_NAMES, ApiRegistry
-from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
+from countdown_core.render import Outcome, Stage, render
+from countdown_core.store import reader
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable, Sequence
 
     from countdown_api.models import ConfigResponse
     from countdown_core.config_server.broker_client import BrokerClient
     from countdown_core.core.display import DisplayController
+    from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
     from countdown_core.store.config import ConfigWatcher
-    from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
 logger = logging.getLogger(__name__)
 
-# The fastest a screen is ever asked to refresh, in seconds, whatever a provider asks for (the broker's floor too).
-MIN_PACE_S = 20
+# Renders come every minute, on the minute.
+RENDER_INTERVAL_S = 60
+# While a provider asks for a faster refresh, they come this often instead: the fastest a screen is ever refreshed,
+# whatever a provider asks for (the broker's floor too, HINT_FLOOR_S).
+PACED_RENDER_S = 20
+# The name the tests and the broker's docs know the floor by.
+MIN_PACE_S = PACED_RENDER_S
 
 
 def safe_fetch[T, F](func: Callable[[], T], fallback: F) -> T | F:
@@ -32,48 +55,80 @@ def safe_fetch[T, F](func: Callable[[], T], fallback: F) -> T | F:
     try:
         return func()
     except requests.exceptions.RequestException:
-        logger.exception("Exception with API call to Glowmarkt")
+        logger.exception("Couldn't get the config from the broker")
         return fallback
     except pydantic.ValidationError:
         logger.exception("Pydantic validation error")
         return fallback
 
 
-class DisplayLoop:
-    """The refresh loop: each cycle shows the pairing screen or the dashboard, then re-reads the config."""
+def next_render(now: datetime, *, paced: bool) -> datetime:
+    """Return when the next render is due after `now`: the next minute, or while `paced`, the next PACED_RENDER_S.
 
-    def __init__(  # noqa: PLR0913 -- what the boot hands over; the optional watcher is keyword-only
+    Both are whole multiples of the interval since the epoch, so a paced render lands on the minute too.
+    """
+    interval = PACED_RENDER_S if paced else RENDER_INTERVAL_S
+    elapsed = now.timestamp() // interval + 1
+    return datetime.fromtimestamp(elapsed * interval, tz=UTC)
+
+
+def wall_clock() -> datetime:
+    """Return the time, aware in UTC: what the loop schedules its renders by."""
+    return datetime.now(UTC)
+
+
+async def read_pace(pace_keys: Sequence[str]) -> int | None:
+    """Return the shortest refresh pace, in seconds, that a provider asks for now; None if none does.
+
+    None as well with no store, or one that can't be read: the screen then keeps its usual pace.
+    """
+    store = reader.store()
+    if store is None or not pace_keys:
+        return None
+    try:
+        return await asyncio.to_thread(reader.fastest_pace, store, list(pace_keys))
+    except RedisError as e:
+        logger.warning("Couldn't read the refresh pace from the store (%s); keeping the usual", type(e).__name__)
+        return None
+
+
+class DisplayLoop:
+    """Calls the render when one is due, keeps the config current, and hands each frame to the display."""
+
+    def __init__(  # noqa: PLR0913 -- what the boot hands over; the rest are keyword-only, for the tests
         self,
         broker: BrokerClient,
         config: ConfigResponse,
-        pairing_code_panel: PairingCodePanel,
         display: DisplayController,
-        api_reg: ApiRegistry | None = None,
+        publisher: OtlpPublisher | None = None,
         *,
         watcher: ConfigWatcher | None = None,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        clock: Callable[[], datetime] = wall_clock,
     ) -> None:
-        """Start from the boot's `config` and `pairing_code_panel`, painting on `display`.
+        """Start from the boot's `config`, painting on `display` and reporting to `publisher` (if given).
 
-        `broker` gives the later configs; `api_reg` holds the clients (a fresh one that reports nowhere if not given);
-        `watcher`, if given, cuts the wait between cycles short when the broker says the config changed.
+        `broker` gives the later configs, and the device; `watcher`, if given, cuts the wait between renders short
+        when the broker says the config changed. `sleep` and `clock` are what the loop waits with and schedules by.
         """
         self.broker = broker
-        self.watcher = watcher
+        self.device_id = broker.device_id
         self.config = config
-        self.pairing_code_panel = pairing_code_panel
-        self.interval = config.interval
         self.display = display
-        # Without a registry of its own, one whose publisher reports nowhere.
-        self.api_reg = api_reg if api_reg is not None else ApiRegistry(broker.registration, OtlpPublisher(API_NAMES))
+        self.publisher = publisher
+        self.watcher = watcher
+        self._sleep = sleep
+        self._clock = clock
+        # The last dashboard the render drew, whose panels stand in for a client that fails in the next one.
+        self.last: Outcome | None = None
+        # How fast the providers ask for the screen to refresh as of the last render, in seconds; None: not at all.
+        self.pace: int | None = None
+        # When the render being waited for is due; None after a nudge, which renders at once.
+        self._due: datetime | None = None
         self._published_stage: str | None = None
-        # How fast the providers ask for the screen to refresh as of the last cycle, in seconds; None: not at all.
-        self._pace: int | None = None
 
     async def run(self) -> None:
-        """Run the cycles, the config's interval apart (less while a provider asks for it); 0 stops after the cycle.
-
-        A change to the config the broker announces (see `watcher`) starts the next cycle at once, with it.
-        """
+        """Render, wait until the next render is due (or the broker's nudge), re-read the config, and again; forever."""
         if self.watcher is not None:
             self.watcher.start()
         try:
@@ -84,86 +139,74 @@ class DisplayLoop:
 
     async def _run(self) -> None:
         started = time.monotonic()
-        await self.api_reg.on_config_update(self.config)
-        self._fit_stops_to_layout()
         first_cycle_done = False
         while True:
-            try:
-                if self.pairing_code_panel.pairing_code:
-                    self.api_reg.status.stage = "pairing"
-                    self._pace = None
-                    self.display.set_pace(None)
-                    # Only repaint when the code changes: it's a full e-paper refresh, and an
-                    # unpaired device can sit here for days.
-                    if self.pairing_code_panel.has_changed:
-                        self.display.display_pairing_screen(self.pairing_code_panel, self.config.screen)
-                else:
-                    self.api_reg.status.stage = "running"
-                    panels = await self.api_reg.update_all()
-                    # After the update, which may have just seen the burst begin; before the paint, which carries it.
-                    self._pace = await self.api_reg.pace()
-                    self.display.set_pace(self._pace)
-                    self.display.display_screen(
-                        panels, self.config.screen, self.api_reg.available(), clock_format=self.config.clock_format
-                    )
-                self.display.repaint_pending()
-            except requests.exceptions.RequestException:
-                logger.exception("Network error encountered")
-            except Exception:
-                logger.exception("Unexpected error")
-
-            # The publisher reports every minute by itself; a new stage is worth reporting at once.
-            stage = self.api_reg.status.stage
-            if stage != self._published_stage:
-                self.api_reg.pub.publish_soon()
-                self._published_stage = stage
-
+            await self.cycle()
             if not first_cycle_done:
                 # Logged once, to spot a slow start without spamming the journal.
                 logger.info("First cycle finished %.1fs after start", time.monotonic() - started)
                 first_cycle_done = True
-
-            await self._wait(self.sleep_s())
+            await self.wait_for_next()
             await self.refresh_broker_config()
 
-            if not self.interval:
-                break
+    async def cycle(self) -> Outcome | None:
+        """Render the screen now, and hand the frame to the display; None if the render failed (logged)."""
+        now = self._clock()
+        if self._due is not None and now < self._due:
+            now = self._due  # woken a moment early: draw the minute the render is for, not the one before
+        try:
+            # In a thread, so the nudge keeps listening meanwhile. render itself starts none.
+            outcome = await asyncio.to_thread(render, self.device_id, now, config=self.config, previous=self.last)
+        except Exception:
+            logger.exception("The render failed")
+            return None
+        if outcome.stage is Stage.RUNNING:
+            self.last = outcome
+        self.pace = None if outcome.stage is Stage.PAIRING else await read_pace(outcome.pace_keys)
+        self._report(outcome)
+        if outcome.frame is not None:
+            self.display.set_pace(self.pace)
+            try:
+                self.display.show(outcome.frame)
+            except requests.exceptions.RequestException:
+                logger.exception("Couldn't hand the frame to the broker")
+            except Exception:
+                logger.exception("Unexpected error showing the frame")
+        return outcome
 
-    async def _wait(self, seconds: float) -> None:
-        """Sleep `seconds` between cycles, or less if the broker says the config changed meanwhile."""
+    def _report(self, outcome: Outcome) -> None:
+        """Hand the render's statuses and stage to the publisher; a new stage is published at once."""
+        if self.publisher is None:
+            return
+        self.publisher.statuses = outcome.statuses
+        if outcome.stage is not None:
+            self.publisher.device_status.stage = outcome.stage.value
+        # The publisher reports every minute by itself; a new stage is worth reporting at once.
+        stage = self.publisher.device_status.stage
+        if stage != self._published_stage:
+            self.publisher.publish_soon()
+            self._published_stage = stage
+
+    async def wait_for_next(self) -> bool:
+        """Wait until the next render is due, or the broker says the config changed; return whether it did."""
+        due = next_render(self._clock(), paced=self.pace is not None)
+        seconds = max(0.0, (due - self._clock()).total_seconds())
         if self.watcher is None:
-            await asyncio.sleep(seconds)
+            await self._sleep(seconds)
+            nudged = False
         else:
-            await self.watcher.wait(seconds)
-
-    def sleep_s(self) -> float:
-        """Return how long to wait before the next cycle: the config's interval, or a provider's pace if that's shorter.
-
-        An interval of 0 stays 0 (the cycle is the last), and no pace goes under MIN_PACE_S.
-        """
-        if not self.interval or self._pace is None:
-            return self.interval
-        return min(self.interval, max(self._pace, MIN_PACE_S))
+            nudged = await self.watcher.wait(seconds)
+        self._due = None if nudged else due
+        return nudged
 
     async def refresh_broker_config(self) -> None:
-        """Re-read the config (from the store, else the broker), as every cycle does, and after the broker's nudge.
+        """Re-read the config (from the store, else the broker), before every render.
 
-        That also keeps the pairing code current.
+        That also keeps the pairing code current. One that can't be had keeps the last.
         """
-        fetched = safe_fetch(self.broker.get_config, None)
+        fetched = await asyncio.to_thread(safe_fetch, self.broker.get_config, None)
         if fetched is None:
             return
-
-        self.pairing_code_panel = self.broker.get_pairing_code_panel(fetched)
-        self.api_reg.status.last_broker_sync = datetime.now(UTC)
+        if self.publisher is not None:
+            self.publisher.device_status.last_broker_sync = datetime.now(UTC)
         self.config = fetched
-        self.interval = fetched.interval
-        await self.api_reg.on_config_update(fetched)
-        self._fit_stops_to_layout()
-
-    def _fit_stops_to_layout(self) -> None:
-        """Tell the departures client how many stops are on screen at once, which the config's layout decides.
-
-        Call after every on_config_update(), since that may have rebuilt the TfL client.
-        """
-        self.api_reg.show_stops(self.display.stops_shown(self.config.screen, self.api_reg.available()))

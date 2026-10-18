@@ -19,7 +19,7 @@ without, a postcode that doesn't exist and a Norwegian one, which these provider
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import fakeredis
@@ -31,7 +31,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from responses import matchers
 from test_utils import REGISTRATION
 
-from countdown_core.notices import notice_board_client as board_module
+from countdown_core.core import moment
 from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.norway import ADDRESSES_URL
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
@@ -132,7 +132,8 @@ def board_shows(renderer, monkeypatch) -> dict:
         def now(cls, tz=None):
             return NOW
 
-    monkeypatch.setattr(board_module, "datetime", Frozen)
+    # The moment the board draws at (core.moment), as a render sets it.
+    monkeypatch.setattr(moment, "now", lambda: Frozen.now(UTC))
     shown = {}
     for postcode in POSTCODES:
         country = "NO" if postcode.isdigit() else "GB"

@@ -17,7 +17,7 @@ import responses
 from test_utils import REGISTRATION
 
 from countdown_core import i18n
-from countdown_core.notices import notice_board_client as board_module
+from countdown_core.core import moment
 from countdown_core.notices.norway import (
     NoStoredMetAlertsError,
     StoredMetAlertsSource,
@@ -136,7 +136,8 @@ def test_the_board_drops_the_warnings_once_the_key_has_expired(store, monkeypatc
         def now(cls, tz=None):
             return NOW
 
-    monkeypatch.setattr(board_module, "datetime", FrozenDatetime)
+    # The moment the board draws at (core.moment), as a render sets it.
+    monkeypatch.setattr(moment, "now", lambda: FrozenDatetime.now(UTC))
     board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(None, "NO"))
     source = StoredMetAlertsSource(board.session, OSLO)
     board.sources = [source]
