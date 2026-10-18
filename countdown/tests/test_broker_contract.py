@@ -6,14 +6,17 @@ the contract and the client built from it stop agreeing with what the app sends 
 """
 
 from importlib.resources import files
+from typing import TYPE_CHECKING
 
 import responses
 import yaml
-from config_factory import broker_payload
+from config_factory import broker_payload, make_config
 
-from countdown_api import models as wire
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_credentials.registration import RendererRegistration
+
+if TYPE_CHECKING:
+    from countdown_api.models import ConfigResponse
 
 SPEC = files("countdown_api") / "openapi.yaml"
 
@@ -50,16 +53,16 @@ def test_the_headers_the_client_really_sends_are_the_ones_the_spec_declares(isol
     assert sent["Authorization"] == "Bearer shh"
 
 
-def _full_response() -> wire.ConfigResponse:
-    return wire.ConfigResponse(
+def _full_response() -> ConfigResponse:
+    return make_config(
         device_id="abc",
         interval=30,
-        screen=wire.Screen(orientation="horizontal", width=800, height=480),
-        weather=wire.Weather(api_key="weather-key", location="London"),
-        notice_board=wire.NoticeBoard(postcode="SW1A 1AA"),
-        tfl=wire.Tfl(app_key="tfl-key", stop_ids=["940GZZLUKNG", "490000077E"]),
-        spotify=wire.Spotify(enabled=True),
-        glowmarkt=wire.Glowmarkt(enabled=True),
+        screen={"orientation": "horizontal", "width": 800, "height": 480},
+        weather={"api_key": "weather-key", "location": "London"},
+        notice_board={"postcode": "SW1A 1AA"},
+        tfl={"stop_ids": ["940GZZLUKNG", "490000077E"]},
+        spotify={"enabled": True},
+        glowmarkt={"enabled": True},
         pairing_code="ABC123",
     )
 

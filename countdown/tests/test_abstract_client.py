@@ -4,9 +4,9 @@ import threading
 from datetime import datetime, timedelta
 
 import pytest
+from config_factory import make_config
 from test_utils import REGISTRATION
 
-from countdown_api.models import Tfl
 from countdown_core.core import abstract_client
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
 
@@ -63,11 +63,12 @@ def test_cache_and_compare_is_false_the_first_time_even_for_none():
 
 
 def test_needs_refresh_is_true_for_any_config_change_by_default():
-    client = FakeClient(Tfl(app_key="", stop_ids=["a"]))
+    tfl = make_config(tfl={"stop_ids": ["a"], "style": "hero"}).tfl
+    client = FakeClient(tfl)
 
-    assert not client.needs_refresh(Tfl(app_key="", stop_ids=["a"]))
-    assert client.needs_refresh(Tfl(app_key="", stop_ids=["a", "b"]))
-    assert client.needs_refresh(Tfl(app_key="new", stop_ids=["a"]))
+    assert not client.needs_refresh(tfl.model_copy())
+    assert client.needs_refresh(tfl.model_copy(update={"stop_ids": ["a", "b"]}))
+    assert client.needs_refresh(tfl.model_copy(update={"style": "card"}))
 
 
 def test_initialise_marks_the_client_connected():
