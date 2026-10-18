@@ -76,7 +76,8 @@ def location(postcode: str) -> str:
     Written by provider-locations, the one process that looks postcodes up (postcodes.io, Kartverket), with a TTL of
     days; holds a countdown_core.store.location.StoredLocation, which says so when the postcode doesn't exist. The
     notice board, and the providers of notices about a place (Met Office, floods, TfL roads), read it rather than look
-    a postcode up themselves.
+    a postcode up themselves; so does the weather provider, for a weather key that's a typed postcode's slug
+    (store.location.weather_postcode), which provider-locations places too.
     """
     return f"{PREFIX}:location:{place(postcode)}"
 
