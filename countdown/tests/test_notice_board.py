@@ -501,11 +501,11 @@ def test_board_asks_nothing_over_http_to_place_its_postcode(store, clock):
 
 
 def test_notice_board_gets_the_brokers_postcode():
-    config = make_config(tfl={"app_key": "key", "stop_ids": ["940GZZLUKNG"]}, notice_board={"postcode": "SE17 3LL"})
+    config = make_config(tfl={"stop_ids": ["940GZZLUKNG"]}, notice_board={"postcode": "SE17 3LL"})
 
     settings = section_for("notice_board", config)
 
-    assert settings == NoticeBoardSettings(postcode="SE17 3LL")  # the TfL key isn't the board's: TfL is the provider's
+    assert settings == NoticeBoardSettings(postcode="SE17 3LL")  # the stops aren't the board's: see the departures
 
 
 def test_notice_board_has_no_postcode_unless_the_broker_sends_one():
