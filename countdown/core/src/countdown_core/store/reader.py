@@ -30,15 +30,34 @@ class StoreNotConfiguredError(RuntimeError):
 
 @functools.cache
 def store() -> redis.Redis | None:
-    """Return the client for the store this renderer reads, or None if it reads none (no REDIS_URL)."""
+    """Return the client for the store this renderer reads, or None if it reads none (no REDIS_URL).
+
+    It hands every value back as text (decode_responses), which everything but the covers is: JSON, or a number.
+    """
+    client = _connect(decode_responses=True)
+    if client is not None:
+        logger.info("Reading the panels' data from the store at %s", os.environ["REDIS_URL"])
+    return client
+
+
+@functools.cache
+def binary_store() -> redis.Redis | None:
+    """Return a client for the same store that hands values back as bytes, or None if there's no store (no REDIS_URL).
+
+    For the values that aren't text: the covers (keys.album_art), image files, which store() would fail to decode as
+    UTF-8. A client of its own, and so a connection of its own, because redis-py decodes per client, not per call.
+    """
+    return _connect(decode_responses=False)
+
+
+def _connect(*, decode_responses: bool) -> redis.Redis | None:
     url = os.environ.get("REDIS_URL", "")
     if not url:
         return None
-    logger.info("Reading the panels' data from the store at %s", url)
     return redis.Redis.from_url(
         url,
         password=os.environ.get("REDIS_PASSWORD") or None,
-        decode_responses=True,
+        decode_responses=decode_responses,
         socket_timeout=TIMEOUT_S,
         socket_connect_timeout=TIMEOUT_S,
     )

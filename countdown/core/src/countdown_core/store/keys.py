@@ -15,7 +15,12 @@ countdown_core.store.models model. A missing key means its provider is down (or 
 Pace (written by the providers with a short TTL, read by the renderers): `v1:pace:<source>:<id>` holds the seconds a
 provider wants the screen to refresh at while what it fetched for `id` is bursty (a release running). It lapses by
 itself, so a provider that stops renewing it, or dies, lets the screen go back to its usual pace. See `pace`.
+
+Images (written by auth-broker's music provider with a short TTL, read by the renderers): `v1:art:<sha1 of its URL>`
+holds an image's own bytes, not JSON, one key per image however many screens show it. See `album_art`.
 """
+
+import hashlib
 
 PREFIX = "v1"
 
@@ -77,6 +82,17 @@ def spotify_top(device_id: str) -> str:
     auth-broker's music provider; holds a countdown_core.store.music.StoredTop.
     """
     return f"{PREFIX}:spotify-top:{device_id}"
+
+
+def album_art(url: str) -> str:
+    """Return the key of an album's cover, by the image's URL as the music service gave it: `v1:art:<sha1 of the URL>`.
+
+    By URL, not device, so every screen showing the same album reads one copy. Holds the image file's raw bytes (a
+    JPEG, as the service serves it; read with reader.binary_store(), as reader.store() decodes values as text), with a
+    TTL of a few minutes that auth-broker's music provider renews every minute a `spotify` key still shows it. Which of
+    an album's sizes is stored: countdown_core.store.music.art_image.
+    """
+    return f"{PREFIX}:art:{hashlib.sha1(url.encode(), usedforsecurity=False).hexdigest()}"
 
 
 def developer(device_id: str) -> str:
