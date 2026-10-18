@@ -15,6 +15,9 @@ rewrites it from its database on every config save and as it starts. A missing k
 GET /api/config instead (an older broker, or a pairing code to show). `v1:config:changed` is the channel the broker
 publishes a device's id on after changing its key. See `config`.
 
+Pairing (written by the broker, read by the render pool): `v1:pairing:<device id>` holds what GET /api/config answers
+while the device has a pairing code to show, the code included, with the code's own TTL. See `pairing`.
+
 Data (written by the providers with a TTL, read by the renderers): one key per thing, holding the JSON of a
 countdown_core.store.models model. A missing key means its provider is down (or hasn't got to it yet).
 
@@ -63,6 +66,15 @@ def config(device_id: str) -> str:
     Written by auth-broker from its database; holds a countdown_api.models.ConfigResponse, read by store.config.
     """
     return f"{PREFIX}:config:{device_id}"
+
+
+def pairing(device_id: str) -> str:
+    """Return the key of a device's live pairing code, e.g. `v1:pairing:a1b2c3d4e5f6`.
+
+    Written by auth-broker while the device has a code to show (there's no `v1:config:` key then), with the code's own
+    TTL; holds GET /api/config's ConfigResponse with its pairing_code set, read by store.pairing for the render pool.
+    """
+    return f"{PREFIX}:pairing:{device_id}"
 
 
 def place(postcode: str) -> str:

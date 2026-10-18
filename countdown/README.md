@@ -85,6 +85,11 @@ auth-broker's tests read.
   validate (each logged). It's also how the pairing code reaches the screen: the broker keeps no key for a device
   that isn't paired or has a code to show, as only `GET /api/config` gives (and issues) the code. Once the device is
   paired the broker writes the key and nudges, and the renderer moves to the store; the log says each time it moves.
+- **The pairing code, for the pool.** A render that reads the store itself (`render(device_id, now)`, the pool's) has
+  no `GET /api/config` to ask, so while a code is live the broker also writes `v1:pairing:<device id>`: that answer,
+  code included, expiring with the code (`store/pairing.py`). While it's there the render draws the pairing screen
+  from it; once it goes (used, lapsed, the device paired) the render draws from `v1:config:<device id>` again. A
+  render handed its config (the per-screen loop) reads no pairing key. `tests/fixtures/pairing_key.json` pins it.
 - **The pace.** Nothing in `GET /api/config`'s response headers reaches the renderer, so nothing had to be carried
   over. The config's `interval` is in the body, and so in the stored value, but the renderer no longer goes by it: it
   renders on the minute. A faster pace comes from the providers' `v1:pace:` keys (see [The pace](#the-pace)), never
