@@ -384,21 +384,22 @@ def test_a_client_that_is_switched_off_is_dropped_with_its_panel():
     assert "spotify" not in registry.panels
 
 
-def test_a_change_the_client_says_is_irrelevant_does_not_rebuild_it():
-    """Open-Meteo is keyless, so WeatherClient ignores api_key changes.
+def test_a_change_the_client_says_is_irrelevant_does_not_rebuild_it(monkeypatch):
+    """A client is rebuilt only when its needs_refresh says the change matters, not whenever its section differs.
 
-    Rebuilding would only throw away its cached coordinates and forecast.
+    Rebuilding would only throw away what it has cached, such as the weather's forecast.
     """
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
     asyncio.run(registry.on_config_update(make_config()))
     weather = registry.clients["weather"]
     changed = make_config()
-    changed.weather.api_key = "new-key"
+    changed.weather.location = "Paris"
 
-    asyncio.run(registry.on_config_update(changed))
+    with monkeypatch.context() as patched:
+        patched.setattr(WeatherClient, "needs_refresh", lambda _self, _new_config: False)
+        asyncio.run(registry.on_config_update(changed))
     assert registry.clients["weather"] is weather
 
-    changed.weather.location = "Paris"
     asyncio.run(registry.on_config_update(changed))
     assert registry.clients["weather"] is not weather
 
