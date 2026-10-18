@@ -61,8 +61,9 @@ Set up once, in the repo's Settings:
 ## Providers
 
 The compose file also has a service per provider (`provider-tfl`, `provider-entur`, `provider-entur-situations`,
-`provider-weather`, `provider-met-office`, `provider-bank-holidays`), which every deploy starts and upgrades. They need
-the repo secrets `REDIS_PASSWORD` and `TFL_APP_KEY`. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
+`provider-weather`, `provider-met-office`, `provider-bank-holidays`, `provider-floods`), which every deploy starts and
+upgrades. They need the repo secrets `REDIS_PASSWORD` and `TFL_APP_KEY`. See
+[`../../providers/README.md`](../../providers/README.md#enabling-in-production).
 
 The notice boards read the bank holidays only from the store, so after the first deploy with `provider-bank-holidays`,
 check its key is there ([Bank holidays](../../providers/README.md#bank-holidays) says how).
@@ -77,6 +78,9 @@ docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 
 
 One key per Entur stop any screen shows; none means the provider isn't running (its log says why), and the boards
 leave Entur's disruptions out meanwhile.
+
+The flood warnings too are read only from the store: after the first deploy with `provider-floods` (and auth-broker's
+postcode subscriptions), check its keys are there ([Flood warnings](../../providers/README.md#flood-warnings) says how).
 
 ## Day to day
 

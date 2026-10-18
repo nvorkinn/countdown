@@ -124,3 +124,11 @@ def entur_situations(stop_id: str) -> str:
     countdown_core.store.situations.StoredSituations.
     """
     return f"{PREFIX}:notices:entur:{stop_id}"
+
+
+def floods(postcode: str) -> str:
+    """Return the key of the Environment Agency's flood warnings near a UK postcode, e.g. `v1:notices:floods:SE173LL`.
+
+    Written by provider-floods; holds a countdown_core.store.floods.StoredFloods.
+    """
+    return f"{PREFIX}:notices:floods:{place(postcode)}"
