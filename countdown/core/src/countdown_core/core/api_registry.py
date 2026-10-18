@@ -54,9 +54,8 @@ API_NAMES = [member.api_name for member in ClientClasses]
 def section_for(name: str, config: ConfigResponse) -> object:
     """Return what the API `name` is configured with: its section of the broker's config.
 
-    The departures' is its `departures` section (or, from an older broker, `tfl`). The notice board's also carries
-    the TfL app key, for the road incidents near the postcode. Every panel that has a style gets the config's shared
-    one (see panel_style).
+    The departures' is its `departures` section (or, from an older broker, `tfl`). Every panel that has a style gets
+    the config's shared one (see panel_style).
     """
     if name == ClientClasses.TFL.api_name:
         return DeparturesSettings.from_config(config)
@@ -65,7 +64,6 @@ def section_for(name: str, config: ConfigResponse) -> object:
             postcode=config.notice_board.postcode,
             country=config.notice_board.country,
             style=panel_style(config, config.notice_board.style),
-            tfl_app_key=config.tfl.app_key,
         )
     if name == ClientClasses.SPOTIFY.api_name:
         return MusicSettings.from_config(config)

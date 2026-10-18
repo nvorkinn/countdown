@@ -60,10 +60,10 @@ Set up once, in the repo's Settings:
 
 ## Providers
 
-The compose file also has a service per provider (`provider-tfl`, `provider-entur`, `provider-entur-situations`,
-`provider-weather`, `provider-met-office`, `provider-bank-holidays`, `provider-floods`, `provider-metalerts`), which
-every deploy starts and upgrades. They need the repo secrets `REDIS_PASSWORD` and `TFL_APP_KEY`. See
-[`../../providers/README.md`](../../providers/README.md#enabling-in-production).
+The compose file also has a service per provider (`provider-tfl`, `provider-tfl-notices`, `provider-entur`,
+`provider-entur-situations`, `provider-weather`, `provider-met-office`, `provider-bank-holidays`, `provider-floods`,
+`provider-metalerts`), which every deploy starts and upgrades. They need the repo secrets `REDIS_PASSWORD` and
+`TFL_APP_KEY`. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
 
 The notice boards read the bank holidays only from the store, so after the first deploy with `provider-bank-holidays`,
 check its key is there ([Bank holidays](../../providers/README.md#bank-holidays) says how).

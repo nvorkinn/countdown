@@ -1,4 +1,4 @@
-"""TfL's stops and their arrivals, for the TfL provider."""
+"""TfL's stops, their arrivals and TfL's disruptions, for the TfL providers (departures and notices)."""
 
 import logging
 from typing import TYPE_CHECKING
@@ -9,7 +9,10 @@ from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.tfl.models import (
     ArrivalUnion,
     BusArrival,
+    DisruptedPoint,
+    Line,
     MetroStopPoint,
+    RoadDisruption,
     SingleStopPoint,
     StopPoint,
     StopPointUnion,
@@ -17,6 +20,8 @@ from countdown_core.tfl.models import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     import requests
 
 logger = logging.getLogger(__name__)
@@ -34,8 +39,13 @@ def _find_stop_child(stop: StopPoint, naptan_id: str) -> SingleStopPoint | Metro
     return None
 
 
+Lines = TypeAdapter(list[Line])
+DisruptedPoints = TypeAdapter(list[DisruptedPoint])
+RoadDisruptions = TypeAdapter(list[RoadDisruption])
+
+
 class TflSource:
-    """London's stops for the TfL provider: Tube stations and bus stops, by NaPTAN id."""
+    """TfL's unified API for the TfL providers: Tube stations and bus stops by NaPTAN id, and the disruptions."""
 
     def __init__(self, session: requests.Session, app_key: str = "") -> None:
         """`session` to ask TfL with; `app_key`, TfL's API key, is sent with every request if set."""
@@ -55,3 +65,23 @@ class TflSource:
         )
         response.raise_for_status()
         return TypeAdapter(list[ArrivalUnion]).validate_python(response.json())
+
+    def line_status(self, line_ids: Iterable[str]) -> list[Line]:
+        """Fetch the lines' statuses (/Line/{ids}/Status), in TfL's order; raises if TfL can't be asked."""
+        return Lines.validate_json(self._get(f"/Line/{','.join(line_ids)}/Status"))
+
+    def stop_disruptions(self, stop_id: str) -> list[DisruptedPoint]:
+        """Fetch what's wrong at a stop (/StopPoint/{id}/Disruption), such as a lift; raises if TfL can't be asked."""
+        return DisruptedPoints.validate_json(self._get(f"/StopPoint/{stop_id}/Disruption"))
+
+    def road_disruptions(self, severities: Iterable[str]) -> list[RoadDisruption]:
+        """Fetch London's road disruptions of `severities` (TfL's names, "Severe"...); raises if TfL can't be asked."""
+        return RoadDisruptions.validate_json(self._get("/Road/all/Disruption", severities=",".join(severities)))
+
+    def _get(self, path: str, **params: str) -> bytes:
+        response = self.session.get(f"{TFL_URL}{path}", params=self.params | params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        # The raw body, before pydantic drops the fields the models don't declare: turn on debug logging for this
+        # module to see everything TfL actually sends.
+        logger.debug("GET %s: %s", path, response.text)
+        return response.content

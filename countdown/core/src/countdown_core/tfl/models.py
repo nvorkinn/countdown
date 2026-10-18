@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Mode(StrEnum):
@@ -135,14 +135,24 @@ class StopPointResponse(BaseModel):
     stop_points: list[StopPoint] = Field(alias="stopPoints")
 
 
-class ValidityPeriod(BaseModel):
+class TflDisruptionModel(BaseModel):
+    """A model of one of TfL's disruption answers, which writes TfL's own names back out (its aliases).
+
+    The TfL notices provider stores these answers, and the renderer reads them back with the same models: written
+    under TfL's names, a stored copy reads like TfL's answer (less what the models leave out).
+    """
+
+    model_config = ConfigDict(serialize_by_alias=True)
+
+
+class ValidityPeriod(TflDisruptionModel):
     """When a line status applies."""
 
     from_date: datetime = Field(alias="fromDate")
     to_date: datetime = Field(alias="toDate")
 
 
-class LineStatus(BaseModel):
+class LineStatus(TflDisruptionModel):
     """A line's status: Good Service, Minor Delays and the like, and why."""
 
     status_severity: int = Field(alias="statusSeverity")
@@ -153,7 +163,7 @@ class LineStatus(BaseModel):
     validity_periods: list[ValidityPeriod] = Field(alias="validityPeriods", default=[])
 
 
-class Line(BaseModel):
+class Line(TflDisruptionModel):
     """One line from TfL's /Line/{ids}/Status."""
 
     id: str
@@ -162,7 +172,7 @@ class Line(BaseModel):
     line_statuses: list[LineStatus] = Field(alias="lineStatuses")
 
 
-class DisruptedPoint(BaseModel):
+class DisruptedPoint(TflDisruptionModel):
     """One entry from TfL's /StopPoint/{ids}/Disruption.
 
     Lifts out of order, closed entrances, no step-free access and the like.
@@ -173,7 +183,7 @@ class DisruptedPoint(BaseModel):
     to_date: datetime | None = Field(alias="toDate", default=None)
 
 
-class RoadDisruption(BaseModel):
+class RoadDisruption(TflDisruptionModel):
     """One entry from TfL's /Road/all/Disruption."""
 
     id: str

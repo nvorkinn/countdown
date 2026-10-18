@@ -44,9 +44,9 @@ def make_metro_stop(naptan_id="940GZZLUKNG"):
     return MetroStopPoint.model_validate(dict(METRO_STOP_JSON, naptanId=naptan_id))
 
 
-def make_config(stop_ids: list[str] | None = None, app_key: str = "", style: str = "hero") -> DeparturesSettings:
+def make_config(stop_ids: list[str] | None = None, style: str = "hero") -> DeparturesSettings:
     stops = tuple(DepartureStop(source="tfl", id=stop_id) for stop_id in stop_ids or [])
-    return DeparturesSettings(stops, style, app_key)
+    return DeparturesSettings(stops, style)
 
 
 def tfl_stops(client: DeparturesClient, *stop_ids: str) -> list[ResolvedStop]:
@@ -77,7 +77,7 @@ def test_find_stop_child_not_found_returns_none():
 
 
 def test_construction_reads_nothing_and_reads_both_sources_from_the_store(store):
-    client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"], "app-key"))
+    client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"]))
     assert client.stops == []
     assert isinstance(client.sources["tfl"], StoredTflSource)
     assert isinstance(client.sources["entur"], StoredEnturSource)
@@ -240,7 +240,7 @@ def test_update_says_so_when_no_stops_are_configured():
 
 
 def test_session_has_retry_adapter_mounted():
-    """The session is still TfL's disruption notices', which are asked of TfL directly."""
+    """Every client keeps a retrying session, even though the departures and their notices now come from the store."""
     client = DeparturesClient(REGISTRATION, make_config())
     adapter = client.session.get_adapter("https://api.tfl.gov.uk")
     assert isinstance(adapter, HTTPAdapter)

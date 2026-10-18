@@ -9,7 +9,6 @@ from config_factory import make_config
 from PIL import Image, ImageDraw
 from test_utils import REGISTRATION
 
-from countdown_api.models import Tfl
 from countdown_core.core.api_registry import section_for
 from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
@@ -20,7 +19,7 @@ from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
 from countdown_core.notices.notice_styles import STYLES
-from countdown_core.notices.tfl import TFL_URL, TflLineStatusSource, TflRoadSource, TflStationSource
+from countdown_core.notices.tfl import StoredTflRoadSource
 from countdown_core.store import keys
 from countdown_core.store.bank_holidays import StoredBankHolidays
 from countdown_core.tfl.models import Postcode
@@ -192,220 +191,6 @@ def test_met_office_logs_the_area_not_the_postcode_when_it_has_no_region(caplog)
         region_for(location)
 
     assert caplog.messages == ["No Met Office warning region for Somewhere New; using the whole UK"]
-
-
-# --- TfL -------------------------------------------------------------------------
-
-TFL = Tfl(app_key="key", stop_ids=["940GZZLUKNG", "490000077E"])
-
-
-def _stop(naptan_id: str, stop_type: str, lines: list[str], **extra) -> dict:
-    return {
-        "naptanId": naptan_id,
-        "commonName": naptan_id,
-        "modes": [],
-        "additionalProperties": [],
-        "stopType": stop_type,
-        "lines": [{"id": line, "name": line.title()} for line in lines],
-        **extra,
-    }
-
-
-def _status(
-    severity: int, description: str, periods: list[tuple[datetime, datetime]] = (), reason: str | None = None
-) -> dict:
-    return {
-        "statusSeverity": severity,
-        "statusSeverityDescription": description,
-        "reason": reason,
-        "validityPeriods": [{"fromDate": f.isoformat(), "toDate": t.isoformat()} for f, t in periods],
-    }
-
-
-def test_line_status_reports_current_problems_on_the_stops_lines(api):
-    api.add(
-        responses.GET, f"{TFL_URL}/StopPoint/940GZZLUKNG", json=_stop("940GZZLUKNG", "NaptanMetroStation", ["northern"])
-    )
-    bus_stop = _stop("490000077E", "NaptanPublicBusCoachTram", ["12", "northern"], stopLetter="E")
-    api.add(responses.GET, f"{TFL_URL}/StopPoint/490000077E", json=bus_stop)
-    today = (NOW - timedelta(hours=2), NOW + timedelta(hours=10))
-    next_week = (NOW + timedelta(days=7), NOW + timedelta(days=8))
-    lines = [
-        {
-            "id": "northern",
-            "name": "Northern",
-            "modeName": "tube",
-            "lineStatuses": [_status(6, "Severe Delays", [today]), _status(3, "Part Suspended", [next_week])],
-        },
-        {"id": "12", "name": "12", "modeName": "bus", "lineStatuses": [_status(10, "Good Service")]},
-    ]
-    api.add(responses.GET, f"{TFL_URL}/Line/northern,12/Status", json=lines)
-    source = TflLineStatusSource(requests.Session(), TFL)
-
-    notices = source.fetch(NOW)
-
-    # No reason given: the status itself, tagged with the line.
-    assert notices == [Notice("Northern", Severity.WARNING, "Severe Delays", today[1])]
-    assert api.calls[0].request.params == {"app_key": "key"}
-
-    source.fetch(NOW)  # the stops' lines are only looked up once
-    assert [c.request.url.split("?")[0].removeprefix(TFL_URL) for c in api.calls[3:]] == ["/Line/northern,12/Status"]
-
-
-def test_line_status_only_shows_the_statuses_worth_a_notice(api):
-    """The same for every mode: a suspended bus route is as severe as a suspended line."""
-    api.add(responses.GET, f"{TFL_URL}/StopPoint/940GZZLUKNG", json=_stop("940GZZLUKNG", "NaptanMetroStation", ["12"]))
-    statuses = {
-        "12": (2, "Suspended"),
-        "northern": (2, "Suspended"),
-        "victoria": (9, "Minor Delays"),
-        "68": (0, "Special Service"),
-        "district": (20, "Service Closed"),
-        "circle": (17, "Issues Reported"),
-        "central": (5, "Part Closure"),
-    }
-    lines = [
-        {
-            "id": line_id,
-            "name": line_id.title(),
-            "modeName": "bus" if line_id.isdigit() else "tube",
-            "lineStatuses": [_status(code, description)],
-        }
-        for line_id, (code, description) in statuses.items()
-    ]
-    api.add(responses.GET, f"{TFL_URL}/Line/12/Status", json=lines)
-
-    source = TflLineStatusSource(requests.Session(), Tfl(app_key="", stop_ids=["940GZZLUKNG"]))
-
-    assert source.fetch(NOW) == [
-        Notice("Bus 12", Severity.SEVERE, "Suspended"),
-        Notice("Northern", Severity.SEVERE, "Suspended"),
-        Notice("Circle", Severity.INFO, "Issues Reported"),
-        Notice("Central", Severity.PLANNED, "Part Closure"),
-    ]
-
-
-def test_line_status_shows_a_reason_once_for_routes_sharing_it(api):
-    api.add(responses.GET, f"{TFL_URL}/StopPoint/940GZZLUKNG", json=_stop("940GZZLUKNG", "NaptanMetroStation", ["1"]))
-    closure = (
-        "WATERLOO ROAD, Southwark: Routes 1 68 and 188   cannot serve St. George's Circus. Use stops in Borough Road."
-    )
-    early, late = NOW + timedelta(hours=2), NOW + timedelta(hours=6)
-    today = NOW - timedelta(hours=1)
-    lines = [
-        {
-            "id": "1",
-            "name": "1",
-            "modeName": "bus",
-            "lineStatuses": [_status(3, "Part Suspended", [(today, early)], closure)],
-        },
-        {
-            "id": "68",
-            "name": "68",
-            "modeName": "bus",
-            "lineStatuses": [_status(2, "Suspended", [(today, late)], closure)],
-        },
-        {
-            "id": "188",
-            "name": "188",
-            "modeName": "bus",
-            "lineStatuses": [_status(3, "Part Suspended", [(today, early)], closure)],
-        },
-    ]
-    api.add(responses.GET, f"{TFL_URL}/Line/1/Status", json=lines)
-
-    notices = TflLineStatusSource(requests.Session(), Tfl(app_key="", stop_ids=["940GZZLUKNG"])).fetch(NOW)
-
-    # One notice for all three routes: the most severe status, the latest end.
-    assert notices == [
-        Notice(
-            "Buses",
-            Severity.SEVERE,
-            "WATERLOO ROAD, Southwark: Routes 1 68 and 188 cannot serve St. George's Circus.",
-            late,
-        )
-    ]
-
-
-@pytest.mark.parametrize(
-    ("reason", "line", "headline"),
-    [
-        (
-            "Victoria Line: Severe delays due to a track fault at Brixton. GOOD SERVICE on the rest of the line.",
-            "Victoria",
-            "Severe delays due to a track fault at Brixton.",
-        ),
-        (
-            (
-                "CENTRAL LINE: Saturday 26 September, no service between Marble Arch and Loughton. "
-                "Replacement buses operate."
-            ),
-            "Central",
-            "Saturday 26 September, no service between Marble Arch and Loughton.",
-        ),
-        (
-            "DOCKLANDS LIGHT RAILWAY: Sunday 27 September, no service between Shadwell and Tower Gateway.",
-            "DLR",
-            "Sunday 27 September, no service between Shadwell and Tower Gateway.",
-        ),
-        (
-            "Waterloo & City line: service operates Monday to Friday only.",
-            "Waterloo & City",
-            "Service operates Monday to Friday only.",
-        ),
-        ("no full stop and no prefix", "Northern", "No full stop and no prefix"),
-    ],
-)
-def test_line_status_headline_is_the_first_sentence_without_the_line_name(api, reason, line, headline):
-    api.add(responses.GET, f"{TFL_URL}/StopPoint/940GZZLUKNG", json=_stop("940GZZLUKNG", "NaptanMetroStation", ["x"]))
-    lines = [
-        {"id": "x", "name": line, "modeName": "tube", "lineStatuses": [_status(6, "Severe Delays", reason=reason)]}
-    ]
-    api.add(responses.GET, f"{TFL_URL}/Line/x/Status", json=lines)
-
-    [notice] = TflLineStatusSource(requests.Session(), Tfl(app_key="", stop_ids=["940GZZLUKNG"])).fetch(NOW)
-
-    assert (notice.source, notice.text) == (line, headline)
-
-
-def test_station_notices_are_shortened_deduplicated_and_expire(api):
-    points = [
-        {
-            "commonName": "Elephant & Castle Underground Station",
-            "description": "ELEPHANT & CASTLE UNDERGROUND STATION: The lifts are out of service.",
-            "toDate": (NOW + timedelta(days=5)).isoformat(),
-        },
-        {
-            "commonName": "Elephant & Castle Underground Station",
-            "description": "Elephant & Castle: The lifts are out of service.",
-            "toDate": (NOW + timedelta(days=2)).isoformat(),
-        },
-        {
-            "commonName": "Kennington Underground Station",
-            "description": "Kennington: Entrance closed.",
-            "toDate": (NOW - timedelta(hours=1)).isoformat(),
-        },
-    ]
-    api.add(responses.GET, f"{TFL_URL}/StopPoint/940GZZLUKNG,490000077E/Disruption", json=points)
-
-    notices = TflStationSource(requests.Session(), TFL).fetch(NOW)
-
-    assert [n.text for n in notices] == ["Elephant & Castle: The lifts are out of service."]
-
-
-def test_roads_only_reports_serious_incidents_nearby(api):
-    near, far = "[-0.098,51.492]", "[-0.3,51.6]"
-    disruptions = [
-        {"id": "1", "severity": "Severe", "category": "Collisions", "comments": "[A2] Old Kent Road", "point": near},
-        {"id": "2", "severity": "Serious", "category": "Works", "comments": "[A13] Commercial Road", "point": far},
-        {"id": "3", "severity": "Serious", "category": "Works", "comments": "No location"},
-    ]
-    api.add(responses.GET, f"{TFL_URL}/Road/all/Disruption", json=disruptions)
-
-    notices = TflRoadSource(requests.Session(), TFL, SOUTHWARK).fetch(NOW)
-
-    assert notices == [Notice("Roads", Severity.WARNING, "Collisions: [A2] Old Kent Road")]
-    assert api.calls[0].request.params["severities"] == "Severe,Serious"
 
 
 # --- Bank holidays and the clocks -------------------------------------------------
@@ -616,7 +401,7 @@ def test_board_adds_local_sources_once_the_postcode_is_found(api, clock):
         StoredBankHolidaySource,
         StoredMetOfficeWarningsSource,
         StoredFloodWarningsSource,
-        TflRoadSource,
+        StoredTflRoadSource,
     ]
     # The floods are read from the store, under the postcode's place.
     assert client.sources[3].key == "v1:notices:floods:SE173LL"
@@ -667,13 +452,12 @@ def test_board_retries_a_postcode_lookup_that_failed(api, clock, caplog):
 # --- Config ----------------------------------------------------------------------
 
 
-def test_notice_board_gets_the_brokers_postcode_and_the_tfl_key():
+def test_notice_board_gets_the_brokers_postcode():
     config = make_config(tfl={"app_key": "key", "stop_ids": ["940GZZLUKNG"]}, notice_board={"postcode": "SE17 3LL"})
 
     settings = section_for("notice_board", config)
 
-    assert settings.postcode == "SE17 3LL"
-    assert settings.tfl == Tfl(app_key="key", stop_ids=[])
+    assert settings == NoticeBoardSettings(postcode="SE17 3LL")  # the TfL key isn't the board's: TfL is the provider's
 
 
 def test_notice_board_has_no_postcode_unless_the_broker_sends_one():

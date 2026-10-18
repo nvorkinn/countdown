@@ -1,0 +1,658 @@
+{
+  "now": "2026-09-25T12:00:00+00:00",
+  "stops": [
+    "940GZZLUKNG",
+    "490000077E",
+    "490000077F"
+  ],
+  "postcode": "SE17 3LL",
+  "stop_points": {
+    "940GZZLUKNG": {
+      "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+      "naptanId": "940GZZLUKNG",
+      "modes": [
+        "tube"
+      ],
+      "icsCode": "1000126",
+      "stopType": "NaptanMetroStation",
+      "stationNaptan": "940GZZLUKNG",
+      "lines": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+          "id": "northern",
+          "name": "Northern",
+          "uri": "/Line/northern",
+          "type": "Line",
+          "crowding": {
+            "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+          },
+          "routeType": "Unknown",
+          "status": "Unknown"
+        }
+      ],
+      "lineGroup": [],
+      "lineModeGroups": [
+        {
+          "modeName": "tube",
+          "lineIdentifier": [
+            "northern"
+          ]
+        }
+      ],
+      "status": true,
+      "id": "940GZZLUKNG",
+      "commonName": "Kennington Underground Station",
+      "placeType": "StopPoint",
+      "additionalProperties": [],
+      "children": [],
+      "lat": 51.488337,
+      "lon": -0.105963
+    },
+    "490000077E": {
+      "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+      "naptanId": "490000077E",
+      "indicator": "Stop E",
+      "stopLetter": "E",
+      "modes": [
+        "bus"
+      ],
+      "icsCode": "1000123",
+      "stopType": "NaptanPublicBusCoachTram",
+      "stationNaptan": "490G00123E",
+      "lines": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+          "id": "133",
+          "name": "133",
+          "uri": "/Line/133",
+          "type": "Line",
+          "crowding": {
+            "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+          },
+          "routeType": "Unknown",
+          "status": "Unknown"
+        },
+        {
+          "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+          "id": "155",
+          "name": "155",
+          "uri": "/Line/155",
+          "type": "Line",
+          "crowding": {
+            "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+          },
+          "routeType": "Unknown",
+          "status": "Unknown"
+        },
+        {
+          "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+          "id": "333",
+          "name": "333",
+          "uri": "/Line/333",
+          "type": "Line",
+          "crowding": {
+            "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+          },
+          "routeType": "Unknown",
+          "status": "Unknown"
+        }
+      ],
+      "lineGroup": [],
+      "lineModeGroups": [
+        {
+          "modeName": "bus",
+          "lineIdentifier": [
+            "133",
+            "155",
+            "333"
+          ]
+        }
+      ],
+      "status": true,
+      "id": "490000077E",
+      "commonName": "Kennington Station",
+      "placeType": "StopPoint",
+      "additionalProperties": [],
+      "children": [],
+      "lat": 51.488,
+      "lon": -0.1058
+    },
+    "490000077F": {
+      "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+      "naptanId": "490000077F",
+      "indicator": "Stop F",
+      "stopLetter": "F",
+      "modes": [
+        "bus"
+      ],
+      "icsCode": "1000123",
+      "stopType": "NaptanPublicBusCoachTram",
+      "stationNaptan": "490G00123E",
+      "lines": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+          "id": "133",
+          "name": "133",
+          "uri": "/Line/133",
+          "type": "Line",
+          "crowding": {
+            "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+          },
+          "routeType": "Unknown",
+          "status": "Unknown"
+        },
+        {
+          "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+          "id": "155",
+          "name": "155",
+          "uri": "/Line/155",
+          "type": "Line",
+          "crowding": {
+            "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+          },
+          "routeType": "Unknown",
+          "status": "Unknown"
+        },
+        {
+          "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+          "id": "415",
+          "name": "415",
+          "uri": "/Line/415",
+          "type": "Line",
+          "crowding": {
+            "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+          },
+          "routeType": "Unknown",
+          "status": "Unknown"
+        }
+      ],
+      "lineGroup": [],
+      "lineModeGroups": [
+        {
+          "modeName": "bus",
+          "lineIdentifier": [
+            "133",
+            "155",
+            "415"
+          ]
+        }
+      ],
+      "status": true,
+      "id": "490000077F",
+      "commonName": "Kennington Station",
+      "placeType": "StopPoint",
+      "additionalProperties": [],
+      "children": [],
+      "lat": 51.488,
+      "lon": -0.1058
+    }
+  },
+  "line_status": [
+    {
+      "$type": "Tfl.Api.Presentation.Entities.Line, Tfl.Api.Presentation.Entities",
+      "id": "northern",
+      "name": "Northern",
+      "modeName": "tube",
+      "disruptions": [],
+      "created": "2026-09-22T15:48:35.457Z",
+      "modified": "2026-09-22T15:48:35.457Z",
+      "lineStatuses": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+          "id": 0,
+          "statusSeverity": 6,
+          "statusSeverityDescription": "Severe Delays",
+          "created": "0001-01-01T00:00:00",
+          "validityPeriods": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.ValidityPeriod, Tfl.Api.Presentation.Entities",
+              "fromDate": "2026-09-25T09:00:00Z",
+              "toDate": "2026-09-25T21:00:00Z",
+              "isNow": true
+            }
+          ],
+          "reason": "Northern Line: Severe delays between Kennington and Morden due to an earlier signal failure at Clapham Common. GOOD SERVICE on the rest of the line.",
+          "disruption": {
+            "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+            "category": "RealTime",
+            "description": "Northern Line: Severe delays between Kennington and Morden due to an earlier signal failure at Clapham Common. GOOD SERVICE on the rest of the line.",
+            "affectedRoutes": [],
+            "affectedStops": []
+          }
+        },
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+          "id": 0,
+          "statusSeverity": 5,
+          "statusSeverityDescription": "Part Closure",
+          "created": "0001-01-01T00:00:00",
+          "validityPeriods": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.ValidityPeriod, Tfl.Api.Presentation.Entities",
+              "fromDate": "2026-09-20T12:00:00Z",
+              "toDate": "2026-10-04T12:00:00Z",
+              "isNow": true
+            }
+          ],
+          "reason": "NORTHERN LINE: Until Sunday 4 October, no service between Kennington and Battersea Power Station. Replacement buses operate.",
+          "disruption": {
+            "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+            "category": "RealTime",
+            "description": "NORTHERN LINE: Until Sunday 4 October, no service between Kennington and Battersea Power Station. Replacement buses operate.",
+            "affectedRoutes": [],
+            "affectedStops": []
+          }
+        },
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+          "id": 0,
+          "statusSeverity": 3,
+          "statusSeverityDescription": "Part Suspended",
+          "created": "0001-01-01T00:00:00",
+          "validityPeriods": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.ValidityPeriod, Tfl.Api.Presentation.Entities",
+              "fromDate": "2026-10-03T12:00:00Z",
+              "toDate": "2026-10-04T12:00:00Z",
+              "isNow": false
+            }
+          ],
+          "reason": "Northern line: Saturday 3 October, no service between Camden Town and Edgware.",
+          "disruption": {
+            "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+            "category": "RealTime",
+            "description": "Northern line: Saturday 3 October, no service between Camden Town and Edgware.",
+            "affectedRoutes": [],
+            "affectedStops": []
+          }
+        }
+      ],
+      "routeSections": [],
+      "serviceTypes": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineServiceTypeInfo",
+          "name": "Regular"
+        }
+      ],
+      "crowding": {
+        "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+      }
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.Line, Tfl.Api.Presentation.Entities",
+      "id": "133",
+      "name": "133",
+      "modeName": "bus",
+      "disruptions": [],
+      "created": "2026-09-22T15:48:35.457Z",
+      "modified": "2026-09-22T15:48:35.457Z",
+      "lineStatuses": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+          "id": 0,
+          "statusSeverity": 10,
+          "statusSeverityDescription": "Good Service",
+          "created": "0001-01-01T00:00:00",
+          "validityPeriods": []
+        }
+      ],
+      "routeSections": [],
+      "serviceTypes": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineServiceTypeInfo",
+          "name": "Regular"
+        }
+      ],
+      "crowding": {
+        "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+      }
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.Line, Tfl.Api.Presentation.Entities",
+      "id": "155",
+      "name": "155",
+      "modeName": "bus",
+      "disruptions": [],
+      "created": "2026-09-22T15:48:35.457Z",
+      "modified": "2026-09-22T15:48:35.457Z",
+      "lineStatuses": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+          "id": 0,
+          "statusSeverity": 0,
+          "statusSeverityDescription": "Special Service",
+          "created": "0001-01-01T00:00:00",
+          "validityPeriods": [],
+          "reason": "Route 155 is diverted.",
+          "disruption": {
+            "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+            "category": "RealTime",
+            "description": "Route 155 is diverted.",
+            "affectedRoutes": [],
+            "affectedStops": []
+          }
+        },
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+          "id": 0,
+          "statusSeverity": 17,
+          "statusSeverityDescription": "Issues Reported",
+          "created": "0001-01-01T00:00:00",
+          "validityPeriods": []
+        }
+      ],
+      "routeSections": [],
+      "serviceTypes": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineServiceTypeInfo",
+          "name": "Regular"
+        }
+      ],
+      "crowding": {
+        "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+      }
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.Line, Tfl.Api.Presentation.Entities",
+      "id": "333",
+      "name": "333",
+      "modeName": "bus",
+      "disruptions": [],
+      "created": "2026-09-22T15:48:35.457Z",
+      "modified": "2026-09-22T15:48:35.457Z",
+      "lineStatuses": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+          "id": 0,
+          "statusSeverity": 3,
+          "statusSeverityDescription": "Part Suspended",
+          "created": "0001-01-01T00:00:00",
+          "validityPeriods": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.ValidityPeriod, Tfl.Api.Presentation.Entities",
+              "fromDate": "2026-09-25T11:00:00Z",
+              "toDate": "2026-09-25T14:00:00Z",
+              "isNow": true
+            }
+          ],
+          "reason": "KENNINGTON PARK ROAD, Kennington: Routes 333 and 415   are diverted away from Kennington Park Road due to emergency gas works. Use stops on Kennington Road.",
+          "disruption": {
+            "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+            "category": "RealTime",
+            "description": "KENNINGTON PARK ROAD, Kennington: Routes 333 and 415   are diverted away from Kennington Park Road due to emergency gas works. Use stops on Kennington Road.",
+            "affectedRoutes": [],
+            "affectedStops": []
+          }
+        }
+      ],
+      "routeSections": [],
+      "serviceTypes": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineServiceTypeInfo",
+          "name": "Regular"
+        }
+      ],
+      "crowding": {
+        "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+      }
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.Line, Tfl.Api.Presentation.Entities",
+      "id": "415",
+      "name": "415",
+      "modeName": "bus",
+      "disruptions": [],
+      "created": "2026-09-22T15:48:35.457Z",
+      "modified": "2026-09-22T15:48:35.457Z",
+      "lineStatuses": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+          "id": 0,
+          "statusSeverity": 2,
+          "statusSeverityDescription": "Suspended",
+          "created": "0001-01-01T00:00:00",
+          "validityPeriods": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.ValidityPeriod, Tfl.Api.Presentation.Entities",
+              "fromDate": "2026-09-25T11:00:00Z",
+              "toDate": "2026-09-25T18:00:00Z",
+              "isNow": true
+            }
+          ],
+          "reason": "KENNINGTON PARK ROAD, Kennington: Routes 333 and 415   are diverted away from Kennington Park Road due to emergency gas works. Use stops on Kennington Road.",
+          "disruption": {
+            "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+            "category": "RealTime",
+            "description": "KENNINGTON PARK ROAD, Kennington: Routes 333 and 415   are diverted away from Kennington Park Road due to emergency gas works. Use stops on Kennington Road.",
+            "affectedRoutes": [],
+            "affectedStops": []
+          }
+        }
+      ],
+      "routeSections": [],
+      "serviceTypes": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.LineServiceTypeInfo",
+          "name": "Regular"
+        }
+      ],
+      "crowding": {
+        "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+      }
+    }
+  ],
+  "disruptions": {
+    "940GZZLUKNG": [
+      {
+        "$type": "Tfl.Api.Presentation.Entities.DisruptedPoint, Tfl.Api.Presentation.Entities",
+        "atcoCode": "940GZZLUKNG",
+        "fromDate": "2026-09-23T12:00:00Z",
+        "description": "KENNINGTON UNDERGROUND STATION: The southbound Charing Cross branch platform is closed for cleaning.",
+        "commonName": "Kennington Underground Station",
+        "type": "Information",
+        "mode": "tube",
+        "stationAtcoCode": "940GZZLUKNG",
+        "appearance": "PlannedWork",
+        "additionalInformation": "",
+        "toDate": "2026-09-25T14:00:00Z"
+      },
+      {
+        "$type": "Tfl.Api.Presentation.Entities.DisruptedPoint, Tfl.Api.Presentation.Entities",
+        "atcoCode": "940GZZLUKNG",
+        "fromDate": "2026-09-23T12:00:00Z",
+        "description": "Kennington station: The southbound Charing Cross branch platform is closed for cleaning.",
+        "commonName": "Kennington Underground Station",
+        "type": "Information",
+        "mode": "tube",
+        "stationAtcoCode": "940GZZLUKNG",
+        "appearance": "PlannedWork",
+        "additionalInformation": "",
+        "toDate": "2026-09-26T12:00:00Z"
+      },
+      {
+        "$type": "Tfl.Api.Presentation.Entities.DisruptedPoint, Tfl.Api.Presentation.Entities",
+        "atcoCode": "940GZZLUKNG",
+        "fromDate": "2026-09-23T12:00:00Z",
+        "description": "KENNINGTON UNDERGROUND STATION: The lift to the Bank branch is out of service.",
+        "commonName": "Kennington Underground Station",
+        "type": "Information",
+        "mode": "tube",
+        "stationAtcoCode": "940GZZLUKNG",
+        "appearance": "PlannedWork",
+        "additionalInformation": "",
+        "toDate": "2026-09-25T11:00:00Z"
+      },
+      {
+        "$type": "Tfl.Api.Presentation.Entities.DisruptedPoint, Tfl.Api.Presentation.Entities",
+        "atcoCode": "940GZZLUKNG",
+        "fromDate": "2026-09-23T12:00:00Z",
+        "description": "Kennington: No step-free access to the platforms.",
+        "commonName": "Kennington Underground Station",
+        "type": "Information",
+        "mode": "tube",
+        "stationAtcoCode": "940GZZLUKNG",
+        "appearance": "PlannedWork",
+        "additionalInformation": ""
+      }
+    ],
+    "490000077E": [],
+    "490000077F": [
+      {
+        "$type": "Tfl.Api.Presentation.Entities.DisruptedPoint, Tfl.Api.Presentation.Entities",
+        "atcoCode": "490000077F",
+        "fromDate": "2026-09-23T12:00:00Z",
+        "description": "Stop F is closed because of road works. Use stop E.",
+        "commonName": "Kennington Station",
+        "type": "Information",
+        "mode": "bus",
+        "stationAtcoCode": "490000077F",
+        "appearance": "PlannedWork",
+        "additionalInformation": "",
+        "toDate": "2026-09-28T12:00:00Z"
+      }
+    ]
+  },
+  "roads": [
+    {
+      "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+      "id": "TIMS-1",
+      "url": "/Road/all/Disruption/TIMS-1",
+      "severity": "Severe",
+      "ordinal": 0,
+      "category": "Collisions",
+      "subCategory": "Collisions",
+      "comments": "[A3] Kennington Park Road (SE11) (Lambeth) - Northbound closed at Kennington Cross after a collision.",
+      "currentUpdate": "",
+      "corridorIds": [],
+      "startDateTime": "2026-09-25T07:00:00Z",
+      "lastModifiedTime": "2026-09-25T11:40:00Z",
+      "levelOfInterest": "Low",
+      "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+      "status": "Active",
+      "isProvisional": false,
+      "hasClosures": true,
+      "point": "[-0.1055,51.4851]",
+      "endDateTime": "2026-09-25T15:00:00Z"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+      "id": "TIMS-2",
+      "url": "/Road/all/Disruption/TIMS-2",
+      "severity": "Serious",
+      "ordinal": 0,
+      "category": "Works",
+      "subCategory": "Works",
+      "comments": "[A202] Camberwell New Road (SE5) (Lambeth) - Lane restrictions for gas main repairs.",
+      "currentUpdate": "",
+      "corridorIds": [],
+      "startDateTime": "2026-09-25T07:00:00Z",
+      "lastModifiedTime": "2026-09-25T11:40:00Z",
+      "levelOfInterest": "Low",
+      "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+      "status": "Active",
+      "isProvisional": false,
+      "hasClosures": true,
+      "point": "[-0.1010,51.4790]"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+      "id": "TIMS-3",
+      "url": "/Road/all/Disruption/TIMS-3",
+      "severity": "Serious",
+      "ordinal": 0,
+      "category": "Works",
+      "subCategory": "Works",
+      "comments": "[A13] Commercial Road (E1) (Tower Hamlets) - Lane closures for Thames Water works.",
+      "currentUpdate": "",
+      "corridorIds": [],
+      "startDateTime": "2026-09-25T07:00:00Z",
+      "lastModifiedTime": "2026-09-25T11:40:00Z",
+      "levelOfInterest": "Low",
+      "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+      "status": "Active",
+      "isProvisional": false,
+      "hasClosures": true,
+      "point": "[-0.0550,51.5130]",
+      "endDateTime": "2026-09-29T12:00:00Z"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+      "id": "TIMS-4",
+      "url": "/Road/all/Disruption/TIMS-4",
+      "severity": "Serious",
+      "ordinal": 0,
+      "category": "Hazard(s)",
+      "subCategory": "Hazard(s)",
+      "comments": "Somewhere TfL doesn't say.",
+      "currentUpdate": "",
+      "corridorIds": [],
+      "startDateTime": "2026-09-25T07:00:00Z",
+      "lastModifiedTime": "2026-09-25T11:40:00Z",
+      "levelOfInterest": "Low",
+      "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+      "status": "Active",
+      "isProvisional": false,
+      "hasClosures": true
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+      "id": "TIMS-5",
+      "url": "/Road/all/Disruption/TIMS-5",
+      "severity": "Moderate",
+      "ordinal": 0,
+      "category": "Works",
+      "subCategory": "Works",
+      "comments": "[A23] Kennington Road (SE11) (Lambeth) - Footway works.",
+      "currentUpdate": "",
+      "corridorIds": [],
+      "startDateTime": "2026-09-25T07:00:00Z",
+      "lastModifiedTime": "2026-09-25T11:40:00Z",
+      "levelOfInterest": "Low",
+      "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+      "status": "Active",
+      "isProvisional": false,
+      "hasClosures": true,
+      "point": "[-0.1100,51.4900]"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+      "id": "TIMS-6",
+      "url": "/Road/all/Disruption/TIMS-6",
+      "severity": "Severe",
+      "ordinal": 0,
+      "category": "Collisions",
+      "subCategory": "Collisions",
+      "comments": "[M25] Junction 16 (Denham) - Clockwise closed after a collision.",
+      "currentUpdate": "",
+      "corridorIds": [],
+      "startDateTime": "2026-09-25T07:00:00Z",
+      "lastModifiedTime": "2026-09-25T11:40:00Z",
+      "levelOfInterest": "Low",
+      "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+      "status": "Active",
+      "isProvisional": false,
+      "hasClosures": true,
+      "point": "[-0.4900,51.5800]",
+      "endDateTime": "2026-09-25T14:00:00Z"
+    }
+  ],
+  "postcodes_io": {
+    "status": 200,
+    "result": {
+      "postcode": "SE17 3LL",
+      "quality": 1,
+      "eastings": 531800,
+      "northings": 178300,
+      "country": "England",
+      "nhs_ha": "London",
+      "longitude": -0.1009,
+      "latitude": 51.4887,
+      "region": "London",
+      "admin_district": "Southwark",
+      "admin_ward": "Newington",
+      "codes": {
+        "admin_district": "E09000028"
+      }
+    }
+  }
+}

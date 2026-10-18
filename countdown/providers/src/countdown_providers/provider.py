@@ -32,7 +32,11 @@ class Provider(Protocol):
         """
         ...
 
-    # Optional, and not part of the protocol: a provider whose data can turn bursty (a release running) defines
+    # Optional, and not part of the protocol: a provider that fetches something once for a whole batch (TfL's line
+    # status, for every stop's lines at once) can set an int `batch_size`, how many ids to pass to fetch() at a time,
+    # in place of the runner's DEFAULT_BATCH_SIZE. A large one makes every id in the shard one batch.
+    #
+    # Also optional: a provider whose data can turn bursty (a release running) defines
     #
     #     def pace(self, item_id: str, fetched: BaseModel) -> int | None
     #

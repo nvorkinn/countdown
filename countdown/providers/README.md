@@ -48,6 +48,9 @@ countdown-core so the providers and renderers share them.
 | `v1:notices:met-office:<place>` | string, TTL ~30 min | provider-met-office, every 5 min | `StoredMetOfficeWarnings` JSON (`store/met_office.py`): the Met Office's warnings RSS for the region a UK postcode in `v1:sub:postcode` is in, its items as JSON; the renderer makes the notices. See [Weather warnings](#weather-warnings) |
 | `v1:notices:bank-holidays` | string, TTL 7 days | provider-bank-holidays, every 6 h, for everyone, with no subscription (`fixed_ids`) | `StoredBankHolidays` JSON (`store/bank_holidays.py`): gov.uk's bank-holidays.json, every division's; each board picks its own (England and Wales, Scotland, Northern Ireland) and words the notice when it draws; see [Bank holidays](#bank-holidays) |
 | `v1:notices:entur:<stop id>` | string, TTL 15 min | provider-entur-situations, every 5 min | `StoredSituations` JSON (`store/situations.py`): Entur's answer to the notice board's situations query for the stop, as it came; the renderer makes the notices; see [Entur's disruptions](#enturs-disruptions) |
+| `v1:notices:tfl-lines:<stop id>` | string, TTL 10 min | provider-tfl-notices, every 2 min | `StoredLineStatus` JSON (`store/tfl_notices.py`): TfL's `/Line/{ids}/Status` for the lines serving the stop, every stop's lines asked about in one request; see [TfL notices](#tfl-notices) |
+| `v1:notices:tfl-stations:<stop id>` | string, TTL 30 min | provider-tfl-notices, every 5 min | `StoredStationDisruptions` JSON: TfL's `/StopPoint/{id}/Disruption` (lifts, entrances...) |
+| `v1:notices:tfl-roads:<place>` | string, TTL 30 min | provider-tfl-notices, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredRoadDisruptions` JSON: the entries of TfL's `/Road/all/Disruption` (one request for every place) within 3 km of the postcode, placed by postcodes.io; `<place>` is `keys.place(postcode)`, e.g. `SE173LL` |
 | `v1:notices:floods:<place>` | string, TTL ~30 min | provider-floods, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredFloods` JSON (`store/floods.py`): the Environment Agency's warnings for the flood areas within 5 km of the postcode, as the EA gives them; the renderer makes the notices; see [Flood warnings](#flood-warnings) |
 | `v1:notices:metalerts` | string, TTL 30 min | provider-metalerts, every 5 min while any screen's postcode is Norwegian | `StoredMetAlerts` JSON (`store/metalerts.py`): MetAlerts' `current.json` for all of Norway, in Norwegian and English, as MET answered; one key, not one per place, see [Norway's weather warnings](#norways-weather-warnings) |
 
@@ -199,6 +202,40 @@ Entur allows a client that names itself 1000 non-trip requests a minute (200 a s
 providers, which send the same name: a stop costs 2 a minute for its departures and a fifth of one for its situations.
 After a 429 the situations provider asks nothing more for a minute.
 
+### TfL notices
+
+The notice board's TfL disruptions are written by `provider-tfl-notices` (`tfl_notices/main.py`): one process running
+three providers side by side (`runner.serve_all`), each with its own subscriptions, pace and key. They store TfL's
+answers, read with the models of TfL's answers (`tfl/models.py`) and written back under TfL's names, and the
+renderer's sources (`notices/tfl.py`) make the notices from them as the board polls: which statuses are worth a
+notice, which have ended, the shortened station names, the tags in the screen's language.
+
+- **Line status**, by stop (`v1:sub:tfl`): each stop's lines are looked up once a day (`/StopPoint/{id}`), then
+  every line any stop needs is asked about at once (`/Line/{ids}/Status`; its `batch_size` makes every stop one
+  batch), and each stop gets its own lines' statuses. A line's status is the same for every screen, so ten screens on
+  the Northern line cost one request, not ten.
+- **Stations**, by stop: `/StopPoint/{id}/Disruption`, a request per stop.
+- **Roads**, by place (`v1:sub:postcode`, UK postcodes only; Norway's have no TfL roads): `/Road/all/Disruption` once,
+  cut to what's within 3 km of each postcode, placed by postcodes.io once per postcode (a postcode doesn't move).
+
+A stop with nothing wrong, or that isn't a bus stop or Tube station, is still written (with nothing in it), and so is
+a place outside London, so "nothing to report" isn't "no data". A missing key is a failed poll (a `LookupError`), and
+the board keeps that source's last notices. Postcodes stay out of the logs, and so does the app key (a failed
+request is logged as its error's name and status, not its URL). `tests/fixtures/tfl_notices.json` is a set of TfL's
+answers and `tfl_notices_expected.json` the notices the renderer made from them when it asked TfL itself, which the
+stored values must still make.
+
+The renderers read these keys only, so the provider must be running, and its keys there, for their TfL notices. Its
+first cycle runs as it starts; to check, on the host:
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:tfl*"'
+```
+
+lists a `tfl-lines` and a `tfl-stations` key for each stop in `v1:sub:tfl`, and a `tfl-roads` key for each UK
+postcode in `v1:sub:postcode`. The broker writes that set on every config save, so it's empty (and there are no road
+keys) until a config has been saved since the broker started writing it.
+
 ### Flood warnings
 
 `provider-floods` (`floods/main.py`) writes the Environment Agency's flood warnings near each UK postcode in
@@ -344,12 +381,12 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL, weather, Entur's departures and situations, Met Office, bank holidays, floods,
-MetAlerts) are on: they're services in `../server/deploy/docker-compose.yml`, so every deploy starts and upgrades them,
-and `--wait` fails the deploy if one won't stay up. `release.yml`'s `deploy-renderers` job passes them the repo's
-secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`) and `TFL_APP_KEY`; without the password the
-deploy fails rather than start them unauthenticated. They need the broker writing subscriptions (auth-broker) and Redis
-running on the host (`127.0.0.1:6379`, reached over host networking).
+This repository's providers (TfL's departures and notices, weather, Entur's departures and situations, Met Office,
+bank holidays, floods, MetAlerts) are on: they're services in `../server/deploy/docker-compose.yml`, so every deploy
+starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s `deploy-renderers` job
+passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`) and `TFL_APP_KEY`;
+without the password the deploy fails rather than start them unauthenticated. They need the broker writing
+subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking).
 auth-broker's providers (energy, music, developer) are switched on in auth-broker, and deployed with the broker.
 
 The renderers read the store: the orchestrator's `RENDERER_REDIS_URL` defaults to `redis://127.0.0.1:6379/0` in
@@ -361,12 +398,14 @@ as an upgrade, like a new image. The renderers read TfL's and Entur's departures
 `v1:art:<sha1>`, from auth-broker's `spotify-provider`) only from the store, and the developer panel
 (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; of the notice board's sources, the Met
 Office's warnings (`v1:notices:met-office:<place>`), the bank holidays (`v1:notices:bank-holidays`), the Environment
-Agency's flood warnings (`v1:notices:floods:<place>`) and Entur's disruptions (`v1:notices:entur:<stop id>`, from
-`provider-entur-situations`) come from the store, and the rest still straight
-from their APIs. So each provider must be running for its panels to have anything to draw.
+Agency's flood warnings (`v1:notices:floods:<place>`), Entur's disruptions (`v1:notices:entur:<stop id>`, from
+`provider-entur-situations`) and TfL's disruptions (`v1:notices:tfl-*`, from `provider-tfl-notices`) come from the
+store, and the rest still straight from their APIs. So each provider must be running for its panels to have anything to
+draw.
 
 The notice providers need auth-broker's postcode subscriptions (`v1:sub:postcode`) deployed first; see [Weather
-warnings](#weather-warnings) and [Flood warnings](#flood-warnings) for how to check their keys are there.
+warnings](#weather-warnings), [Flood warnings](#flood-warnings) and [TfL notices](#tfl-notices) for how to check their
+keys are there.
 
 A release that moves a panel to the store ships its provider in the same deploy, and the provider fetches as it starts,
 so its keys are there within seconds; until they are, the panel keeps what it had (a renderer remade by the upgrade

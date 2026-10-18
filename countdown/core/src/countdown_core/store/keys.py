@@ -142,6 +142,32 @@ def entur_situations(stop_id: str) -> str:
     return f"{PREFIX}:notices:entur:{stop_id}"
 
 
+def tfl_line_status(stop_id: str) -> str:
+    """Return the key of the status of the lines serving a TfL stop, e.g. `v1:notices:tfl-lines:490000123W`.
+
+    Written by the TfL notices provider, which asks TfL about every subscribed stop's lines at once; holds a
+    countdown_core.store.tfl_notices.StoredLineStatus.
+    """
+    return f"{PREFIX}:notices:tfl-lines:{stop_id}"
+
+
+def tfl_stations(stop_id: str) -> str:
+    """Return the key of what's wrong at a TfL stop (lifts, entrances...), e.g. `v1:notices:tfl-stations:940GZZLUKNG`.
+
+    Written by the TfL notices provider; holds a countdown_core.store.tfl_notices.StoredStationDisruptions.
+    """
+    return f"{PREFIX}:notices:tfl-stations:{stop_id}"
+
+
+def tfl_roads(postcode: str) -> str:
+    """Return the key of the road disruptions near a postcode's place, e.g. `v1:notices:tfl-roads:SE173LL`.
+
+    Written by the TfL notices provider, for every UK postcode in `v1:sub:postcode`; holds a
+    countdown_core.store.tfl_notices.StoredRoadDisruptions.
+    """
+    return f"{PREFIX}:notices:tfl-roads:{place(postcode)}"
+
+
 def floods(postcode: str) -> str:
     """Return the key of the Environment Agency's flood warnings near a UK postcode, e.g. `v1:notices:floods:SE173LL`.
 
