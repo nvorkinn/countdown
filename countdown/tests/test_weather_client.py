@@ -3,6 +3,7 @@
 import asyncio
 import datetime as dt
 import json
+from types import SimpleNamespace
 
 import pytest
 from test_utils import REGISTRATION
@@ -12,17 +13,27 @@ from countdown_api.models import Weather as WeatherSection
 from countdown_core.store import keys, reader
 from countdown_core.weather import weather_client
 from countdown_core.weather.models import Upcoming, Weather, WeatherPeriod
-from countdown_core.weather.weather_client import NoStoredForecastError, WeatherClient
+from countdown_core.weather.weather_client import NoStoredForecastError, WeatherClient, location_key
 
 FORECAST_JSON = forecast_json()
+LONDON = "london-gb-2643743"
 
 
 def _forecast_at(time: str) -> dict:
     return {**FORECAST_JSON, "current": {**FORECAST_JSON["current"], "time": time}}
 
 
-def make_client(location: str = "London") -> WeatherClient:
-    return WeatherClient(REGISTRATION, WeatherSection(api_key="", location=location))
+def weather_section(location: str = "London", key: str | None = None) -> WeatherSection:
+    """Return the broker's weather section, with `key` set past validation.
+
+    So it holds whether or not the contract the tests run against has `Weather.key` yet.
+    """
+    section = WeatherSection(api_key="", location=location)
+    return section.model_copy(update={"key": key}) if key is not None else section
+
+
+def make_client(location: str = "London", key: str | None = None) -> WeatherClient:
+    return WeatherClient(REGISTRATION, weather_section(location, key))
 
 
 def put_forecast(store, forecast: dict = FORECAST_JSON, location: str = "London") -> None:
@@ -68,6 +79,55 @@ def test_update_reads_the_locations_forecast_from_the_store(store, reads):
         upcoming_weather_code=(Upcoming.TONIGHT, 61),
     )
     assert reads == [keys.weather("London")]
+
+
+def test_update_reads_the_forecast_under_the_places_key(store, reads):
+    """The broker subscribes the picked place's key, so screens that typed "London" and "london" share a forecast."""
+    put_forecast(store, location=LONDON)
+
+    assert asyncio.run(make_client(key=LONDON).update()).weather.temperature == 14.2
+    assert reads == [keys.weather(LONDON)]
+
+
+def test_until_the_places_key_is_in_the_store_it_reads_the_one_under_the_location(store, reads):
+    """Just after the broker starts sending keys: the provider hasn't fetched the key's, the old one hasn't expired."""
+    put_forecast(store, location="London")
+
+    assert asyncio.run(make_client(key=LONDON).update()).weather.temperature == 14.2
+    assert reads == [keys.weather(LONDON), keys.weather("London")]
+
+
+def test_the_forecast_under_the_places_key_wins_over_the_one_under_the_location(store, reads):
+    put_forecast(store, location="London")
+    put_forecast(store, forecast_json(current={"temperature_2m": -3.0}), location=LONDON)
+
+    assert asyncio.run(make_client(key=LONDON).update()).weather.temperature == -3.0
+    assert reads == [keys.weather(LONDON)]
+
+
+def test_neither_in_the_store_raises_so_the_last_panel_stays(reads):
+    with pytest.raises(NoStoredForecastError, match=LONDON):
+        asyncio.run(make_client(key=LONDON).update())
+    assert reads == [keys.weather(LONDON), keys.weather("London")]
+
+
+def test_a_key_that_is_the_location_is_read_once(reads):
+    with pytest.raises(NoStoredForecastError):
+        asyncio.run(make_client(location="london", key="london").update())
+    assert reads == [keys.weather("london")]
+
+
+@pytest.mark.parametrize(
+    ("section", "expected"),
+    [
+        (weather_section("London", LONDON), LONDON),
+        (weather_section("London"), "London"),  # an older broker sends null: it subscribes the location
+        (weather_section(""), ""),
+        (SimpleNamespace(api_key="", location="London"), "London"),  # a contract that predates Weather.key
+    ],
+)
+def test_the_location_key_is_the_brokers_key_or_else_its_location(section, expected):
+    assert location_key(section) == expected
 
 
 def test_without_a_store_it_cant_be_built_and_says_why(monkeypatch):
@@ -241,3 +301,12 @@ def test_needs_refresh_only_when_the_location_changes():
 
     assert not client.needs_refresh(WeatherSection(api_key="new", location="London"))  # keyless API
     assert client.needs_refresh(WeatherSection(api_key="old", location="Paris"))
+
+
+def test_needs_refresh_when_the_key_changes_or_the_broker_starts_sending_one():
+    client = make_client(key=LONDON)
+
+    assert not client.needs_refresh(weather_section("London", LONDON))
+    assert client.needs_refresh(weather_section("London", "london-ca-6058560"))  # London, Ontario
+    assert client.needs_refresh(weather_section("London"))
+    assert make_client().needs_refresh(weather_section("London", LONDON))

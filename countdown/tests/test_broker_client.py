@@ -7,8 +7,10 @@ import responses
 from config_factory import broker_payload, make_config
 from pydantic import ValidationError
 
+from countdown_api import models as wire
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core import app
+from countdown_core.weather.weather_client import location_key
 from countdown_credentials import device_name
 from countdown_credentials.registration import RendererRegistration
 
@@ -140,6 +142,31 @@ def test_get_config_parses_glowmarkt_from_a_broker_without_its_switch(isolated_c
 
     assert config.glowmarkt.enabled is None
     assert config.glowmarkt.username == "me@example.com"
+
+
+@pytest.mark.skipif("key" not in wire.Weather.model_fields, reason="the contract predates Weather.key")
+@responses.activate
+def test_get_config_parses_the_weathers_place_key(isolated_cwd):
+    client = _initialised_client()
+    responses.add(
+        responses.GET, CONFIG_URL, json=broker_payload(weather={"location": "London", "key": "london-gb-2643743"})
+    )
+
+    config = client.get_config()
+
+    assert config.weather.location == "London"
+    assert location_key(config.weather) == "london-gb-2643743"
+
+
+@responses.activate
+def test_get_config_from_a_broker_without_the_weathers_key_reads_under_the_location(isolated_cwd):
+    """An older broker subscribes the location's text, and sends no key."""
+    client = _initialised_client()
+    payload = broker_payload(weather={"location": "London"})
+    payload["weather"].pop("key", None)
+    responses.add(responses.GET, CONFIG_URL, json=payload)
+
+    assert location_key(client.get_config().weather) == "London"
 
 
 @responses.activate

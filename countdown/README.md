@@ -144,8 +144,8 @@ marks the selected tab; narrow landscape panels abbreviate the labels. Each time
 is asked to update, it returns the next tab, wrapping back to Now. Rendering a frame does not advance
 it, and the registry keeps the current tab while the client is not due for a poll.
 
-The rotation uses a cached eight-day Open-Meteo forecast, which the weather provider stores for the location, not a
-read per tab. It's read again every 10 minutes, or when the date changes at the weather location. A failed read (the
+The rotation uses a cached eight-day Open-Meteo forecast, which the weather provider stores for the place (under the
+config's `weather.key`, see the providers' README, "Weather"), not a read per tab. It's read again every 10 minutes, or when the date changes at the weather location. A failed read (the
 forecast not in the store, or Redis not answering) keeps the last good frame and does not skip a tab; changing the
 configured location starts a new carousel. With no location configured the panel says it needs configuring.
 
