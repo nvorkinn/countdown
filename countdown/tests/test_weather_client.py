@@ -3,7 +3,6 @@
 import asyncio
 import datetime as dt
 import json
-from types import SimpleNamespace
 
 import pytest
 from test_utils import REGISTRATION
@@ -24,12 +23,8 @@ def _forecast_at(time: str) -> dict:
 
 
 def weather_section(location: str = "London", key: str | None = None) -> WeatherSection:
-    """Return the broker's weather section, with `key` set past validation.
-
-    So it holds whether or not the contract the tests run against has `Weather.key` yet.
-    """
-    section = WeatherSection(api_key="", location=location)
-    return section.model_copy(update={"key": key}) if key is not None else section
+    """Return the broker's weather section; with no key, as a broker that predates it sends it."""
+    return WeatherSection(api_key="", location=location, key=key)
 
 
 def make_client(location: str = "London", key: str | None = None) -> WeatherClient:
@@ -123,7 +118,6 @@ def test_a_key_that_is_the_location_is_read_once(reads):
         (weather_section("London", LONDON), LONDON),
         (weather_section("London"), "London"),  # an older broker sends null: it subscribes the location
         (weather_section(""), ""),
-        (SimpleNamespace(api_key="", location="London"), "London"),  # a contract that predates Weather.key
     ],
 )
 def test_the_location_key_is_the_brokers_key_or_else_its_location(section, expected):

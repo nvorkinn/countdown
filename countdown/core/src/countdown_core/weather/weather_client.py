@@ -31,9 +31,9 @@ def location_key(config: WeatherSection) -> str:
     """Return the key the broker subscribes the screen's weather under, e.g. "london-gb-2643743"; "" for none.
 
     That's the config's `key`: the picked place's name, country and Open-Meteo id. A broker that predates `key` sends
-    null (and a contract that predates it has no such field), and subscribes the text in `location` instead.
+    null, and subscribes the text in `location` instead.
     """
-    return getattr(config, "key", None) or config.location
+    return config.key or config.location
 
 
 class WeatherClient(AbstractClient):
