@@ -61,8 +61,8 @@ Set up once, in the repo's Settings:
 ## Providers
 
 The compose file also has a service per provider (`provider-tfl`, `provider-entur`, `provider-entur-situations`,
-`provider-weather`), which every deploy starts and upgrades. They need the repo secrets `REDIS_PASSWORD` and
-`TFL_APP_KEY`. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
+`provider-weather`, `provider-met-office`), which every deploy starts and upgrades. They need the repo secrets
+`REDIS_PASSWORD` and `TFL_APP_KEY`. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
 
 The renderers read what the providers write, so a provider must be running, and its keys in Redis, before the
 renderers can draw from them. A deploy starts both together, and a provider fetches as it starts, so that's seconds;

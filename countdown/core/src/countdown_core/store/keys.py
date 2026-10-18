@@ -98,6 +98,15 @@ def pace(source: str, item_id: str) -> str:
 # Notices (the notice board's sources), one key per source and what it's fetched for. Keys by place use `place`.
 
 
+def met_office(postcode: str) -> str:
+    """Return the key of the Met Office's weather warnings for a UK postcode, e.g. `v1:notices:met-office:SE173LL`.
+
+    Written by provider-met-office; holds a countdown_core.store.met_office.StoredMetOfficeWarnings: the warnings feed
+    of the Met Office region the postcode is in, which the renderer turns into notices.
+    """
+    return f"{PREFIX}:notices:met-office:{place(postcode)}"
+
+
 def entur_situations(stop_id: str) -> str:
     """Return the key of the disruptions at an Entur stop, by its id from `v1:sub:entur`.
 

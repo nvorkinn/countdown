@@ -212,37 +212,18 @@ def test_the_apis_without_a_switch_are_always_on():
         assert is_enabled(section_for(name, config))
 
 
+@pytest.mark.parametrize("enabled", [True, False])
 @pytest.mark.parametrize(
     "credentials",
     [
         {},
-        {"username": "me@example.com"},
-        {"password": "hunter2"},
-        {"username": "  ", "password": "hunter2"},
-        {"username": "me@example.com", "password": ""},
+        {"username": None, "password": None},  # what a broker sent while they were deprecated
+        {"username": "me@example.com", "password": "hunter2"},
     ],
 )
-def test_glowmarkt_is_off_without_both_credentials_from_a_broker_without_its_switch(credentials):
-    """A broker that predates `enabled` has no Glowmarkt switch, so the credentials decide.
-
-    A cleared field can arrive as "" or whitespace as well as null.
-    """
-    assert not is_enabled(Glowmarkt.model_validate({"username": None, "password": None, **credentials}))
-
-
-def test_glowmarkt_is_on_with_both_credentials_from_a_broker_without_its_switch():
-    assert is_enabled(Glowmarkt.model_validate({"username": "me@example.com", "password": " pass word "}))
-
-
-@pytest.mark.parametrize("enabled", [True, False])
-def test_glowmarkt_follows_its_switch_without_credentials(enabled):
-    """The broker sends no credentials, only the switch: the readings come from the store."""
-    assert is_enabled(Glowmarkt.model_validate({"enabled": enabled, "username": None, "password": None})) is enabled
-
-
-@pytest.mark.parametrize("enabled", [True, False])
-def test_glowmarkt_switch_wins_over_credentials(enabled):
-    assert is_enabled(Glowmarkt(enabled=enabled, username="me@example.com", password="hunter2")) is enabled
+def test_glowmarkt_is_on_exactly_when_its_switch_is(enabled, credentials):
+    """Only the switch counts: the readings come from the store, and no credentials ever switch the panel on."""
+    assert is_enabled(Glowmarkt.model_validate({"enabled": enabled, **credentials})) is enabled
 
 
 def test_on_config_update_registers_the_enabled_clients():
@@ -332,7 +313,7 @@ def test_on_config_update_skips_disabled_clients():
 
     asyncio.run(registry.on_config_update(config))
 
-    assert set(registry.clients) == {"notice_board", "tfl", "weather"}  # glowmarkt: no credentials
+    assert set(registry.clients) == {"notice_board", "tfl", "weather"}  # glowmarkt: switched off
 
 
 def test_on_config_update_initialises_new_clients_even_if_one_fails(monkeypatch):
@@ -445,7 +426,7 @@ def test_update_all_has_a_message_for_every_api_without_a_client():
 
 
 def test_update_all_has_a_message_for_a_disabled_client():
-    """Enabled in the config but missing what it needs, like Glowmarkt without credentials."""
+    """Enabled in the config but missing what it needs."""
     glow = FakeClient(None)
     glow.status = ClientStatus.DISABLED
     registry = registry_with(glowmarkt=glow)
@@ -583,23 +564,12 @@ def test_available_is_the_built_clients_that_are_not_disabled():
     assert registry.available() == frozenset({ClientClasses.TFL, ClientClasses.WEATHER})
 
 
-def test_available_leaves_out_glowmarkt_without_credentials_and_spotify_when_off():
+def test_available_leaves_out_glowmarkt_and_spotify_when_off():
     registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
 
     asyncio.run(registry.on_config_update(make_config()))
 
     assert registry.available() == frozenset({ClientClasses.TFL, ClientClasses.WEATHER, ClientClasses.NOTICE_BOARD})
-
-
-@pytest.mark.parametrize("username", [None, "", "   "])
-def test_available_leaves_out_glowmarkt_when_its_username_is_cleared(username):
-    """A broker that predates Glowmarkt's switch sends the credentials, so they decide."""
-    registry = ApiRegistry(REGISTRATION, OtlpPublisher(API_NAMES))
-    glowmarkt = {"enabled": None, "username": username, "password": "pw"}
-
-    asyncio.run(registry.on_config_update(make_config(glowmarkt=glowmarkt)))
-
-    assert ClientClasses.GLOWMARKT not in registry.available()
 
 
 def test_a_client_missing_what_it_needs_is_not_built_and_comes_back_fresh():

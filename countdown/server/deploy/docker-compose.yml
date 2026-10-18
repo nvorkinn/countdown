@@ -81,6 +81,22 @@ services:
         max-size: 10m
         max-file: "3"
 
+  # The Met Office's weather warnings for the notice boards' UK postcodes (v1:sub:postcode), by place.
+  provider-met-office:
+    image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    command: countdown-provider-met-office
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
+    logging:
+      driver: json-file
+      options:
+        tag: provider-met-office
+        max-size: 10m
+        max-file: "3"
+
   # The disruptions at the Entur stops, for the notice board: the same subscriptions as provider-entur, every 5 minutes.
   provider-entur-situations:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
