@@ -13,7 +13,7 @@ def broker_payload(**overrides) -> dict:
         screen=wire.Screen(orientation="vertical", width=480, height=800),
         weather=wire.Weather(api_key="", location=""),
         notice_board=wire.NoticeBoard(postcode=None),
-        tfl=wire.Tfl(app_key="", stop_ids=[]),
+        tfl=wire.Tfl(stop_ids=[]),
         spotify=wire.Spotify(enabled=False),
         glowmarkt=wire.Glowmarkt(enabled=False),
         pairing_code=None,

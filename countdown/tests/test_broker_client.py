@@ -153,8 +153,8 @@ def test_get_config_reads_a_broker_that_still_sends_the_glowmarkt_credentials_as
 def test_get_config_reads_a_broker_that_still_sends_the_tfl_app_key(isolated_cwd):
     """A broker from before it was removed from the contract sends TfL's key beside the stops.
 
-    Nothing here uses it (the providers have their own). It's ignored like any field the renderer doesn't know, not
-    rejected, so the renderers can be released before the broker stops sending it.
+    Nothing here uses it (the providers have their own). It's dropped like any field the renderer doesn't know, not
+    rejected or kept, so the renderers can be released before the broker stops sending it.
     """
     client = _initialised_client()
     responses.add(
@@ -166,6 +166,7 @@ def test_get_config_reads_a_broker_that_still_sends_the_tfl_app_key(isolated_cwd
     config = client.get_config()
 
     assert config.tfl.stop_ids == ["940GZZLUEUS"]
+    assert "tfl-key" not in config.model_dump_json()
     assert config.pairing_code == "ABC123"
 
 

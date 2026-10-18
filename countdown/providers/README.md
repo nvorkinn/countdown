@@ -53,6 +53,7 @@ countdown-core so the providers and renderers share them.
 | `v1:notices:tfl-roads:<place>` | string, TTL 30 min | provider-tfl-notices, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredRoadDisruptions` JSON: the entries of TfL's `/Road/all/Disruption` (one request for every place) within 3 km of the postcode, placed by postcodes.io; `<place>` is `keys.place(postcode)`, e.g. `SE173LL` |
 | `v1:notices:floods:<place>` | string, TTL ~30 min | provider-floods, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredFloods` JSON (`store/floods.py`): the Environment Agency's warnings for the flood areas within 5 km of the postcode, as the EA gives them; the renderer makes the notices; see [Flood warnings](#flood-warnings) |
 | `v1:notices:metalerts` | string, TTL 30 min | provider-metalerts, every 5 min while any screen's postcode is Norwegian | `StoredMetAlerts` JSON (`store/metalerts.py`): MetAlerts' `current.json` for all of Norway, in Norwegian and English, as MET answered; one key, not one per place, see [Norway's weather warnings](#norways-weather-warnings) |
+| `v1:location:<place>` | string, TTL 7 days | provider-locations, every 5 min (each postcode looked up once a day, a new one at once) | `StoredLocation` JSON (`store/location.py`): where a postcode in `v1:sub:postcode` is, from postcodes.io (UK) or Kartverket (Norway), in the fields of `tfl.models.Postcode`, or `"found": false` for one that doesn't exist; the notice board places its postcode only from this, see [Locations](#locations) |
 
 The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
 own tokens, which never leave it (auth-broker's README, "Music in the store"). As the two repositories can't share
@@ -326,6 +327,47 @@ docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 
 `docker logs countdown-renderers-provider-metalerts-1` says why it's missing (`LOG_LEVEL=debug` also shows each answer:
 new or unchanged, how many warnings, and until when it's current).
 
+### Locations
+
+`provider-locations` (`locations/main.py`) is the one process that looks the notice boards' postcodes up: each postcode
+in `v1:sub:postcode`, a UK one with postcodes.io and a Norwegian one (four digits) with Kartverket's address search,
+written to `v1:location:<place>` (`keys.location`, by `keys.place()`: `SE173LL`, `0150`). The board reads it to know
+where it is (its bank holidays' division, its Met Office region, the place MetAlerts' areas must cover) and which
+sources about its place to build, so a renderer asks no one but the store and the broker. Both services' answers are
+kept in the fields the board uses (`tfl.models.Postcode`, which both lookups already gave), so one shape serves both:
+
+```json
+{"fetched_at": "2026-10-18T12:00:00Z", "postcode": "SE17 3LL", "found": true,
+ "location": {"postcode": "SE17 3LL", "latitude": 51.48873, "longitude": -0.09766, "country": "England",
+              "region": "London", "admin_district": "Southwark"}}
+{"fetched_at": "2026-10-18T12:00:00Z", "postcode": "ZZ1 1ZZ", "found": false, "location": null}
+```
+
+A postcode's place doesn't move: each is looked up once, its answer written again every cycle (so a key lasts a week
+after its postcode leaves the set or the provider stops), and asked about again once a day, for postcodes.io's
+corrections and new postcodes. A new postcode is looked up at once, as the broker's nudge runs a cycle when a config is
+saved. A postcode neither service knows is written as not found, and the board says "Unknown postcode"; one they
+couldn't be asked about isn't written, and the board says it couldn't look the postcode up yet and reads again a
+minute later. A failed lookup, or a "not found" for a postcode found before (a terminated one), leaves the last answer
+in place. Nothing either side logs names a postcode or anything worked out from one (its area, region, division or
+coordinates): a failure is logged by the error's type, and urllib3's retry warnings, which quote the URL, are off.
+`tests/fixtures/locations.json` is a cycle, from the services' answers to the stored values, and
+`tests/fixtures/locations_board.json` what the board built and showed from those answers when it looked the postcode
+up itself, which the stored values must still give (`test_locations.py`).
+
+To deploy: the provider must be running, and its keys there, before the renderers rely on them, as the same release's
+renderers place their postcode only from the store: until its key is there a board with a postcode shows nothing about
+its place (it keeps its other notices). It needs auth-broker's postcode subscriptions (`v1:sub:postcode`), already
+deployed. The deploy starts it with the other providers, and its first cycle runs as it starts; check, on the host,
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:location:*"'
+```
+
+lists a key for each postcode in `SMEMBERS v1:sub:postcode`. A missing one is in the provider's log (`docker logs
+countdown-renderers-provider-locations-1`: "Couldn't look up a postcode: ..."), and a renderer whose key isn't there
+logs "No location in the store for the board's postcode yet (is provider-locations running?)" each minute until it is.
+
 ## Running locally
 
 ```sh
@@ -392,13 +434,13 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL's departures and notices, weather, Entur's departures and situations, Met Office,
-bank holidays, floods, MetAlerts) are on: they're services in `../server/deploy/docker-compose.yml`, so every deploy
-starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s `deploy-renderers` job
-passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`) and `TFL_APP_KEY`;
-without the password the deploy fails rather than start them unauthenticated. They need the broker writing
-subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking).
-auth-broker's providers (energy, music, developer) are switched on in auth-broker, and deployed with the broker.
+This repository's providers (TfL's departures and notices, weather, Entur's departures and situations, Met Office, bank
+holidays, floods, MetAlerts, locations) are on: they're services in `../server/deploy/docker-compose.yml`, so every
+deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s `deploy-renderers`
+job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`) and `TFL_APP_KEY`;
+without the password the deploy fails rather than start them unauthenticated. They need the broker writing subscriptions
+(auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking). auth-broker's providers
+(energy, music, developer) are switched on in auth-broker, and deployed with the broker.
 
 The renderers read the store: the orchestrator's `RENDERER_REDIS_URL` defaults to `redis://127.0.0.1:6379/0` in
 the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to each renderer as `REDIS_URL` and
@@ -410,13 +452,14 @@ as an upgrade, like a new image. The renderers read TfL's and Entur's departures
 (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; of the notice board's sources, the Met
 Office's warnings (`v1:notices:met-office:<place>`), the bank holidays (`v1:notices:bank-holidays`), the Environment
 Agency's flood warnings (`v1:notices:floods:<place>`), Entur's disruptions (`v1:notices:entur:<stop id>`, from
-`provider-entur-situations`) and TfL's disruptions (`v1:notices:tfl-*`, from `provider-tfl-notices`) come from the
-store, and the rest still straight from their APIs. So each provider must be running for its panels to have anything to
-draw.
+`provider-entur-situations`), TfL's disruptions (`v1:notices:tfl-*`, from `provider-tfl-notices`) and MET Norway's
+warnings (`v1:notices:metalerts`) come from the store, and so does where the board's postcode is (`v1:location:<place>`,
+from `provider-locations`). So a renderer asks nothing of any API, only the store and the broker, and each provider
+must be running for its panels to have anything to draw.
 
 The notice providers need auth-broker's postcode subscriptions (`v1:sub:postcode`) deployed first; see [Weather
-warnings](#weather-warnings), [Flood warnings](#flood-warnings) and [TfL notices](#tfl-notices) for how to check their
-keys are there.
+warnings](#weather-warnings), [Flood warnings](#flood-warnings), [TfL notices](#tfl-notices) and
+[Locations](#locations) for how to check their keys are there.
 
 A release that moves a panel to the store ships its provider in the same deploy, and the provider fetches as it starts,
 so its keys are there within seconds; until they are, the panel keeps what it had (a renderer remade by the upgrade

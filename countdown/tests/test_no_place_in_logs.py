@@ -7,7 +7,6 @@ retry warnings quote it too. For the same reason nothing logged holds TfL's app 
 """
 
 import asyncio
-import contextlib
 import logging
 import re
 import socket
@@ -23,12 +22,13 @@ from countdown_core.core import log_format
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.notices import location, norway
 from countdown_core.notices import notice_board_client as board_module
-from countdown_core.notices.location import POSTCODES_URL, lookup_postcode, postcode_coordinates
+from countdown_core.notices.location import lookup_postcode, postcode_coordinates
 from countdown_core.notices.models import FloodWarningsResponse
 from countdown_core.notices.norway import ADDRESSES_URL, lookup_norwegian_postcode
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys
 from countdown_core.store.floods import StoredFloods
+from countdown_core.store.location import StoredLocation
 from countdown_core.tfl import tfl_client
 from countdown_core.tfl.models import Postcode
 from countdown_core.tfl.tfl_client import TFL_URL, TflSource
@@ -36,6 +36,7 @@ from countdown_core.weather import open_meteo
 from countdown_core.weather.open_meteo import fetch_forecast, geocode
 from countdown_providers.floods import main as floods_main
 from countdown_providers.floods.main import fetch_flood_areas
+from countdown_providers.locations.main import LocationsProvider
 from countdown_providers.runner import ProviderRunner
 from countdown_providers.tfl.main import TflProvider
 from countdown_providers.tfl_notices.main import TflLineStatusProvider, TflRoadProvider, TflStationProvider
@@ -110,13 +111,6 @@ def retrying_session() -> requests.Session:
     return session
 
 
-@pytest.fixture
-def no_backoff(monkeypatch):
-    """Make every client's retrying session retry at once: the same session, without the test waiting on it."""
-    build = AbstractClient._build_retrying_session
-    monkeypatch.setattr(AbstractClient, "_build_retrying_session", staticmethod(lambda: build(backoff_factor=0)))
-
-
 # --- urllib3's retries, through the real retrying session -----------------------------------------------------------
 
 
@@ -141,7 +135,23 @@ def test_a_retried_connection_failure_logs_no_url(nowhere, caplog, ask, found):
     assert_nothing_says_where(caplog, found)
 
 
-# --- The renderer: the notice board placing its postcode ------------------------------------------------------------
+# --- Placing a postcode: provider-locations looks it up, and the notice board reads where it is from the store -------
+
+
+@pytest.mark.usefixtures("production_logging", "nowhere")
+@pytest.mark.parametrize("postcode", ["SE17 3LL", "3015"], ids=["uk", "norway"])
+def test_a_failed_location_lookup_logs_no_postcode(caplog, postcode):
+    """postcodes.io (Kartverket for Norway) can't be reached: provider-locations', the runner's and urllib3's logs."""
+    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+
+    async def cycle():
+        await redis.sadd(keys.subscription(keys.POSTCODE), postcode)
+        return await ProviderRunner(LocationsProvider(retrying_session(), now=lambda: NOW), redis).run_cycle()
+
+    assert asyncio.run(cycle()) == 0
+
+    assert "Couldn't look up a postcode: ConnectionError" in caplog.messages
+    assert_nothing_says_where(caplog, traces(postcode))
 
 
 @pytest.fixture
@@ -154,22 +164,10 @@ def clock(monkeypatch):
     monkeypatch.setattr(board_module, "datetime", FrozenDatetime)
 
 
-@pytest.mark.usefixtures("production_logging", "no_backoff", "clock", "nowhere")
-@pytest.mark.parametrize(
-    ("postcode", "country", "found"),
-    [("SE17 3LL", None, traces("SE17 3LL")), ("3015", "NO", traces("3015"))],
-    ids=["uk", "norway"],
-)
-def test_a_failed_location_lookup_logs_no_postcode(caplog, postcode, country, found):
-    """postcodes.io (Kartverket for Norway) can't be reached: the board's own log, and urllib3's, name nothing."""
-    client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=postcode, country=country))
-    client.session.trust_env = False
-
-    with contextlib.suppress(RuntimeError):  # whether the board draws without it isn't what's under test
-        asyncio.run(client.update())
-
-    assert "Couldn't look up the postcode: ConnectionError" in caplog.messages
-    assert_nothing_says_where(caplog, found)
+def put_location(store, postcode: str, place: Postcode) -> None:
+    """Store where `postcode` is, as provider-locations writes it."""
+    stored = StoredLocation(fetched_at=NOW, postcode=postcode, found=True, location=place)
+    store.set(keys.location(postcode), stored.model_dump_json())
 
 
 @pytest.mark.usefixtures("production_logging", "clock")
@@ -184,28 +182,32 @@ def test_a_failed_location_lookup_logs_no_postcode(caplog, postcode, country, fo
         ),
     ],
 )
-def test_a_placed_postcode_and_its_stored_sources_log_no_place(caplog, place, found):
-    """Placed, and its sources read from an empty store: the success, and each missing key, logged without where."""
-    with responses.RequestsMock() as api:
-        api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", json={"result": place})
+def test_a_placed_postcode_and_its_stored_sources_log_no_place(store, caplog, place, found):
+    """Placed from the store, its sources read from it with nothing there: the success, and each missing key."""
+    put_location(store, "SE17 3LL", Postcode.model_validate(place))
+    with responses.RequestsMock():  # and nothing asked of the network
         client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode="SE17 3LL"))
         with pytest.raises(RuntimeError, match=r"^None of the notice sources could be reached$"):
             asyncio.run(client.update())
 
-    assert "Notice board: location lookup succeeded; bank holidays for england-and-wales" in caplog.messages
+    assert "Notice board: found the postcode's location; reading its local notices" in caplog.messages
     assert "TfL roads: No TfL road disruptions in the store for the board's postcode" in caplog.messages
     assert_nothing_says_where(caplog, found)
 
 
 @pytest.mark.usefixtures("production_logging", "clock")
-def test_a_placed_norwegian_postcode_logs_no_place(caplog):
+def test_a_placed_norwegian_postcode_logs_no_place(store, caplog):
     with responses.RequestsMock() as api:
         api.add(responses.GET, ADDRESSES_URL, json={"adresser": [DRAMMEN]})
+        drammen = lookup_norwegian_postcode(requests.Session(), "3015")  # as provider-locations places it
+    assert drammen is not None
+    put_location(store, "3015", drammen)
+    with responses.RequestsMock():
         client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode="3015", country="NO"))
         with pytest.raises(RuntimeError, match=r"^None of the notice sources could be reached$"):
             asyncio.run(client.update())
 
-    assert "Notice board: location lookup succeeded, in Norway" in caplog.messages
+    assert "Notice board: found the postcode's location; reading its local notices" in caplog.messages
     assert_nothing_says_where(caplog, traces("3015", "Drammen", 59.74389, 10.20449))
 
 

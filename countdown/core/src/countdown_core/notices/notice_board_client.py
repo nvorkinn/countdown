@@ -9,11 +9,12 @@ from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.i18n import N_, local_zone
 from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
 from countdown_core.notices.floods import StoredFloodWarningsSource
-from countdown_core.notices.location import lookup_postcode
 from countdown_core.notices.met_office import StoredMetOfficeWarningsSource
-from countdown_core.notices.norway import NorwegianHolidaySource, StoredMetAlertsSource, lookup_norwegian_postcode
+from countdown_core.notices.norway import NorwegianHolidaySource, StoredMetAlertsSource
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.tfl import StoredTflRoadSource
+from countdown_core.store import keys, reader
+from countdown_core.store.location import StoredLocation
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -29,8 +30,9 @@ logger = logging.getLogger(__name__)
 # A source that keeps failing has its last notices dropped after this long, so a delay
 # that cleared hours ago isn't still on the board.
 STALE_AFTER = timedelta(hours=1)
-# How long to wait before trying postcodes.io again after it couldn't be reached.
-LOCATION_RETRY = timedelta(minutes=10)
+# How long to wait before reading the postcode's location from the store again when it isn't there (yet): a poll, as a
+# read costs nothing upstream, and provider-locations writes a new postcode's within seconds of the config's save.
+LOCATION_RETRY = timedelta(minutes=1)
 
 
 @dataclass(frozen=True)
@@ -100,40 +102,46 @@ class NoticeBoardClient(AbstractClient):
         return StoredBankHolidaySource()
 
     def _ensure_location(self, now: datetime) -> None:
+        """Add the sources about the postcode's place once the store says where it is (provider-locations writes it).
+
+        Until it does (or while the store can't be read), the board says it couldn't look the postcode up yet, and
+        reads again after LOCATION_RETRY. A postcode the store says doesn't exist gets "Unknown postcode", for good.
+        """
         if not self.postcode or self.location is not None:
             return
         if self.location_tried is not None and now - self.location_tried < LOCATION_RETRY:
             return
         self.location_tried = now
-        lookup = lookup_norwegian_postcode if self.norwegian else lookup_postcode
         try:
-            location = lookup(self.session, self.postcode)
-        except Exception as e:  # noqa: BLE001 -- whatever went wrong, it's tried again after LOCATION_RETRY
-            logger.warning("Couldn't look up the postcode: %s", type(e).__name__)
+            stored = reader.read(reader.require_store(), keys.location(self.postcode), StoredLocation)
+        except Exception as e:  # noqa: BLE001 -- no store, Redis down, a provider on another version: tried again
+            logger.warning("Couldn't read the postcode's location from the store: %s", type(e).__name__)
             return
+        if stored is None:
+            # Not the key: where the board is stays out of the logs.
+            logger.warning("No location in the store for the board's postcode yet (is provider-locations running?)")
+            return
+        location = stored.location
         if location is None:
             country = "Norwegian" if self.norwegian else "UK"
             logger.warning("The configured postcode isn't a known %s postcode; no local notices", country)
-            self.postcode = None  # don't keep asking about a postcode that doesn't exist
+            self.postcode = None  # it doesn't exist: nothing more to read about it
             self.unknown_postcode = True
             self.sources.append(self._default_holidays())
             return
         self.location = location
         if self.norwegian:
             self.sources += [NorwegianHolidaySource(self.session), StoredMetAlertsSource(self.session, location)]
-            logger.info("Notice board: location lookup succeeded, in Norway")
-            return
-        bank_holidays = StoredBankHolidaySource(location.country)
-        met_office = StoredMetOfficeWarningsSource(self.session, location, self.postcode)
-        self.sources += [
-            bank_holidays,
-            met_office,
-            StoredFloodWarningsSource(self.session, self.postcode),
-            StoredTflRoadSource(self.session, self.postcode),
-        ]
-        # Otherwise a quiet board gives no sign the postcode was placed. Not where it is (its district, region or Met
-        # Office region): the logs go to the central log store. The bank holidays' division is just the country.
-        logger.info("Notice board: location lookup succeeded; bank holidays for %s", bank_holidays.division)
+        else:
+            self.sources += [
+                StoredBankHolidaySource(location.country),
+                StoredMetOfficeWarningsSource(self.session, location, self.postcode),
+                StoredFloodWarningsSource(self.session, self.postcode),
+                StoredTflRoadSource(self.session, self.postcode),
+            ]
+        # Otherwise a quiet board gives no sign the postcode was placed. Nothing about where: not its area, region or
+        # bank holidays' division either, as each says roughly where the board, and someone's home, is.
+        logger.info("Notice board: found the postcode's location; reading its local notices")
 
     def _refresh(self, source: NoticeSource, now: datetime) -> None:
         last = self.last_tried.get(source)

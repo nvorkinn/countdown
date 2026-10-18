@@ -28,6 +28,7 @@ from countdown_core.notices.met_office import NoStoredWarningsError, StoredMetOf
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
+from countdown_core.store.location import StoredLocation
 from countdown_core.store.met_office import StoredMetOfficeWarnings
 from countdown_core.tfl.models import Postcode
 from countdown_providers.met_office.main import FEED_URL, MetOfficeProvider
@@ -364,17 +365,18 @@ def test_the_board_shows_what_the_provider_wrote_for_its_postcode(api, clock, la
     assert_same_notices(asyncio.run(board.update()).notices, sorted(in_force, key=lambda n: Severity[n["severity"]]))
 
 
-def test_the_board_reads_the_warnings_under_its_own_postcode_once_its_placed(api, store, clock, caplog):
-    add_postcode(api, SOUTHWARK)
+def test_the_board_reads_the_warnings_under_its_own_postcode_once_its_placed(store, clock, caplog):
+    location = StoredLocation(fetched_at=NOW, postcode="SE17 3LL", found=True, location=SOUTHWARK)
+    store.set(keys.location("SE17 3LL"), location.model_dump_json())  # as provider-locations placed it
     store.set("v1:notices:met-office:SE173LL", json.dumps(STORED))
     client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode="SE17 3LL"))
-    client._refresh = lambda source, now: None  # only the lookup is under test here
+    client._refresh = lambda source, now: None  # only placing the postcode is under test here
 
-    with caplog.at_level("INFO", logger="countdown_core.notices.notice_board_client"), pytest.raises(RuntimeError):
+    with caplog.at_level("DEBUG"), pytest.raises(RuntimeError):
         asyncio.run(client.update())  # sources added, but none has answered yet
 
     [source] = [s for s in client.sources if isinstance(s, StoredMetOfficeWarningsSource)]
-    assert_same_notices(source.fetch(NOW), FEED_NOTICES["en"])
     assert source.region == "se"
-    # Placed, but not where: a region says where the screen is.
-    assert "Notice board: location lookup succeeded; bank holidays for england-and-wales" in caplog.messages
+    assert_same_notices(source.fetch(NOW), FEED_NOTICES["en"])
+    # The region says roughly where the board is, so it isn't logged.
+    assert not any("region" in message for message in caplog.messages)
