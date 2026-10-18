@@ -4,6 +4,11 @@ A cycle runs at once on start, then on every epoch-aligned tick of the provider'
 `v1:sub:changed` (the broker saved a config) runs one early, and SIGINT/SIGTERM let the current cycle finish and then
 stop. Nothing in a cycle crashes the process: a failed batch is logged and skipped (its keys just expire), and an
 unreachable Redis is logged and tried again on the next tick.
+
+What's logged never says where a screen is (the logs go to the central log store). A failure is logged by its reason
+and traceback, not its text, which for a failed request quotes the URL (a postcode's, its place's or its coordinates',
+or TfL's app key) and for a failed Redis pipeline its keys and values. A failed batch is named by its first id only for
+a source whose ids are stops (NAMED_SOURCES); a postcode or a weather place is withheld.
 """
 
 import asyncio
@@ -16,6 +21,7 @@ from typing import TYPE_CHECKING
 
 from redis.exceptions import RedisError
 
+from countdown_core.core.log_format import error_reason, without_text
 from countdown_core.store import keys
 from countdown_providers.sharding import Shard
 
@@ -38,6 +44,10 @@ DEFAULT_BATCH_SIZE = 10
 PACE_TTL_S = 60
 # How long to wait before resubscribing to `v1:sub:changed` after losing Redis.
 RESUBSCRIBE_S = 5.0
+# The sources whose ids the logs may name: stop ids, which say which stop a screen shows. Any other's say where a
+# screen, and someone's home, is (a postcode, a weather place: a town, or typed text, which can be a postcode), so a
+# failed batch of them is logged by its size alone. A provider with fixed_ids reads no source, so isn't named either.
+NAMED_SOURCES = frozenset({keys.TFL, keys.ENTUR})
 
 
 def next_tick(now: float, interval_s: float) -> float:
@@ -66,6 +76,7 @@ class ProviderRunner:
         self.shard = shard or Shard()
         self.batch_size = batch_size or getattr(provider, "batch_size", DEFAULT_BATCH_SIZE)
         self.clock = clock
+        self.names_ids = provider.name in NAMED_SOURCES
         self._stopping = asyncio.Event()
         # Set by a `v1:sub:changed` message; cleared as each cycle starts, so one arriving mid-cycle runs another.
         self._nudged = asyncio.Event()
@@ -107,9 +118,17 @@ class ProviderRunner:
         for batch in batched(mine, self.batch_size, strict=False):
             try:
                 results = await self.provider.fetch(list(batch))
-            except Exception:
-                # Its keys aren't refreshed, so they expire (and their panels hide) if this keeps up.
-                logger.exception("%s: couldn't fetch %d ids (%s...)", self.provider.name, len(batch), batch[0])
+            except Exception as e:
+                # Its keys aren't refreshed, so they expire (and their panels hide) if this keeps up. Not
+                # logger.exception, whose traceback ends in the error's text: this one ends in its reason.
+                logger.error(  # noqa: TRY400 -- the traceback is there, without the text (see the module docstring)
+                    "%s: couldn't fetch %d ids%s: %s",
+                    self.provider.name,
+                    len(batch),
+                    f" ({batch[0]}...)" if self.names_ids else "",
+                    error_reason(e),
+                    exc_info=without_text(e),
+                )
                 continue
             # Only what was asked for: a provider can't write over another shard's (or source's) keys by mistake.
             fetched = {item_id: model for item_id, model in results.items() if item_id in batch}
@@ -149,7 +168,9 @@ class ProviderRunner:
         try:
             await self.run_cycle()
         except RedisError as e:
-            logger.warning("%s: couldn't reach Redis (%s); trying again next tick", self.provider.name, e)
+            # A failed pipeline's text quotes its commands, each key and value: a place's, only by its reason.
+            reason = e if self.names_ids else error_reason(e)
+            logger.warning("%s: couldn't reach Redis (%s); trying again next tick", self.provider.name, reason)
 
     async def _wait_for_next_cycle(self) -> None:
         """Sleep until the next tick, or until a subscription change or stop() if sooner."""

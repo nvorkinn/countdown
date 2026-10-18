@@ -101,8 +101,8 @@ def test_the_forecast_under_the_places_key_wins_over_the_one_under_the_location(
 
 
 def test_neither_in_the_store_raises_so_the_last_panel_stays(reads):
-    with pytest.raises(NoStoredForecastError, match=LONDON):
-        asyncio.run(make_client(key=LONDON).update())
+    with pytest.raises(NoStoredForecastError, match=r"^No forecast in the store for the screen's place$"):
+        asyncio.run(make_client(key=LONDON).update())  # not naming the key: the registry logs this
     assert reads == [keys.weather(LONDON), keys.weather("London")]
 
 

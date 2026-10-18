@@ -82,6 +82,14 @@ Failures stay small: a batch whose fetch raises is logged and skipped (its keys 
 provider couldn't fetch is just left out, and an unreachable Redis is logged and retried on the next tick. A missed
 nudge only delays a change until the next tick, as every cycle re-reads the subscriptions.
 
+Nothing logged says where a screen is (the logs go to the central log store): no postcode, place, district or
+coordinates, nor a URL with one in it. So a failure is logged by its reason (`log_format.error_reason`: the error's
+type, and an HTTP error's status), never its text, which for a failed request quotes the URL (TfL's has the app key
+in it) and for a failed Redis pipeline its keys and values. The runner names a failed batch by its first id only for stops (`runner.NAMED_SOURCES`;
+a postcode or a weather place is withheld), with its traceback but not its text (`log_format.without_text`). urllib3,
+whose every retry warning quotes the URL, is kept quiet in every process by `configure_logging`, so a request that's
+retried and then works logs nothing, and one that fails for good is logged by whoever made it.
+
 ### Covers
 
 The playing track's cover is in the store too, as the image itself, so the renderer never calls Spotify's or Apple's
@@ -263,7 +271,8 @@ The value is the EA's own answer, the warnings' items in the EA's names (those n
 The renderer makes the notices from it as it reads it (`notices/floods.py`, `StoredFloodWarningsSource`), so their
 words are in the screen's language then; a missing key keeps the board's last flood notices. Nothing the provider logs
 names a postcode or anything worked out from one (not its district, nor a URL with it or its coordinates in it): a
-failure is logged by the error's type alone, and urllib3's retry warnings, which quote their URLs, are turned off.
+failure is logged by the error's type alone, and urllib3's retry warnings, which quote their URLs, are turned off (in
+every process, see [The model](#the-model)).
 `tests/fixtures/floods.json` is one cycle, from the EA's answers to the stored values, and
 `tests/fixtures/floods_notices.json` the notices the board made from the same warnings when it asked the EA itself,
 which the stored values must still make.
@@ -397,7 +406,9 @@ every id is fetched by exactly one copy. (Not Python's `hash()`, which differs f
    new, its key builder to `keys.py`.
 2. Add `countdown_providers/<name>/main.py` with a class matching the `Provider` protocol (`provider.py`): `name` (the
    `v1:sub:<name>` set it reads), `ttl_s`, `interval_s`, `output_key(id)` and `async fetch(ids)`. `fetch` returns a
-   model per id it could fetch and leaves out (and logs) the rest rather than raising. Reuse the renderer's client from
+   model per id it could fetch and leaves out (and logs) the rest rather than raising. If its ids say where a screen is
+   (a postcode, a place), its logs mustn't name them, nor anything worked out from one: log a failure by
+   `log_format.error_reason(e)`, not `e`. Reuse the renderer's client from
    countdown-core where there is one; a synchronous one runs in `asyncio.to_thread`, as `tfl/main.py` does. One that
    fetches the same thing for every screen, with nothing to subscribe to, sets `fixed_ids` instead of reading a set
    (see `provider.py`), as `bank_holidays/main.py` does for gov.uk's one file.

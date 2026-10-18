@@ -18,6 +18,7 @@ import requests
 import responses
 from responses import matchers
 
+from countdown_core.core import log_format
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.notices import location
 from countdown_core.notices.location import POSTCODES_URL
@@ -269,13 +270,14 @@ def test_nothing_logged_names_a_postcode_or_its_district_or_place(api, clock, ca
 
 @pytest.fixture
 def provider_logging(monkeypatch):
-    """Configure the logs as the provider's main() does (bar the JSON handler), then put urllib3's level back."""
-    monkeypatch.setattr(floods_main, "configure_logging", lambda: None)
-    urllib3 = logging.getLogger("urllib3")
-    level = urllib3.level
-    floods_main.configure_provider_logging()
+    """Configure the logs as the provider's main() does (bar the JSON handler), then put the loggers' levels back."""
+    monkeypatch.setattr(log_format.logging, "basicConfig", lambda **kwargs: None)
+    loggers = [logging.getLogger(name) for name in (*log_format.NOISY, *log_format.SILENCED)]
+    levels = [logger.level for logger in loggers]
+    floods_main.configure_logging()
     yield
-    urllib3.setLevel(level)
+    for logger, level in zip(loggers, levels, strict=True):
+        logger.setLevel(level)
 
 
 def test_urllib3s_retry_warnings_which_quote_the_postcodes_url_are_kept_out(

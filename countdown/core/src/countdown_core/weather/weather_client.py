@@ -107,6 +107,8 @@ class WeatherClient(AbstractClient):
         if stored is None and self.location and self.location != self.key:
             stored = reader.read(self.store, keys.weather(self.location), StoredForecast)
         if stored is None:
-            msg = f"No forecast in the store for {self.key!r}"
+            # Not naming the key: the registry logs this, and the key says where the screen is (a town, or typed text,
+            # which can be a postcode).
+            msg = "No forecast in the store for the screen's place"
             raise NoStoredForecastError(msg)
         return stored.forecast
