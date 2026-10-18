@@ -265,6 +265,15 @@ def test_with_nothing_in_the_store_for_any_stop_it_raises_a_lookup_error(store):
     assert MAJORSTUEN_ID in str(raised.value)
 
 
+def test_no_stops_is_no_notices_without_asking_the_store(store, monkeypatch):
+    def unreachable(*args):
+        pytest.fail("asked the store")
+
+    monkeypatch.setattr(store, "mget", unreachable)
+
+    assert StoredEnturSituationsSource(store, []).fetch(NOW) == []
+
+
 def test_a_stop_the_store_has_nothing_for_yet_is_left_out_and_said(store, provide, caplog):
     provide(QUAY_ID)
 
