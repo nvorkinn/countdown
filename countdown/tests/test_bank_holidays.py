@@ -163,9 +163,8 @@ def test_tomorrow_becomes_today_at_midnight_from_the_same_stored_holidays(server
     [before] = source.fetch(datetime(2026, 12, 24, 23, 55, tzinfo=UTC))
     [after] = source.fetch(datetime(2026, 12, 25, 0, 5, tzinfo=UTC))
 
+    # The board reads every source on every poll, so that's on time; reading the store is all it does.
     assert (before.text, after.text) == ("Tomorrow: Christmas Day", "Today: Christmas Day")
-    # Polled often enough for that to be on time, and reading the store is all it does.
-    assert source.refresh_interval <= timedelta(minutes=10)
 
 
 @pytest.fixture
@@ -186,11 +185,11 @@ def test_the_notice_is_worded_in_the_screens_language_when_it_is_drawn(server, n
     assert source.fetch(datetime(2026, 12, 24, 12, tzinfo=UTC))[0].text == "Tomorrow: Christmas Day"
 
 
-def test_no_stored_holidays_is_a_lookup_error_so_the_board_keeps_its_last_notice(server):
+def test_no_stored_holidays_is_a_no_stored_data_error_so_the_board_leaves_them_out(server):
     with pytest.raises(NoStoredBankHolidaysError, match="provider-bank-holidays") as raised:
         StoredBankHolidaySource().fetch(datetime(2026, 12, 24, 12, tzinfo=UTC))
 
-    assert isinstance(raised.value, LookupError)
+    assert isinstance(raised.value, reader.NoStoredDataError)
 
 
 def test_stored_holidays_without_the_division_are_a_lookup_error(server):
@@ -211,7 +210,7 @@ def test_without_a_store_the_board_is_still_built_and_only_this_source_fails(mon
         source.fetch(datetime(2026, 12, 24, 12, tzinfo=UTC))
 
 
-def test_the_board_keeps_the_last_bank_holiday_while_the_key_is_missing(server, monkeypatch):
+def test_the_board_drops_the_bank_holiday_once_its_key_has_expired(server, monkeypatch):
     now = datetime(2026, 12, 24, 12, tzinfo=UTC)
 
     class FrozenDatetime(datetime):
@@ -226,6 +225,7 @@ def test_the_board_keeps_the_last_bank_holiday_while_the_key_is_missing(server, 
     assert notice.text == "Tomorrow: Christmas Day"
 
     fakeredis.FakeRedis(server=server).delete(keys.bank_holidays())  # the provider's been down for a week
-    now += timedelta(minutes=10)
+    now += timedelta(minutes=1)
 
-    assert asyncio.run(client.update()).notices == [notice]
+    # Its only source with data to read has none, so "All clear" would be a guess.
+    assert asyncio.run(client.update()).message == "Not available"

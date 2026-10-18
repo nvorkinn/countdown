@@ -1,17 +1,15 @@
-"""The developer panel's notices, from what its client last fetched."""
+"""The developer panel's notices, from what the developer provider stored."""
 
-from datetime import timedelta
 from typing import TYPE_CHECKING, override
 
 from countdown_core.i18n import _, local_zone
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
+from countdown_core.store import developer
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    import requests
-
-    from countdown_core.developer.developer_client import DeveloperClient
+    import redis
 
 # A plan this far used up gets a notice.
 NEARLY_USED_UP = 0.9
@@ -20,23 +18,22 @@ NEARLY_USED_UP = 0.9
 class DeveloperNoticeSource(NoticeSource):
     """A failing build, a release failed or waiting for approval, a plan renewing soon or nearly used up.
 
-    It asks nothing itself: it reads the client's last answer, so it has nothing until the client has fetched.
+    It reads `v1:developer:<device id>` itself, each time the board asks, as the developer panel does: so it says what
+    the store has now, and nothing once the key has expired.
     """
 
     name = "Developer"
-    refresh_interval = timedelta(minutes=1)
-    needs_network = False
 
-    def __init__(self, session: requests.Session, client: DeveloperClient) -> None:
-        """Read `client`'s last answer (`session` is unused: the client does the fetching)."""
-        super().__init__(session)
-        self.client = client
+    def __init__(self, store: redis.Redis, device_id: str) -> None:
+        """Read the device `device_id`'s developer data from `store`."""
+        # Never asks GitHub itself (the provider does), so it has no session (NoticeSource.__init__).
+        self.store = store
+        self.device_id = device_id
 
     @override
     def fetch(self, now: datetime) -> list[Notice]:
-        summary = self.client.summary
-        if summary is None:
-            return []
+        """Make the notices from what's stored: NoStoredDeveloperError if there's none, RedisError if it can't ask."""
+        summary = developer.read(self.store, self.device_id)
         notices = []
         if summary.github is not None:
             notices.extend(

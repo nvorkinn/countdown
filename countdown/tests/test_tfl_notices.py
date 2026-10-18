@@ -495,11 +495,11 @@ def test_main_serves_the_three_with_the_app_key_and_the_store_from_the_environme
 
 
 @pytest.mark.parametrize("index", [0, 1, 2], ids=["lines", "stations", "roads"])
-def test_a_source_with_nothing_in_the_store_raises_a_lookup_error(index):
-    """So the board keeps its last notices."""
+def test_a_source_with_nothing_in_the_store_raises_a_no_stored_data_error(index):
+    """So the board leaves it out."""
     source = stored_sources()[index]
 
-    with pytest.raises(LookupError):
+    with pytest.raises(reader.NoStoredDataError):
         source.fetch(NOW)
 
 

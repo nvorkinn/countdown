@@ -6,7 +6,7 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     import requests
 
@@ -37,12 +37,11 @@ class Notice:
 class NoticeSource(ABC):
     """One feed the notice board polls.
 
-    Each source decides for itself what's worth reporting and returns it as Notices; the board handles when to call
-    it, what to do when it fails, and how everything is ranked and drawn.
+    Each source decides for itself what's worth reporting and returns it as Notices; the board asks every source on
+    every poll, and handles what to do when one fails and how everything is ranked and drawn.
     """
 
     name: str
-    refresh_interval: timedelta
     # False for a source that works everything out locally (the clocks changing), so the
     # board doesn't count its answers as proof that anything could be reached.
     needs_network = True
@@ -55,5 +54,6 @@ class NoticeSource(ABC):
     def fetch(self, now: datetime) -> list[Notice]:
         """Return everything this source currently has to say (empty if all is well).
 
-        Raises if the feed can't be reached or read, so the board keeps the last good answer.
+        Raises if it can't say: a NoStoredDataError if its key in the store has expired (or isn't there yet), so the
+        board leaves it out, or a RedisError if the store can't be asked, so the board keeps what it last showed.
         """

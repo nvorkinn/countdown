@@ -14,12 +14,13 @@ from config_factory import make_config
 from test_utils import REGISTRATION
 
 from countdown_core.core.api_registry import API_NAMES, ApiRegistry, FailedClient
-from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings, NoStoredDeveloperError
+from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
 from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.models import AiPlan, DeveloperSummary, Release
 from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.notices.notice import Severity
 from countdown_core.store import keys, reader
+from countdown_core.store.developer import NoStoredDeveloperError
 from countdown_credentials.registration import Registration
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "developer.json").read_text())
@@ -72,7 +73,7 @@ def test_the_shared_fixture_reads_back(client, store):
 
 
 def test_parity_the_stored_panel_is_the_one_the_brokers_answer_drew(client, store):
-    """The broker's old answer was the fixture without `fetched_at`: the same summary, panel and notices from it."""
+    """The broker's old answer was the fixture without `fetched_at`: the same summary and panel from it."""
     answer = {k: v for k, v in FIXTURE.items() if k != "fetched_at"}
     # What the removed path made of the broker's /api/developer answer.
     old = DeveloperPanel(DeveloperSummary.model_validate_json(json.dumps(answer)), "card")
@@ -82,11 +83,6 @@ def test_parity_the_stored_panel_is_the_one_the_brokers_answer_drew(client, stor
 
     assert DeveloperSummary.model_validate(new.summary.model_dump(exclude={"fetched_at"})) == old.summary
     assert (new.style, new.has_release) == (old.style, old.has_release)
-    old_client = DeveloperClient(REGISTRATION, DeveloperSettings(enabled=True, style="card"))
-    old_client.summary = old.summary
-    (new_notices,) = client.notice_sources()
-    (old_notices,) = old_client.notice_sources()
-    assert new_notices.fetch(NOW) == old_notices.fetch(NOW)
 
 
 def test_a_stored_panel_without_a_github_token_still_has_the_plans(client, store):
@@ -98,12 +94,23 @@ def test_a_stored_panel_without_a_github_token_still_has_the_plans(client, store
     assert len(panel.summary.plans) == 3
 
 
-def test_nothing_stored_raises_a_lookup_error_so_the_last_panel_stays(client, store):
+def test_nothing_stored_says_the_developer_panel_is_not_available(client, store):
+    """The key has expired (the developer provider is down): nothing older than its TTL is drawn."""
     with pytest.raises(NoStoredDeveloperError) as raised:
-        asyncio.run(client.update())
+        client._update()
+    panel = asyncio.run(client.update())
 
-    assert isinstance(raised.value, LookupError)
-    assert client.summary is None
+    assert isinstance(raised.value, reader.NoStoredDataError)
+    assert (panel.title, panel.message) == ("Developer", "Not available")
+
+
+def test_an_expired_key_is_not_available_on_the_next_poll(client, store):
+    _put(store, ANSWER)
+    assert isinstance(asyncio.run(client.update()), DeveloperPanel)
+
+    store.delete(KEY)
+
+    assert asyncio.run(client.update()).message == "Not available"
 
 
 def test_a_store_that_cant_be_read_raises(client, monkeypatch):
@@ -147,15 +154,15 @@ def test_a_renderer_without_a_store_shows_the_developer_panel_as_failing(monkeyp
     assert asyncio.run(registry.update_all())["developer"].message == "Could not connect"
 
 
-def test_no_notices_before_the_first_answer(client):
+def test_the_notice_source_raises_while_nothing_is_stored_so_the_board_leaves_it_out(client):
     (source,) = client.notice_sources()
 
-    assert source.fetch(NOW) == []
+    with pytest.raises(NoStoredDeveloperError):
+        source.fetch(NOW)
 
 
 def test_notices_for_failing_builds_renewals_and_a_plan_nearly_used_up(client, store):
     _put(store, ANSWER)
-    asyncio.run(client.update())
     (source,) = client.notice_sources()
 
     notices = [(n.source, n.severity, n.text) for n in source.fetch(NOW)]
@@ -168,11 +175,26 @@ def test_notices_for_failing_builds_renewals_and_a_plan_nearly_used_up(client, s
     ]
 
 
-def test_the_notice_source_asks_nothing_itself(client):
-    """So the notice board doesn't take its answers as a sign it's online."""
+def test_the_notice_source_reads_the_store_itself_not_the_panels_last_poll(client, store):
+    """It used to read the client's last answer, so the board drew the previous cycle's notices: now, the store's."""
+    _put(store, ANSWER)
+    asyncio.run(client.update())  # the panel's poll, before the board's
+    (source,) = client.notice_sources()
+    _put(store, ANSWER | {"github": ANSWER["github"] | {"failing": ["pi-dashboard"]}})  # the provider's next cycle
+
+    texts = [n.text for n in source.fetch(NOW) if n.source == "GitHub"]
+    store.delete(KEY)  # then its key expires
+
+    assert texts == ["pi-dashboard: build failing"]
+    with pytest.raises(NoStoredDeveloperError):
+        source.fetch(NOW)
+
+
+def test_the_notice_source_reads_the_store_so_the_board_counts_it_as_one_that_does(client):
+    """Like the board's other stored sources: if all of theirs have expired, the board says it's not available."""
     (source,) = client.notice_sources()
 
-    assert source.needs_network is False
+    assert source.needs_network is True
 
 
 @pytest.mark.parametrize(
@@ -233,7 +255,6 @@ def test_notices_for_a_release_failed_and_one_waiting_for_approval(client, store
         "failed", title="v2.14.0", repo="pi-dashboard", jobs=[{"key": "b", "name": "b", "state": "failed"}]
     )
     _put(store, _with_releases(_release(), failed))
-    asyncio.run(client.update())
     (source,) = client.notice_sources()
 
     notices = [(n.severity, n.text) for n in source.fetch(NOW) if n.source == "GitHub"]

@@ -170,11 +170,12 @@ def test_departures_client_draws_stored_stops_and_skips_missing_ones(store):
     assert [p.stop_name for p in panel.arrival_panels] == [BUS_STOP.common_name]
 
 
-def test_departures_client_raises_when_nothing_is_in_the_store_so_the_last_panel_stays(store):
+def test_departures_client_says_not_available_when_nothing_is_in_the_store(store):
     client = DeparturesClient(REGISTRATION, make_config(["490000999Z"]))
     asyncio.run(client.initialise())
-    with pytest.raises(RuntimeError):
+    with pytest.raises(NoStoredDeparturesError):
         client._update()
+    assert asyncio.run(client.update()).message == "Not available"
 
 
 # --- Entur from the store -----------------------------------------------------------
@@ -301,6 +302,6 @@ def test_weather_comes_from_the_store_without_asking_open_meteo(store):
     assert len(responses.calls) == 0
 
 
-def test_weather_not_in_the_store_raises_so_the_last_panel_stays(store):
+def test_weather_not_in_the_store_raises_so_the_panel_says_not_available(store):
     with pytest.raises(NoStoredForecastError):
         make_weather_client("London")._update()

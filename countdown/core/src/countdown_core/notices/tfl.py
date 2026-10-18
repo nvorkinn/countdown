@@ -8,7 +8,6 @@ language and what's current is judged as of drawing.
 
 import json
 import re
-from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 from typing import TYPE_CHECKING, override
 
@@ -19,6 +18,7 @@ from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisrupt
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from datetime import datetime
 
     import requests
 
@@ -43,7 +43,7 @@ ROAD_RADIUS_KM = 3
 ROAD_SEVERITY = {"Severe": Severity.WARNING, "Serious": Severity.INFO}
 
 
-class NoStoredTflNoticesError(LookupError):
+class NoStoredTflNoticesError(reader.NoStoredDataError):
     """The store has nothing for a stop or place: the TfL notices provider is down, or hasn't fetched it yet."""
 
 
@@ -53,8 +53,8 @@ class StoredTflNoticeSource(NoticeSource):
     def _read_all[M: Stored](self, item_keys: list[str], model: type[M]) -> list[M]:
         """Return the values stored under `item_keys`, in order, in one round trip.
 
-        Raises NoStoredTflNoticesError if any is missing, so the board keeps the last notices rather than show half of
-        them, StoreNotConfiguredError without a store, and RedisError if Redis can't be asked. The store is looked up
+        Raises NoStoredTflNoticesError if any is missing, so the board leaves the source out rather than show half of
+        it, StoreNotConfiguredError without a store, and RedisError if Redis can't be asked. The store is looked up
         here rather than when the source is made, so the board can build its sources without one.
         """
         if not item_keys:
@@ -70,8 +70,6 @@ class StoredTflLineStatusSource(StoredTflNoticeSource):
     """Delays, closures and suspensions on the lines and bus routes serving the stops, as stored by stop."""
 
     name = "TfL line status"
-    # The provider asks TfL every two minutes; reading the store is cheap.
-    refresh_interval = timedelta(minutes=2)
 
     def __init__(self, session: requests.Session, stop_ids: list[str]) -> None:
         """Read the status of the lines serving the TfL stops `stop_ids`; `session` is the board's (unused)."""
@@ -92,8 +90,6 @@ class StoredTflStationSource(StoredTflNoticeSource):
     """Lifts out of order, closed entrances and the like at the stops themselves, as stored by stop."""
 
     name = "TfL stations"
-    # The provider asks TfL every five minutes.
-    refresh_interval = timedelta(minutes=5)
 
     def __init__(self, session: requests.Session, stop_ids: list[str]) -> None:
         """Read what's wrong at the TfL stops `stop_ids`; `session` is the board's (unused)."""
@@ -110,8 +106,6 @@ class StoredTflRoadSource(StoredTflNoticeSource):
     """Serious and severe road incidents near the postcode, as stored by place. London only, as TfL's are."""
 
     name = "TfL roads"
-    # The provider asks TfL every five minutes.
-    refresh_interval = timedelta(minutes=5)
 
     def __init__(self, session: requests.Session, postcode: str) -> None:
         """Read the incidents near `postcode` (the broker's, as the provider was subscribed to it)."""

@@ -10,7 +10,6 @@ from weather_factory import forecast_json
 
 from countdown_api.models import Weather as WeatherSection
 from countdown_core.store import keys, reader
-from countdown_core.weather import weather_client
 from countdown_core.weather.models import Upcoming, Weather, WeatherPeriod
 from countdown_core.weather.weather_client import NoStoredForecastError, WeatherClient, location_key
 
@@ -100,15 +99,21 @@ def test_the_forecast_under_the_places_key_wins_over_the_one_under_the_location(
     assert reads == [keys.weather(LONDON)]
 
 
-def test_neither_in_the_store_raises_so_the_last_panel_stays(reads):
+def test_neither_in_the_store_raises_a_no_stored_data_error(reads):
     with pytest.raises(NoStoredForecastError, match=r"^No forecast in the store for the screen's place$"):
-        asyncio.run(make_client(key=LONDON).update())  # not naming the key: the registry logs this
+        make_client(key=LONDON)._update()  # not naming the key: it's logged
+    assert reads == [keys.weather(LONDON), keys.weather("London")]
+
+
+def test_neither_in_the_store_says_the_weather_is_not_available(reads):
+    panel = asyncio.run(make_client(key=LONDON).update())
+
+    assert (panel.title, panel.message) == ("Weather", "Not available")
     assert reads == [keys.weather(LONDON), keys.weather("London")]
 
 
 def test_a_key_that_is_the_location_is_read_once(reads):
-    with pytest.raises(NoStoredForecastError):
-        asyncio.run(make_client(location="london", key="london").update())
+    assert asyncio.run(make_client(location="london", key="london").update()).message == "Not available"
     assert reads == [keys.weather("london")]
 
 
@@ -160,12 +165,7 @@ def test_no_location_configured_says_it_needs_configuring_without_reading_the_st
     assert reads == []
 
 
-def test_a_forecast_not_in_the_store_raises_so_the_last_panel_stays():
-    with pytest.raises(NoStoredForecastError):
-        asyncio.run(make_client().update())
-
-
-def test_each_minute_shows_the_next_tab_without_rereading_the_forecast(store, reads, rotation_clock):
+def test_each_minute_shows_the_next_tab_reading_the_forecast_afresh(store, reads, rotation_clock):
     put_forecast(store)
     client = make_client()
 
@@ -183,68 +183,45 @@ def test_each_minute_shows_the_next_tab_without_rereading_the_forecast(store, re
         WeatherPeriod.TONIGHT,
     ]
     assert len({id(panel) for panel in panels}) == len(panels)
-    assert len(reads) == 1
+    assert reads == [keys.weather("London")] * 6  # once a poll: nothing of it is kept
 
 
-def test_rereads_after_refresh_interval(store, reads, rotation_clock):
-    put_forecast(store)
-    client = make_client()
-    asyncio.run(client.update())
-    client._last_attempt -= weather_client.REFRESH_INTERVAL + dt.timedelta(seconds=1)
-    rotation_clock.advance()
-
-    panel = asyncio.run(client.update())
-
-    assert panel.weather.period is WeatherPeriod.TONIGHT
-    assert len(reads) == 2
-
-
-@pytest.mark.parametrize(
-    ("offset_hours", "local_time", "refresh"),
-    [(-8, "23:59", True), (0, "23:59", True), (14, "23:59", True), (-8, "15:59", False), (14, "13:59", False)],
-)
-def test_date_rollover_uses_the_weather_locations_date_without_resetting_the_carousel(  # noqa: PLR0913, PLR0917 -- three parameters and four fixtures
-    store, reads, offset_hours, local_time, refresh, monkeypatch, rotation_clock
-):
-    first_forecast = forecast_json(current={"time": f"2026-01-15T{local_time}"})
-    next_forecast = forecast_json(current={"time": "2026-01-16T00:01"}, start=dt.date(2026, 1, 16))
-    first_forecast["utc_offset_seconds"] = next_forecast["utc_offset_seconds"] = offset_hours * 3600
-    put_forecast(store, first_forecast)
-    clock = [
-        dt.datetime.fromisoformat(f"2026-01-15T{local_time}").replace(tzinfo=dt.UTC) - dt.timedelta(hours=offset_hours)
-    ]
-
-    class FrozenDatetime(dt.datetime):
-        @classmethod
-        def now(cls, tz=None):
-            return clock[0].astimezone(tz)
-
-    monkeypatch.setattr(weather_client.dt, "datetime", FrozenDatetime)
+def test_a_new_days_forecast_is_drawn_from_the_next_poll(store, rotation_clock):
+    """No cache to outlive: the provider's forecast for the new day is drawn as soon as it's in the store."""
+    put_forecast(store, forecast_json(current={"time": "2026-01-15T23:59"}))
     client = make_client()
     first = asyncio.run(client.update())
-    put_forecast(store, next_forecast)
-    clock[0] += dt.timedelta(minutes=2)
+    put_forecast(store, forecast_json(current={"time": "2026-01-16T00:01"}, start=dt.date(2026, 1, 16)))
     rotation_clock.advance()
 
     second = asyncio.run(client.update())
 
     assert first.weather.period is WeatherPeriod.NOW
     assert second.weather.period is WeatherPeriod.TONIGHT
-    assert second.weather.forecast_date == dt.date(2026, 1, 16 if refresh else 15)
-    assert len(reads) == (2 if refresh else 1)
+    assert second.weather.forecast_date == dt.date(2026, 1, 16)
 
 
-@pytest.mark.parametrize("failure", ["missing", "redis", "misaligned", "incomplete"])
-def test_failed_refresh_keeps_the_last_good_frame(store, failure, monkeypatch, rotation_clock):
+def test_an_expired_forecast_is_not_available_rather_than_the_last_one(store, rotation_clock):
+    """Its key has gone (the provider is down for longer than its TTL): no old forecast is drawn."""
     put_forecast(store)
     client = make_client()
-    first = asyncio.run(client.update())
-    client._last_attempt -= weather_client.REFRESH_INTERVAL
+    asyncio.run(client.update())
+    store.delete(keys.weather("London"))
     rotation_clock.advance()
-    if failure == "missing":
-        store.delete(keys.weather("London"))
-        expected = NoStoredForecastError
-    elif failure == "redis":
+
+    assert asyncio.run(client.update()).message == "Not available"
+    put_forecast(store)  # the provider is back
+    assert asyncio.run(client.update()).weather.period is WeatherPeriod.TONIGHT  # the clock's tab, this minute
+
+
+@pytest.mark.parametrize("failure", ["redis", "misaligned", "incomplete"])
+def test_a_failed_read_raises_so_the_registry_keeps_the_last_panel(store, failure, monkeypatch, rotation_clock):
+    """Redis not answering isn't the forecast expiring, and nor is a forecast that can't be drawn: both raise."""
+    put_forecast(store)
+    client = make_client()
+    asyncio.run(client.update())
+    rotation_clock.advance()
+    if failure == "redis":
         get = store.get
 
         def unreachable(key):
@@ -266,7 +243,6 @@ def test_failed_refresh_keeps_the_last_good_frame(store, failure, monkeypatch, r
     with pytest.raises(expected):
         asyncio.run(client.update())
 
-    assert client._panel is first
     put_forecast(store)
     assert asyncio.run(client.update()).weather.period is WeatherPeriod.TONIGHT  # the clock's tab, this minute
 
@@ -278,7 +254,6 @@ def test_refreshed_forecast_data_is_used_on_the_next_tab(store, rotation_clock):
     refreshed = forecast_json()
     refreshed["hourly"]["precipitation_probability"] = [35] * (8 * 24)
     put_forecast(store, refreshed)
-    client._last_attempt -= weather_client.REFRESH_INTERVAL
     rotation_clock.advance()
 
     tonight = asyncio.run(client.update()).weather
@@ -290,8 +265,7 @@ def test_refreshed_forecast_data_is_used_on_the_next_tab(store, rotation_clock):
 def test_a_forecast_missing_at_first_is_read_on_the_next_cycle(store):
     client = make_client()
 
-    with pytest.raises(NoStoredForecastError):
-        asyncio.run(client.update())
+    assert asyncio.run(client.update()).message == "Not available"
     put_forecast(store)
 
     assert asyncio.run(client.update()).weather.temperature == 14.2

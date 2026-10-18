@@ -105,7 +105,6 @@ class NorwegianHolidaySource(NoticeSource):
     """
 
     name = "Public holidays"
-    refresh_interval = timedelta(minutes=10)  # so "Tomorrow" becomes "Today" on time
     needs_network = False
 
     @override
@@ -218,7 +217,7 @@ def warnings_at(payload: dict, location: Postcode) -> dict:
     return {**payload, "features": features}
 
 
-class NoStoredMetAlertsError(LookupError):
+class NoStoredMetAlertsError(reader.NoStoredDataError):
     """The store has no MET weather warnings: the MetAlerts provider is down, or hasn't fetched them yet."""
 
 
@@ -230,8 +229,6 @@ class StoredMetAlertsSource(NoticeSource):
     """
 
     name = "MET weather warnings"
-    # The provider asks MET every five minutes; reading its answer costs MET nothing.
-    refresh_interval = timedelta(minutes=5)
 
     def __init__(self, session: requests.Session, location: Postcode) -> None:
         """Pick out the warnings for `location`. `session` is the board's, unused: this reads the store, not MET."""
@@ -240,7 +237,7 @@ class StoredMetAlertsSource(NoticeSource):
 
     @override
     def fetch(self, now: datetime) -> list[Notice]:
-        """Read the warnings; raises NoStoredMetAlertsError if the store has none, so the board keeps its last ones.
+        """Read the warnings; raises NoStoredMetAlertsError if the store has none, so the board leaves them out.
 
         Raises StoreNotConfiguredError for a renderer without a store, and whatever Redis raises if it can't be read.
         """

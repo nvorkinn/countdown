@@ -153,7 +153,7 @@ def warning_notices(items: Iterable[FeedItem], now: datetime) -> list[Notice]:
     return notices
 
 
-class NoStoredWarningsError(LookupError):
+class NoStoredWarningsError(reader.NoStoredDataError):
     """The store has no warnings for the postcode: provider-met-office is down, or hasn't fetched them yet."""
 
 
@@ -165,9 +165,6 @@ class StoredMetOfficeWarningsSource(NoticeSource):
     """
 
     name = "Met Office warnings"
-    # Reading the store is cheap, and the provider fetches every 5 minutes: together no slower to show a new warning
-    # than the board fetching the feed itself every 10 was.
-    refresh_interval = timedelta(minutes=5)
 
     def __init__(
         self, session: requests.Session, location: Postcode, postcode: str, store: redis.Redis | None = None

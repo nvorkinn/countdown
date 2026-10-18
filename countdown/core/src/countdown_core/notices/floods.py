@@ -3,7 +3,6 @@
 The renderer never asks the EA itself; the provider fetches each postcode's warnings once for every screen there.
 """
 
-from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, override
 
 from countdown_core.i18n import N_, _
@@ -12,6 +11,8 @@ from countdown_core.store import keys, reader
 from countdown_core.store.floods import StoredFloods
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     import requests
 
     from countdown_core.notices.models import FloodWarningsResponse
@@ -24,7 +25,7 @@ SEVERITY_BY_LEVEL = {
 }
 
 
-class NoStoredFloodsError(LookupError):
+class NoStoredFloodsError(reader.NoStoredDataError):
     """The store has no flood warnings for the postcode: the floods provider is down, or hasn't fetched them yet."""
 
 
@@ -50,8 +51,6 @@ class StoredFloodWarningsSource(NoticeSource):
     """
 
     name = "Flood warnings"
-    # Reading the store is cheap, and the provider asks the EA every 5 minutes.
-    refresh_interval = timedelta(minutes=5)
 
     def __init__(self, session: requests.Session, postcode: str) -> None:
         """Read what the provider found near `postcode`, as the broker sends it (`session` is unused: no HTTP)."""
@@ -62,7 +61,7 @@ class StoredFloodWarningsSource(NoticeSource):
     def fetch(self, now: datetime) -> list[Notice]:
         """Return the stored warnings' notices.
 
-        Raises NoStoredFloodsError if the store has none, so the board keeps the last ones, and
+        Raises NoStoredFloodsError if the store has none, so the board leaves them out, and
         reader.StoreNotConfiguredError if the renderer has no store.
         """
         stored = reader.read(reader.require_store(), self.key, StoredFloods)

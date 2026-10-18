@@ -7,6 +7,7 @@ import requests
 import responses
 from config_factory import make_config
 from PIL import Image, ImageDraw
+from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import REGISTRATION
 
 from countdown_core.core.api_registry import section_for
@@ -18,7 +19,7 @@ from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
 from countdown_core.notices.notice_styles import STYLES
-from countdown_core.notices.tfl import StoredTflRoadSource
+from countdown_core.notices.tfl import NoStoredTflNoticesError, StoredTflRoadSource
 from countdown_core.store import keys
 from countdown_core.store.bank_holidays import StoredBankHolidays
 from countdown_core.store.location import StoredLocation
@@ -239,8 +240,6 @@ def test_reminders_rank_below_current_problems_but_above_planned_works():
 
 
 class FakeSource(NoticeSource):
-    refresh_interval = timedelta(minutes=10)
-
     def __init__(self, name: str, *answers: list[Notice] | Exception):
         super().__init__(requests.Session())
         self.name = name
@@ -315,10 +314,10 @@ def test_board_drops_the_notices_of_a_client_source_it_is_no_longer_given(clock)
     update(client)
 
     client.use_client_sources([new])
-    clock.now += timedelta(minutes=1)  # before the old one's notices would go stale
+    clock.now += timedelta(minutes=1)
 
     assert update(client).notices == []
-    assert old not in client.fetched
+    assert old.calls == 1
 
 
 def test_board_is_empty_when_nothing_is_reported(clock):
@@ -330,31 +329,73 @@ def test_board_is_empty_when_nothing_is_reported(clock):
     assert panel.fitted_height(155) == 0
 
 
-def test_board_only_asks_a_source_again_after_its_refresh_interval(clock):
+def test_board_reads_every_source_on_every_poll(clock):
+    """They're all reads of the store or sums worked out here, so there's nothing to save by asking less often."""
     source = FakeSource("tfl", [])
     client = board_with(source)
 
-    update(client)
-    clock.now += timedelta(minutes=9)
-    update(client)
-    assert source.calls == 1
+    for _ in range(3):
+        update(client)
+        clock.now += timedelta(seconds=20)
 
-    clock.now += timedelta(minutes=1)
-    update(client)
-    assert source.calls == 2
+    assert source.calls == 3
 
 
-def test_board_keeps_a_failing_sources_last_notices_until_they_go_stale(clock):
+def test_board_leaves_out_a_source_whose_key_has_expired(clock, caplog):
+    """No last notices are kept: once the provider's key has expired, the delay it reported is off the board."""
     delay = Notice("TfL", Severity.INFO, "Victoria: Minor Delays")
-    flaky = FakeSource("tfl", [delay], ConnectionError("down"))
-    client = board_with(flaky, FakeSource("met", []))
+    expiring = FakeSource("tfl", [delay], NoStoredTflNoticesError("Nothing in the store at v1:notices:tfl-lines:x"))
+    client = board_with(expiring, FakeSource("met", []))
+
+    assert update(client).notices == [delay]
+    clock.now += timedelta(minutes=1)
+    with caplog.at_level("WARNING", logger=board_module.__name__):
+        assert update(client).notices == []  # the other source answered: all clear, as far as is known
+
+    [record] = caplog.records
+    assert record.getMessage() == "tfl: Nothing in the store at v1:notices:tfl-lines:x"
+    assert not record.exc_info  # expected while a provider is down: no traceback
+
+
+def test_board_leaves_out_a_source_that_fails_and_keeps_none_of_its_notices(clock, caplog):
+    delay = Notice("TfL", Severity.INFO, "Victoria: Minor Delays")
+    broken = FakeSource("tfl", [delay], ValueError("a provider on another version"))
+    client = board_with(broken, FakeSource("met", []))
 
     update(client)
-    clock.now += timedelta(minutes=10)
-    assert update(client).notices == [delay]  # the failure keeps the last answer
+    with caplog.at_level("WARNING", logger=board_module.__name__):
+        assert update(client).notices == []
 
-    clock.now += timedelta(minutes=51)
-    assert update(client).notices == []  # over an hour old: dropped
+    assert caplog.records[0].exc_info  # unexpected: with its traceback
+
+
+def test_board_shows_what_the_sources_still_there_say_when_another_has_expired(clock):
+    amber = Notice("Met Office", Severity.WARNING, "Amber warning: wind")
+    client = board_with(FakeSource("tfl", NoStoredTflNoticesError("gone")), FakeSource("met", [amber]))
+
+    assert update(client).notices == [amber]
+
+
+def test_board_says_not_available_rather_than_all_clear_when_every_sources_key_has_expired(clock):
+    """The local sources (the clocks) can't vouch for the rest: "All clear" would be a guess."""
+    client = board_with(
+        ClockChangeSource(requests.Session()),
+        FakeSource("tfl", NoStoredTflNoticesError("gone")),
+        FakeSource("met", NoStoredTflNoticesError("gone too")),
+    )
+
+    panel = update(client)
+
+    assert (panel.title, panel.message) == ("Notices", "Not available")
+
+
+def test_board_raises_when_redis_does_not_answer_so_the_registry_keeps_the_last_board(clock):
+    """Redis being unreachable isn't the data expiring: nothing is dropped for it."""
+    amber = Notice("Met Office", Severity.WARNING, "Amber warning: wind")
+    client = board_with(FakeSource("met", [amber]), FakeSource("tfl", RedisConnectionError("Timeout reading")))
+
+    with pytest.raises(RedisConnectionError):
+        update(client)
 
 
 def test_board_drops_notices_past_their_end(clock):
@@ -390,7 +431,7 @@ def put_location(store, postcode: str, location: Postcode | None) -> None:
 def test_board_adds_local_sources_once_the_store_says_where_the_postcode_is(store, clock):
     put_location(store, "SE17 3LL", SOUTHWARK)
     client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
-    client._refresh = lambda source, now: None  # only placing the postcode is under test here
+    client._read = lambda sources, now: ({}, set())  # only placing the postcode is under test here
 
     with pytest.raises(RuntimeError):  # sources added, but none has answered yet
         update(client)
@@ -419,7 +460,7 @@ def test_board_reads_the_location_under_its_postcodes_place_however_its_written(
 def test_board_logs_that_it_placed_the_postcode_but_not_where(store, clock, caplog):
     put_location(store, "SE17 3LL", SOUTHWARK)
     client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
-    client._refresh = lambda source, now: None
+    client._read = lambda sources, now: ({}, set())
 
     with caplog.at_level("DEBUG"), pytest.raises(RuntimeError):
         update(client)
@@ -446,13 +487,11 @@ def test_board_with_an_unknown_postcode_says_so(store, clock, caplog):
 
 def test_board_waits_for_a_location_not_in_the_store_yet_and_reads_again_a_poll_later(store, clock, caplog):
     client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
-    client._refresh = lambda source, now: None
+    client._read = lambda sources, now: ({}, set())
 
-    with (
-        caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"),
-        pytest.raises(RuntimeError, match=r"^Couldn't look up the postcode yet$"),
-    ):
-        update(client)
+    with caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"):
+        panel = update(client)  # its key isn't there: the place's notices aren't available
+    assert panel.message == "Not available"
     assert client.location is None
     assert client.postcode == "SE17 3LL"  # still to be placed, unlike an unknown one
     assert not client.unknown_postcode
@@ -475,7 +514,7 @@ def test_board_whose_store_cant_be_read_tries_again_without_naming_the_postcode(
 
     monkeypatch.setattr(store, "get", unreachable)
     client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
-    client._refresh = lambda source, now: None
+    client._read = lambda sources, now: ({}, set())
 
     with (
         caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"),

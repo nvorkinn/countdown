@@ -112,7 +112,7 @@ def test_no_warnings_in_the_store_raises_without_naming_the_postcode(store, no_h
     with pytest.raises(NoStoredFloodsError) as raised:
         StoredFloodWarningsSource(requests.Session(), "SE17 3LL").fetch(NOW)
 
-    assert isinstance(raised.value, LookupError)
+    assert isinstance(raised.value, reader.NoStoredDataError)
     assert "SE17" not in str(raised.value)
     assert len(no_http.calls) == 0
 
@@ -138,22 +138,19 @@ def clock(monkeypatch):
     return Clock
 
 
-def test_the_board_keeps_the_last_flood_notices_while_the_key_is_missing(store, clock, no_http):
+def test_the_board_drops_the_flood_notices_once_the_key_has_expired(store, clock, no_http):
     store.set(keys.floods("SE17 3LL"), json.dumps(stored("SE17 3LL")))
     board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
     board.sources = [StoredFloodWarningsSource(requests.Session(), "SE17 3LL")]
     first = asyncio.run(board.update()).notices
 
     store.delete(keys.floods("SE17 3LL"))  # the provider's down, and its key has expired
-    clock.now += timedelta(minutes=5)
-    kept = asyncio.run(board.update()).notices
-    clock.now += timedelta(hours=1)
-    dropped = asyncio.run(board.update()).notices
+    clock.now += timedelta(minutes=1)
+    expired = asyncio.run(board.update())
 
     assert [n.text for n in first] == [
         "Severe flood warning: Tidal Thames at Bankside and Rotherhithe",
         "Flood warning: River Thames at Southwark",
         "Flood alert: Lower River Effra",
     ]
-    assert kept == first
-    assert dropped == []
+    assert expired.message == "Not available"  # its only source: no old warnings, and no "All clear" either

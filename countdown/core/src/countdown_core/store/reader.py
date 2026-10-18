@@ -5,6 +5,10 @@ Redis wants one). The departures, weather, energy, music and developer clients r
 renderer started without REDIS_URL can't draw them, and those panels show their error state instead. Only the refresh
 pace still copes without one (store()).
 
+Each provider's TTL is the only expiry there is: a key that has expired (or isn't there yet) raises a NoStoredDataError,
+and its panel says "Not available" (AbstractClient.update), while Redis not answering raises a RedisError, which keeps
+the panel the screen last had.
+
 Synchronous (redis.Redis, not redis.asyncio): the clients' _initialise() and _update() run in worker threads.
 """
 
@@ -26,6 +30,15 @@ TIMEOUT_S = 2
 
 class StoreNotConfiguredError(RuntimeError):
     """The renderer was started without REDIS_URL, so it has no store to read its panels' data from."""
+
+
+class NoStoredDataError(LookupError):
+    """The store has nothing under a key a panel needs: its provider is down (the key expired) or hasn't written it yet.
+
+    Every client's and notice source's own "nothing stored" error is one. The client's panel then says "Not available"
+    (AbstractClient.update), and the notice board leaves that source out: nothing is drawn from data older than its TTL.
+    Unlike a KeyError or an IndexError, which are LookupErrors too but bugs.
+    """
 
 
 @functools.cache
@@ -67,7 +80,7 @@ def require_store() -> redis.Redis:
     """Return the client for the store, for a client that has nowhere else to get its data.
 
     Raises StoreNotConfiguredError without REDIS_URL. Only that: making the client doesn't connect, so Redis being
-    down raises later, from each read, and the registry just keeps the last panel.
+    down raises later (a RedisError), from each read, and the registry just keeps the last panel.
     """
     client = store()
     if client is None:

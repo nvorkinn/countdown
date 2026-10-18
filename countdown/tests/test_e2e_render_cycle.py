@@ -15,16 +15,19 @@ import json
 import logging
 import socket
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 import responses
 from config_factory import broker_payload, make_config
 from fake_target import FakeTarget
 from PIL import Image, ImageDraw, ImageFont
+from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import put_departures
 from weather_factory import forecast_json
 
 from countdown_api.models import ConfigResponse, Screen
+from countdown_core import i18n
 from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core import display as display_module
 from countdown_core.core import display_loop
@@ -40,11 +43,15 @@ from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_core.store import keys
 from countdown_core.store.location import StoredLocation
+from countdown_core.store.tfl_notices import StoredLineStatus, StoredStationDisruptions
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.tfl.models import Postcode
 from countdown_core.utils import utils
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_credentials.registration import RendererRegistration
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 TEST_BROKER_URL = "https://broker.example.com"
 DEVICE_ID = "test-device"
@@ -327,7 +334,7 @@ def test_one_provider_being_down_does_not_stop_the_others_reaching_the_screen(is
     _run_cycles(loop, monkeypatch)
 
     assert len(shown) == 1
-    assert shown[0]["tfl"].message == "Could not connect"  # no stop's departures in the store
+    assert shown[0]["tfl"].message == "Not available"  # no stop's departures in the store
     assert isinstance(shown[0]["glowmarkt"], EnergyPanel)
 
 
@@ -689,3 +696,94 @@ def test_a_full_render_cycle_reaches_nothing_but_the_broker(monkeypatch, store, 
     assert isinstance(shown[0]["tfl"], CombinedArrivalPanel)
     assert isinstance(shown[0]["weather"], WeatherPanel)
     assert isinstance(shown[0]["spotify"], SpotifyPanel)
+
+
+# --- Expiry: the provider's TTL is all there is -----------------------------------------------------------------------
+
+
+def _run_cycles_between(loop: DisplayLoop, monkeypatch, *between: Callable[[], None]) -> None:
+    """Run a cycle, then one more after each of `between`, which runs while the loop sleeps (a provider's doing).
+
+    Every client is made due again for each cycle, as a minute's sleep would.
+    """
+    steps = list(between)
+
+    async def fake_sleep(seconds: float) -> None:
+        if not steps:
+            raise _StopLoopError
+        steps.pop(0)()
+        for client in loop.api_reg.clients.values():
+            client.last_updated = None
+
+    monkeypatch.setattr(display_loop, "asyncio", SimpleNamespace(sleep=fake_sleep))
+    with pytest.raises(_StopLoopError):
+        asyncio.run(loop.run())
+
+
+@responses.activate
+def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_down_keeps_the_frame(
+    monkeypatch, store, no_network
+):
+    """The whole render path: the loop, the registry, the real clients reading the store, the layout and the drawing.
+
+    The screen is in Norwegian. Its departures' key expires between the first and second frames (the TfL provider is
+    down), while the energy readings stay: the second frame draws "Ikke tilgjengelig" where the departures were,
+    translated as it's drawn, and none of the old departures. Then Redis stops answering: the third frame keeps
+    what the second drew, rather than saying anything has expired.
+    """
+    monkeypatch.setattr(i18n, "_language", i18n.language())  # put the language back afterwards
+    monkeypatch.setattr(i18n, "_timezone", i18n.local_zone())
+    config = _make_config()
+    config.language, config.timezone = "nb", "Europe/Oslo"
+    config.tfl.stop_ids = [BUS_STOP]
+    _put_stops_and_energy(store, BUS_STOP)
+    now = datetime.datetime.now(datetime.UTC)
+    # The stop's disruptions, as the TfL notices provider keeps them on their own TTLs: all clear.
+    store.set(
+        keys.tfl_line_status(BUS_STOP), StoredLineStatus(fetched_at=now, stop_id=BUS_STOP, lines=[]).model_dump_json()
+    )
+    stations = StoredStationDisruptions(fetched_at=now, stop_id=BUS_STOP, disruptions=[])
+    store.set(keys.tfl_stations(BUS_STOP), stations.model_dump_json())
+    loop = _build_loop(config, monkeypatch)
+    frames: list[tuple[dict, set[str], bytes]] = []
+    texts: list[str] = []
+    original_text = ImageDraw.ImageDraw.text
+    original_render = display_module.render
+
+    def record_text(draw, xy, text, *args, **kwargs):
+        texts.append(text)
+        return original_text(draw, xy, text, *args, **kwargs)
+
+    def record_frame(panels, screen, available, *, clock_format="24h"):
+        texts.clear()
+        frame = original_render(panels, screen, available, clock_format=clock_format)
+        frames.append((dict(panels), set(texts), frame.image.tobytes()))
+        return frame
+
+    def redis_down() -> None:
+        def unreachable(*args, **kwargs):
+            raise RedisConnectionError
+
+        monkeypatch.setattr(store, "get", unreachable)
+        monkeypatch.setattr(store, "mget", unreachable)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", record_text)
+    monkeypatch.setattr(display_module, "render", record_frame)
+
+    _run_cycles_between(loop, monkeypatch, lambda: store.delete(keys.departures(BUS_STOP)), redis_down)
+
+    assert len(frames) == 3
+    (first, first_texts, _), (expired, expired_texts, expired_image), (kept, _, kept_image) = frames
+    assert isinstance(first["tfl"], CombinedArrivalPanel)
+    assert "N155" in first_texts
+    assert expired["tfl"].message == "Not available"
+    # The board has the stop's line status, and Norway's holidays (on Norwegian time with no postcode), worked out
+    # here: so the departures' is the only panel that can say it.
+    assert isinstance(expired["notice_board"], NoticeBoardPanel)
+    assert "Ikke tilgjengelig" in expired_texts  # drawn, in the screen's language
+    assert "Not available" not in expired_texts
+    assert "N155" not in expired_texts  # no old departures
+    assert isinstance(expired["glowmarkt"], EnergyPanel)  # its key is still there: drawn as before
+    # Redis down: every panel read from the store is the one the last frame drew, and so is the picture.
+    assert all(kept[name] is expired[name] for name in ("tfl", "glowmarkt", "notice_board"))
+    assert kept_image == expired_image

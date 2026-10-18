@@ -106,7 +106,9 @@ Glowmarkt or GitHub for them, nor the broker, nor the music services' image host
 a Glowmarkt password, a Spotify token or a GitHub token. Nor does it use TfL's app key: the providers read
 `TFL_APP_KEY` themselves. A
 renderer started without `REDIS_URL` can't build those five, so their areas say "Could not connect" and the log says
-why (`store.reader.require_store`); a key missing from the store, or Redis not answering, is just a failed poll. The
+why (`store.reader.require_store`). Each provider's TTL is the only expiry: a key missing from the store (expired, as
+its provider is down, or not written yet) makes the panel say "Not available", while Redis not answering is just a
+failed poll. The
 notice board reads its bank holidays (`v1:notices:bank-holidays`), the Met Office's warnings
 (`v1:notices:met-office:<place>`), the Environment Agency's flood warnings (`v1:notices:floods:<place>`), Entur's
 disruptions (`v1:notices:entur:<stop id>`) and TfL's disruptions (`v1:notices:tfl-*`) from the store too; its other
@@ -116,8 +118,9 @@ When the config changes, it only rebuilds the clients whose `needs_refresh()`
 says the change affects them. Each client has its own `poll_interval`. The
 clients that are due are polled concurrently, with their blocking `requests`
 calls running in worker threads, so a cycle takes as long as the slowest API.
-A client that isn't due, or whose poll failed, keeps its last panel. An API
-with no panel at all gets a `MessagePanel` ("Not configured", "Could not
+A client that isn't due, or whose poll failed (Redis not answering, say), keeps its last panel; one whose key in the
+store has expired returns a `MessagePanel` saying "Not available" instead (`AbstractClient.update`), so nothing older
+than its provider's TTL is drawn. An API with no panel at all gets a `MessagePanel` ("Not configured", "Could not
 connect"). A client that failed to initialise tries again on its next poll, and
 one broken API never takes the others down.
 
@@ -125,13 +128,15 @@ one broken API never takes the others down.
 status and station disruptions for the configured stops, Met Office warnings,
 Environment Agency flood alerts and TfL road incidents near the owner's postcode
 (placed from the store, where `provider-locations` keeps each postcode's place from postcodes.io), and bank holidays
-and clock changes. Each source
-has its own refresh interval. The board's own sources are about the postcode's place; the disruptions at the stops
-come from the departures client, as every client can hand the board notice sources about what it shows
-(`AbstractClient.notice_sources`, passed on by the registry). A failing source keeps its last notices for a
-while (at least an hour) before they're dropped. Notices are ranked by severity, and planned works only fill rows left
-over. The flood warnings come from the shared store (`v1:notices:floods:<place>`), which the floods provider fills from
-the Environment Agency; the board makes its notices from what's there as it reads it.
+and clock changes. Every source
+is read on every poll: they're all reads of the store or sums worked out on the spot. The board's own sources are
+about the postcode's place; the disruptions at the stops come from the departures client, as every client can hand the
+board notice sources about what it shows (`AbstractClient.notice_sources`, passed on by the registry). Nothing a
+source said before is kept: one whose key has expired adds nothing, and if every source that reads the store has
+nothing, the board says "Not available" rather than "All clear"; Redis not answering keeps the last board. Notices are
+ranked by severity, and planned works only fill rows left over. The flood warnings come from the shared store
+(`v1:notices:floods:<place>`), which the floods provider fills from the Environment Agency; the board makes its notices
+from what's there as it reads it.
 
 **Layout** (`rendering/`). For every frame, `DisplayController` asks `LAYOUTS` (a `LayoutRegistry`) for a
 layout, and keeps nothing about the answer. Layouts are registered by the canvas they draw
@@ -194,11 +199,11 @@ is asked to update, it returns the tab for the minute (see "Pages turn with the 
 tabs come round once every four minutes. Rendering a frame doesn't change it, and the registry keeps the
 current tab while the client is not due for a poll.
 
-The rotation uses a cached eight-day Open-Meteo forecast, which the weather provider stores for the place (under the
-config's `weather.key`, see the providers' README, "Weather"), not a read per tab. It's read again every 10 minutes, or when the date changes at the weather location. A failed read (the
-forecast not in the store, or Redis not answering) keeps the last good frame; the next good read shows the minute's
-tab. Changing the configured location reads the new place's forecast at once, on the minute's tab. With no location
-configured the panel says it needs configuring.
+The rotation uses the eight-day Open-Meteo forecast the weather provider stores for the place (under the config's
+`weather.key`, see the providers' README, "Weather"), read on every poll, so nothing of it is kept. Once its key has
+expired (the provider down for its TTL) the panel says "Not available"; Redis not answering keeps the last good frame.
+The next good read shows the minute's tab. Changing the configured location reads the new place's forecast at once, on
+the minute's tab. With no location configured the panel says it needs configuring.
 
 Now shows current conditions; landscape panels also show today's low, high and rain probability.
 Tonight shows the overnight low from 18:00 to 06:00, excluding hours that have already passed.
