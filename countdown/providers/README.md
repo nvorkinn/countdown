@@ -31,20 +31,21 @@ countdown-core so the providers and renderers share them.
 |---|---|---|---|
 | `v1:sub:tfl` | set | broker | TfL NaPTAN stop ids, e.g. `490000123W` |
 | `v1:sub:entur` | set | broker | Entur stop place or quay ids, e.g. `NSR:StopPlace:58366`, `NSR:Quay:7333` |
-| `v1:sub:weather` | set | broker | location keys, e.g. `london-gb-2643743` |
+| `v1:sub:weather` | set | broker | location keys: a picked place's `<name>-<country>-<GeoNames id>`, e.g. `london-gb-2643743` (the config's `weather.key`); for a screen with only typed text, its slug, e.g. `london` |
 | `v1:sub:glow` | set | broker | Glow device ids |
 | `v1:sub:spotify` | set | broker | device ids |
 | `v1:sub:developer` | set | broker | device ids with the developer panel on (with or without a GitHub token) |
 | `v1:sub:postcode` | set | broker | the notice boards' postcodes in canonical form, e.g. `SW1A 1AA`, `0150` (Norwegian: four digits); keys by place use `keys.place()`, e.g. `SW1A1AA` |
 | `v1:sub:changed` | pub/sub channel | broker | empty message after replacing subscriptions |
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
-| `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages) |
+| `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages), one per place however many screens show it; see [Weather](#weather) |
 | `v1:energy:<device id>` | string, TTL ~1 h | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
 | `v1:spotify:<device id>` | string, TTL 3 min | auth-broker's `spotify-provider`, every minute | `StoredPlayer` JSON (`store/music.py`): each service's queue, as the broker's `/queue` route answers it |
 | `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): `github`, the GitHub summary (pull requests, builds, releases with their jobs), null until the owner gives a token, and `plans`, the AI plans; the broker has no route for the panel, so this key is the renderer's only source |
 | `v1:pace:<source>:<id>` | integer string, TTL ~1 min | any provider that has bursty data (the developer provider, per device, while a release runs) | the seconds it wants the screen to refresh at; renderers take the fastest of those they watch, see the renderer's README, "The pace" |
 | `v1:spotify-top:<device id>` | string, TTL 2 h | auth-broker's `spotify-provider`, every 30 min | `StoredTop` JSON (`store/music.py`): each service's top tracks and artists by time range |
 | `v1:notices:met-office:<place>` | string, TTL ~30 min | provider-met-office, every 5 min | `StoredMetOfficeWarnings` JSON (`store/met_office.py`): the Met Office's warnings RSS for the region a UK postcode in `v1:sub:postcode` is in, its items as JSON; the renderer makes the notices. See [Weather warnings](#weather-warnings) |
+| `v1:notices:bank-holidays` | string, TTL 7 days | provider-bank-holidays, every 6 h, for everyone, with no subscription (`fixed_ids`) | `StoredBankHolidays` JSON (`store/bank_holidays.py`): gov.uk's bank-holidays.json, every division's; each board picks its own (England and Wales, Scotland, Northern Ireland) and words the notice when it draws; see [Bank holidays](#bank-holidays) |
 | `v1:notices:tfl-lines:<stop id>` | string, TTL 10 min | provider-tfl-notices, every 2 min | `StoredLineStatus` JSON (`store/tfl_notices.py`): TfL's `/Line/{ids}/Status` for the lines serving the stop, every stop's lines asked about in one request; see [TfL notices](#tfl-notices) |
 | `v1:notices:tfl-stations:<stop id>` | string, TTL 30 min | provider-tfl-notices, every 5 min | `StoredStationDisruptions` JSON: TfL's `/StopPoint/{id}/Disruption` (lifts, entrances...) |
 | `v1:notices:tfl-roads:<place>` | string, TTL 30 min | provider-tfl-notices, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredRoadDisruptions` JSON: the entries of TfL's `/Road/all/Disruption` (one request for every place) within 3 km of the postcode, placed by postcodes.io; `<place>` is `keys.place(postcode)`, e.g. `SE173LL` |
@@ -96,6 +97,23 @@ fetches every 15 minutes, and keeps each value for an hour. `tests/fixtures/glow
 Glowmarkt's answers to the stored value, and auth-broker's tests read the same file: change both together.
 `tests/fixtures/glow_energy_pages.json` is the pages the renderer drew from those answers when it still asked
 Glowmarkt itself, which the stored value must still draw.
+
+### Weather
+
+The broker subscribes each screen's weather by the place picked on its settings page (Open-Meteo's geocoding), as
+`<name>-<country>-<GeoNames id>` (auth-broker's `weather_place.weather_key()`, e.g. `london-gb-2643743`), and sends the
+renderer the same key as its config's `weather.key`. So screens that picked the same place share one forecast,
+however its name was typed. The provider finds a key's coordinates by the id (Open-Meteo's get-by-id, once per place
+for as long as it runs) and fetches one forecast per place each cycle. Only a number after a two-letter country is an
+id: a key without one is a screen with typed text and no picked place (saved before the picker, and not yet given one
+by the broker's `flask weather backfill`), which the broker subscribes as the text's slug (`london`, `sw1a-1aa`,
+`oslo-0150`) and the provider geocodes by name (a UK postcode by postcodes.io). A place Open-Meteo gave no country
+is `xx` (`atlantis-xx-42`). `tests/fixtures/weather_keys.json` is the configs the broker makes keys from, each key,
+and the id the provider finds in it; auth-broker's tests read the same file, so change both together.
+
+A renderer whose broker sends no `weather.key` (one that predates it) reads under `weather.location`, the text the
+broker subscribed then; one that has a key but finds nothing under it reads under `location` too, for the minutes
+after the broker switches to keys, before the provider has fetched them and while the old values haven't expired.
 
 ### Weather warnings
 
@@ -210,7 +228,9 @@ every id is fetched by exactly one copy. (Not Python's `hash()`, which differs f
 2. Add `countdown_providers/<name>/main.py` with a class matching the `Provider` protocol (`provider.py`): `name` (the
    `v1:sub:<name>` set it reads), `ttl_s`, `interval_s`, `output_key(id)` and `async fetch(ids)`. `fetch` returns a
    model per id it could fetch and leaves out (and logs) the rest rather than raising. Reuse the renderer's client from
-   countdown-core where there is one; a synchronous one runs in `asyncio.to_thread`, as `tfl/main.py` does.
+   countdown-core where there is one; a synchronous one runs in `asyncio.to_thread`, as `tfl/main.py` does. One that
+   fetches the same thing for every screen, with nothing to subscribe to, sets `fixed_ids` instead of reading a set
+   (see `provider.py`), as `bank_holidays/main.py` does for gov.uk's one file.
 3. Give it a `main()` that builds it and calls `asyncio.run(serve(provider, Settings.from_env()))`, and add it to
    `[project.scripts]` in `pyproject.toml` as `countdown-provider-<name>`.
 4. Add a `provider-<name>` service to `../server/deploy/docker-compose.yml` like the others, with its `command`.
@@ -219,10 +239,8 @@ every id is fetched by exactly one copy. (Not Python's `hash()`, which differs f
 `weather/main.py` is the smallest complete example of the shape. `tfl/main.py` and `entur/main.py` are the same
 shape for departures, each wrapping countdown-core's source (`TflSource`, `EnturSource`), which only the providers
 call now. Entur, like Open-Meteo,
-needs no key, only the `ET-Client-Name` header its client already sends. Location keys there are the broker's
-`<name>-<country>-<GeoNames id>` (`london-gb-2643743`): the id finds the place exactly, and a key without one (a
-screen saved before the place picker, until it's backfilled) is geocoded by name. Open-Meteo is keyless, so it
-needs no secret.
+needs no key, only the `ET-Client-Name` header its client already sends. Open-Meteo is keyless, so it needs no
+secret; its location keys are in [Weather](#weather).
 
 ## The image
 
@@ -237,7 +255,7 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL, weather, Entur, Met Office) are on: they're services in `../server/deploy/docker-compose.yml`,
+This repository's providers (TfL, weather, Entur, Met Office, bank holidays) are on: they're services in `../server/deploy/docker-compose.yml`,
 so every deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s
 `deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`)
 and `TFL_APP_KEY`; without the password the deploy fails rather than start them unauthenticated. They need the broker
@@ -248,13 +266,13 @@ The renderers read the store: the orchestrator's `RENDERER_REDIS_URL` defaults t
 the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to each renderer as `REDIS_URL` and
 `REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change to the store they read counts
 as an upgrade, like a new image. The renderers read TfL's and Entur's departures (`v1:departures:<stop>`), the weather
-(`v1:weather:<location>`), the energy readings (`v1:energy:<device id>`, from auth-broker's `glow-provider`) and the
-Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
+(`v1:weather:<key>`, by the config's `weather.key`), the energy readings (`v1:energy:<device id>`, from auth-broker's
+`glow-provider`) and the Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
 the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; of the
-notice board's sources, the Met Office's warnings (`v1:notices:met-office:<place>`) and TfL's disruptions
-(`v1:notices:tfl-*`, from `provider-tfl-notices`) come from the store, and the rest still straight from their APIs. So
-each provider must be running for its panels to have anything
-to draw.
+notice board's sources, the Met Office's warnings (`v1:notices:met-office:<place>`), the bank holidays
+(`v1:notices:bank-holidays`) and TfL's disruptions (`v1:notices:tfl-*`, from `provider-tfl-notices`) come from the
+store, and the rest still straight from their APIs. So each provider must be running for its panels to have anything to
+draw.
 
 A renderer started without the store (`RENDERER_REDIS_URL` set to empty, so no `REDIS_URL`) can't build the clients
 that read it: their areas say "Could not connect", the device reports them as in error, and the log names
@@ -264,3 +282,28 @@ the APIs directly: that code is gone.
 A key a renderer wants that isn't in the store (its provider is down, or hasn't got to it yet), or a Redis that doesn't
 answer, is a failed read, never fatal: that stop is left off, and a panel with nothing to read keeps its last
 picture (or says "Could not connect" if it never had one).
+
+### Bank holidays
+
+gov.uk's bank holidays are one small file for all of the UK, so `provider-bank-holidays` fetches it for everyone, with
+no subscription, every 6 hours (00:00, 06:00, 12:00 and 18:00 UTC, and once when it starts), and keeps it a week: gov.uk
+being down, even for days, changes nothing on the screens. An answer missing a division isn't written over a good one.
+The notice board reads it every 10 minutes and works the notice out then ("Tomorrow: Christmas Day", in the screen's
+language), so "Tomorrow" becomes "Today" within 10 minutes of midnight. Without the key (or without a store) only the
+bank holiday notice is missing: the board keeps the last one it had for an hour, the log names
+`NoStoredBankHolidaysError`, and the board's other sources carry on.
+
+The provider must be running, and the key in the store, before the renderers rely on it. They come in the same
+release: the deploy starts the provider beside the orchestrator, and it writes the key within seconds of starting,
+usually before the orchestrator has remade the renderers (one that reads first only misses the notice until its next
+poll, 10 minutes later). After the first deploy with it, check the key is there, on the host:
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 get v1:notices:bank-holidays | head -c 200'
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 ttl v1:notices:bank-holidays'  # up to 604800
+docker logs countdown-renderers-provider-bank-holidays-1   # why not, if it isn't
+```
+
+The first should print `{"fetched_at":"…","divisions":{"england-and-wales":{"events":[{"title":"New Year’s Day",…`. If
+gov.uk didn't answer, the key comes at the next 6-hourly tick; `docker restart countdown-renderers-provider-bank-holidays-1`
+tries again at once.

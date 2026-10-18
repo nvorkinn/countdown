@@ -11,11 +11,7 @@ from test_utils import REGISTRATION
 
 from countdown_core.core.api_registry import section_for
 from countdown_core.notices import notice_board_client as board_module
-from countdown_core.notices.calendar import (
-    BANK_HOLIDAYS_URL,
-    BankHolidaySource,
-    ClockChangeSource,
-)
+from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
 from countdown_core.notices.floods import FLOODS_URL, FloodWarningsSource
 from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.met_office import StoredMetOfficeWarningsSource, region_for, warning_notices
@@ -24,6 +20,8 @@ from countdown_core.notices.notice_board_client import NoticeBoardClient, Notice
 from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
 from countdown_core.notices.notice_styles import STYLES
 from countdown_core.notices.tfl import StoredTflRoadSource
+from countdown_core.store import keys
+from countdown_core.store.bank_holidays import StoredBankHolidays
 from countdown_core.tfl.models import Postcode
 from countdown_core.utils.clock import format_clock
 from countdown_providers.met_office.main import feed_items
@@ -237,45 +235,6 @@ BANK_HOLIDAYS = {
 
 
 @pytest.mark.parametrize(
-    ("now", "country", "expected"),
-    [
-        (datetime(2026, 11, 24, 12, tzinfo=UTC), None, []),  # Christmas is over a month away
-        (datetime(2026, 11, 26, 12, tzinfo=UTC), None, ["Fri 25 Dec: Christmas Day"]),
-        (datetime(2026, 11, 26, 12, tzinfo=UTC), "Scotland", ["Mon 30 Nov: St Andrew’s Day"]),  # noqa: RUF001 -- the apostrophe gov.uk's bank holidays use
-        (datetime(2026, 12, 24, 12, tzinfo=UTC), "Wales", ["Tomorrow: Christmas Day"]),
-        (datetime(2026, 12, 28, 9, tzinfo=UTC), None, ["Today: Boxing Day (substitute day)"]),
-    ],
-)
-def test_bank_holiday_shows_the_next_one_less_than_a_month_away(api, now, country, expected):
-    api.add(responses.GET, BANK_HOLIDAYS_URL, json=BANK_HOLIDAYS)
-
-    notices = BankHolidaySource(requests.Session(), country).fetch(now)
-
-    assert [n.text for n in notices] == expected
-    assert all(n.severity == Severity.REMINDER for n in notices)
-
-
-def test_bank_holiday_ends_at_midnight_after_it(api):
-    api.add(responses.GET, BANK_HOLIDAYS_URL, json=BANK_HOLIDAYS)
-
-    [notice] = BankHolidaySource(requests.Session()).fetch(datetime(2026, 12, 20, tzinfo=UTC))
-
-    assert notice.valid_until == datetime(2026, 12, 26, tzinfo=UTC)  # GMT in December
-
-
-def test_bank_holidays_are_downloaded_once_a_day(api):
-    api.add(responses.GET, BANK_HOLIDAYS_URL, json=BANK_HOLIDAYS)
-    source = BankHolidaySource(requests.Session())
-
-    source.fetch(NOW)
-    source.fetch(NOW + timedelta(hours=23))
-    assert len(api.calls) == 1
-
-    source.fetch(NOW + timedelta(days=1))
-    assert len(api.calls) == 2
-
-
-@pytest.mark.parametrize(
     ("now", "expected"),
     [
         (datetime(2026, 9, 25, 12, tzinfo=UTC), []),  # a month out
@@ -446,7 +405,7 @@ def test_board_with_nothing_configured_still_has_bank_holidays_and_the_clocks():
     client = NoticeBoardClient(REGISTRATION, board_settings(postcode=None))
 
     assert not client.is_disabled()
-    assert [type(s) for s in client.sources] == [ClockChangeSource, BankHolidaySource]
+    assert [type(s) for s in client.sources] == [ClockChangeSource, StoredBankHolidaySource]
     assert client.sources[1].division == "england-and-wales"
 
 
@@ -461,7 +420,7 @@ def test_board_adds_local_sources_once_the_postcode_is_found(api, clock):
 
     assert [type(s) for s in client.sources] == [
         ClockChangeSource,
-        BankHolidaySource,
+        StoredBankHolidaySource,
         StoredMetOfficeWarningsSource,
         FloodWarningsSource,
         StoredTflRoadSource,
@@ -482,9 +441,9 @@ def test_board_logs_that_it_resolved_postcode(api, clock, caplog):
     )
 
 
-def test_board_with_an_unknown_postcode_says_so(api, clock, caplog):
+def test_board_with_an_unknown_postcode_says_so(api, clock, caplog, store):
     api.add(responses.GET, f"{POSTCODES_URL}/ZZ1%201ZZ", status=404, json={"error": "Invalid postcode"})
-    api.add(responses.GET, BANK_HOLIDAYS_URL, json=BANK_HOLIDAYS)
+    store.set(keys.bank_holidays(), StoredBankHolidays(fetched_at=NOW, divisions=BANK_HOLIDAYS).model_dump_json())
 
     with caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"):
         panel = update(NoticeBoardClient(REGISTRATION, board_settings(postcode="ZZ1 1ZZ")))

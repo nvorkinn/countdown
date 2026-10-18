@@ -356,6 +356,48 @@ def test_a_provider_without_a_pace_writes_none(redis):
     assert asyncio.run(redis.keys(f"{keys.PREFIX}:pace:*")) == []
 
 
+# --- fixed ids: a provider that fetches the same thing for everyone, with no subscription ----------------------------
+
+
+class FixedProvider(FakeProvider):
+    """Always fetches "everyone", whatever `v1:sub:fake` holds."""
+
+    fixed_ids = ("everyone",)
+
+
+def test_a_provider_with_fixed_ids_fetches_them_with_nothing_subscribed(redis):
+    provider = FixedProvider()
+
+    assert asyncio.run(ProviderRunner(provider, redis).run_cycle()) == 1
+
+    assert provider.calls == [["everyone"]]
+    assert asyncio.run(redis.exists(keys.departures("everyone"))) == 1
+
+
+def test_a_provider_with_fixed_ids_ignores_its_subscription_set(redis):
+    subscribe(redis, "a", "b")
+    provider = FixedProvider()
+
+    asyncio.run(ProviderRunner(provider, redis).run_cycle())
+
+    assert provider.calls == [["everyone"]]
+
+
+def test_a_provider_with_fixed_ids_does_not_listen_for_subscription_changes(redis):
+    async def listen(provider):
+        await asyncio.wait_for(ProviderRunner(provider, redis)._listen_for_changes(), 0.2)
+
+    asyncio.run(listen(FixedProvider()))  # returns at once: nothing to listen for
+    with pytest.raises(TimeoutError):
+        asyncio.run(listen(FakeProvider()))  # listens until cancelled
+
+
+def test_a_provider_with_fixed_ids_still_cycles_on_each_tick(redis):
+    provider = FixedProvider(interval_s=0.02, enough=3)
+    asyncio.run(run_until_fetched(ProviderRunner(provider, redis)))
+    assert provider.calls == [["everyone"]] * 3
+
+
 # --- Serving -----------------------------------------------------------------------
 
 

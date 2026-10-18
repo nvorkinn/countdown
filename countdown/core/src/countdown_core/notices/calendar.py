@@ -1,51 +1,34 @@
-"""Notices worked out from the calendar: the UK's bank holidays and the clocks changing."""
+"""Notices worked out from the calendar: the UK's bank holidays and the clocks changing.
+
+The bank holidays are gov.uk's, which the bank holidays provider (countdown-providers) writes to the store for all of
+the UK (`v1:notices:bank-holidays`); the board reads them from there and picks its division. The clocks changing is
+worked out here, with no network at all.
+"""
 
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field
-
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date, local_zone
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
+from countdown_core.store import keys, reader
+from countdown_core.store.bank_holidays import StoredBankHolidays
 
 if TYPE_CHECKING:
-    import requests
+    from collections.abc import Iterable
+
+    from countdown_core.store.bank_holidays import BankHoliday
 
 UK_TIME = ZoneInfo("Europe/London")
 
-BANK_HOLIDAYS_URL = "https://www.gov.uk/bank-holidays.json"
 # gov.uk's lists, keyed by postcodes.io's country. England and Wales share one.
 DIVISION_BY_COUNTRY = {"Scotland": "scotland", "Northern Ireland": "northern-ireland"}
 DEFAULT_DIVISION = "england-and-wales"
-# How often the list itself is downloaded; the notices are worked out from it every refresh.
-BANK_HOLIDAYS_REDOWNLOAD = timedelta(days=1)
 
 # How far ahead the clocks changing is mentioned.
 CLOCK_CHANGE_NOTICE = timedelta(days=7)
 
 DECEMBER = 12
-
-
-class BankHoliday(BaseModel):
-    """One of gov.uk's bank holidays."""
-
-    title: str
-    date: date
-    notes: str = ""  # e.g. "Substitute day"
-
-
-class Division(BaseModel):
-    """One part of the UK's bank holidays: England and Wales, Scotland or Northern Ireland."""
-
-    events: list[BankHoliday]
-
-
-class BankHolidays(BaseModel):
-    """gov.uk's bank holidays, by division."""
-
-    divisions: dict[str, Division] = Field(default_factory=dict)
 
 
 def _one_month_after(day: date) -> date:
@@ -70,44 +53,57 @@ def when(day: date, today: date) -> str:
     return format_date(day, _("EEE d MMM"))
 
 
-class BankHolidaySource(NoticeSource):
-    """The next bank holiday for the device's part of the UK, once it's less than a month away.
+class NoStoredBankHolidaysError(LookupError):
+    """The store has no bank holidays for the division: the bank holidays provider is down, or hasn't fetched them."""
 
-    England and Wales unless the postcode says otherwise.
+
+def bank_holiday_notices(events: Iterable[BankHoliday], now: datetime) -> list[Notice]:
+    """Say the first of `events` that's less than a month from `now`'s day in the UK, if there's one.
+
+    In the screen's language, as of `now`: "Tomorrow: Christmas Day", "Today: Boxing Day (substitute day)", or the date.
+    """
+    today = now.astimezone(UK_TIME).date()
+    upcoming = [e for e in events if today <= e.date < _one_month_after(today)]
+    if not upcoming:
+        return []
+    holiday = min(upcoming, key=lambda e: e.date)
+    text = f"{when(holiday.date, today)}: {holiday.title}"
+    if holiday.notes:
+        text += f" ({holiday.notes.lower()})"
+    ends = datetime.combine(holiday.date + timedelta(days=1), time(), tzinfo=UK_TIME)
+    return [Notice(_("Bank holiday"), Severity.REMINDER, text, ends)]
+
+
+class StoredBankHolidaySource(NoticeSource):
+    """The next bank holiday for the device's part of the UK, once it's less than a month away, from the store.
+
+    England and Wales unless the postcode says otherwise. gov.uk's list is in the store (keys.bank_holidays, written by
+    the bank holidays provider for all of the UK); each poll reads it and works the notice out afresh, so "Tomorrow",
+    the date and the translations are as of drawing.
     """
 
     name = "Bank holidays"
     refresh_interval = timedelta(minutes=10)  # so "Tomorrow" becomes "Today" on time
 
-    def __init__(self, session: requests.Session, country: str | None = None) -> None:
-        """Fetch over `session`; `country` is postcodes.io's, None for England and Wales."""
-        super().__init__(session)
+    def __init__(self, country: str | None = None) -> None:
+        """Pick `country`'s division (postcodes.io's country; None for England and Wales)."""
+        # No session (NoticeSource's): it never calls gov.uk, the provider does.
         self.division = DIVISION_BY_COUNTRY.get(country or "", DEFAULT_DIVISION)
-        self.events: list[BankHoliday] | None = None
-        self.downloaded: datetime | None = None
-
-    def _download(self, now: datetime) -> list[BankHoliday]:
-        if self.events is None or self.downloaded is None or now - self.downloaded >= BANK_HOLIDAYS_REDOWNLOAD:
-            response = self.session.get(BANK_HOLIDAYS_URL, timeout=DEFAULT_TIMEOUT)
-            response.raise_for_status()
-            # The divisions are the top-level keys; wrap them so pydantic can read them.
-            divisions = BankHolidays.model_validate({"divisions": response.json()}).divisions
-            self.events = divisions[self.division].events
-            self.downloaded = now
-        return self.events
 
     @override
     def fetch(self, now: datetime) -> list[Notice]:
-        today = now.astimezone(UK_TIME).date()
-        upcoming = [e for e in self._download(now) if today <= e.date < _one_month_after(today)]
-        if not upcoming:
-            return []
-        holiday = min(upcoming, key=lambda e: e.date)
-        text = f"{when(holiday.date, today)}: {holiday.title}"
-        if holiday.notes:
-            text += f" ({holiday.notes.lower()})"
-        ends = datetime.combine(holiday.date + timedelta(days=1), time(), tzinfo=UK_TIME)
-        return [Notice(_("Bank holiday"), Severity.REMINDER, text, ends)]
+        """Return the next bank holiday's notice, if it's less than a month away.
+
+        Raises NoStoredBankHolidaysError if the store has none for the division, and StoreNotConfiguredError without a
+        store, so the board keeps the last notice. The store is asked for here, not when the board is built, so a
+        renderer without one still has its board.
+        """
+        stored = reader.read(reader.require_store(), keys.bank_holidays(), StoredBankHolidays)
+        division = stored.divisions.get(self.division) if stored is not None else None
+        if division is None:
+            msg = f"The store has no bank holidays for {self.division} (is provider-bank-holidays running?)"
+            raise NoStoredBankHolidaysError(msg)
+        return bank_holiday_notices(division.events, now)
 
 
 def next_clock_change(now: datetime, zone: ZoneInfo) -> datetime | None:

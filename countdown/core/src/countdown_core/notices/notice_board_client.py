@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, override
 
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.i18n import N_, local_zone
-from countdown_core.notices.calendar import BankHolidaySource, ClockChangeSource
+from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
 from countdown_core.notices.floods import FloodWarningsSource
 from countdown_core.notices.location import lookup_postcode
 from countdown_core.notices.met_office import StoredMetOfficeWarningsSource
@@ -97,7 +97,7 @@ class NoticeBoardClient(AbstractClient):
         """
         if self.norwegian or local_zone().key == "Europe/Oslo":
             return NorwegianHolidaySource(self.session)
-        return BankHolidaySource(self.session)
+        return StoredBankHolidaySource()
 
     def _ensure_location(self, now: datetime) -> None:
         if not self.postcode or self.location is not None:
@@ -123,7 +123,7 @@ class NoticeBoardClient(AbstractClient):
             self.sources += [NorwegianHolidaySource(self.session), MetAlertsSource(self.session, location)]
             logger.info("Notice board: location lookup succeeded: %s", location.admin_district or "Norway")
             return
-        bank_holidays = BankHolidaySource(self.session, location.country)
+        bank_holidays = StoredBankHolidaySource(location.country)
         met_office = StoredMetOfficeWarningsSource(self.session, location, self.postcode)
         self.sources += [
             bank_holidays,
