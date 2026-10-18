@@ -71,8 +71,9 @@ def test_the_stored_config_is_a_config_the_contract_allows():
 
     assert config.device_id == DEVICE_ID
     assert config.pairing_code is None
-    # Its secret is left out, and the renderer doesn't use it: the providers call Open-Meteo. (TfL's key is gone.)
-    assert config.weather.api_key == ""
+    # No key of any kind: the weather provider calls Open-Meteo, which needs none. (TfL's key is gone.) Whether the
+    # contract still has weather.api_key (empty) or not, there's no key in it.
+    assert not config.weather.model_dump().get("api_key")
     assert config.weather.key == "london-gb-2643743"
     assert [stop.id for stop in config.departures.stops] == ["490000077E", "940GZZLUOVL", "NSR:StopPlace:58381"]
 
