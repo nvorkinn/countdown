@@ -129,36 +129,22 @@ def test_get_config_parses_response(isolated_cwd):
 
 
 @responses.activate
-def test_get_config_parses_glowmarkt_from_a_broker_without_its_switch(isolated_cwd):
-    """An older broker sends the credentials and no `enabled`, which parses as null (see api_registry.is_enabled)."""
-    client = _initialised_client()
-    payload = broker_payload(glowmarkt={"username": "me@example.com", "password": "hunter2"})
-    del payload["glowmarkt"]["enabled"]
-    responses.add(responses.GET, CONFIG_URL, json=payload)
+def test_get_config_reads_a_broker_that_still_sends_the_glowmarkt_credentials_as_null(isolated_cwd):
+    """A broker from before they were removed from the contract sends them as null beside `enabled`.
 
-    config = client.get_config()
-
-    assert config.glowmarkt.enabled is None
-    assert config.glowmarkt.username == "me@example.com"
-
-
-@responses.activate
-def test_get_config_accepts_null_glowmarkt_credentials(isolated_cwd):
-    """The common case: a device whose owner hasn't set up Glowmarkt on the broker.
-
-    Sent as null, not omitted -- must parse, not raise.
+    They're ignored like any field the renderer doesn't know, not rejected, so the broker and the renderer can be
+    released in either order.
     """
     client = _initialised_client()
     responses.add(
         responses.GET,
         CONFIG_URL,
-        json=broker_payload(glowmarkt={"username": None, "password": None}, pairing_code="ABC123"),
+        json=broker_payload(glowmarkt={"enabled": True, "username": None, "password": None}, pairing_code="ABC123"),
     )
 
     config = client.get_config()
 
-    assert config.glowmarkt.username is None
-    assert config.glowmarkt.password is None
+    assert config.glowmarkt.enabled is True
     assert config.pairing_code == "ABC123"
 
 
