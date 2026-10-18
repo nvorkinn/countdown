@@ -71,11 +71,11 @@ class TflSource:
         return Lines.validate_json(self._get(f"/Line/{','.join(line_ids)}/Status"))
 
     def stop_disruptions(self, stop_id: str) -> list[DisruptedPoint]:
-        """Fetch what's wrong at a stop (/StopPoint/{id}/Disruption): lifts out of order, closed entrances..."""
+        """Fetch what's wrong at a stop (/StopPoint/{id}/Disruption), such as a lift; raises if TfL can't be asked."""
         return DisruptedPoints.validate_json(self._get(f"/StopPoint/{stop_id}/Disruption"))
 
     def road_disruptions(self, severities: Iterable[str]) -> list[RoadDisruption]:
-        """Fetch every road disruption in London of `severities` (TfL's names, e.g. "Severe"); raises on failure."""
+        """Fetch London's road disruptions of `severities` (TfL's names, "Severe"...); raises if TfL can't be asked."""
         return RoadDisruptions.validate_json(self._get("/Road/all/Disruption", severities=",".join(severities)))
 
     def _get(self, path: str, **params: str) -> bytes:

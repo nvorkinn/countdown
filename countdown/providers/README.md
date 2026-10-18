@@ -194,9 +194,8 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL, TfL notices, weather, Entur) are on: they're services in
-`../server/deploy/docker-compose.yml`, so every deploy starts and upgrades them, and `--wait` fails the deploy if one
-won't stay up. `release.yml`'s
+This repository's providers (TfL, weather, Entur) are on: they're services in `../server/deploy/docker-compose.yml`,
+so every deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s
 `deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`)
 and `TFL_APP_KEY`; without the password the deploy fails rather than start them unauthenticated. They need the broker
 writing subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking).
