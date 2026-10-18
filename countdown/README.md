@@ -9,6 +9,9 @@ orchestrator and the renderers: who calls whom, which token or secret exists whe
 see auth-broker's [How the pieces fit together](https://github.com/nvorkinn/auth-broker/blob/main/docs/architecture.md)
 and [The database](https://github.com/nvorkinn/auth-broker/blob/main/docs/database.md).
 
+Where the renderers are heading (jobs that draw a frame and exit, rather than a container per screen) is
+proposed in [Stateless renderers](docs/stateless-renderers.md).
+
 ## How it works
 
 **Boot** (`app.py`). The app reads `BROKER_URL` and `CLAIM_TOKEN` (both required; the
