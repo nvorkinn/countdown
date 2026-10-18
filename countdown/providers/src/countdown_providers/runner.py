@@ -1,9 +1,13 @@
 """The loop every provider runs in, written once: read the subscriptions, fetch them, write them to Redis, wait.
 
 A cycle runs at once on start, then on every epoch-aligned tick of the provider's interval_s. A message on
-`v1:sub:changed` (the broker saved a config) runs one early, and SIGINT/SIGTERM let the current cycle finish and then
-stop. Nothing in a cycle crashes the process: a failed batch is logged and skipped (its keys just expire), and an
-unreachable Redis is logged and tried again on the next tick.
+`v1:sub:changed` (the broker saved a config), or on a channel in the provider's `wakes_on` (provider-locations placed a
+new postcode: `v1:location:changed`), runs one early, and SIGINT/SIGTERM let the current cycle finish and then stop. A
+provider that `announces` publishes on that channel after writing a batch it says has news in it (see
+provider.Provider).
+
+Nothing in a cycle crashes the process: a failed batch is logged and skipped (its keys just expire), and an unreachable
+Redis is logged and tried again on the next tick.
 
 What's logged never says where a screen is (the logs go to the central log store). A failure is logged by its reason
 and traceback, not its text, which for a failed request quotes the URL (a postcode's, its place's or its coordinates',
@@ -26,7 +30,7 @@ from countdown_core.store import keys
 from countdown_providers.sharding import Shard
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from pydantic import BaseModel
     from redis.asyncio import Redis
@@ -77,8 +81,12 @@ class ProviderRunner:
         self.batch_size = batch_size or getattr(provider, "batch_size", DEFAULT_BATCH_SIZE)
         self.clock = clock
         self.names_ids = provider.name in NAMED_SOURCES
+        # What wakes a cycle early: subscription changes (unless it has fixed_ids, which they can't change), and any
+        # channel the provider asks for (wakes_on).
+        reads_subscriptions = getattr(provider, "fixed_ids", None) is None
+        self.wakes_on = (*([keys.SUB_CHANGED] if reads_subscriptions else []), *getattr(provider, "wakes_on", ()))
         self._stopping = asyncio.Event()
-        # Set by a `v1:sub:changed` message; cleared as each cycle starts, so one arriving mid-cycle runs another.
+        # Set by a message on wakes_on; cleared as each cycle starts, so one arriving mid-cycle runs another.
         self._nudged = asyncio.Event()
 
     def stop(self) -> None:
@@ -141,6 +149,7 @@ class ProviderRunner:
                     self._write_pace(pipe, item_id, model)
                 await pipe.execute()
             written += len(fetched)
+            await self._announce(fetched)
         logger.debug("%s: wrote %d of %d ids", self.provider.name, written, len(mine))
         return written
 
@@ -150,6 +159,20 @@ class ProviderRunner:
         if fixed is not None:
             return set(fixed)
         return await self.redis.smembers(keys.subscription(self.provider.name))
+
+    async def _announce(self, written: Mapping[str, BaseModel]) -> None:
+        """Publish on the provider's `announces` channel if any of what it just wrote is news (see provider.Provider).
+
+        After the batch is written, so a provider woken by it reads the new values.
+        """
+        channel = getattr(self.provider, "announces", None)
+        if channel is None:
+            return
+        # Every value asked about (not any(), which stops at the first): is_news remembers what it has said.
+        news = [self.provider.is_news(item_id, model) for item_id, model in written.items()]
+        if any(news):
+            await self.redis.publish(channel, "")
+            logger.debug("%s: announced %d new of %d on %s", self.provider.name, sum(news), len(news), channel)
 
     def _write_pace(self, pipe: Pipeline, item_id: str, model: BaseModel) -> None:
         """Queue the pace the provider wants for `item_id`, if it asks for any: set while bursty, else deleted."""
@@ -184,23 +207,23 @@ class ProviderRunner:
                 waiter.cancel()
 
     async def _listen_for_changes(self) -> None:
-        """Set _nudged on every `v1:sub:changed` message, resubscribing (forever) if Redis goes away.
+        """Set _nudged on every message on a channel in wakes_on, resubscribing (forever) if Redis goes away.
 
-        A missed message only delays a change until the next tick, as every cycle re-reads the subscriptions anyway.
-        A provider with fixed_ids reads no subscriptions, so it has nothing to listen for.
+        A missed message only delays a change until the next tick, as every cycle re-reads the subscriptions (and
+        whatever else it reads) anyway. A provider with fixed_ids and no wakes_on has nothing to listen for.
         """
-        if getattr(self.provider, "fixed_ids", None) is not None:
+        if not self.wakes_on:
             return
         while True:
             try:
                 async with self.redis.pubsub() as pubsub:
-                    await pubsub.subscribe(keys.SUB_CHANGED)
+                    await pubsub.subscribe(*self.wakes_on)
                     async for message in pubsub.listen():
                         if message["type"] == "message":
-                            logger.debug("%s: subscriptions changed", self.provider.name)
+                            logger.debug("%s: woken by %s", self.provider.name, message["channel"])
                             self._nudged.set()
             except RedisError as e:
-                logger.warning("%s: lost %s (%s); resubscribing", self.provider.name, keys.SUB_CHANGED, e)
+                logger.warning("%s: lost %s (%s); resubscribing", self.provider.name, ", ".join(self.wakes_on), e)
             await asyncio.sleep(RESUBSCRIBE_S)
 
 

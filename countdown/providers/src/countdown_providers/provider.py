@@ -49,3 +49,13 @@ class Provider(Protocol):
     # bank holidays file for all of the UK), defines `fixed_ids`, a tuple of the ids it always fetches. The runner
     # fetches those every cycle instead of reading `v1:sub:<name>` (`name` then only names it in the logs), and doesn't
     # listen for subscription changes, which can't change what it fetches.
+    #
+    # Also optional, for a provider whose keys other providers read (provider-locations' `v1:location:`): it sets
+    # `announces`, a pub/sub channel, and defines
+    #
+    #     def is_news(self, item_id: str, written: BaseModel) -> bool
+    #
+    # which the runner asks about each value once it's written; after writing a batch with any news in it, the runner
+    # publishes (empty) on `announces`. A provider that reads those keys sets `wakes_on`, a tuple of such channels: a
+    # message on one runs a cycle early, as one on `v1:sub:changed` does. So a new postcode's notices needn't wait a
+    # whole interval for its place to be written.

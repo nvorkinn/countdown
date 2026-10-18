@@ -48,6 +48,7 @@ from countdown_providers.locations.reader import LocationReader
 from countdown_providers.met_office import main as met_office_main
 from countdown_providers.met_office.main import FEED_URL, MetOfficeProvider
 from countdown_providers.runner import ProviderRunner
+from countdown_providers.tfl_notices import main as tfl_notices_main
 from countdown_providers.tfl_notices.main import TflRoadProvider
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -346,3 +347,123 @@ def test_main_reads_the_locations_on_the_runners_own_client(module, provider_typ
     assert isinstance(provider, provider_type)
     assert provider.locations.redis is redis
     assert redis.connection_pool.connection_kwargs["host"] == "redis.example"
+
+
+# --- A new postcode: its notices as soon as it's placed --------------------------------------------------------------
+
+# A test that waits this long has failed: the providers' next tick is 5 minutes away (see `just_after_a_tick`), so
+# only provider-locations' announcement can run their second cycle.
+WAIT_S = 5
+
+
+def just_after_a_tick() -> float:
+    """Return the runners' time: always just after a tick, so the next is a whole interval (5 minutes) away."""
+    return 0.0
+
+
+def count_writes(provider) -> list[int]:
+    """Wrap `provider`'s fetch to record, each time it's called, how many values it returned for the runner to write."""
+    written: list[int] = []
+    fetch = provider.fetch
+
+    async def counted(ids):
+        results = await fetch(ids)
+        written.append(len(results))
+        return results
+
+    provider.fetch = counted
+    return written
+
+
+def hold_lookups(provider) -> asyncio.Event:
+    """Hold `provider`'s (provider-locations') lookups until the event returned is set: still under way."""
+    done = asyncio.Event()
+    fetch = provider.fetch
+
+    async def slow(ids):
+        await done.wait()
+        return await fetch(ids)
+
+    provider.fetch = slow
+    return done
+
+
+async def until(condition) -> None:
+    """Wait (polling: fakeredis has no event for any of these) until `condition()`, an awaitable, is true."""
+    async with asyncio.timeout(WAIT_S):
+        while not await condition():  # noqa: ASYNC110 -- nothing to wait on
+            await asyncio.sleep(0.01)
+
+
+def test_a_new_postcodes_notices_are_written_as_soon_as_provider_locations_has_placed_it():
+    """Through the real runners, each provider on its own client as in its own process, as a config save starts them.
+
+    The broker's nudge runs every provider at once, so the place providers read before provider-locations' lookups
+    are done, find no location and write nothing; then provider-locations writes the places and announces them on
+    `v1:location:changed`, and each of them runs again at once, rather than 5 minutes later at its next tick, and
+    writes exactly what the recorded cycle did.
+    """
+    server = fakeredis.FakeServer()
+    store = fakeredis.FakeAsyncRedis(server=server, decode_responses=True)
+
+    def client():
+        return fakeredis.FakeAsyncRedis(server=server, decode_responses=True)
+
+    # Met Office, floods and TfL roads, each reading the places on its runner's own client, as its main() does.
+    dependents = []
+    for index in range(3):
+        redis = client()
+        dependents.append((place_providers(redis)[index], redis))
+    writes = [count_writes(provider) for provider, _ in dependents]
+    locations = LocationsProvider(requests.Session(), now=lambda: NOW)
+    looked_up = hold_lookups(locations)
+
+    async def notices():
+        return sorted(await store.keys("v1:notices:*"))
+
+    async def scenario():
+        await store.sadd(keys.subscription(keys.POSTCODE), *POSTCODES)
+        runners = [ProviderRunner(locations, client(), clock=just_after_a_tick)] + [
+            ProviderRunner(provider, redis, clock=just_after_a_tick) for provider, redis in dependents
+        ]
+        tasks = [asyncio.create_task(runner.run()) for runner in runners]
+        try:
+            # Each has read, found no place and written nothing, and is listening.
+            async def all_listening():
+                return all(writes) and (await store.pubsub_numsub(keys.LOCATION_CHANGED))[0][1] == len(dependents)
+
+            await until(all_listening)
+            assert writes == [[0]] * len(dependents)
+            assert await notices() == []
+            looked_up.set()
+
+            async def all_written():
+                return await notices() == sorted(BEFORE["stored"])
+
+            await until(all_written)
+        finally:
+            for runner in runners:
+                runner.stop()
+            await asyncio.wait_for(asyncio.gather(*tasks), WAIT_S)
+        return {key: json.loads(await store.get(key)) for key in await notices()}
+
+    with responses.RequestsMock(assert_all_requests_are_fired=False) as api:
+        answer_lookups(api)
+        answer_notices(api)
+        stored = asyncio.run(scenario())
+
+    assert stored == BEFORE["stored"]
+    assert all(written[0] == 0 and sum(written) > 0 for written in writes)
+
+
+def test_only_the_providers_that_read_places_wake_on_them_and_only_provider_locations_announces_them():
+    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    lines, stations, roads = tfl_notices_main.providers(LocationReader(redis))
+    met_office, floods, _ = place_providers(redis)
+
+    for provider in (met_office, floods, roads):
+        assert ProviderRunner(provider, redis).wakes_on == (keys.SUB_CHANGED, keys.LOCATION_CHANGED)
+    for provider in (lines, stations):
+        assert ProviderRunner(provider, redis).wakes_on == (keys.SUB_CHANGED,)
+    assert LocationsProvider(requests.Session()).announces == keys.LOCATION_CHANGED
+    assert not any(hasattr(provider, "announces") for provider in (met_office, floods, lines, stations, roads))

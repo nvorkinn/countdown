@@ -9,7 +9,8 @@ pool.
 A postcode the store can't place is left out of that batch, and only counted in the log; it's read again next cycle:
 
 - one with no key yet: new to `v1:sub:postcode`, and provider-locations hasn't placed it yet (a config save's nudge runs
-  every provider at once, so its notices come a cycle after its location) or couldn't (it says why in its own log);
+  every provider at once; once it has, it publishes on `v1:location:changed`, which runs another cycle of the
+  providers that set it in their `wakes_on`) or couldn't (it says why in its own log);
 - one whose key isn't a StoredLocation (a provider-locations on another version);
 - one stored as not found: a postcode that doesn't exist gets no notices, as when each provider looked it up.
 
