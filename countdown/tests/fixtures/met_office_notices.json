@@ -41,7 +41,7 @@
     {
       "source": "Met Office",
       "severity": "WARNING",
-      "text": "Gult farevarsel: wind til fre.",
+      "text": "Oransje farevarsel: wind til fre.",
       "valid_until": "2026-09-25T21:00:00+01:00",
       "display_time": "2026-09-25T21:00:00+01:00"
     },

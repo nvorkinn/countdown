@@ -2,7 +2,7 @@
 
 fixtures/music_player.json and music_top.json are the stored contract: auth-broker's provider tests check that it
 writes exactly these (its tests/fixtures holds the same files), and these tests check that the renderer reads each
-part into the models it read the proxy routes' answers with when it asked the broker itself, so it draws the same
+part into the models of Spotify's own answers (countdown_core.spotify.models), so both services draw the same
 panels. fixtures/music_art.json is the covers it stores for music_player.json, by key, each the raw bytes of the
 image (music_art.jpg in both repositories' tests).
 """
@@ -76,8 +76,8 @@ def test_the_fixtures_are_stored_values():
 
 
 @pytest.mark.parametrize("service", ["spotify", "apple_music"])
-def test_each_stored_part_is_what_the_proxy_answered(service):
-    """Read as the proxy routes' answers were (/queue, /top/tracks, /top/artists), so the panels are the same."""
+def test_each_stored_part_is_in_spotifys_shapes(service):
+    """Read as Spotify's own answers (/me/player/queue, /me/top/tracks, /me/top/artists), so the panels are the same."""
     player, top = StoredPlayer.model_validate(PLAYER), StoredTop.model_validate(TOP)
 
     assert Queue.model_validate(PLAYER[service]) == getattr(player, service)
@@ -303,7 +303,7 @@ def test_a_missing_key_raises_so_the_last_panel_stays(store, missing):
 
 @responses.activate
 def test_a_service_the_provider_couldnt_fetch_raises(store):
-    """Spotify's part is null (say its token was revoked): as when the proxy call fails, the last panel stays."""
+    """Spotify's part is null (say its token was revoked): the renderer raises, so the last panel stays."""
     put(store, {**PLAYER, "spotify": None})
 
     with pytest.raises(NoStoredMusicError):

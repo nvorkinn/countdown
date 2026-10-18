@@ -201,7 +201,7 @@ disruptions to the board whatever the postcode, as TfL stops bring theirs.
 The API between the renderer and [auth-broker](https://github.com/nvorkinn/auth-broker) is defined in neither
 repository but in [countdown-api](https://github.com/nvorkinn/countdown-api): an OpenAPI file and a Python package
 with Pydantic models, a `requests` client for this side, and Flask views for the broker's. So far the contract
-covers `GET /api/config`; the other calls (registering, claiming, frames, the Spotify proxy, the orchestrator's) are
+covers `GET /api/config`; the other calls (registering, claiming, frames, the orchestrator's) are
 ordinary `requests` code here.
 
 Here it is a git submodule and a member of the uv workspace:
