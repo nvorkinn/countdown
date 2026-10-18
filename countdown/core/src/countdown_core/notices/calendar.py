@@ -9,38 +9,26 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field
-
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date, local_zone
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.store import keys, reader
-from countdown_core.store.bank_holidays import BankHoliday, Division, StoredBankHolidays
+from countdown_core.store.bank_holidays import StoredBankHolidays
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    import requests
+    from countdown_core.store.bank_holidays import BankHoliday
 
 UK_TIME = ZoneInfo("Europe/London")
 
-BANK_HOLIDAYS_URL = "https://www.gov.uk/bank-holidays.json"
 # gov.uk's lists, keyed by postcodes.io's country. England and Wales share one.
 DIVISION_BY_COUNTRY = {"Scotland": "scotland", "Northern Ireland": "northern-ireland"}
 DEFAULT_DIVISION = "england-and-wales"
-# How often the list itself is downloaded; the notices are worked out from it every refresh.
-BANK_HOLIDAYS_REDOWNLOAD = timedelta(days=1)
 
 # How far ahead the clocks changing is mentioned.
 CLOCK_CHANGE_NOTICE = timedelta(days=7)
 
 DECEMBER = 12
-
-
-class BankHolidays(BaseModel):
-    """gov.uk's bank holidays, by division."""
-
-    divisions: dict[str, Division] = Field(default_factory=dict)
 
 
 def _one_month_after(day: date) -> date:
@@ -63,46 +51,6 @@ def when(day: date, today: date) -> str:
         return _("Tomorrow")
     # Translators: a CLDR date pattern (EEE weekday, d day, MMM month), e.g. "Fri 16 Oct". Norwegian: "EEE d. MMM".
     return format_date(day, _("EEE d MMM"))
-
-
-class BankHolidaySource(NoticeSource):
-    """The next bank holiday for the device's part of the UK, once it's less than a month away.
-
-    England and Wales unless the postcode says otherwise.
-    """
-
-    name = "Bank holidays"
-    refresh_interval = timedelta(minutes=10)  # so "Tomorrow" becomes "Today" on time
-
-    def __init__(self, session: requests.Session, country: str | None = None) -> None:
-        """Fetch over `session`; `country` is postcodes.io's, None for England and Wales."""
-        super().__init__(session)
-        self.division = DIVISION_BY_COUNTRY.get(country or "", DEFAULT_DIVISION)
-        self.events: list[BankHoliday] | None = None
-        self.downloaded: datetime | None = None
-
-    def _download(self, now: datetime) -> list[BankHoliday]:
-        if self.events is None or self.downloaded is None or now - self.downloaded >= BANK_HOLIDAYS_REDOWNLOAD:
-            response = self.session.get(BANK_HOLIDAYS_URL, timeout=DEFAULT_TIMEOUT)
-            response.raise_for_status()
-            # The divisions are the top-level keys; wrap them so pydantic can read them.
-            divisions = BankHolidays.model_validate({"divisions": response.json()}).divisions
-            self.events = divisions[self.division].events
-            self.downloaded = now
-        return self.events
-
-    @override
-    def fetch(self, now: datetime) -> list[Notice]:
-        today = now.astimezone(UK_TIME).date()
-        upcoming = [e for e in self._download(now) if today <= e.date < _one_month_after(today)]
-        if not upcoming:
-            return []
-        holiday = min(upcoming, key=lambda e: e.date)
-        text = f"{when(holiday.date, today)}: {holiday.title}"
-        if holiday.notes:
-            text += f" ({holiday.notes.lower()})"
-        ends = datetime.combine(holiday.date + timedelta(days=1), time(), tzinfo=UK_TIME)
-        return [Notice(_("Bank holiday"), Severity.REMINDER, text, ends)]
 
 
 class NoStoredBankHolidaysError(LookupError):

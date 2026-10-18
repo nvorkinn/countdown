@@ -17,7 +17,7 @@ from test_utils import REGISTRATION
 
 from countdown_core import i18n
 from countdown_core.notices import notice_board_client as board_module
-from countdown_core.notices.calendar import BankHolidaySource, NoStoredBankHolidaysError, StoredBankHolidaySource
+from countdown_core.notices.calendar import NoStoredBankHolidaysError, StoredBankHolidaySource
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
@@ -125,8 +125,8 @@ def ending(year: int, month: int, day: int, hour: int = 0) -> datetime:
     return datetime(year, month, day, hour, tzinfo=UTC)
 
 
-# What the board said when it asked gov.uk itself (BankHolidaySource), from the fixture: (now, postcodes.io's country)
-# -> (text, valid_until), or None for no notice. A holiday ends at midnight after it, UK time.
+# What the board said when it asked gov.uk itself (BankHolidaySource, now gone), from the fixture: (now, postcodes.io's
+# country) -> (text, valid_until), or None for no notice. A holiday ends at midnight after it, UK time.
 OLD_ANSWERS = [
     (datetime(2026, 11, 24, 12, tzinfo=UTC), None, None),  # Christmas is over a month away
     (datetime(2026, 11, 26, 12, tzinfo=UTC), None, ("Fri 25 Dec: Christmas Day", ending(2026, 12, 26))),
@@ -150,13 +150,9 @@ OLD_ANSWERS = [
 @pytest.mark.parametrize(("now", "country", "expected"), OLD_ANSWERS)
 def test_the_stored_holidays_give_the_notices_gov_uk_gave(server, now, country, expected):
     provide(server)
-    with responses.RequestsMock() as gov_uk:
-        gov_uk.get(BANK_HOLIDAYS_URL, json=GOV_UK)
-        old = BankHolidaySource(requests.Session(), country).fetch(now)
 
     notices = StoredBankHolidaySource(country).fetch(now)
 
-    assert notices == old
     assert notices == ([Notice("Bank holiday", Severity.REMINDER, *expected)] if expected else [])
 
 
