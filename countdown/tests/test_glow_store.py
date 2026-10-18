@@ -68,7 +68,7 @@ def store(store):
 
 def make_client(registration=None) -> GlowClient:
     registration = registration or RendererRegistration(REGISTRATION.broker_url, REGISTRATION.device_secret, DEVICE_ID)
-    return GlowClient(registration, Glowmarkt(username="me@example.com", password="hunter2"))
+    return GlowClient(registration, Glowmarkt(enabled=True))
 
 
 def draw_pages(client: GlowClient) -> list[list[dict]]:

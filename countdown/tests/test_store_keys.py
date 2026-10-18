@@ -13,3 +13,7 @@ def test_a_place_is_its_postcode_without_the_space(postcode, place):
 def test_the_postcode_is_a_subscription_source():
     assert keys.subscription(keys.POSTCODE) == "v1:sub:postcode"
     assert keys.POSTCODE in keys.SOURCES
+
+
+def test_the_met_office_warnings_are_by_place():
+    assert keys.met_office("SE17 3LL") == "v1:notices:met-office:SE173LL"

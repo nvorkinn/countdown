@@ -1,24 +1,32 @@
-"""Weather warnings for a UK postcode, from the Met Office's RSS feeds."""
+"""Weather warnings for a UK postcode, from the Met Office's RSS feeds.
+
+provider-met-office fetches the feed of each subscribed postcode's region and stores its items under the postcode
+(countdown_core.store.met_office); the notice board reads them from there (StoredMetOfficeWarningsSource) and makes
+its notices from them when it draws (warning_notices).
+"""
 
 import logging
 import re
-import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
+from countdown_core.store import keys, reader
+from countdown_core.store.met_office import StoredMetOfficeWarnings
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    import redis
     import requests
 
+    from countdown_core.store.met_office import FeedItem
     from countdown_core.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 
-FEED_URL = "https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/{region}"
 UK_TIME = ZoneInfo("Europe/London")
 
 # Met Office warning regions, keyed by postcodes.io's English region or, outside
@@ -119,19 +127,18 @@ def _valid_until(description: str, now: datetime) -> datetime | None:
     return until
 
 
-def parse_warnings(feed: bytes, now: datetime) -> list[Notice]:
-    """Turn the feed's items into Notices.
+def warning_notices(items: Iterable[FeedItem], now: datetime) -> list[Notice]:
+    """Turn the feed's items, as the provider stored them, into Notices, as of `now` and in the screen's language.
 
     Reads the colour and hazard out of titles like "Amber warning of wind affecting London & South East England"; a
-    title in any other shape is shown as it is rather than dropped.
+    title in any other shape is shown as it is rather than dropped, and an item with no title is left out.
     """
     notices = []
-    for item in ET.fromstring(feed).iter("item"):  # noqa: S314 -- the Met Office's own feed, over https
-        title = (item.findtext("title") or "").strip()
-        description = (item.findtext("description") or "").strip()
+    for item in items:
+        title = item.title.strip()
         if not title:
             continue
-        valid_until = _valid_until(description, now)
+        valid_until = _valid_until(item.description.strip(), now)
         match = TITLE_PATTERN.match(title)
         if match:
             colour, hazard = match.group(1).lower(), match.group(2).lower()
@@ -146,20 +153,42 @@ def parse_warnings(feed: bytes, now: datetime) -> list[Notice]:
     return notices
 
 
-class MetOfficeWarningsSource(NoticeSource):
-    """The Met Office's weather warnings for the postcode's region."""
+class NoStoredWarningsError(LookupError):
+    """The store has no warnings for the postcode: provider-met-office is down, or hasn't fetched them yet."""
+
+
+class StoredMetOfficeWarningsSource(NoticeSource):
+    """The Met Office's weather warnings for the postcode's region, read from the store (`v1:notices:met-office:`).
+
+    provider-met-office writes them there, from the feed of the region the postcode is in. The notices are made from
+    the stored items each time it's read, so their text is in the screen's language and their days are as of then.
+    """
 
     name = "Met Office warnings"
-    refresh_interval = timedelta(minutes=10)
+    # Reading the store is cheap, and the provider fetches every 5 minutes: together no slower to show a new warning
+    # than the board fetching the feed itself every 10 was.
+    refresh_interval = timedelta(minutes=5)
 
-    def __init__(self, session: requests.Session, location: Postcode) -> None:
-        """Fetch over `session` the warnings for the region `location` is in."""
+    def __init__(
+        self, session: requests.Session, location: Postcode, postcode: str, store: redis.Redis | None = None
+    ) -> None:
+        """Read the warnings for `postcode` (the board's, as configured), which is at `location`, from `store`.
+
+        `store` is the renderer's (reader.require_store()) unless given, asked for only when the warnings are read,
+        so a renderer without one fails this source alone, not the board.
+        """
         super().__init__(session)
+        # The feed the provider reads for this postcode, worked out here too only so the board can log it.
         self.region = region_for(location)
-        self.url = FEED_URL.format(region=self.region)
+        self.key = keys.met_office(postcode)
+        self.store = store
 
     @override
     def fetch(self, now: datetime) -> list[Notice]:
-        response = self.session.get(self.url, timeout=DEFAULT_TIMEOUT)
-        response.raise_for_status()
-        return parse_warnings(response.content, now)
+        store = self.store if self.store is not None else reader.require_store()
+        stored = reader.read(store, self.key, StoredMetOfficeWarnings)
+        if stored is None:
+            # Not the key: the board logs this, and where the board is stays out of the logs.
+            msg = "No Met Office warnings in the store for the board's postcode"
+            raise NoStoredWarningsError(msg)
+        return warning_notices(stored.items, now)

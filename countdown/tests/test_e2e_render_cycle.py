@@ -243,22 +243,6 @@ def test_full_render_cycle_skips_glowmarkt_when_switched_off(isolated_cwd, monke
 
 
 @responses.activate
-def test_full_render_cycle_shows_glowmarkt_from_a_broker_without_its_switch(isolated_cwd, monkeypatch, store):
-    """An older broker sends no `enabled`, only the credentials, which still switch the panel on (from the store)."""
-    config = make_config(glowmarkt={"enabled": None, "username": "dummy@example.com", "password": "dummy-password"})
-    config.interval = 1
-    config.tfl.stop_ids = [BUS_STOP]
-    _put_stops_and_energy(store, BUS_STOP)
-    loop = _build_loop(config, monkeypatch)
-    shown = _spy_on_frames(monkeypatch)
-
-    _run_cycles(loop, monkeypatch)
-
-    assert isinstance(shown[0]["glowmarkt"], EnergyPanel)
-    assert [reading["kwh"] for reading in shown[0]["glowmarkt"].readings] == [2.25, 1.5]
-
-
-@responses.activate
 def test_full_render_cycle_with_spotify_track(isolated_cwd, monkeypatch, store):
     config = _make_config()
     config.tfl.stop_ids = [BUS_STOP]
