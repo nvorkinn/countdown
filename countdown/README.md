@@ -71,7 +71,8 @@ warning triangle; `developer/release_styles.py`) and the notice board. The depar
 energy, music and developer clients read only the shared Redis store, which the [providers](providers/README.md) (and
 auth-broker's, for energy, music and the developer panel) fill: the renderer never calls TfL, Entur, Open-Meteo,
 Glowmarkt or GitHub for them, nor the broker, nor the music services' image hosts for the album covers, and never holds
-a Glowmarkt password, a Spotify token or a GitHub token. A
+a Glowmarkt password, a Spotify token or a GitHub token. Nor does it use TfL's app key: the providers read
+`TFL_APP_KEY` themselves. A
 renderer started without `REDIS_URL` can't build those five, so their areas say "Could not connect" and the log says
 why (`store.reader.require_store`); a key missing from the store, or Redis not answering, is just a failed poll. The
 notice board reads its bank holidays (`v1:notices:bank-holidays`), the Met Office's warnings
