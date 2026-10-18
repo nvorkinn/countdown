@@ -9,6 +9,12 @@ Subscriptions (written by the broker, read by the providers):
 - `v1:sub:changed`: a pub/sub channel the broker publishes to (empty payload) after replacing subscriptions, so the
   providers needn't wait for their next tick.
 
+Configs (written by the broker, read by the renderers): `v1:config:<device id>` holds what GET /api/config answers the
+device (the contract's ConfigResponse, without its API keys or a pairing code), with no TTL: the broker rewrites it from
+its database on every config save and as it starts. A missing key means the renderer asks GET /api/config instead (an
+older broker, or a pairing code to show). `v1:config:changed` is the channel the broker publishes a device's id on after
+changing its key. See `config`.
+
 Data (written by the providers with a TTL, read by the renderers): one key per thing, holding the JSON of a
 countdown_core.store.models model. A missing key means its provider is down (or hasn't got to it yet).
 
@@ -42,6 +48,18 @@ SUB_CHANGED = f"{PREFIX}:sub:changed"
 def subscription(source: str) -> str:
     """Return the set of ids wanted from `source`, e.g. `v1:sub:tfl` (TfL NaPTAN stop ids)."""
     return f"{PREFIX}:sub:{source}"
+
+
+# The channel the broker publishes a device's id on after changing its config in the store.
+CONFIG_CHANGED = f"{PREFIX}:config:changed"
+
+
+def config(device_id: str) -> str:
+    """Return the key of a device's config, e.g. `v1:config:a1b2c3d4e5f6`.
+
+    Written by auth-broker from its database; holds a countdown_api.models.ConfigResponse, read by store.config.
+    """
+    return f"{PREFIX}:config:{device_id}"
 
 
 def place(postcode: str) -> str:

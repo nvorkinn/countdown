@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from countdown_api.models import ConfigResponse
     from countdown_core.config_server.broker_client import BrokerClient
     from countdown_core.core.display import DisplayController
+    from countdown_core.store.config import ConfigWatcher
     from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
 logger = logging.getLogger(__name__)
@@ -41,19 +42,23 @@ def safe_fetch[T, F](func: Callable[[], T], fallback: F) -> T | F:
 class DisplayLoop:
     """The refresh loop: each cycle shows the pairing screen or the dashboard, then re-reads the config."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 -- what the boot hands over; the optional watcher is keyword-only
         self,
         broker: BrokerClient,
         config: ConfigResponse,
         pairing_code_panel: PairingCodePanel,
         display: DisplayController,
         api_reg: ApiRegistry | None = None,
+        *,
+        watcher: ConfigWatcher | None = None,
     ) -> None:
         """Start from the boot's `config` and `pairing_code_panel`, painting on `display`.
 
-        `broker` gives the later configs; `api_reg` holds the clients (a fresh one that reports nowhere if not given).
+        `broker` gives the later configs; `api_reg` holds the clients (a fresh one that reports nowhere if not given);
+        `watcher`, if given, cuts the wait between cycles short when the broker says the config changed.
         """
         self.broker = broker
+        self.watcher = watcher
         self.config = config
         self.pairing_code_panel = pairing_code_panel
         self.interval = config.interval
@@ -65,7 +70,19 @@ class DisplayLoop:
         self._pace: int | None = None
 
     async def run(self) -> None:
-        """Run the cycles, the config's interval apart (less while a provider asks for it); 0 stops after the cycle."""
+        """Run the cycles, the config's interval apart (less while a provider asks for it); 0 stops after the cycle.
+
+        A change to the config the broker announces (see `watcher`) starts the next cycle at once, with it.
+        """
+        if self.watcher is not None:
+            self.watcher.start()
+        try:
+            await self._run()
+        finally:
+            if self.watcher is not None:
+                await self.watcher.close()
+
+    async def _run(self) -> None:
         started = time.monotonic()
         await self.api_reg.on_config_update(self.config)
         self._fit_stops_to_layout()
@@ -106,11 +123,18 @@ class DisplayLoop:
                 logger.info("First cycle finished %.1fs after start", time.monotonic() - started)
                 first_cycle_done = True
 
-            await asyncio.sleep(self.sleep_s())
+            await self._wait(self.sleep_s())
             await self.refresh_broker_config()
 
             if not self.interval:
                 break
+
+    async def _wait(self, seconds: float) -> None:
+        """Sleep `seconds` between cycles, or less if the broker says the config changed meanwhile."""
+        if self.watcher is None:
+            await asyncio.sleep(seconds)
+        else:
+            await self.watcher.wait(seconds)
 
     def sleep_s(self) -> float:
         """Return how long to wait before the next cycle: the config's interval, or a provider's pace if that's shorter.
@@ -122,7 +146,7 @@ class DisplayLoop:
         return min(self.interval, max(self._pace, MIN_PACE_S))
 
     async def refresh_broker_config(self) -> None:
-        """Re-read the config, as every cycle does (the broker has no change-timestamp).
+        """Re-read the config (from the store, else the broker), as every cycle does, and after the broker's nudge.
 
         That also keeps the pairing code current.
         """

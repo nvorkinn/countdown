@@ -13,6 +13,7 @@ from countdown_api.models import ConfigResponse
 from countdown_core.core import app
 from countdown_core.core.display_loop import safe_fetch
 from countdown_core.core.log_format import JsonFormatter
+from countdown_core.store.config import ConfigWatcher
 from countdown_credentials.registration import RendererRegistrar, RendererRegistration
 from countdown_server.server_target import ServerTarget
 
@@ -165,8 +166,8 @@ def booted(monkeypatch):  # noqa: C901 -- one fixture of small fakes, each count
     seen = {"order": []}
 
     class FakeLoop:
-        def __init__(self, broker, config, pairing_code_panel, display, registry):
-            seen.update(broker=broker, display=display, registry=registry)
+        def __init__(self, broker, config, pairing_code_panel, display, registry, *, watcher):  # noqa: PLR0913 -- DisplayLoop's
+            seen.update(broker=broker, display=display, registry=registry, watcher=watcher)
 
         async def run(self):
             seen["order"].append("loop")
@@ -213,6 +214,22 @@ def booted(monkeypatch):  # noqa: C901 -- one fixture of small fakes, each count
     boot.seen = seen  # for a boot that's stopped part-way, which returns nothing
 
     return boot
+
+
+def test_run_has_the_loop_watch_for_config_changes_in_the_store(booted, monkeypatch):
+    monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:6379/0")
+
+    watcher = booted()["watcher"]
+
+    assert isinstance(watcher, ConfigWatcher)
+    assert watcher.device_id == REGISTRATION.device_id
+    asyncio.run(watcher.client.aclose())
+
+
+def test_run_without_a_store_has_nothing_to_watch(booted, monkeypatch):
+    monkeypatch.delenv("REDIS_URL", raising=False)
+
+    assert booted()["watcher"] is None
 
 
 def test_run_reports_to_home_assistant_from_the_start_and_does_nothing_else_until_registered(booted):
