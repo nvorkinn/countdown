@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+<title>Met Office warnings for London &amp; South East England</title>
+<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings</link>
+<description>Weather warnings of severe and extreme weather from the Met Office</description>
+<language>en-gb</language>
+<copyright>(c) Crown copyright</copyright>
+<pubDate>Fri, 25 Sep 2026 10:31:07 GMT</pubDate>
+<atom:link href="https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/se" rel="self" type="application/rss+xml"/>
+<item>
+<title>Amber warning of wind affecting London &amp; South East England</title>
+<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=4b1f6a3e-2c4d-4f0e-9a51-6f0f1c2b7d10&amp;referrer=rss</link>
+<description>Amber warning of wind affecting London &amp; South East England: Lambeth, Southwark, Wandsworth valid from 0600 Fri 25 Sep to 2100 Fri 25 Sep</description>
+<pubDate>Thu, 24 Sep 2026 10:30:00 GMT</pubDate>
+<guid isPermaLink="false">4b1f6a3e-2c4d-4f0e-9a51-6f0f1c2b7d10</guid>
+<enclosure url="https://www.metoffice.gov.uk/public/data/NSWWS/WarningMapImages/4b1f6a3e-2c4d-4f0e-9a51-6f0f1c2b7d10.gif" length="21334" type="image/gif"/>
+</item>
+<item>
+<title>Yellow warning of rain affecting London &amp; South East England</title>
+<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=8e2d0c71-5a3b-4c8f-b2e4-1d9a7f6e3c25&amp;referrer=rss</link>
+<description>Yellow warning of rain affecting London &amp; South East England: Bromley, Croydon, Lambeth, Southwark valid from 1800 Fri 25 Sep to 0900 Sat 26 Sep</description>
+<pubDate>Fri, 25 Sep 2026 09:15:00 GMT</pubDate>
+<guid isPermaLink="false">8e2d0c71-5a3b-4c8f-b2e4-1d9a7f6e3c25</guid>
+</item>
+<item>
+<title>Yellow warning of thunderstorm affecting London &amp; South East England</title>
+<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=c35a9e08-7f61-4d2a-8b3c-90e4f5a6b7c8&amp;referrer=rss</link>
+<description>Yellow warning of thunderstorm affecting London &amp; South East England: Southwark valid from 0000 Fri 25 Sep to 0900 Fri 25 Sep</description>
+<pubDate>Thu, 24 Sep 2026 15:00:00 GMT</pubDate>
+<guid isPermaLink="false">c35a9e08-7f61-4d2a-8b3c-90e4f5a6b7c8</guid>
+</item>
+<item>
+<title>Yellow warning of fog affecting London &amp; South East England</title>
+<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-26&amp;id=e7d1b2a9-0c3f-4e8d-a6b5-3f2c1d0e9b84&amp;referrer=rss</link>
+<pubDate>Fri, 25 Sep 2026 10:00:00 GMT</pubDate>
+<guid isPermaLink="false">e7d1b2a9-0c3f-4e8d-a6b5-3f2c1d0e9b84</guid>
+</item>
+<item>
+<title>Warnings for London &amp; South East England are being reviewed</title>
+<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings</link>
+<description>Please check back later for the latest warnings</description>
+<pubDate>Fri, 25 Sep 2026 10:31:07 GMT</pubDate>
+</item>
+<item>
+<title> </title>
+<description>An item with nothing to show</description>
+</item>
+</channel>
+</rss>
