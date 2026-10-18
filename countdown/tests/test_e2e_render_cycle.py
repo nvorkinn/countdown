@@ -1,7 +1,7 @@
 """End-to-end tests for the display refresh cycle, through to a rendered image.
 
 The real clients and ApiRegistry run inside DisplayLoop.run(), reading a fake store (conftest's `store`) that the
-tests fill as the providers would, with any other HTTP (the broker, the notices, album art) mocked with `responses`.
+tests fill as the providers would, with any other HTTP (the broker, the notices) mocked with `responses`.
 
 `asyncio.sleep` is replaced by a fake that raises after N calls (see _run_cycles()). Most
 tests leave the broker's /config unmocked, so refreshing the config fails and is swallowed,
@@ -249,7 +249,8 @@ def test_full_render_cycle_with_spotify_track(isolated_cwd, monkeypatch, store):
     config.spotify.enabled = True
     _put_stops_and_energy(store, BUS_STOP)
     _put_music(store, {"currently_playing": TRACK_JSON, "queue": []})
-    responses.add(responses.GET, "https://example.com/album.jpg", body=_png_bytes(), content_type="image/png")
+    # Its cover, as the music provider stores it: the image's bytes, by its URL.
+    store.set(keys.album_art("https://example.com/album.jpg"), _png_bytes())
     loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
@@ -257,7 +258,8 @@ def test_full_render_cycle_with_spotify_track(isolated_cwd, monkeypatch, store):
 
     assert isinstance(shown[0]["spotify"], SpotifyPanel)
     assert shown[0]["spotify"].queue.currently_playing.name == "Test Song"
-    assert _calls_to("https://example.com/album.jpg") == 1  # the screen really was rendered with the art
+    assert shown[0]["spotify"].art == _png_bytes()  # the screen was rendered with the cover from the store
+    assert _calls_to("https://example.com/album.jpg") == 0  # not from its image host
 
 
 @responses.activate

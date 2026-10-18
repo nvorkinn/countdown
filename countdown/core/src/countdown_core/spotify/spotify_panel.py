@@ -1,9 +1,9 @@
 """The Spotify area's now playing page: the cover, the track, and what's up next (for Apple Music, last played)."""
 
 import io
+import logging
 from typing import TYPE_CHECKING, override
 
-import requests
 from PIL import Image, ImageOps
 
 from countdown_core.core.panel import Panel
@@ -11,49 +11,55 @@ from countdown_core.spotify.spotify_styles import SPOTIFY_LABELS, STYLES
 
 if TYPE_CHECKING:
     from countdown_core.core.style import Style
-    from countdown_core.spotify.models import Album, Queue
-    from countdown_core.spotify.models import Image as AlbumImage
+    from countdown_core.spotify.models import Queue
     from countdown_core.spotify.spotify_styles import Labels
     from countdown_core.utils.clock import ClockFormat
+
+logger = logging.getLogger(__name__)
 
 
 class SpotifyPanel(Panel):
     """What's playing, with its cover, and what's up next."""
 
-    def __init__(self, queue: Queue, style: Style = "hero", labels: Labels = SPOTIFY_LABELS) -> None:
+    def __init__(
+        self, queue: Queue, style: Style = "hero", labels: Labels = SPOTIFY_LABELS, art: bytes | None = None
+    ) -> None:
         """`queue`: the player's, with something playing; `style`: how to draw it; `labels`: what to call its parts.
 
         Apple Music's (APPLE_MUSIC_LABELS) has the last played track in place of what's playing, and the ones before
-        it in place of what's next.
+        it in place of what's next. `art`: the playing track's cover, an image file's bytes as the store holds it
+        (keys.album_art); None draws the page without one, as for a local file, which has none.
         """
         self.queue = queue
         self.style = style
         self.labels = labels
+        self.art = art
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
-        album = self.queue.currently_playing.album
         return STYLES[self.style].now(
             self.queue,
-            lambda size: _contrasty(_create_album_image_panel(album, size)),
+            lambda size: _contrasty(_album_art(self.art, size)),
             image_width,
             image_height,
             self.labels,
         )
 
 
-def _create_album_image_panel(album: Album, height: int) -> Image.Image:
-    """Download the album's art (see _pick_image) and scale it down to `height`.
+def _album_art(art: bytes | None, height: int) -> Image.Image:
+    """Open the cover and scale it down to `height` (it's stored at least as tall as any style draws it).
 
-    A local file has no art at all: that gets an empty (0-wide) image.
+    No cover, or one that won't open, gets an empty (0-wide) image, and the page is drawn without it.
     """
-    if not album.images:
-        return Image.new("RGBA", (0, height))
-    response = requests.get(str(_pick_image(album.images, height).url), timeout=10)
-    response.raise_for_status()
-    converted = Image.open(io.BytesIO(response.content)).convert("RGBA")
-    converted.thumbnail((height, height))
-    return converted
+    if art:
+        try:
+            cover = Image.open(io.BytesIO(art)).convert("RGBA")
+        except (OSError, ValueError, Image.DecompressionBombError) as e:
+            logger.warning("Couldn't open the album's cover (%s); drawing the page without it", e)
+        else:
+            cover.thumbnail((height, height))
+            return cover
+    return Image.new("RGBA", (0, height))
 
 
 def _contrasty(art: Image.Image) -> Image.Image:
@@ -66,14 +72,3 @@ def _contrasty(art: Image.Image) -> Image.Image:
     grey = ImageOps.autocontrast(art.convert("L"), cutoff=2)
     grey.putalpha(art.getchannel("A"))
     return grey.convert("RGBA")
-
-
-def _pick_image(images: list[AlbumImage], height: int) -> AlbumImage:
-    """Pick the smallest image at least `height` tall, or the tallest if none is tall enough.
-
-    That's for thumbnail() to scale down: it never scales up, so a smaller one would stay small.
-    """
-    tall_enough = [image for image in images if image.height >= height]
-    if tall_enough:
-        return min(tall_enough, key=lambda image: image.height)
-    return max(images, key=lambda image: image.height)

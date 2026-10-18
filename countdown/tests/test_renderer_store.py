@@ -28,8 +28,9 @@ from countdown_core.weather.weather_forecast import weather_pages
 from countdown_providers.entur.main import to_stop_departures as entur_stop_departures
 from countdown_providers.tfl.main import to_stop_departures
 
-# The real reader.store, which conftest's `store` fixture replaces in every test.
+# The real reader.store and reader.binary_store, which conftest's `store` fixture replaces in every test.
 REAL_STORE = reader.store
+REAL_BINARY_STORE = reader.binary_store
 
 
 @pytest.fixture
@@ -65,6 +66,29 @@ def test_reads_the_store_given_redis_url(monkeypatch, real_store):
 
     assert client is reader.store()
     assert client.connection_pool.connection_kwargs["password"] == "secret"
+
+
+def test_the_covers_are_read_from_the_same_store_as_bytes(monkeypatch, real_store):
+    """The covers (keys.album_art) are image files, which the store's own client would decode as text."""
+    monkeypatch.setattr(reader, "binary_store", REAL_BINARY_STORE)
+    REAL_BINARY_STORE.cache_clear()
+    monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:6399/0")
+    monkeypatch.setenv("REDIS_PASSWORD", "secret")
+    try:
+        binary, text = reader.binary_store(), reader.require_store()
+
+        assert binary is reader.binary_store()
+        assert binary is not text
+        assert binary.connection_pool.connection_kwargs["decode_responses"] is False
+        assert text.connection_pool.connection_kwargs["decode_responses"] is True
+        for key in ("host", "port", "db", "password", "socket_timeout"):
+            assert binary.connection_pool.connection_kwargs[key] == text.connection_pool.connection_kwargs[key]
+
+        monkeypatch.delenv("REDIS_URL")
+        REAL_BINARY_STORE.cache_clear()
+        assert reader.binary_store() is None
+    finally:
+        REAL_BINARY_STORE.cache_clear()
 
 
 def test_requiring_a_store_doesnt_connect_so_redis_being_down_isnt_fatal(monkeypatch, real_store):

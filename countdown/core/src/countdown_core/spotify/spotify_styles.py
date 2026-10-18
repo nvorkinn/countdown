@@ -25,7 +25,7 @@ MIC = chr(0xE029)
 SKIP_NEXT = chr(0xE044)
 HISTORY = chr(0xE889)
 
-# The cover at a given size: a square, or 0 wide if the track has none (a local file).
+# The cover at a given size: a square, or 0 wide if the track has none (a local file) or the store hadn't it.
 AlbumArt = Callable[[int], Image.Image]
 
 
