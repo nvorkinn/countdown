@@ -68,6 +68,6 @@ class StoredFloodWarningsSource(NoticeSource):
         stored = reader.read(reader.require_store(), self.key, StoredFloods)
         if stored is None:
             # Not naming the postcode: the board logs this, and the postcode says where the screen is.
-            msg = "No flood warnings in the store for the screen's postcode"
+            msg = "No flood warnings in the store for the board's postcode"
             raise NoStoredFloodsError(msg)
         return flood_notices(stored.floods)

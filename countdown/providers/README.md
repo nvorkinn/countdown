@@ -177,7 +177,7 @@ docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 
 should list a key for each UK postcode in `v1:sub:postcode` (the same command with `SMEMBERS v1:sub:postcode` in place
 of `--scan --pattern ...` lists those). None at all means the provider isn't running, or the broker isn't writing the
 postcodes; the provider's log says why one is missing (`docker logs countdown-renderers-provider-floods-1`). A renderer
-whose key isn't there logs "No flood warnings in the store for the screen's postcode", shows the rest of its notices,
+whose key isn't there logs "No flood warnings in the store for the board's postcode", shows the rest of its notices,
 and keeps whatever flood warnings it last read (for up to an hour); it reads again every 5 minutes.
 
 ## Running locally
