@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import signal
 from datetime import UTC, datetime
 
 import fakeredis
@@ -10,8 +11,9 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 
 from countdown_core.store import keys
 from countdown_core.store.models import StopDepartures
+from countdown_providers import runner as runner_module
 from countdown_providers.config import DEFAULT_REDIS_URL, Settings
-from countdown_providers.runner import PACE_TTL_S, ProviderRunner, next_tick
+from countdown_providers.runner import PACE_TTL_S, ProviderRunner, next_tick, serve, serve_all
 from countdown_providers.sharding import Shard, shard_of
 
 FETCHED_AT = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
@@ -352,3 +354,68 @@ def test_a_provider_without_a_pace_writes_none(redis):
     asyncio.run(ProviderRunner(FakeProvider(), redis).run_cycle())
 
     assert asyncio.run(redis.keys(f"{keys.PREFIX}:pace:*")) == []
+
+
+# --- Serving -----------------------------------------------------------------------
+
+
+class LoopingRunner:
+    """Stands in for ProviderRunner: runs until stopped, and says when it has started and whether it was stopped."""
+
+    def __init__(self, provider, redis):
+        self.provider = provider
+        self.redis = redis
+        self.started = asyncio.Event()
+        self.stopped = asyncio.Event()
+
+    async def run(self):
+        self.started.set()
+        await self.stopped.wait()
+
+    def stop(self):
+        self.stopped.set()
+
+
+def serve_until(serving, monkeypatch, signum: int, count: int) -> list[LoopingRunner]:
+    """Run `serving` (a serve() or serve_all() of `count` providers) until its handler for `signum` is called."""
+    made: list[LoopingRunner] = []
+
+    def make_runner(provider, redis, *, shard):
+        made.append(LoopingRunner(provider, redis))
+        return made[-1]
+
+    monkeypatch.setattr(runner_module, "ProviderRunner", make_runner)
+
+    async def main():
+        handlers = {}
+        # The handlers it registers, rather than signals sent to the test process.
+        monkeypatch.setattr(asyncio.get_running_loop(), "add_signal_handler", handlers.__setitem__)
+        task = asyncio.create_task(serving)
+        await asyncio.sleep(0)  # serve_all makes its runners and starts them
+        assert len(made) == count
+        await asyncio.wait_for(asyncio.gather(*(runner.started.wait() for runner in made)), timeout=5)
+        assert set(handlers) == {signal.SIGINT, signal.SIGTERM}
+        handlers[signum]()
+        await asyncio.wait_for(task, timeout=5)
+
+    asyncio.run(main())
+    return made
+
+
+def test_serve_runs_its_provider_until_sigterm(monkeypatch):
+    provider = FakeProvider()
+
+    [runner] = serve_until(serve(provider, Settings()), monkeypatch, signal.SIGTERM, 1)
+
+    assert runner.provider is provider
+    assert runner.stopped.is_set()
+
+
+def test_serve_all_runs_each_provider_on_one_connection_and_sigint_stops_them_all(monkeypatch):
+    providers = [FakeProvider(), FakeProvider()]
+
+    runners = serve_until(serve_all(providers, Settings()), monkeypatch, signal.SIGINT, 2)
+
+    assert [r.provider for r in runners] == providers
+    assert runners[0].redis is runners[1].redis
+    assert all(r.stopped.is_set() for r in runners)

@@ -378,6 +378,14 @@ def test_roads_asks_again_about_a_postcode_postcodes_io_doesnt_know_and_never_lo
     assert "ZZ1" not in caplog.text
 
 
+def test_roads_leaves_out_a_postcode_postcodes_io_cant_be_asked_about_and_never_logs_it(api, tfl, caplog):
+    api.add(responses.GET, f"{POSTCODES_URL}/E1%206AN", body=requests.ConnectionError(f"{POSTCODES_URL}/E1%206AN"))
+    _, _, roads = make_providers()
+
+    assert list(asyncio.run(roads.fetch(["E1 6AN", POSTCODE]))) == [POSTCODE]
+    assert caplog.messages == ["Couldn't look up a postcode: ConnectionError"]
+
+
 def test_roads_logs_a_failure_without_the_postcodes(api, tfl, caplog):
     tfl.failures["/Road/all/Disruption"] = 503
     _, _, roads = make_providers()
@@ -434,6 +442,27 @@ def test_the_process_runs_the_three_side_by_side_on_one_connection(monkeypatch):
     assert len({id(redis) for _, _, redis in ran}) == 1
 
 
+def test_main_serves_the_three_with_the_app_key_and_the_store_from_the_environment(monkeypatch):
+    served = []
+
+    async def fake_serve_all(serving, settings):
+        served.append((serving, settings))
+
+    monkeypatch.setattr(provider_module, "serve_all", fake_serve_all)
+    monkeypatch.setattr(provider_module, "configure_logging", lambda: None)
+    monkeypatch.setenv("TFL_APP_KEY", "key")
+    monkeypatch.setenv("REDIS_URL", "redis://redis.example:6379/0")
+
+    provider_module.main()
+
+    [(serving, settings)] = served
+    assert [type(p) for p in serving] == [TflLineStatusProvider, TflStationProvider, TflRoadProvider]
+    assert all(p.tfl.params == {"app_key": "key"} for p in serving)
+    assert serving[2].session is serving[2].tfl.session  # the roads' postcodes.io and TfL, one after the other
+    assert len({id(p.tfl.session) for p in serving}) == 3  # a session per thread
+    assert settings.redis_url == "redis://redis.example:6379/0"
+
+
 # --- The renderer's sources --------------------------------------------------------
 
 
@@ -461,6 +490,10 @@ def test_a_source_without_a_store_says_so(monkeypatch):
 
     with pytest.raises(reader.StoreNotConfiguredError):
         roads.fetch(NOW)
+
+
+def test_a_source_with_no_stops_has_nothing_to_say():
+    assert StoredTflLineStatusSource(requests.Session(), []).fetch(NOW) == []
 
 
 def test_a_line_serving_two_stops_is_one_notice(store):
