@@ -114,7 +114,7 @@ def test_get_config_parses_response(isolated_cwd):
         json=broker_payload(
             interval=20,
             tfl={"stop_ids": ["940GZZLUEUS"]},
-            weather={"api_key": "weather-key", "location": "London"},
+            weather={"location": "London"},
             spotify={"enabled": True},
             glowmarkt={"enabled": True},
         ),
@@ -168,6 +168,27 @@ def test_get_config_reads_a_broker_that_still_sends_the_tfl_app_key(isolated_cwd
     assert config.tfl.stop_ids == ["940GZZLUEUS"]
     assert "tfl-key" not in config.model_dump_json()
     assert config.pairing_code == "ABC123"
+
+
+@responses.activate
+def test_get_config_reads_a_broker_that_still_sends_a_weather_api_key(isolated_cwd):
+    """A broker from before it was removed from the contract sends weather.api_key (empty, or the operator's key).
+
+    Nothing here uses it (Open-Meteo needs no key). It's dropped like any field the renderer doesn't know, not
+    rejected or kept.
+    """
+    client = _initialised_client()
+    responses.add(
+        responses.GET,
+        CONFIG_URL,
+        json=broker_payload(weather={"api_key": "weather-key", "location": "London", "key": "london-gb-2643743"}),
+    )
+
+    config = client.get_config()
+
+    assert location_key(config.weather) == "london-gb-2643743"
+    assert "api_key" not in config.weather.model_dump()
+    assert "weather-key" not in config.model_dump_json()
 
 
 @responses.activate
@@ -291,7 +312,7 @@ def test_fetch_app_config_uses_real_broker_response(isolated_cwd):
         json=broker_payload(
             interval=20,
             tfl={"stop_ids": ["940GZZLUEUS"]},
-            weather={"api_key": "weather-key", "location": "London"},
+            weather={"location": "London"},
             spotify={"enabled": True},
             pairing_code="XYZ789",
         ),

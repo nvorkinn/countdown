@@ -11,7 +11,7 @@ def broker_payload(**overrides) -> dict:
         device_id="device-123",
         interval=15,
         screen=wire.Screen(orientation="vertical", width=480, height=800),
-        weather=wire.Weather(api_key="", location=""),
+        weather=wire.Weather(location=""),
         notice_board=wire.NoticeBoard(postcode=None),
         tfl=wire.Tfl(stop_ids=[]),
         spotify=wire.Spotify(enabled=False),

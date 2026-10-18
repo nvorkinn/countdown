@@ -287,7 +287,7 @@ def test_departures_client_draws_stored_entur_stops_without_asking_entur(store):
 
 
 def make_weather_client(location: str = "London") -> WeatherClient:
-    return WeatherClient(REGISTRATION, WeatherSection(api_key="", location=location))
+    return WeatherClient(REGISTRATION, WeatherSection(location=location))
 
 
 @responses.activate  # with nothing registered: any call to Open-Meteo fails the test

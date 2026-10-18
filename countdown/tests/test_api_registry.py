@@ -77,7 +77,7 @@ def test_weather_rotates_only_when_the_registry_actually_polls_it(store):
         keys.weather("London"),
         StoredForecast(fetched_at=dt.datetime.now(dt.UTC), location="London", forecast=forecast).model_dump_json(),
     )
-    client = WeatherClient(REGISTRATION, WeatherSection(location="London", api_key=""))
+    client = WeatherClient(REGISTRATION, WeatherSection(location="London"))
     registry = registry_with(weather=client)
     seen = []
     for _ in range(5):
@@ -555,7 +555,7 @@ def test_available_is_the_built_clients_that_are_not_disabled():
     registry = registry_with(
         tfl=FakeClient(),
         glowmarkt=disabled,
-        weather=FailedClient(REGISTRATION, WeatherSection(api_key="", location=""), ValueError()),
+        weather=FailedClient(REGISTRATION, WeatherSection(location=""), ValueError()),
     )
 
     # A failing client keeps its area (to say so); a disabled or missing one doesn't.
