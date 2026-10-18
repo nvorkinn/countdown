@@ -39,7 +39,7 @@ NOW = dt.datetime(2026, 10, 17, 11, 0, tzinfo=dt.UTC)
 
 
 def _put(store, answer):
-    """Store `answer` (the broker's /api/developer body) as the developer provider would, with `fetched_at`."""
+    """Store `answer` (the panel's `github` and `plans`) as the developer provider would, with `fetched_at`."""
     store.set(KEY, json.dumps({"fetched_at": "2026-10-17T10:59:00+00:00", **answer}))
 
 
