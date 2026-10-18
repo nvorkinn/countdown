@@ -242,8 +242,8 @@ def test_a_region_whose_feed_fails_leaves_its_postcodes_out_and_the_others_carry
 
     assert list(results) == ["EX1 1AA"]
     assert feed_calls(api, "se") == 1  # failed once this cycle: not asked again for the second postcode
-    assert len(caplog.messages) == 1
-    assert caplog.messages[0].startswith("Couldn't fetch the Met Office's warnings for region se: 500")
+    # Not the region, nor the feed's URL with it in: a region is worked out from a postcode.
+    assert caplog.messages == ["Couldn't fetch a region's Met Office warnings: HTTPError 500"]
 
 
 def test_a_feed_that_isnt_xml_is_a_failed_fetch(api):
@@ -374,4 +374,6 @@ def test_the_board_reads_the_warnings_under_its_own_postcode_once_its_placed(api
 
     [source] = [s for s in client.sources if isinstance(s, StoredMetOfficeWarningsSource)]
     assert_same_notices(source.fetch(NOW), FEED_NOTICES["en"])
-    assert any("Met Office region se" in message for message in caplog.messages)
+    assert source.region == "se"
+    # Placed, but not where: a region says where the screen is.
+    assert "Notice board: location lookup succeeded; bank holidays for england-and-wales" in caplog.messages

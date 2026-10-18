@@ -13,7 +13,8 @@ redraws them now and then.
 
 Nothing logged names a postcode or anything worked out from one (its district, its coordinates, a URL with either in
 it): a postcode says where a screen, and someone's home, is, and the logs go to the central log store. So a failure is
-logged by the error's type alone, and urllib3's warnings, which quote the URL they retried, are kept out.
+logged by the error's type alone; urllib3's warnings, which quote the URL they retried, are kept out of every process's
+logs (countdown_core.core.log_format), and the runner names no postcode either.
 
 The HTTP calls are synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread), like the TfL
 provider's.
@@ -130,8 +131,8 @@ class FloodsProvider:
         if self.in_force is None or now - self.in_force[0] >= IN_FORCE_REUSE:
             try:
                 answer = fetch_in_force(self.session)
-            except Exception as e:  # noqa: BLE001 -- not raised: the runner's log of a failed batch names a postcode
-                logger.warning("Couldn't fetch the flood warnings in force: %s", e)
+            except Exception as e:  # noqa: BLE001 -- not raised: a later batch this cycle mustn't ask again
+                logger.warning("Couldn't fetch the flood warnings in force: %s", e)  # its URL names no place
                 answer = None
             self.in_force = (now, answer)
         return self.in_force
@@ -163,18 +164,9 @@ class FloodsProvider:
         return self.coordinates[postcode]
 
 
-def configure_provider_logging() -> None:
-    """Log as every provider does, less urllib3's warnings: each retry's quotes its URL, a postcode's or its place's.
-
-    urllib3 logs nothing above a warning, and a request that fails for good is logged here, by the error's type.
-    """
-    configure_logging()
-    logging.getLogger("urllib3").setLevel(logging.ERROR)
-
-
 def main() -> None:
     """Run the `countdown-provider-floods` console script."""
-    configure_provider_logging()
+    configure_logging()
     # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
     session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
     asyncio.run(serve(FloodsProvider(session), Settings.from_env()))

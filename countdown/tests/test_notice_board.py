@@ -184,13 +184,13 @@ def test_met_office_region_from_postcode(country, region, district, expected):
     assert region_for(location) == expected
 
 
-def test_met_office_logs_the_area_not_the_postcode_when_it_has_no_region(caplog):
+def test_met_office_logs_only_the_country_not_the_district_when_it_has_no_region(caplog):
     location = SOUTHWARK.model_copy(update={"country": "Scotland", "region": None, "admin_district": "Somewhere New"})
 
     with caplog.at_level("WARNING", logger="countdown_core.notices.met_office"):
         region_for(location)
 
-    assert caplog.messages == ["No Met Office warning region for Somewhere New; using the whole UK"]
+    assert caplog.messages == ["No Met Office warning region for a postcode in Scotland; using the whole UK"]
 
 
 # --- Bank holidays and the clocks -------------------------------------------------
@@ -415,10 +415,8 @@ def test_board_logs_that_it_resolved_postcode(api, clock, caplog):
     with caplog.at_level("INFO", logger="countdown_core.notices.notice_board_client"), pytest.raises(RuntimeError):
         update(client)
 
-    assert (
-        "Notice board: location lookup succeeded: London, Southwark; Met Office region se, "
-        "bank holidays for england-and-wales" in caplog.messages
-    )
+    # Not where: the district, region and Met Office region say where the screen is.
+    assert "Notice board: location lookup succeeded; bank holidays for england-and-wales" in caplog.messages
 
 
 def test_board_with_an_unknown_postcode_says_so(api, clock, caplog, store):

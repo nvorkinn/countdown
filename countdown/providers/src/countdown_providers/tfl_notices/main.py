@@ -210,7 +210,7 @@ class TflRoadProvider:
         fetched_at = self.now()
         try:
             disruptions = self.tfl.road_disruptions(ROAD_SEVERITY)
-        except Exception as e:  # noqa: BLE001 -- not raised, as the runner would log the batch's first postcode
+        except Exception as e:  # noqa: BLE001 -- the places keep their last keys until they expire
             logger.warning("Couldn't fetch TfL's road disruptions: %s", _reason(e))
             return {}
         return {

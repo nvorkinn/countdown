@@ -9,6 +9,7 @@ import logging
 import sys
 
 import pytest
+import requests
 
 from countdown_core.core import log_format as renderer
 from countdown_orchestrator import log_format as orchestrator
@@ -80,11 +81,58 @@ def test_the_renderer_knows_its_device_from_the_environment(monkeypatch):
     assert json.loads(handlers[0].formatter.format(record()))["device"] == "kitchen"
 
 
-@pytest.mark.parametrize("module", [renderer, orchestrator])
-def test_third_party_loggers_stay_quiet_even_when_the_app_is_at_debug(module, monkeypatch):
+@pytest.fixture
+def levels_kept():
+    """Put the third-party loggers' levels back after a test that configures the logging."""
+    loggers = [logging.getLogger(name) for name in ("urllib3", "asyncio", "PIL", "opentelemetry", "docker")]
+    levels = [logger.level for logger in loggers]
+    yield
+    for logger, level in zip(loggers, levels, strict=True):
+        logger.setLevel(level)
+
+
+@pytest.mark.usefixtures("levels_kept")
+@pytest.mark.parametrize(("module", "noisy"), [(renderer, "asyncio"), (orchestrator, "docker")])
+def test_third_party_loggers_stay_quiet_even_when_the_app_is_at_debug(module, noisy, monkeypatch):
     monkeypatch.setenv("LOG_LEVEL", "debug")
     monkeypatch.setattr(module.logging, "basicConfig", lambda **kwargs: None)
 
     module.configure_logging()
 
-    assert logging.getLogger("urllib3").level == logging.WARNING
+    assert logging.getLogger(noisy).level == logging.WARNING
+    # The orchestrator asks only the broker; its urllib3 warnings (each retry) are worth having.
+    assert logging.getLogger("urllib3").level == (logging.ERROR if module is renderer else logging.WARNING)
+
+
+@pytest.mark.usefixtures("levels_kept")
+def test_the_renderer_and_providers_keep_urllib3_quiet_as_it_quotes_the_urls_it_asks(monkeypatch):
+    """Its retry warnings and request lines quote the URL: a postcode's, a place's, its coordinates'."""
+    monkeypatch.setattr(renderer.logging, "basicConfig", lambda **kwargs: None)
+
+    renderer.configure_logging()
+
+    assert not logging.getLogger("urllib3.connectionpool").isEnabledFor(logging.WARNING)
+
+
+class FakeResponse:
+    status_code = 503
+
+
+def test_an_errors_reason_is_its_type_and_an_http_errors_status_not_its_text():
+    url = "https://api.postcodes.io/postcodes/SE17%203LL"
+    assert renderer.error_reason(requests.ConnectionError(f"Max retries exceeded with url: {url}")) == "ConnectionError"
+    http_error = requests.HTTPError(f"503 Server Error for url: {url}", response=FakeResponse())
+    assert renderer.error_reason(http_error) == "HTTPError 503"
+    assert renderer.error_reason(requests.HTTPError("no response")) == "HTTPError"
+
+
+def test_an_error_without_its_text_keeps_its_traceback_for_the_log(caplog):
+    try:
+        fail()
+    except ValueError as e:
+        logging.getLogger("countdown.test").error("failed", exc_info=renderer.without_text(e))  # noqa: TRY400
+
+    exception = json.loads(renderer.JsonFormatter().format(caplog.records[0]))["exception"]
+    assert "in fail\n    raise ValueError(msg)" in exception  # where it was raised
+    assert exception.endswith("WithheldError: ValueError")
+    assert "boom" not in exception

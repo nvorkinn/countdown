@@ -369,7 +369,11 @@ The renderer and the orchestrator log one JSON object per line on stderr (`count
 and the orchestrator's own copy): `level` (`debug`, `info`, `warn`, `error`, `fatal`), `_msg`, `logger`,
 `source` (file:line), and `exception` when there is a traceback, kept inside its record. The renderer adds
 `device` (its slug). There is no timestamp: the container's log driver stamps each line. `LOG_LEVEL` sets the
-level (default INFO); `urllib3`, `asyncio`, `PIL` and `opentelemetry` stay at WARNING.
+level (default INFO); `asyncio`, `PIL` and `opentelemetry` stay at WARNING, and the renderer's and the providers'
+`urllib3` is off (the orchestrator's stays at WARNING), as its retry warnings and request lines quote the URLs it asks.
+
+Nothing a renderer or provider logs may say where a screen is: no postcode, place, district or coordinates, nor a URL
+with one in it, such as a failed request's text (`log_format.error_reason` logs its type and status instead).
 
 The host's Fluent Bit ships the containers' json-file logs to VictoriaLogs, naming each stream after the
 container's `tag` log option: the orchestrator's compose file sets `orchestrator`, and the orchestrator

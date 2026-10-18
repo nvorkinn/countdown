@@ -121,7 +121,7 @@ class NoticeBoardClient(AbstractClient):
         self.location = location
         if self.norwegian:
             self.sources += [NorwegianHolidaySource(self.session), StoredMetAlertsSource(self.session, location)]
-            logger.info("Notice board: location lookup succeeded: %s", location.admin_district or "Norway")
+            logger.info("Notice board: location lookup succeeded, in Norway")
             return
         bank_holidays = StoredBankHolidaySource(location.country)
         met_office = StoredMetOfficeWarningsSource(self.session, location, self.postcode)
@@ -131,14 +131,9 @@ class NoticeBoardClient(AbstractClient):
             StoredFloodWarningsSource(self.session, self.postcode),
             StoredTflRoadSource(self.session, self.postcode),
         ]
-        # Otherwise a quiet board gives no sign the postcode was placed.
-        area = ", ".join(part for part in (location.region or location.country, location.admin_district) if part)
-        logger.info(
-            "Notice board: location lookup succeeded: %s; Met Office region %s, bank holidays for %s",
-            area,
-            met_office.region,
-            bank_holidays.division,
-        )
+        # Otherwise a quiet board gives no sign the postcode was placed. Not where it is (its district, region or Met
+        # Office region): the logs go to the central log store. The bank holidays' division is just the country.
+        logger.info("Notice board: location lookup succeeded; bank holidays for %s", bank_holidays.division)
 
     def _refresh(self, source: NoticeSource, now: datetime) -> None:
         last = self.last_tried.get(source)

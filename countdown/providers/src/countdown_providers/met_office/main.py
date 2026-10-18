@@ -7,7 +7,8 @@ postcodes are in it, and written under each of them, `v1:notices:met-office:<pla
 the feed's items, which the renderer makes its notices from when it draws. A Norwegian postcode (four digits) is MET
 Norway's to warn about, not the Met Office's, so it's left alone.
 
-Where the screens are stays out of the logs, as it does in the renderer's: nothing logged here names a postcode.
+Where the screens are stays out of the logs, as it does in the renderer's: nothing logged here names a postcode, or
+the region one is in.
 
 Its HTTP calls are synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread), like the weather
 provider's.
@@ -21,7 +22,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
-from countdown_core.core.log_format import configure_logging
+from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.notices.location import FULL_POSTCODE, lookup_postcode
 from countdown_core.notices.met_office import region_for
 from countdown_core.store import keys
@@ -139,7 +140,9 @@ class MetOfficeProvider:
             response.raise_for_status()
             return feed_items(response.content)
         except Exception as e:  # noqa: BLE001 -- the other regions carry on; this one's keys expire if it keeps failing
-            logger.warning("Couldn't fetch the Met Office's warnings for region %s: %s", region, e)
+            # Neither the region nor the error's text, which quotes the feed's URL, region and all: a region is worked
+            # out from a screen's postcode, and one with few screens in it says where they are.
+            logger.warning("Couldn't fetch a region's Met Office warnings: %s", error_reason(e))
             return None
 
 
