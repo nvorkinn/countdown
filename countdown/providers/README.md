@@ -200,7 +200,7 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL, weather, Entur) are on: they're services in `../server/deploy/docker-compose.yml`,
+This repository's providers (TfL, weather, Entur, Met Office) are on: they're services in `../server/deploy/docker-compose.yml`,
 so every deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s
 `deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`)
 and `TFL_APP_KEY`; without the password the deploy fails rather than start them unauthenticated. They need the broker
@@ -213,8 +213,9 @@ the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to e
 as an upgrade, like a new image. The renderers read TfL's and Entur's departures (`v1:departures:<stop>`), the weather
 (`v1:weather:<location>`), the energy readings (`v1:energy:<device id>`, from auth-broker's `glow-provider`) and the
 Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
-the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; only the
-disruption notices still come straight from their APIs. So each provider must be running for its panels to have anything
+the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; of the
+notice board's sources, the Met Office's warnings (`v1:notices:met-office:<place>`) come from the store, and the rest
+still straight from their APIs. So each provider must be running for its panels to have anything
 to draw.
 
 A renderer started without the store (`RENDERER_REDIS_URL` set to empty, so no `REDIS_URL`) can't build the clients

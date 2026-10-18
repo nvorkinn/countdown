@@ -7,12 +7,10 @@ its notices from them when it draws (warning_notices).
 
 import logging
 import re
-import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.store import keys, reader
@@ -29,7 +27,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-FEED_URL = "https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/{region}"
 UK_TIME = ZoneInfo("Europe/London")
 
 # Met Office warning regions, keyed by postcodes.io's English region or, outside
@@ -128,52 +125,6 @@ def _valid_until(description: str, now: datetime) -> datetime | None:
     if until < local_now - timedelta(days=180):
         until = until.replace(year=until.year + 1)
     return until
-
-
-def parse_warnings(feed: bytes, now: datetime) -> list[Notice]:
-    """Turn the feed's items into Notices.
-
-    Reads the colour and hazard out of titles like "Amber warning of wind affecting London & South East England"; a
-    title in any other shape is shown as it is rather than dropped.
-    """
-    notices = []
-    for item in ET.fromstring(feed).iter("item"):  # noqa: S314 -- the Met Office's own feed, over https
-        title = (item.findtext("title") or "").strip()
-        description = (item.findtext("description") or "").strip()
-        if not title:
-            continue
-        valid_until = _valid_until(description, now)
-        match = TITLE_PATTERN.match(title)
-        if match:
-            colour, hazard = match.group(1).lower(), match.group(2).lower()
-            text = _(WARNING_BY_COLOUR[colour]).format(hazard=hazard)
-            severity = SEVERITY_BY_COLOUR[colour]
-        else:
-            text, severity = title, Severity.WARNING
-        if valid_until is not None:
-            # The board adds the time, in the screen's clock format: "until Fri 21:00".
-            text += " " + _("until {day}").format(day=format_date(valid_until.date(), "EEE"))
-        notices.append(Notice("Met Office", severity, text, valid_until, display_time=valid_until))
-    return notices
-
-
-class MetOfficeWarningsSource(NoticeSource):
-    """The Met Office's weather warnings for the postcode's region."""
-
-    name = "Met Office warnings"
-    refresh_interval = timedelta(minutes=10)
-
-    def __init__(self, session: requests.Session, location: Postcode) -> None:
-        """Fetch over `session` the warnings for the region `location` is in."""
-        super().__init__(session)
-        self.region = region_for(location)
-        self.url = FEED_URL.format(region=self.region)
-
-    @override
-    def fetch(self, now: datetime) -> list[Notice]:
-        response = self.session.get(self.url, timeout=DEFAULT_TIMEOUT)
-        response.raise_for_status()
-        return parse_warnings(response.content, now)
 
 
 def warning_notices(items: Iterable[FeedItem], now: datetime) -> list[Notice]:

@@ -11,7 +11,7 @@ in English and in Norwegian.
 
 import asyncio
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import fakeredis
@@ -23,19 +23,13 @@ from test_utils import REGISTRATION
 from countdown_core import i18n
 from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.location import POSTCODES_URL
-from countdown_core.notices.met_office import (
-    MetOfficeWarningsSource,
-    NoStoredWarningsError,
-    StoredMetOfficeWarningsSource,
-    parse_warnings,
-    warning_notices,
-)
+from countdown_core.notices.met_office import NoStoredWarningsError, StoredMetOfficeWarningsSource, warning_notices
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
 from countdown_core.store.met_office import StoredMetOfficeWarnings
 from countdown_core.tfl.models import Postcode
-from countdown_providers.met_office.main import FEED_URL, MetOfficeProvider, feed_items
+from countdown_providers.met_office.main import FEED_URL, MetOfficeProvider
 from countdown_providers.runner import ProviderRunner
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -65,21 +59,6 @@ NOWHERE_KNOWN = Postcode(
 )
 OSLO = "0150"
 
-# Feeds the board's tests read, in every shape the notices come in.
-AMBER_AND_YELLOW = b"""<rss><channel><title>Met Office warnings for London &amp; South East England</title>
-  <item><title>Amber warning of wind affecting London &amp; South East England</title>
-    <description>Southwark, Lambeth valid from 0600 Fri 25 Sep to 2100 Fri 25 Sep</description></item>
-  <item><title>Yellow warning of rain affecting London &amp; South East England</title>
-    <description>valid from 1800 Fri 25 Sep to 0900 Sat 26 Sep</description></item>
-  <item><title>Something the Met Office has never said before</title><description>No dates here</description></item>
-</channel></rss>"""
-INTO_JANUARY = b"""<rss><channel><item><title>Red warning of snow affecting Grampian</title>
-    <description>valid from 1800 Wed 31 Dec to 1200 Thu 01 Jan</description></item></channel></rss>"""
-MIDNIGHT = b"""<rss><channel><item><title>Yellow warning of rain affecting London</title>
-    <description>valid from 0000 Fri 25 Sep to 0007 Sat 26 Sep</description></item></channel></rss>"""
-NO_TITLE_OR_DATES = b"""<rss><channel><item><description>valid from 0000 Fri 25 Sep to 0900 Sat 26 Sep</description>
-    </item><item><title>Red warning of wind</title></item><item><title>Yellow warning of fog affecting Fife</title>
-    <description>valid from 0000 Fri 25 Sep to 0900 Sun 31 Sep</description></item></channel></rss>"""
 EMPTY = b"<rss><channel><title>Met Office warnings</title></channel></rss>"
 
 
@@ -128,11 +107,6 @@ def calls_to(api, url: str) -> int:
 
 def feed_calls(api, region: str) -> int:
     return calls_to(api, FEED_URL.format(region=region))
-
-
-def via_json[M](stored: M) -> M:
-    """Return `stored` as a renderer reads it back from the store."""
-    return type(stored).model_validate_json(stored.model_dump_json())
 
 
 def as_json(notice: Notice) -> dict:
@@ -368,31 +342,8 @@ def test_the_board_keeps_the_last_warnings_while_the_key_is_missing(store, clock
     assert [n.severity for n in first] == [Severity.WARNING, Severity.WARNING, Severity.INFO, Severity.INFO]
 
 
-# --- Parity with the feed path ------------------------------------------------------
-
-
-def test_the_fixtures_notices_are_the_ones_the_feed_path_makes(language):
-    assert_same_notices(parse_warnings(FEED, NOW), FEED_NOTICES[language])
-
-
-@pytest.mark.parametrize("feed", [FEED, AMBER_AND_YELLOW, INTO_JANUARY, MIDNIGHT, NO_TITLE_OR_DATES, EMPTY])
-@pytest.mark.parametrize(
-    "now",
-    [
-        NOW,
-        datetime(2025, 12, 31, 20, 0, tzinfo=UTC),  # a warning into January, read in December
-        datetime(2026, 3, 29, 0, 30, tzinfo=UTC),  # the night the clocks go forward
-        datetime(2027, 4, 1, 9, 0, tzinfo=UTC),  # long after: the feed's dates are next year's or last
-    ],
-)
-def test_the_stored_path_makes_the_same_notices_as_the_feed_path(feed, now, language):
-    stored = via_json(StoredMetOfficeWarnings(fetched_at=now, postcode="SE17 3LL", region="se", items=feed_items(feed)))
-
-    assert warning_notices(stored.items, now) == parse_warnings(feed, now)
-
-
-def test_the_board_shows_the_same_from_the_store_as_from_the_feed(api, clock, language):
-    """End to end: the provider writes, the board reads; against the board fetching the feed itself."""
+def test_the_board_shows_what_the_provider_wrote_for_its_postcode(api, clock, language):
+    """End to end: the provider writes the store, the board reads it, and shows the notices still in force."""
     add_postcode(api, SOUTHWARK)
     add_feed(api, "se")
     server = fakeredis.FakeServer()
@@ -404,10 +355,23 @@ def test_the_board_shows_the_same_from_the_store_as_from_the_feed(api, clock, la
         await ProviderRunner(make_provider(Clock(NOW)), provider_redis).run_cycle()
 
     asyncio.run(cycle())
-    from_store = board_with_source(
-        StoredMetOfficeWarningsSource(requests.Session(), SOUTHWARK, "SE17 3LL", renderer_redis)
-    )
-    from_feed = board_with_source(MetOfficeWarningsSource(requests.Session(), SOUTHWARK))
+    board = board_with_source(StoredMetOfficeWarningsSource(requests.Session(), SOUTHWARK, "SE17 3LL", renderer_redis))
 
-    assert asyncio.run(from_store.update()).notices == asyncio.run(from_feed.update()).notices
-    assert feed_calls(api, "se") == 2
+    in_force = [
+        n for n in FEED_NOTICES[language] if n["valid_until"] is None or datetime.fromisoformat(n["valid_until"]) > NOW
+    ]
+    assert_same_notices(asyncio.run(board.update()).notices, sorted(in_force, key=lambda n: Severity[n["severity"]]))
+
+
+def test_the_board_reads_the_warnings_under_its_own_postcode_once_its_placed(api, store, clock, caplog):
+    add_postcode(api, SOUTHWARK)
+    store.set("v1:notices:met-office:SE173LL", json.dumps(STORED))
+    client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode="SE17 3LL"))
+    client._refresh = lambda source, now: None  # only the lookup is under test here
+
+    with caplog.at_level("INFO", logger="countdown_core.notices.notice_board_client"), pytest.raises(RuntimeError):
+        asyncio.run(client.update())  # sources added, but none has answered yet
+
+    [source] = [s for s in client.sources if isinstance(s, StoredMetOfficeWarningsSource)]
+    assert_same_notices(source.fetch(NOW), FEED_NOTICES["en"])
+    assert any("Met Office region se" in message for message in caplog.messages)
