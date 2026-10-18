@@ -240,7 +240,7 @@ def test_update_says_so_when_no_stops_are_configured():
 
 
 def test_session_has_retry_adapter_mounted():
-    """The session is still the disruption notices', which are asked of TfL and Entur directly."""
+    """The session is still TfL's disruption notices', which are asked of TfL directly."""
     client = DeparturesClient(REGISTRATION, make_config())
     adapter = client.session.get_adapter("https://api.tfl.gov.uk")
     assert isinstance(adapter, HTTPAdapter)

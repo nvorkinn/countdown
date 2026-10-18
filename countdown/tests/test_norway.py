@@ -10,9 +10,8 @@ from test_utils import REGISTRATION
 from countdown_api.models import DepartureStop
 from countdown_core import i18n
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
-from countdown_core.entur.entur_client import JOURNEY_PLANNER_URL
 from countdown_core.notices.calendar import ClockChangeSource
-from countdown_core.notices.entur import EnturSituationsSource, StoredEnturSituationsSource
+from countdown_core.notices.entur import StoredEnturSituationsSource
 from countdown_core.notices.norway import (
     ADDRESSES_URL,
     METALERTS_URL,
@@ -142,23 +141,6 @@ def test_metalerts_are_asked_for_in_the_screens_language(api):
     assert "lang=no" in request.url
     assert "lat=59.9116" in request.url
     assert request.headers["User-Agent"].startswith("countdown")
-
-
-def test_entur_situations_are_said_once_tagged_with_their_line_in_the_screens_language(api):
-    situation = {
-        "summary": [{"value": "Buss for T-bane", "language": "no"}, {"value": "Bus for metro", "language": "en"}],
-        "validityPeriod": {"endTime": "2026-10-20T00:00:00+00:00"},
-        "severity": "severe",
-    }
-    calls = [{"serviceJourney": {"line": {"publicCode": "5"}}, "situations": [situation]}] * 3
-    api.post(
-        JOURNEY_PLANNER_URL,
-        json={"data": {"stopPlace": {"name": "Majorstuen", "situations": [], "estimatedCalls": calls}}},
-    )
-
-    [notice] = EnturSituationsSource(requests.Session(), ["NSR:StopPlace:58381"]).fetch(NOW)
-
-    assert (notice.source, notice.severity, notice.text) == ("Line 5", Severity.WARNING, "Bus for metro")
 
 
 def test_the_clocks_change_in_the_screens_time_zone(oslo_screen):

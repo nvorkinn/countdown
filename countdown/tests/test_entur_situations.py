@@ -3,8 +3,8 @@
 provider-entur-situations writes Entur's own answer for each stop to `v1:notices:entur:<stop id>`, and the notice
 board makes the notices from it as it draws (StoredEnturSituationsSource). fixtures/entur_situations.json holds
 Entur's answers for a stop place, a quay and a stop Entur doesn't know, and the notices (in English and Norwegian)
-that the board made from those same answers, as of the fixture's `now`, when it asked Entur itself
-(EnturSituationsSource): the stored path must make the same.
+that the board made from those same answers, as of the fixture's `now`, when it still asked Entur itself (the
+EnturSituationsSource it had before the provider): the stored path must make the same.
 """
 
 import asyncio
@@ -27,7 +27,6 @@ from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.entur import (
     QUAY_SITUATIONS_QUERY,
     SITUATIONS_QUERY,
-    EnturSituationsSource,
     NoStoredSituationsError,
     StoredEnturSituationsSource,
 )
@@ -229,7 +228,6 @@ def test_the_stored_path_makes_the_notices_the_board_made_from_entur_itself(stor
 
     assert from_store == pinned(language)
     assert len(entur.calls) == 0  # the board only read the store
-    assert from_store == EnturSituationsSource(requests.Session(), STOP_IDS).fetch(NOW)
 
 
 def test_the_language_is_the_screens_as_it_draws_not_as_the_provider_fetched(store, provide, entur):

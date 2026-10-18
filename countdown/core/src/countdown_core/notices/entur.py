@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, override
 
-from countdown_core.entur.entur_client import EnturClient, normalize_stop_id
+from countdown_core.entur.entur_client import normalize_stop_id
 from countdown_core.i18n import _, language
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.store import keys
@@ -20,7 +20,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     import redis
-    import requests
+
+    from countdown_core.entur.entur_client import EnturClient
 
 logger = logging.getLogger(__name__)
 
@@ -143,46 +144,3 @@ class StoredEnturSituationsSource(NoticeSource):
             # Its provider hasn't got to it yet, or couldn't fetch it: the other stops' still count.
             logger.warning("No situations in the store for Entur stops %s", ", ".join(missing))
         return situation_notices([StoredSituations.model_validate_json(v) for v in values if v is not None], now)
-
-
-class EnturSituationsSource(NoticeSource):
-    """One notice per situation, tagged with the stop or the line it's about.
-
-    Each is said once, however many departures it affects.
-    """
-
-    name = "Entur disruptions"
-    refresh_interval = timedelta(minutes=5)
-
-    def __init__(self, session: requests.Session, stop_ids: list[str]) -> None:
-        """Fetch over `session`; `stop_ids` are stop places or quays, with or without their NSR prefix."""
-        super().__init__(session)
-        self.client = EnturClient(session)
-        self.stop_ids = [normalize_stop_id(stop_id) for stop_id in stop_ids]
-
-    @override
-    def fetch(self, now: datetime) -> list[Notice]:
-        notices: dict[str, Notice] = {}
-
-        def add(tag: str, situation: dict[str, Any]) -> None:
-            text = " ".join(_text(situation.get("summary") or []).split())
-            until = _until(situation)
-            if not text or text in notices or (until is not None and until < now):
-                return
-            severity = Severity.WARNING if situation.get("severity") in WARNING_SEVERITIES else Severity.INFO
-            notices[text] = Notice(tag, severity, text, until)
-
-        for stop_id in self.stop_ids:
-            is_quay = stop_id.startswith("NSR:Quay:")
-            data = self.client.query(QUAY_SITUATIONS_QUERY if is_quay else SITUATIONS_QUERY, {"id": stop_id})
-            stop = data.get("quay" if is_quay else "stopPlace")
-            if not isinstance(stop, dict):
-                logger.warning("Entur doesn't know stop %s", stop_id)
-                continue
-            for situation in stop.get("situations") or []:
-                add(stop.get("name") or "", situation)
-            for call in stop.get("estimatedCalls") or []:
-                line = ((call.get("serviceJourney") or {}).get("line") or {}).get("publicCode")
-                for situation in call.get("situations") or []:
-                    add(_("Line {line}").format(line=line) if line else stop.get("name") or "", situation)
-        return list(notices.values())
