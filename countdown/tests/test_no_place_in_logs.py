@@ -3,12 +3,13 @@
 The logs go to the central log store, and a postcode says where someone lives. Each test drives one way a failure
 (or a success) is logged, at DEBUG, with the logging set up as every process's main() sets it up, and reads every
 record it made. The failures that matter most come from requests: its errors quote the URL they asked, and urllib3's
-retry warnings quote it too.
+retry warnings quote it too. For the same reason nothing logged holds TfL's app key, which is in every TfL URL.
 """
 
 import asyncio
 import contextlib
 import logging
+import re
 import socket
 from datetime import UTC, datetime
 
@@ -28,11 +29,16 @@ from countdown_core.notices.norway import ADDRESSES_URL, lookup_norwegian_postco
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys
 from countdown_core.store.floods import StoredFloods
+from countdown_core.tfl import tfl_client
+from countdown_core.tfl.models import Postcode
+from countdown_core.tfl.tfl_client import TFL_URL, TflSource
 from countdown_core.weather import open_meteo
 from countdown_core.weather.open_meteo import fetch_forecast, geocode
 from countdown_providers.floods import main as floods_main
 from countdown_providers.floods.main import fetch_flood_areas
 from countdown_providers.runner import ProviderRunner
+from countdown_providers.tfl.main import TflProvider
+from countdown_providers.tfl_notices.main import TflLineStatusProvider, TflRoadProvider, TflStationProvider
 from countdown_providers.weather.main import WeatherProvider
 
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
@@ -315,3 +321,44 @@ def test_the_weather_provider_logs_a_failed_place_without_naming_it(caplog, loca
 
     assert caplog.messages[-1] == "Couldn't fetch the weather for a subscribed place: ConnectionError"
     assert_nothing_says_where(caplog, found)
+
+
+# --- TfL's app key ---------------------------------------------------------------------------------------------------
+
+APP_KEY = "0123456789abcdef0123456789abcdef"
+
+
+def tfl_provider(kind: str, session: requests.Session):
+    """Return the TfL provider of `kind`, asking TfL with APP_KEY through `session`, and the ids it's subscribed to."""
+    tfl = TflSource(session, APP_KEY)
+    if kind == "departures":
+        return TflProvider(tfl, now=lambda: NOW), ["490000123W"]
+    if kind == "line status":
+        return TflLineStatusProvider(tfl, now=lambda: NOW), ["490000123W"]
+    if kind == "stations":
+        return TflStationProvider(tfl, now=lambda: NOW), ["490000123W"]
+    roads = TflRoadProvider(tfl, session, now=lambda: NOW)
+    roads.places["SE17 3LL"] = Postcode.model_validate(SOUTHWARK)  # placed already: only TfL is asked
+    return roads, ["SE17 3LL"]
+
+
+@pytest.mark.usefixtures("production_logging")
+@pytest.mark.parametrize("failure", ["refused", "unreachable"])
+@pytest.mark.parametrize("kind", ["departures", "line status", "stations", "roads"])
+def test_a_failed_tfl_request_logs_no_app_key(caplog, monkeypatch, nowhere, kind, failure):
+    """A TfL error's text quotes its URL, app_key=... and all: refused (an HTTP error), or not reached at all."""
+    with responses.RequestsMock(assert_all_requests_are_fired=False) as api:
+        if failure == "refused":
+            api.add(responses.GET, re.compile(rf"{re.escape(TFL_URL)}/.*"), status=403, json={"message": "Forbidden"})
+        else:
+            monkeypatch.setattr(tfl_client, "TFL_URL", nowhere)
+            api.add_passthru(nowhere)
+        provider, ids = tfl_provider(kind, retrying_session())
+        redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+        asyncio.run(redis.sadd(keys.subscription(provider.name), *ids))
+
+        assert asyncio.run(ProviderRunner(provider, redis).run_cycle()) == 0
+
+    assert [record for record in caplog.records if record.levelno >= logging.WARNING]  # the failure is logged
+    assert APP_KEY not in caplog.text
+    assert "app_key" not in caplog.text

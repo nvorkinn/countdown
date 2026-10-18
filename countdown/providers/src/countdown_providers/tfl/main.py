@@ -2,6 +2,9 @@
 
 It wraps countdown_core's TflSource, the same requests the renderer's departures client makes. TflSource is
 synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread) rather than being rewritten.
+
+A failed request is logged by its reason (log_format.error_reason: its type and status), never its text: that quotes
+the URL, and TfL's app key is in it (`app_key=`).
 """
 
 import asyncio
@@ -11,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from countdown_core.core.abstract_client import AbstractClient
-from countdown_core.core.log_format import configure_logging
+from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.store import keys
 from countdown_core.store.models import Departure, StopDepartures
 from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
@@ -78,7 +81,7 @@ class TflProvider:
             try:
                 departures = self._fetch_stop(stop_id)
             except Exception as e:  # noqa: BLE001 -- one bad stop mustn't lose the rest of the batch
-                logger.warning("Couldn't fetch TfL stop %s: %s", stop_id, e)
+                logger.warning("Couldn't fetch TfL stop %s: %s", stop_id, error_reason(e))
                 continue
             if departures is not None:
                 results[stop_id] = departures

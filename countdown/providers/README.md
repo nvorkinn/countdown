@@ -81,8 +81,8 @@ nudge only delays a change until the next tick, as every cycle re-reads the subs
 
 Nothing logged says where a screen is (the logs go to the central log store): no postcode, place, district or
 coordinates, nor a URL with one in it. So a failure is logged by its reason (`log_format.error_reason`: the error's
-type, and an HTTP error's status), never its text, which for a failed request quotes the URL and for a failed Redis
-pipeline its keys and values. The runner names a failed batch by its first id only for stops (`runner.NAMED_SOURCES`;
+type, and an HTTP error's status), never its text, which for a failed request quotes the URL (TfL's has the app key
+in it) and for a failed Redis pipeline its keys and values. The runner names a failed batch by its first id only for stops (`runner.NAMED_SOURCES`;
 a postcode or a weather place is withheld), with its traceback but not its text (`log_format.without_text`). urllib3,
 whose every retry warning quotes the URL, is kept quiet in every process by `configure_logging`, so a request that's
 retried and then works logs nothing, and one that fails for good is logged by whoever made it.

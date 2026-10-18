@@ -131,7 +131,9 @@ def test_fetch_leaves_out_unknown_and_failing_stops_without_raising(caplog):
 
     assert list(results) == [BUS_STOP.naptan_id]
     assert "isn't a bus stop or Tube station" in caplog.text
-    assert "TfL said 500" in caplog.text
+    # By its reason, not its text: a failed request's quotes the URL, TfL's app key and all.
+    assert f"Couldn't fetch TfL stop {TUBE_STATION.naptan_id}: RuntimeError" in caplog.messages
+    assert "TfL said 500" not in caplog.text
 
 
 def test_fetch_resolves_each_stop_only_once():

@@ -23,10 +23,8 @@ from datetime import UTC, datetime, timedelta
 from itertools import batched
 from typing import TYPE_CHECKING
 
-import requests
-
 from countdown_core.core.abstract_client import AbstractClient
-from countdown_core.core.log_format import configure_logging
+from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.notices.location import FULL_POSTCODE, lookup_postcode
 from countdown_core.notices.tfl import ROAD_SEVERITY, is_near
 from countdown_core.store import keys
@@ -37,6 +35,8 @@ from countdown_providers.runner import serve_all
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    import requests
 
     from countdown_core.tfl.models import Line, Postcode
 
@@ -49,13 +49,6 @@ EVERY_ID = 10_000
 LINES_PER_REQUEST = 50
 # How long a stop's lines are taken as they were: bus routes change now and then, not from minute to minute.
 LINES_LOOKUP_EVERY = timedelta(days=1)
-
-
-def _reason(e: Exception) -> str:
-    """Say what went wrong, without a failed request's URL: it has the TfL app key in it, or a postcode."""
-    if isinstance(e, requests.HTTPError) and e.response is not None:
-        return f"{type(e).__name__} {e.response.status_code}"
-    return type(e).__name__
 
 
 class TflLineStatusProvider:
@@ -87,7 +80,7 @@ class TflLineStatusProvider:
             try:
                 stop_lines[stop_id] = self._lines_at(stop_id)
             except Exception as e:  # noqa: BLE001 -- one bad stop mustn't lose the rest of the batch
-                logger.warning("Couldn't look up the lines at TfL stop %s: %s", stop_id, _reason(e))
+                logger.warning("Couldn't look up the lines at TfL stop %s: %s", stop_id, error_reason(e))
         # Each line once, however many stops it serves.
         wanted = list(dict.fromkeys(line_id for line_ids in stop_lines.values() for line_id in line_ids))
         fetched_at = self.now()
@@ -98,7 +91,7 @@ class TflLineStatusProvider:
                 statuses |= {line.id: line for line in self.tfl.line_status(chunk)}
             except Exception as e:  # noqa: BLE001 -- only the stops these lines serve go without
                 logger.warning(
-                    "Couldn't fetch the status of %d TfL lines (%s...): %s", len(chunk), chunk[0], _reason(e)
+                    "Couldn't fetch the status of %d TfL lines (%s...): %s", len(chunk), chunk[0], error_reason(e)
                 )
                 failed.update(chunk)
         return {
@@ -157,7 +150,7 @@ class TflStationProvider:
             try:
                 disruptions = self.tfl.stop_disruptions(stop_id)
             except Exception as e:  # noqa: BLE001 -- one bad stop mustn't lose the rest of the batch
-                logger.warning("Couldn't fetch the disruptions at TfL stop %s: %s", stop_id, _reason(e))
+                logger.warning("Couldn't fetch the disruptions at TfL stop %s: %s", stop_id, error_reason(e))
                 continue
             results[stop_id] = StoredStationDisruptions(fetched_at=fetched_at, stop_id=stop_id, disruptions=disruptions)
         return results
@@ -199,7 +192,7 @@ class TflRoadProvider:
             try:
                 place = self._place(postcode)
             except Exception as e:  # noqa: BLE001 -- one bad postcode mustn't lose the rest of the batch
-                logger.warning("Couldn't look up a postcode: %s", _reason(e))
+                logger.warning("Couldn't look up a postcode: %s", error_reason(e))
                 continue
             if place is None:
                 logger.warning("A subscribed postcode isn't one postcodes.io knows; no road notices for it")
@@ -211,7 +204,7 @@ class TflRoadProvider:
         try:
             disruptions = self.tfl.road_disruptions(ROAD_SEVERITY)
         except Exception as e:  # noqa: BLE001 -- the places keep their last keys until they expire
-            logger.warning("Couldn't fetch TfL's road disruptions: %s", _reason(e))
+            logger.warning("Couldn't fetch TfL's road disruptions: %s", error_reason(e))
             return {}
         return {
             postcode: StoredRoadDisruptions(
