@@ -178,3 +178,21 @@ services:
         tag: provider-metalerts
         max-size: 10m
         max-file: "3"
+
+  # Where each of the notice boards' postcodes (v1:sub:postcode) is, from postcodes.io and Kartverket, looked up once
+  # for every screen and kept for days. The renderers place their postcode only from the store, so a board with a
+  # postcode shows no local notices without this.
+  provider-locations:
+    image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    command: countdown-provider-locations
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
+    logging:
+      driver: json-file
+      options:
+        tag: provider-locations
+        max-size: 10m
+        max-file: "3"

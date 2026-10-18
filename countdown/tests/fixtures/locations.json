@@ -1,0 +1,27 @@
+{
+  "_comment": "One cycle of provider-locations at fetched_at: for each postcode in v1:sub:postcode, what postcodes.io (a UK postcode) or Kartverket's address search (a Norwegian one, four digits) answered, and the value the provider stores under v1:location:<place>. A postcode they don't know is stored too, as not found. locations_board.json is what the notice board built from the same answers when it looked the postcode up itself.",
+  "fetched_at": "2026-10-18T12:00:00+00:00",
+  "postcodes": {
+    "SE17 3LL": {
+      "postcodes_io": {"status": 200, "result": {"postcode": "SE17 3LL", "quality": 1, "country": "England", "longitude": -0.09766, "latitude": 51.48873, "region": "London", "outcode": "SE17", "incode": "3LL", "admin_district": "Southwark", "admin_county": null}},
+      "stored": {"fetched_at": "2026-10-18T12:00:00Z", "postcode": "SE17 3LL", "found": true, "location": {"postcode": "SE17 3LL", "latitude": 51.48873, "longitude": -0.09766, "country": "England", "region": "London", "admin_district": "Southwark"}}
+    },
+    "EH1 1YZ": {
+      "postcodes_io": {"status": 200, "result": {"postcode": "EH1 1YZ", "quality": 1, "country": "Scotland", "longitude": -3.19046, "latitude": 55.95325, "region": null, "outcode": "EH1", "incode": "1YZ", "admin_district": "City of Edinburgh", "admin_county": null}},
+      "stored": {"fetched_at": "2026-10-18T12:00:00Z", "postcode": "EH1 1YZ", "found": true, "location": {"postcode": "EH1 1YZ", "latitude": 55.95325, "longitude": -3.19046, "country": "Scotland", "region": null, "admin_district": "City of Edinburgh"}}
+    },
+    "ZZ1 1ZZ": {
+      "postcodes_io_status": 404,
+      "postcodes_io": {"status": 404, "error": "Postcode not found"},
+      "stored": {"fetched_at": "2026-10-18T12:00:00Z", "postcode": "ZZ1 1ZZ", "found": false, "location": null}
+    },
+    "0150": {
+      "geonorge": {"metadata": {"totaltAntallTreff": 41, "viserFra": 0, "viserTil": 1, "side": 0, "treffPerSide": 1, "asciiKompatibel": true, "utkoordsys": "4258"}, "adresser": [{"adressenavn": "Dronning Eufemias gate", "adressetekst": "Dronning Eufemias gate 16", "nummer": 16, "kommunenummer": "0301", "kommunenavn": "OSLO", "postnummer": "0150", "poststed": "OSLO", "representasjonspunkt": {"epsg": "EPSG:4258", "lat": 59.9116, "lon": 10.7505}}]},
+      "stored": {"fetched_at": "2026-10-18T12:00:00Z", "postcode": "0150", "found": true, "location": {"postcode": "0150", "latitude": 59.9116, "longitude": 10.7505, "country": "Norway", "region": null, "admin_district": "Oslo"}}
+    },
+    "0001": {
+      "geonorge": {"metadata": {"totaltAntallTreff": 0, "viserFra": 0, "viserTil": 0, "side": 0, "treffPerSide": 1, "asciiKompatibel": true, "utkoordsys": "4258"}, "adresser": []},
+      "stored": {"fetched_at": "2026-10-18T12:00:00Z", "postcode": "0001", "found": false, "location": null}
+    }
+  }
+}

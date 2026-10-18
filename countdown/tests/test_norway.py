@@ -21,6 +21,8 @@ from countdown_core.notices.norway import (
 )
 from countdown_core.notices.notice import Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
+from countdown_core.store import keys
+from countdown_core.store.location import StoredLocation
 from countdown_core.tfl.models import Postcode
 from countdown_core.utils.clock import format_clock
 
@@ -139,19 +141,24 @@ def board(postcode: str | None, country: str | None) -> NoticeBoardClient:
     return NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode, country))
 
 
-def test_a_norwegian_postcode_brings_norways_sources(api):
-    api.get(
-        ADDRESSES_URL,
-        json={
-            "adresser": [
-                {"postnummer": "0150", "kommunenavn": "OSLO", "representasjonspunkt": {"lat": 59.9, "lon": 10.7}}
-            ]
-        },
-    )
+def test_a_norwegian_postcode_brings_norways_sources(store):
+    # Where provider-locations placed it, from Kartverket.
+    stored = StoredLocation(fetched_at=NOW, postcode="0150", found=True, location=OSLO)
+    store.set(keys.location("0150"), stored.model_dump_json())
     client = board("0150", "NO")
     client._ensure_location(NOW)
     names = [type(source).__name__ for source in client.sources]
     assert names == ["ClockChangeSource", "NorwegianHolidaySource", "StoredMetAlertsSource"]
+    assert client.sources[-1].location == OSLO  # the warnings covering it
+
+
+def test_a_norwegian_postcode_kartverket_doesnt_know_gets_norways_holidays_alone(store):
+    stored = StoredLocation(fetched_at=NOW, postcode="0001", found=False)
+    store.set(keys.location("0001"), stored.model_dump_json())
+    client = board("0001", "NO")
+    client._ensure_location(NOW)
+    assert [type(source).__name__ for source in client.sources] == ["ClockChangeSource", "NorwegianHolidaySource"]
+    assert client.unknown_postcode
 
 
 def test_norwegian_stops_bring_their_disruptions_whatever_the_postcode():
