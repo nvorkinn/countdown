@@ -13,13 +13,14 @@ import datetime
 import io
 import json
 import logging
+import socket
 from types import SimpleNamespace
 
 import pytest
 import responses
 from config_factory import broker_payload, make_config
 from fake_target import FakeTarget
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from test_utils import put_departures
 from weather_factory import forecast_json
 
@@ -38,7 +39,10 @@ from countdown_core.rendering.layouts.classic import BaseLayout, GlowLayout
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_core.store import keys
+from countdown_core.store.location import StoredLocation
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
+from countdown_core.tfl.models import Postcode
+from countdown_core.utils import utils
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_credentials.registration import RendererRegistration
 
@@ -619,3 +623,70 @@ def test_run_retries_a_screen_the_panel_could_not_take_every_cycle(isolated_cwd,
     _run_cycles(loop, monkeypatch, cycles=2)
 
     assert len(retries) == 2
+
+
+@pytest.fixture
+def no_network(monkeypatch) -> list[tuple]:
+    """Record, and refuse, every attempt to reach the network at all, below `responses` (which mocks only requests).
+
+    A client that swallows the error can't hide it: the test checks the list. The one download the renderer makes,
+    Material Symbols (a font, fetched from GitHub once and kept on disk), is stood in for by a font it ships with.
+    """
+    attempts: list[tuple] = []
+
+    def refuse(*args, **kwargs):
+        attempts.append(args)
+        msg = "the network was reached"
+        raise OSError(msg)
+
+    monkeypatch.setattr(socket.socket, "connect", refuse)
+    monkeypatch.setattr(socket.socket, "connect_ex", refuse)
+    monkeypatch.setattr(socket, "create_connection", refuse)
+    monkeypatch.setattr(socket, "getaddrinfo", refuse)
+    monkeypatch.setattr(
+        utils, "_cached_font", lambda url, filename: ImageFont.truetype(utils.FONTS_DIR / "Ubuntu-Regular.ttf")
+    )
+    utils.google_symbols.cache_clear()
+    yield attempts
+    utils.google_symbols.cache_clear()  # don't leave the stand-in cached for other tests
+
+
+SOUTHWARK = Postcode(
+    postcode="SE17 3LL",
+    latitude=51.48873,
+    longitude=-0.09766,
+    country="England",
+    region="London",
+    admin_district="Southwark",
+)
+OSLO = Postcode(postcode="0150", latitude=59.9116, longitude=10.7505, country="Norway", admin_district="Oslo")
+
+
+@responses.activate
+@pytest.mark.parametrize(("place", "country"), [(SOUTHWARK, "GB"), (OSLO, "NO")], ids=["uk", "norway"])
+def test_a_full_render_cycle_reaches_nothing_but_the_broker(monkeypatch, store, no_network, place, country):
+    """Every panel and the notice board, its postcode placed too, read from the store: no upstream is asked anything."""
+    config = _make_config()
+    config.tfl.stop_ids = [BUS_STOP, TUBE_STATION]
+    config.spotify.enabled = True
+    config.notice_board.postcode, config.notice_board.country = place.postcode, country
+    _put_stops_and_energy(store, BUS_STOP, TUBE_STATION)
+    _put_cold_forecast(store, config)
+    _put_music(store, {"currently_playing": TRACK_JSON, "queue": []})
+    store.set(keys.album_art("https://example.com/album.jpg"), _png_bytes())
+    now = datetime.datetime.now(datetime.UTC)
+    location = StoredLocation(fetched_at=now, postcode=place.postcode, found=True, location=place)
+    store.set(keys.location(place.postcode), location.model_dump_json())  # as provider-locations placed it
+    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=config.model_dump(mode="json"))
+    loop = _build_loop(config, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
+
+    _run_cycles(loop, monkeypatch, cycles=2)
+
+    assert no_network == []
+    assert [call.request.url for call in responses.calls if not call.request.url.startswith(TEST_BROKER_URL)] == []
+    assert len(shown) == 2
+    assert loop.api_reg.clients["notice_board"].location == place  # placed from the store, not by asking anyone
+    assert isinstance(shown[0]["tfl"], CombinedArrivalPanel)
+    assert isinstance(shown[0]["weather"], WeatherPanel)
+    assert isinstance(shown[0]["spotify"], SpotifyPanel)

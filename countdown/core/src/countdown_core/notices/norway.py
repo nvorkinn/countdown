@@ -1,7 +1,8 @@
 """The notice board's sources for a Norwegian postcode.
 
-Where it is (Kartverket), public holidays (worked out here) and weather warnings (MET Norway's MetAlerts, from the
-store: the MetAlerts provider fetches them for all of Norway, and the board picks out its place's).
+Where it is (Kartverket, asked only by provider-locations: the board reads its answer from the store), public holidays
+(worked out here) and weather warnings (MET Norway's MetAlerts, from the store: the MetAlerts provider fetches them for
+all of Norway, and the board picks out its place's).
 """
 
 import itertools
@@ -35,8 +36,8 @@ MET_HEADERS = {"User-Agent": "countdown https://github.com/nvorkinn/pi-dashboard
 def lookup_norwegian_postcode(session: requests.Session, postcode: str) -> Postcode | None:
     """Look up where a Norwegian postcode is, as a Postcode with its municipality as the district.
 
-    None if Kartverket has no address with it; raises if Kartverket can't be reached, so the caller can try again
-    later.
+    provider-locations' lookup, which it stores for the board (keys.location). None if Kartverket has no address with
+    it; raises if Kartverket can't be reached, so the caller can try again later.
     """
     response = session.get(
         ADDRESSES_URL,

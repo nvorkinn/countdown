@@ -113,7 +113,7 @@ def test_get_config_parses_response(isolated_cwd):
         CONFIG_URL,
         json=broker_payload(
             interval=20,
-            tfl={"app_key": "tfl-key", "stop_ids": ["940GZZLUEUS"]},
+            tfl={"stop_ids": ["940GZZLUEUS"]},
             weather={"api_key": "weather-key", "location": "London"},
             spotify={"enabled": True},
             glowmarkt={"enabled": True},
@@ -146,6 +146,27 @@ def test_get_config_reads_a_broker_that_still_sends_the_glowmarkt_credentials_as
     config = client.get_config()
 
     assert config.glowmarkt.enabled is True
+    assert config.pairing_code == "ABC123"
+
+
+@responses.activate
+def test_get_config_reads_a_broker_that_still_sends_the_tfl_app_key(isolated_cwd):
+    """A broker from before it was removed from the contract sends TfL's key beside the stops.
+
+    Nothing here uses it (the providers have their own). It's dropped like any field the renderer doesn't know, not
+    rejected or kept, so the renderers can be released before the broker stops sending it.
+    """
+    client = _initialised_client()
+    responses.add(
+        responses.GET,
+        CONFIG_URL,
+        json=broker_payload(tfl={"app_key": "tfl-key", "stop_ids": ["940GZZLUEUS"]}, pairing_code="ABC123"),
+    )
+
+    config = client.get_config()
+
+    assert config.tfl.stop_ids == ["940GZZLUEUS"]
+    assert "tfl-key" not in config.model_dump_json()
     assert config.pairing_code == "ABC123"
 
 
@@ -269,7 +290,7 @@ def test_fetch_app_config_uses_real_broker_response(isolated_cwd):
         CONFIG_URL,
         json=broker_payload(
             interval=20,
-            tfl={"app_key": "tfl-key", "stop_ids": ["940GZZLUEUS"]},
+            tfl={"stop_ids": ["940GZZLUEUS"]},
             weather={"api_key": "weather-key", "location": "London"},
             spotify={"enabled": True},
             pairing_code="XYZ789",
