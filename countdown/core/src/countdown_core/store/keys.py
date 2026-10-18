@@ -26,7 +26,10 @@ WEATHER = "weather"
 GLOW = "glow"
 SPOTIFY = "spotify"
 DEVELOPER = "developer"
-SOURCES = (TFL, ENTUR, WEATHER, GLOW, SPOTIFY, DEVELOPER)
+# The notice board's place: every screen's postcode in the broker's canonical form ("SW1A 1AA", or "0150" for a
+# Norwegian one, which is four digits), for the providers of notices about a place (floods, weather warnings, roads).
+POSTCODE = "postcode"
+SOURCES = (TFL, ENTUR, WEATHER, GLOW, SPOTIFY, DEVELOPER, POSTCODE)
 
 SUB_CHANGED = f"{PREFIX}:sub:changed"
 
@@ -34,6 +37,11 @@ SUB_CHANGED = f"{PREFIX}:sub:changed"
 def subscription(source: str) -> str:
     """Return the set of ids wanted from `source`, e.g. `v1:sub:tfl` (TfL NaPTAN stop ids)."""
     return f"{PREFIX}:sub:{source}"
+
+
+def place(postcode: str) -> str:
+    """Return the id a key uses for a postcode from `v1:sub:postcode`: without its space, e.g. `SW1A1AA`, `0150`."""
+    return postcode.replace(" ", "").upper()
 
 
 def departures(stop_id: str) -> str:
@@ -85,3 +93,6 @@ def pace(source: str, item_id: str) -> str:
     An integer, in seconds, with a TTL of about a minute that the provider renews each cycle it still wants it.
     """
     return f"{PREFIX}:pace:{source}:{item_id}"
+
+
+# Notices (the notice board's sources), one key per source and what it's fetched for. Keys by place use `place`.
