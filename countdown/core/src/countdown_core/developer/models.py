@@ -1,4 +1,4 @@
-"""The broker's /api/developer answer: what the developer panel shows."""
+"""What the developer panel shows: the owner's GitHub at a glance and their AI plans, as the store holds them."""
 
 from datetime import date, datetime
 from typing import Literal
