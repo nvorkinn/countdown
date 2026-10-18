@@ -30,7 +30,7 @@ countdown-core so the providers and renderers share them.
 | Key | Type | Written by | Holds |
 |---|---|---|---|
 | `v1:sub:tfl` | set | broker | TfL NaPTAN stop ids, e.g. `490000123W` |
-| `v1:sub:entur` | set | broker | Entur stop place or quay ids, e.g. `NSR:StopPlace:58366`, `NSR:Quay:7333` |
+| `v1:sub:entur` | set | broker | Entur stop place or quay ids, e.g. `NSR:StopPlace:58366`, `NSR:Quay:7333` (read by provider-entur and provider-entur-situations) |
 | `v1:sub:weather` | set | broker | location keys, e.g. `london-gb-2643743` |
 | `v1:sub:glow` | set | broker | Glow device ids |
 | `v1:sub:spotify` | set | broker | device ids |
@@ -38,6 +38,7 @@ countdown-core so the providers and renderers share them.
 | `v1:sub:postcode` | set | broker | the notice boards' postcodes in canonical form, e.g. `SW1A 1AA`, `0150` (Norwegian: four digits); keys by place use `keys.place()`, e.g. `SW1A1AA` |
 | `v1:sub:changed` | pub/sub channel | broker | empty message after replacing subscriptions |
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
+| `v1:notices:entur:<stop id>` | string, TTL 15 min | provider-entur-situations, every 5 min | `StoredSituations` JSON (`store/situations.py`): Entur's answer to the notice board's situations query for the stop, as it came; the renderer makes the notices; see [Entur's disruptions](#enturs-disruptions) |
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages) |
 | `v1:energy:<device id>` | string, TTL ~1 h | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
 | `v1:spotify:<device id>` | string, TTL 3 min | auth-broker's `spotify-provider`, every minute | `StoredPlayer` JSON (`store/music.py`): each service's queue, as the broker's `/queue` route answers it |
@@ -92,6 +93,30 @@ fetches every 15 minutes, and keeps each value for an hour. `tests/fixtures/glow
 Glowmarkt's answers to the stored value, and auth-broker's tests read the same file: change both together.
 `tests/fixtures/glow_energy_pages.json` is the pages the renderer drew from those answers when it still asked
 Glowmarkt itself, which the stored value must still draw.
+
+### Entur's disruptions
+
+The notice board's Entur disruptions (the situations on the screen's Entur stops and on the lines leaving them) are
+written by `provider-entur-situations`, from the same `v1:sub:entur` as the departures but in a process of its own:
+situations change far less often than departures, so it asks every 5 minutes (as the board once did) where the
+departures are asked every 30 seconds, and a slow situations query can't hold the departures up. It sends the
+board's old query, with the same `ET-Client-Name`, and stores Entur's GraphQL `data` as it came:
+
+```json
+{"fetched_at": "2026-10-16T12:00:00+00:00", "stop_id": "NSR:StopPlace:58381",
+ "data": {"stopPlace": {"name": "Majorstuen", "situations": [...], "estimatedCalls": [{"serviceJourney": {"line": {"publicCode": "5"}}, "situations": [...]}]}}}
+```
+
+(a quay's under `"quay"`; a stop Entur doesn't know is written too, as `{"stopPlace": null}`). The renderer
+(`notices/entur.py`, `StoredEnturSituationsSource`) makes the notices from it each time the board draws: each summary
+in the screen's language, "Line 5" translated, and those that have ended since left out. With nothing stored for any
+of the screen's stops it raises a `LookupError`, and the board keeps its last notices (for an hour at most).
+`tests/fixtures/entur_situations.json` has Entur's answers and the notices the board made from them when it still
+asked Entur itself, which the stored path must still make.
+
+Entur allows a client that names itself 1000 non-trip requests a minute (200 a second), shared by the two Entur
+providers, which send the same name: a stop costs 2 a minute for its departures and a fifth of one for its situations.
+After a 429 the situations provider asks nothing more for a minute.
 
 ## Running locally
 
@@ -157,8 +182,9 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL, weather, Entur) are on: they're services in `../server/deploy/docker-compose.yml`,
-so every deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s
+This repository's providers (TfL, weather, Entur's departures and Entur's situations) are on: they're services in
+`../server/deploy/docker-compose.yml`, so every deploy starts and upgrades them, and `--wait` fails the deploy if one
+won't stay up. `release.yml`'s
 `deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`)
 and `TFL_APP_KEY`; without the password the deploy fails rather than start them unauthenticated. They need the broker
 writing subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking).
@@ -170,9 +196,21 @@ the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to e
 as an upgrade, like a new image. The renderers read TfL's and Entur's departures (`v1:departures:<stop>`), the weather
 (`v1:weather:<location>`), the energy readings (`v1:energy:<device id>`, from auth-broker's `glow-provider`) and the
 Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
-the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; only the
-disruption notices still come straight from their APIs. So each provider must be running for its panels to have anything
-to draw.
+the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) and the notice
+board's Entur disruptions (`v1:notices:entur:<stop id>`, from `provider-entur-situations`) too; only the board's other
+sources still call their APIs. So each provider must be running for its panels to have anything to draw.
+
+A release that moves a panel to the store ships its provider in the same deploy, and the provider fetches as it starts,
+so its keys are there within seconds; until they are, the panel keeps what it had (a renderer remade by the upgrade
+has nothing yet, and a notice board just leaves those notices out). Before relying on a new provider, check that it's
+running and that its keys are there, e.g. for Entur's disruptions, on the host:
+
+```sh
+docker logs --tail 20 countdown-renderers-provider-entur-situations-1
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:entur*"'
+```
+
+There should be one key per Entur stop in `v1:sub:entur` (`SCARD v1:sub:entur`).
 
 A renderer started without the store (`RENDERER_REDIS_URL` set to empty, so no `REDIS_URL`) can't build the clients
 that read it: their areas say "Could not connect", the device reports them as in error, and the log names
