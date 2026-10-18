@@ -1,0 +1,77 @@
+{
+  "now": "2026-09-25T12:00:00+00:00",
+  "en": [
+    {
+      "source": "Met Office",
+      "severity": "WARNING",
+      "text": "Amber warning: wind until Fri",
+      "valid_until": "2026-09-25T21:00:00+01:00",
+      "display_time": "2026-09-25T21:00:00+01:00"
+    },
+    {
+      "source": "Met Office",
+      "severity": "INFO",
+      "text": "Yellow warning: rain until Sat",
+      "valid_until": "2026-09-26T09:00:00+01:00",
+      "display_time": "2026-09-26T09:00:00+01:00"
+    },
+    {
+      "source": "Met Office",
+      "severity": "INFO",
+      "text": "Yellow warning: thunderstorm until Fri",
+      "valid_until": "2026-09-25T09:00:00+01:00",
+      "display_time": "2026-09-25T09:00:00+01:00"
+    },
+    {
+      "source": "Met Office",
+      "severity": "INFO",
+      "text": "Yellow warning: fog",
+      "valid_until": null,
+      "display_time": null
+    },
+    {
+      "source": "Met Office",
+      "severity": "WARNING",
+      "text": "Warnings for London & South East England are being reviewed",
+      "valid_until": null,
+      "display_time": null
+    }
+  ],
+  "nb": [
+    {
+      "source": "Met Office",
+      "severity": "WARNING",
+      "text": "Gult farevarsel: wind til fre.",
+      "valid_until": "2026-09-25T21:00:00+01:00",
+      "display_time": "2026-09-25T21:00:00+01:00"
+    },
+    {
+      "source": "Met Office",
+      "severity": "INFO",
+      "text": "Gult farevarsel: rain til lør.",
+      "valid_until": "2026-09-26T09:00:00+01:00",
+      "display_time": "2026-09-26T09:00:00+01:00"
+    },
+    {
+      "source": "Met Office",
+      "severity": "INFO",
+      "text": "Gult farevarsel: thunderstorm til fre.",
+      "valid_until": "2026-09-25T09:00:00+01:00",
+      "display_time": "2026-09-25T09:00:00+01:00"
+    },
+    {
+      "source": "Met Office",
+      "severity": "INFO",
+      "text": "Gult farevarsel: fog",
+      "valid_until": null,
+      "display_time": null
+    },
+    {
+      "source": "Met Office",
+      "severity": "WARNING",
+      "text": "Warnings for London & South East England are being reviewed",
+      "valid_until": null,
+      "display_time": null
+    }
+  ]
+}
