@@ -7,6 +7,7 @@ retry warnings quote it too. For the same reason nothing logged holds TfL's app 
 """
 
 import asyncio
+import json
 import logging
 import re
 import socket
@@ -16,6 +17,8 @@ import fakeredis
 import pytest
 import requests
 import responses
+from location_factory import FakeLocations
+from redis.exceptions import RedisError
 from test_utils import REGISTRATION
 
 from countdown_core.core import log_format
@@ -35,8 +38,10 @@ from countdown_core.tfl.tfl_client import TFL_URL, TflSource
 from countdown_core.weather import open_meteo
 from countdown_core.weather.open_meteo import fetch_forecast, geocode
 from countdown_providers.floods import main as floods_main
-from countdown_providers.floods.main import fetch_flood_areas
+from countdown_providers.floods.main import FloodsProvider, fetch_flood_areas
 from countdown_providers.locations.main import LocationsProvider
+from countdown_providers.met_office import main as met_office_main
+from countdown_providers.met_office.main import MetOfficeProvider
 from countdown_providers.runner import ProviderRunner
 from countdown_providers.tfl.main import TflProvider
 from countdown_providers.tfl_notices.main import TflLineStatusProvider, TflRoadProvider, TflStationProvider
@@ -54,6 +59,14 @@ SOUTHWARK = {
     "admin_district": "Southwark",
 }
 DRAMMEN = {"postnummer": "3015", "kommunenavn": "DRAMMEN", "representasjonspunkt": {"lat": 59.74389, "lon": 10.20449}}
+YORK = {
+    "postcode": "YO1 7HH",
+    "latitude": 53.96197,
+    "longitude": -1.08273,
+    "country": "England",
+    "region": "Yorkshire and The Humber",
+    "admin_district": "York",
+}
 
 
 def traces(postcode: str, *places: str | float) -> list[str]:
@@ -215,7 +228,7 @@ def test_a_placed_norwegian_postcode_logs_no_place(store, caplog):
 
 
 class PlacingProvider:
-    """Places each postcode with postcodes.io, as the notice providers do, but lets a failure fail the whole batch.
+    """Places each postcode with postcodes.io, as provider-locations does, but lets a failure fail the whole batch.
 
     The runner logs that: its error's text quotes postcodes.io's URL, the postcode in it.
     """
@@ -325,6 +338,101 @@ def test_the_weather_provider_logs_a_failed_place_without_naming_it(caplog, loca
     assert_nothing_says_where(caplog, found)
 
 
+# --- The providers of notices about a place, reading where each postcode is from the store ---------------------------
+
+PLACE_PROVIDERS = {
+    # What its log says it can't fetch, and what it says the postcodes it can't place go without.
+    "met office": ("Couldn't fetch a region's Met Office warnings: ConnectionError", "Met Office warnings"),
+    "floods": ("Couldn't fetch the flood areas near a subscribed postcode: ConnectionError", "flood warnings"),
+    "tfl roads": ("Couldn't fetch TfL's road disruptions: ConnectionError", "TfL road notices"),
+}
+
+
+def place_provider(kind: str, located: FakeLocations, session: requests.Session):
+    """Return the provider of `kind`, reading where postcodes are from `located` and asking upstream on `session`."""
+    if kind == "met office":
+        return MetOfficeProvider(session, located.reader, now=lambda: NOW)
+    if kind == "floods":
+        floods = FloodsProvider(session, located.reader, now=lambda: NOW)
+        floods.in_force = (NOW, FloodWarningsResponse())  # asked for already: then the flood areas near each place
+        return floods
+    return TflRoadProvider(TflSource(session), located.reader, now=lambda: NOW)
+
+
+@pytest.mark.usefixtures("production_logging")
+@pytest.mark.parametrize("kind", PLACE_PROVIDERS)
+def test_a_place_providers_cycle_logs_no_place_however_its_postcodes_are_stored(caplog, monkeypatch, nowhere, kind):
+    """Through the runner, with a postcode stored each way, and nothing to be had for the one that's placed.
+
+    One placed (whose upstream can't be reached), one not placed yet, one whose stored location can't be read (its
+    error's text would quote what's there), one that doesn't exist, and a Norwegian one.
+    """
+    monkeypatch.setattr(met_office_main, "FEED_URL", f"{nowhere}/Region/{{region}}")
+    monkeypatch.setattr(tfl_client, "TFL_URL", nowhere)
+    located = FakeLocations(Postcode.model_validate(SOUTHWARK), not_found=("ZZ1 1ZZ",))
+    # Not a StoredLocation (no fetched_at): one from another version, say. Its error's text would quote it.
+    located.store.set(keys.location("YO1 7HH"), json.dumps({"postcode": "YO1 7HH", "found": True, "location": YORK}))
+    provider = place_provider(kind, located, retrying_session())
+
+    async def cycle():
+        await located.redis.sadd(keys.subscription(keys.POSTCODE), "SE17 3LL", "E1 6AN", "YO1 7HH", "ZZ1 1ZZ", "3015")
+        return await ProviderRunner(provider, located.redis).run_cycle()
+
+    assert asyncio.run(cycle()) == 0
+
+    failure, notices = PLACE_PROVIDERS[kind]
+    for said in (
+        (
+            f"No location in the store yet for 1 of 4 postcodes, so no {notices} for them this cycle "
+            "(provider-locations writes them)"
+        ),
+        (
+            "Couldn't read the location in the store of 1 of 4 postcodes (not a StoredLocation), "
+            f"so no {notices} for them this cycle"
+        ),
+        f"1 of 4 postcodes don't exist, so no {notices} for them",
+        failure,
+    ):
+        assert said in caplog.messages
+    assert not [record for record in caplog.records if record.name.startswith("urllib3")]
+    assert_nothing_says_where(
+        caplog,
+        [
+            *traces("SE17 3LL", "Southwark", "London", LATITUDE, LONGITUDE),
+            *traces("E1 6AN"),
+            *traces("YO1 7HH", "York", YORK["latitude"], YORK["longitude"]),
+            *traces("ZZ1 1ZZ"),
+            *traces("3015"),
+        ],
+    )
+
+
+@pytest.mark.usefixtures("production_logging")
+@pytest.mark.parametrize("kind", PLACE_PROVIDERS)
+def test_a_place_provider_that_cant_read_the_store_logs_no_key(caplog, monkeypatch, kind):
+    """A failed command's text can quote it, keys and all: each key is a postcode's place."""
+    located = FakeLocations(Postcode.model_validate(SOUTHWARK))
+
+    async def refused(names):
+        message = f"Command MGET {' '.join(names)} not allowed when used memory > 'maxmemory'"
+        raise RedisError(message)
+
+    monkeypatch.setattr(located.redis, "mget", refused)
+    provider = place_provider(kind, located, requests.Session())
+
+    with responses.RequestsMock():  # and nothing asked of anyone else
+        assert asyncio.run(provider.fetch(["SE17 3LL"])) == {}
+
+    _, notices = PLACE_PROVIDERS[kind]
+    assert caplog.messages == [
+        (
+            "Couldn't read from the store where the batch's postcodes are (1), "
+            f"so no {notices} for them this cycle: RedisError"
+        )
+    ]
+    assert_nothing_says_where(caplog, traces("SE17 3LL", "Southwark", "London", LATITUDE, LONGITUDE))
+
+
 # --- TfL's app key ---------------------------------------------------------------------------------------------------
 
 APP_KEY = "0123456789abcdef0123456789abcdef"
@@ -339,8 +447,8 @@ def tfl_provider(kind: str, session: requests.Session):
         return TflLineStatusProvider(tfl, now=lambda: NOW), ["490000123W"]
     if kind == "stations":
         return TflStationProvider(tfl, now=lambda: NOW), ["490000123W"]
-    roads = TflRoadProvider(tfl, session, now=lambda: NOW)
-    roads.places["SE17 3LL"] = Postcode.model_validate(SOUTHWARK)  # placed already: only TfL is asked
+    # Placed in the store already, as provider-locations writes it: only TfL is asked.
+    roads = TflRoadProvider(tfl, FakeLocations(Postcode.model_validate(SOUTHWARK)).reader, now=lambda: NOW)
     return roads, ["SE17 3LL"]
 
 

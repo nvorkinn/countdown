@@ -4,8 +4,9 @@ The one process that looks postcodes up: a UK postcode with postcodes.io (countd
 lookup_postcode), a Norwegian one (four digits, as the broker writes them) with Kartverket's address search
 (countdown_core.notices.norway's lookup_norwegian_postcode). Each is written as a StoredLocation (keys.location), which
 the notice board reads for what it shows about its place (the bank holidays' division, MetAlerts' area), so a renderer
-asks neither. A postcode neither knows is written too, as not found, so a board can say "Unknown postcode" rather than
-wait for a location that won't come.
+asks neither, and so do the Met Office, floods and TfL roads providers, for where to fetch their notices (reader.py), so
+each postcode is looked up once in all. A postcode neither knows is written too, as not found, so a board can say
+"Unknown postcode" rather than wait for a location that won't come.
 
 A postcode's place doesn't move, so each is looked up once and that answer is written again every cycle, which keeps
 its key for ttl_s (days) after the postcode leaves the set or the provider stops. It's asked about again once a day

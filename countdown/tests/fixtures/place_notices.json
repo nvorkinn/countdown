@@ -1,0 +1,1272 @@
+{
+  "_comment": "One cycle of each provider of notices about a place (provider-met-office, provider-floods, provider-tfl-notices' roads), at now. upstream is what every API answered: postcodes.io for each UK postcode (ZZ1 1ZZ doesn't exist), Kartverket for 0150, the Met Office's feed for each region, the EA's warnings in force and its flood areas near each postcode's place, and TfL's road disruptions. before was recorded from those providers before they read where a postcode is from the store, when each still asked postcodes.io for itself (with provider-locations writing the locations the notice board reads): how many requests they made to postcodes.io, every other request they made, every v1:notices: key they wrote, and what the board showed for each postcode, with gov.uk's bank holidays (bank_holidays.json) and MET Norway's warnings (metalerts_current.json) in the store too. test_place_notices.py checks that, from the same answers, the providers reading v1:location:<place> make the same requests bar postcodes.io's, write the same keys, and the board shows the same.",
+  "now": "2026-09-25T12:00:00+00:00",
+  "postcodes": [
+    "SE17 3LL",
+    "E1 6AN",
+    "YO1 7HH",
+    "CF10 1EP",
+    "EH1 1YZ",
+    "BT1 5GS",
+    "KW1 4YT",
+    "ZZ1 1ZZ",
+    "0150"
+  ],
+  "upstream": {
+    "postcodes_io": {
+      "SE17 3LL": {
+        "status": 200,
+        "json": {
+          "status": 200,
+          "result": {
+            "postcode": "SE17 3LL",
+            "quality": 1,
+            "country": "England",
+            "longitude": -0.09766,
+            "latitude": 51.48873,
+            "region": "London",
+            "outcode": "SE17",
+            "incode": "3LL",
+            "admin_district": "Southwark",
+            "admin_county": null
+          }
+        }
+      },
+      "E1 6AN": {
+        "status": 200,
+        "json": {
+          "status": 200,
+          "result": {
+            "postcode": "E1 6AN",
+            "quality": 1,
+            "country": "England",
+            "longitude": -0.05672,
+            "latitude": 51.51961,
+            "region": "London",
+            "outcode": "E1",
+            "incode": "6AN",
+            "admin_district": "Tower Hamlets",
+            "admin_county": null
+          }
+        }
+      },
+      "YO1 7HH": {
+        "status": 200,
+        "json": {
+          "status": 200,
+          "result": {
+            "postcode": "YO1 7HH",
+            "quality": 1,
+            "country": "England",
+            "longitude": -1.08273,
+            "latitude": 53.96197,
+            "region": "Yorkshire and The Humber",
+            "outcode": "YO1",
+            "incode": "7HH",
+            "admin_district": "York",
+            "admin_county": null
+          }
+        }
+      },
+      "CF10 1EP": {
+        "status": 200,
+        "json": {
+          "status": 200,
+          "result": {
+            "postcode": "CF10 1EP",
+            "quality": 1,
+            "country": "Wales",
+            "longitude": -3.17909,
+            "latitude": 51.48177,
+            "region": null,
+            "outcode": "CF10",
+            "incode": "1EP",
+            "admin_district": "Cardiff",
+            "admin_county": null
+          }
+        }
+      },
+      "EH1 1YZ": {
+        "status": 200,
+        "json": {
+          "status": 200,
+          "result": {
+            "postcode": "EH1 1YZ",
+            "quality": 1,
+            "country": "Scotland",
+            "longitude": -3.19046,
+            "latitude": 55.95325,
+            "region": null,
+            "outcode": "EH1",
+            "incode": "1YZ",
+            "admin_district": "City of Edinburgh",
+            "admin_county": null
+          }
+        }
+      },
+      "BT1 5GS": {
+        "status": 200,
+        "json": {
+          "status": 200,
+          "result": {
+            "postcode": "BT1 5GS",
+            "quality": 1,
+            "country": "Northern Ireland",
+            "longitude": -5.93011,
+            "latitude": 54.59683,
+            "region": null,
+            "outcode": "BT1",
+            "incode": "5GS",
+            "admin_district": "Belfast",
+            "admin_county": null
+          }
+        }
+      },
+      "KW1 4YT": {
+        "status": 200,
+        "json": {
+          "status": 200,
+          "result": {
+            "postcode": "KW1 4YT",
+            "quality": 1,
+            "country": "Scotland",
+            "longitude": -3.09277,
+            "latitude": 58.43807,
+            "region": null,
+            "outcode": "KW1",
+            "incode": "4YT",
+            "admin_district": "Somewhere New",
+            "admin_county": null
+          }
+        }
+      },
+      "ZZ1 1ZZ": {
+        "status": 404,
+        "json": {
+          "status": 404,
+          "error": "Postcode not found"
+        }
+      }
+    },
+    "kartverket": {
+      "0150": {
+        "metadata": {
+          "totaltAntallTreff": 41,
+          "viserFra": 0,
+          "viserTil": 1,
+          "side": 0,
+          "treffPerSide": 1,
+          "asciiKompatibel": true,
+          "utkoordsys": "4258"
+        },
+        "adresser": [
+          {
+            "adressenavn": "Dronning Eufemias gate",
+            "adressetekst": "Dronning Eufemias gate 16",
+            "nummer": 16,
+            "kommunenummer": "0301",
+            "kommunenavn": "OSLO",
+            "postnummer": "0150",
+            "poststed": "OSLO",
+            "representasjonspunkt": {
+              "epsg": "EPSG:4258",
+              "lat": 59.9116,
+              "lon": 10.7505
+            }
+          }
+        ]
+      }
+    },
+    "met_office": {
+      "se": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n<channel>\n<title>Met Office warnings for London &amp; South East England</title>\n<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings</link>\n<description>Weather warnings of severe and extreme weather from the Met Office</description>\n<language>en-gb</language>\n<copyright>(c) Crown copyright</copyright>\n<pubDate>Fri, 25 Sep 2026 10:31:07 GMT</pubDate>\n<atom:link href=\"https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/se\" rel=\"self\" type=\"application/rss+xml\"/>\n<item>\n<title>Amber warning of wind affecting London &amp; South East England</title>\n<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=4b1f6a3e-2c4d-4f0e-9a51-6f0f1c2b7d10&amp;referrer=rss</link>\n<description>Amber warning of wind affecting London &amp; South East England: Lambeth, Southwark, Wandsworth valid from 0600 Fri 25 Sep to 2100 Fri 25 Sep</description>\n<pubDate>Thu, 24 Sep 2026 10:30:00 GMT</pubDate>\n<guid isPermaLink=\"false\">4b1f6a3e-2c4d-4f0e-9a51-6f0f1c2b7d10</guid>\n<enclosure url=\"https://www.metoffice.gov.uk/public/data/NSWWS/WarningMapImages/4b1f6a3e-2c4d-4f0e-9a51-6f0f1c2b7d10.gif\" length=\"21334\" type=\"image/gif\"/>\n</item>\n<item>\n<title>Yellow warning of rain affecting London &amp; South East England</title>\n<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=8e2d0c71-5a3b-4c8f-b2e4-1d9a7f6e3c25&amp;referrer=rss</link>\n<description>Yellow warning of rain affecting London &amp; South East England: Bromley, Croydon, Lambeth, Southwark valid from 1800 Fri 25 Sep to 0900 Sat 26 Sep</description>\n<pubDate>Fri, 25 Sep 2026 09:15:00 GMT</pubDate>\n<guid isPermaLink=\"false\">8e2d0c71-5a3b-4c8f-b2e4-1d9a7f6e3c25</guid>\n</item>\n<item>\n<title>Yellow warning of thunderstorm affecting London &amp; South East England</title>\n<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=c35a9e08-7f61-4d2a-8b3c-90e4f5a6b7c8&amp;referrer=rss</link>\n<description>Yellow warning of thunderstorm affecting London &amp; South East England: Southwark valid from 0000 Fri 25 Sep to 0900 Fri 25 Sep</description>\n<pubDate>Thu, 24 Sep 2026 15:00:00 GMT</pubDate>\n<guid isPermaLink=\"false\">c35a9e08-7f61-4d2a-8b3c-90e4f5a6b7c8</guid>\n</item>\n<item>\n<title>Yellow warning of fog affecting London &amp; South East England</title>\n<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-26&amp;id=e7d1b2a9-0c3f-4e8d-a6b5-3f2c1d0e9b84&amp;referrer=rss</link>\n<pubDate>Fri, 25 Sep 2026 10:00:00 GMT</pubDate>\n<guid isPermaLink=\"false\">e7d1b2a9-0c3f-4e8d-a6b5-3f2c1d0e9b84</guid>\n</item>\n<item>\n<title>Warnings for London &amp; South East England are being reviewed</title>\n<link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings</link>\n<description>Please check back later for the latest warnings</description>\n<pubDate>Fri, 25 Sep 2026 10:31:07 GMT</pubDate>\n</item>\n<item>\n<title> </title>\n<description>An item with nothing to show</description>\n</item>\n</channel>\n</rss>\n",
+      "yh": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\"><channel><title>Met Office warnings for Yorkshire &amp; Humber</title><item><title>Yellow warning of rain affecting Yorkshire &amp; Humber</title><link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=0&amp;referrer=rss</link><description>Yellow warning of rain affecting Yorkshire &amp; Humber: York valid from 1200 Fri 25 Sep to 0600 Sat 26 Sep</description><pubDate>Fri, 25 Sep 2026 08:00:00 GMT</pubDate></item></channel></rss>",
+      "wl": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\"><channel><title>Met Office warnings for Wales</title></channel></rss>",
+      "dg": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\"><channel><title>Met Office warnings for Dumfries, Lothian &amp; Borders</title><item><title>Amber warning of wind affecting Dumfries, Lothian &amp; Borders</title><link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=0&amp;referrer=rss</link><description>Amber warning of wind affecting Dumfries, Lothian &amp; Borders: City of Edinburgh valid from 0900 Fri 25 Sep to 2359 Fri 25 Sep</description><pubDate>Thu, 24 Sep 2026 16:00:00 GMT</pubDate></item></channel></rss>",
+      "ni": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\"><channel><title>Met Office warnings for Northern Ireland</title><item><title>Yellow warning of rain affecting Northern Ireland</title><link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=0&amp;referrer=rss</link><description>Yellow warning of rain affecting Northern Ireland: Antrim, Down valid from 1500 Fri 25 Sep to 2100 Fri 25 Sep</description><pubDate>Fri, 25 Sep 2026 07:30:00 GMT</pubDate></item></channel></rss>",
+      "UK": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\"><channel><title>Met Office warnings for the UK</title><item><title>Yellow warning of wind affecting Highlands &amp; Eilean Siar</title><link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=0&amp;referrer=rss</link><description>Yellow warning of wind affecting Highlands &amp; Eilean Siar: Highland valid from 0000 Sat 26 Sep to 1200 Sat 26 Sep</description><pubDate>Fri, 25 Sep 2026 10:00:00 GMT</pubDate></item><item><title>Red warning of rain affecting Orkney &amp; Shetland</title><link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&amp;id=1&amp;referrer=rss</link><description>Red warning of rain affecting Orkney &amp; Shetland: Shetland Islands valid from 0600 Fri 25 Sep to 0900 Fri 25 Sep</description><pubDate>Thu, 24 Sep 2026 20:00:00 GMT</pubDate></item></channel></rss>"
+    },
+    "ea_in_force": {
+      "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+      "meta": {
+        "publisher": "Environment Agency",
+        "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+        "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+        "version": "0.9",
+        "comment": "Status: Beta service"
+      },
+      "items": [
+        {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/062FWF46Southwrk",
+          "description": "River Thames at Southwark",
+          "eaAreaName": "Hertfordshire and North London",
+          "eaRegionName": "No longer used",
+          "floodArea": {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Southwrk",
+            "county": "Greater London",
+            "notation": "062FWF46Southwrk",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Southwrk/polygon",
+            "riverOrSea": "River Thames"
+          },
+          "floodAreaID": "062FWF46Southwrk",
+          "isTidal": true,
+          "severity": "Flood Warning",
+          "severityLevel": 2,
+          "timeMessageChanged": "2026-10-18T09:12:31",
+          "timeRaised": "2026-10-18T09:12:31",
+          "timeSeverityChanged": "2026-10-18T09:12:31",
+          "message": "Flooding is possible for River Thames at Southwark. Avoid riverside paths and check the EA's updates."
+        },
+        {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/051WAF23UpSevern",
+          "description": "Upper River Severn in Shropshire",
+          "eaAreaName": "West Midlands",
+          "eaRegionName": "No longer used",
+          "floodArea": {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/051WAF23UpSevern",
+            "county": "Shropshire",
+            "notation": "051WAF23UpSevern",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/051WAF23UpSevern/polygon",
+            "riverOrSea": "River Severn"
+          },
+          "floodAreaID": "051WAF23UpSevern",
+          "isTidal": false,
+          "severity": "Flood Alert",
+          "severityLevel": 3,
+          "timeMessageChanged": "2026-10-17T21:40:02",
+          "timeRaised": "2026-10-17T21:40:02",
+          "timeSeverityChanged": "2026-10-17T21:40:02",
+          "message": "Flooding is possible for Upper River Severn in Shropshire. Avoid riverside paths and check the EA's updates."
+        },
+        {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/062FWF46TidalThm",
+          "description": "Tidal Thames at Bankside and Rotherhithe",
+          "eaAreaName": "Hertfordshire and North London",
+          "eaRegionName": "No longer used",
+          "floodArea": {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46TidalThm",
+            "county": "Greater London",
+            "notation": "062FWF46TidalThm",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46TidalThm/polygon",
+            "riverOrSea": "Tidal Thames"
+          },
+          "floodAreaID": "062FWF46TidalThm",
+          "isTidal": true,
+          "severity": "Severe Flood Warning",
+          "severityLevel": 1,
+          "timeMessageChanged": "2026-10-18T10:58:44",
+          "timeRaised": "2026-10-18T10:58:44",
+          "timeSeverityChanged": "2026-10-18T10:58:44",
+          "message": "Flooding is possible for Tidal Thames at Bankside and Rotherhithe. Avoid riverside paths and check the EA's updates."
+        },
+        {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/122FWF706",
+          "description": "River Ouse at York city centre",
+          "eaAreaName": "Yorkshire",
+          "eaRegionName": "No longer used",
+          "floodArea": {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF706",
+            "county": "York",
+            "notation": "122FWF706",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF706/polygon",
+            "riverOrSea": "River Ouse"
+          },
+          "floodAreaID": "122FWF706",
+          "isTidal": false,
+          "severity": "Flood Warning",
+          "severityLevel": 2,
+          "timeMessageChanged": "2026-10-18T06:05:10",
+          "timeRaised": "2026-10-18T06:05:10",
+          "timeSeverityChanged": "2026-10-18T06:05:10",
+          "message": "Flooding is possible for River Ouse at York city centre. Avoid riverside paths and check the EA's updates."
+        },
+        {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/062WAF60LowEffra",
+          "description": "Lower River Effra",
+          "eaAreaName": "Kent and South London",
+          "eaRegionName": "No longer used",
+          "floodArea": {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF60LowEffra",
+            "county": "Greater London",
+            "notation": "062WAF60LowEffra",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF60LowEffra/polygon",
+            "riverOrSea": "River Effra"
+          },
+          "floodAreaID": "062WAF60LowEffra",
+          "isTidal": false,
+          "severity": "Flood Alert",
+          "severityLevel": 3,
+          "timeMessageChanged": "2026-10-18T08:30:00",
+          "timeRaised": "2026-10-18T08:30:00",
+          "timeSeverityChanged": "2026-10-18T08:30:00",
+          "message": "Flooding is possible for Lower River Effra. Avoid riverside paths and check the EA's updates."
+        },
+        {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/062FWF46Vauxhall",
+          "description": "River Thames at Vauxhall",
+          "eaAreaName": "Hertfordshire and North London",
+          "eaRegionName": "No longer used",
+          "floodArea": {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Vauxhall",
+            "county": "Greater London",
+            "notation": "062FWF46Vauxhall",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Vauxhall/polygon",
+            "riverOrSea": "River Thames"
+          },
+          "floodAreaID": "062FWF46Vauxhall",
+          "isTidal": true,
+          "severity": "Warning no Longer in Force",
+          "severityLevel": 4,
+          "timeMessageChanged": "2026-10-18T11:20:15",
+          "timeRaised": "2026-10-18T11:20:15",
+          "timeSeverityChanged": "2026-10-18T11:20:15"
+        },
+        {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/034FWF3LeicSoar",
+          "description": "River Soar at Leicester",
+          "eaAreaName": "East Midlands",
+          "eaRegionName": "No longer used",
+          "floodArea": {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/034FWF3LeicSoar",
+            "county": "Leicestershire",
+            "notation": "034FWF3LeicSoar",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/034FWF3LeicSoar/polygon",
+            "riverOrSea": "River Soar"
+          },
+          "floodAreaID": "034FWF3LeicSoar",
+          "isTidal": false,
+          "severity": "Flood Warning",
+          "severityLevel": 2,
+          "timeMessageChanged": "2026-10-18T07:45:51",
+          "timeRaised": "2026-10-18T07:45:51",
+          "timeSeverityChanged": "2026-10-18T07:45:51",
+          "message": "Flooding is possible for River Soar at Leicester. Avoid riverside paths and check the EA's updates."
+        },
+        {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/122WAF940",
+          "description": "River Foss in York",
+          "eaAreaName": "Yorkshire",
+          "eaRegionName": "No longer used",
+          "floodArea": {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122WAF940",
+            "county": "York",
+            "notation": "122WAF940",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122WAF940/polygon",
+            "riverOrSea": "River Foss"
+          },
+          "floodAreaID": "122WAF940",
+          "isTidal": false,
+          "severity": "Flood Alert",
+          "severityLevel": 3,
+          "timeMessageChanged": "2026-10-18T05:12:09",
+          "timeRaised": "2026-10-18T05:12:09",
+          "timeSeverityChanged": "2026-10-18T05:12:09",
+          "message": "Flooding is possible for River Foss in York. Avoid riverside paths and check the EA's updates."
+        }
+      ]
+    },
+    "ea_flood_areas": {
+      "SE17 3LL": {
+        "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+        "meta": {
+          "publisher": "Environment Agency",
+          "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+          "version": "0.9",
+          "comment": "Status: Beta service",
+          "limit": 2000
+        },
+        "items": [
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Southwrk",
+            "county": "Greater London",
+            "description": "Areas near River Thames: River Thames at Southwark",
+            "eaAreaName": "Hertfordshire and North London",
+            "fwdCode": "062FWF46Southwrk",
+            "label": "River Thames at Southwark",
+            "lat": 51.5045,
+            "long": -0.0954,
+            "notation": "062FWF46Southwrk",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Southwrk/polygon",
+            "riverOrSea": "River Thames"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46TidalThm",
+            "county": "Greater London",
+            "description": "Areas near Tidal Thames: Tidal Thames at Bankside and Rotherhithe",
+            "eaAreaName": "Hertfordshire and North London",
+            "fwdCode": "062FWF46TidalThm",
+            "label": "Tidal Thames at Bankside and Rotherhithe",
+            "lat": 51.5021,
+            "long": -0.0721,
+            "notation": "062FWF46TidalThm",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46TidalThm/polygon",
+            "riverOrSea": "Tidal Thames"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF60LowEffra",
+            "county": "Greater London",
+            "description": "Areas near River Effra: Lower River Effra",
+            "eaAreaName": "Kent and South London",
+            "fwdCode": "062WAF60LowEffra",
+            "label": "Lower River Effra",
+            "lat": 51.4712,
+            "long": -0.1153,
+            "notation": "062WAF60LowEffra",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF60LowEffra/polygon",
+            "riverOrSea": "River Effra"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Vauxhall",
+            "county": "Greater London",
+            "description": "Areas near River Thames: River Thames at Vauxhall",
+            "eaAreaName": "Hertfordshire and North London",
+            "fwdCode": "062FWF46Vauxhall",
+            "label": "River Thames at Vauxhall",
+            "lat": 51.4861,
+            "long": -0.1251,
+            "notation": "062FWF46Vauxhall",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Vauxhall/polygon",
+            "riverOrSea": "River Thames"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF28PeckRiv",
+            "county": "Greater London",
+            "description": "Areas near River Peck: River Peck at Peckham Rye",
+            "eaAreaName": "Kent and South London",
+            "fwdCode": "062WAF28PeckRiv",
+            "label": "River Peck at Peckham Rye",
+            "lat": 51.4598,
+            "long": -0.0702,
+            "notation": "062WAF28PeckRiv",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF28PeckRiv/polygon",
+            "riverOrSea": "River Peck"
+          }
+        ]
+      },
+      "E1 6AN": {
+        "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+        "meta": {
+          "publisher": "Environment Agency",
+          "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+          "version": "0.9",
+          "comment": "Status: Beta service",
+          "limit": 2000
+        },
+        "items": [
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Southwrk",
+            "county": "Greater London",
+            "description": "Areas near River Thames: River Thames at Southwark",
+            "eaAreaName": "Hertfordshire and North London",
+            "fwdCode": "062FWF46Southwrk",
+            "label": "River Thames at Southwark",
+            "lat": 51.5045,
+            "long": -0.0954,
+            "notation": "062FWF46Southwrk",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Southwrk/polygon",
+            "riverOrSea": "River Thames"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46TidalThm",
+            "county": "Greater London",
+            "description": "Areas near Tidal Thames: Tidal Thames at Bankside and Rotherhithe",
+            "eaAreaName": "Hertfordshire and North London",
+            "fwdCode": "062FWF46TidalThm",
+            "label": "Tidal Thames at Bankside and Rotherhithe",
+            "lat": 51.5021,
+            "long": -0.0721,
+            "notation": "062FWF46TidalThm",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46TidalThm/polygon",
+            "riverOrSea": "Tidal Thames"
+          }
+        ]
+      },
+      "YO1 7HH": {
+        "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+        "meta": {
+          "publisher": "Environment Agency",
+          "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+          "version": "0.9",
+          "comment": "Status: Beta service",
+          "limit": 2000
+        },
+        "items": [
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF706",
+            "county": "York",
+            "description": "Areas near River Ouse: River Ouse at York city centre",
+            "eaAreaName": "Yorkshire",
+            "fwdCode": "122FWF706",
+            "label": "River Ouse at York city centre",
+            "lat": 53.9578,
+            "long": -1.0832,
+            "notation": "122FWF706",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF706/polygon",
+            "riverOrSea": "River Ouse"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122WAF940",
+            "county": "York",
+            "description": "Areas near River Foss: River Foss in York",
+            "eaAreaName": "Yorkshire",
+            "fwdCode": "122WAF940",
+            "label": "River Foss in York",
+            "lat": 53.9662,
+            "long": -1.0711,
+            "notation": "122WAF940",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122WAF940/polygon",
+            "riverOrSea": "River Foss"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF707",
+            "county": "York",
+            "description": "Areas near River Ouse: River Ouse at Clifton",
+            "eaAreaName": "Yorkshire",
+            "fwdCode": "122FWF707",
+            "label": "River Ouse at Clifton",
+            "lat": 53.9741,
+            "long": -1.0989,
+            "notation": "122FWF707",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF707/polygon",
+            "riverOrSea": "River Ouse"
+          }
+        ]
+      },
+      "CF10 1EP": {
+        "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+        "meta": {
+          "publisher": "Environment Agency",
+          "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+          "version": "0.9",
+          "comment": "Status: Beta service",
+          "limit": 2000
+        },
+        "items": []
+      },
+      "EH1 1YZ": {
+        "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+        "meta": {
+          "publisher": "Environment Agency",
+          "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+          "version": "0.9",
+          "comment": "Status: Beta service",
+          "limit": 2000
+        },
+        "items": []
+      },
+      "BT1 5GS": {
+        "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+        "meta": {
+          "publisher": "Environment Agency",
+          "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+          "version": "0.9",
+          "comment": "Status: Beta service",
+          "limit": 2000
+        },
+        "items": []
+      },
+      "KW1 4YT": {
+        "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+        "meta": {
+          "publisher": "Environment Agency",
+          "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+          "version": "0.9",
+          "comment": "Status: Beta service",
+          "limit": 2000
+        },
+        "items": []
+      }
+    },
+    "tfl_roads": [
+      {
+        "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+        "id": "TIMS-1",
+        "url": "/Road/all/Disruption/TIMS-1",
+        "severity": "Severe",
+        "ordinal": 0,
+        "category": "Collisions",
+        "subCategory": "Collisions",
+        "comments": "[A3] Kennington Park Road (SE11) (Lambeth) - Northbound closed at Kennington Cross after a collision.",
+        "currentUpdate": "",
+        "corridorIds": [],
+        "startDateTime": "2026-09-25T07:00:00Z",
+        "lastModifiedTime": "2026-09-25T11:40:00Z",
+        "levelOfInterest": "Low",
+        "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+        "status": "Active",
+        "isProvisional": false,
+        "hasClosures": true,
+        "point": "[-0.1055,51.4851]",
+        "endDateTime": "2026-09-25T15:00:00Z"
+      },
+      {
+        "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+        "id": "TIMS-2",
+        "url": "/Road/all/Disruption/TIMS-2",
+        "severity": "Serious",
+        "ordinal": 0,
+        "category": "Works",
+        "subCategory": "Works",
+        "comments": "[A202] Camberwell New Road (SE5) (Lambeth) - Lane restrictions for gas main repairs.",
+        "currentUpdate": "",
+        "corridorIds": [],
+        "startDateTime": "2026-09-25T07:00:00Z",
+        "lastModifiedTime": "2026-09-25T11:40:00Z",
+        "levelOfInterest": "Low",
+        "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+        "status": "Active",
+        "isProvisional": false,
+        "hasClosures": true,
+        "point": "[-0.1010,51.4790]"
+      },
+      {
+        "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+        "id": "TIMS-3",
+        "url": "/Road/all/Disruption/TIMS-3",
+        "severity": "Serious",
+        "ordinal": 0,
+        "category": "Works",
+        "subCategory": "Works",
+        "comments": "[A13] Commercial Road (E1) (Tower Hamlets) - Lane closures for Thames Water works.",
+        "currentUpdate": "",
+        "corridorIds": [],
+        "startDateTime": "2026-09-25T07:00:00Z",
+        "lastModifiedTime": "2026-09-25T11:40:00Z",
+        "levelOfInterest": "Low",
+        "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+        "status": "Active",
+        "isProvisional": false,
+        "hasClosures": true,
+        "point": "[-0.0550,51.5130]",
+        "endDateTime": "2026-09-29T12:00:00Z"
+      },
+      {
+        "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+        "id": "TIMS-4",
+        "url": "/Road/all/Disruption/TIMS-4",
+        "severity": "Serious",
+        "ordinal": 0,
+        "category": "Hazard(s)",
+        "subCategory": "Hazard(s)",
+        "comments": "Somewhere TfL doesn't say.",
+        "currentUpdate": "",
+        "corridorIds": [],
+        "startDateTime": "2026-09-25T07:00:00Z",
+        "lastModifiedTime": "2026-09-25T11:40:00Z",
+        "levelOfInterest": "Low",
+        "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+        "status": "Active",
+        "isProvisional": false,
+        "hasClosures": true
+      },
+      {
+        "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+        "id": "TIMS-5",
+        "url": "/Road/all/Disruption/TIMS-5",
+        "severity": "Moderate",
+        "ordinal": 0,
+        "category": "Works",
+        "subCategory": "Works",
+        "comments": "[A23] Kennington Road (SE11) (Lambeth) - Footway works.",
+        "currentUpdate": "",
+        "corridorIds": [],
+        "startDateTime": "2026-09-25T07:00:00Z",
+        "lastModifiedTime": "2026-09-25T11:40:00Z",
+        "levelOfInterest": "Low",
+        "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+        "status": "Active",
+        "isProvisional": false,
+        "hasClosures": true,
+        "point": "[-0.1100,51.4900]"
+      },
+      {
+        "$type": "Tfl.Api.Presentation.Entities.RoadDisruption, Tfl.Api.Presentation.Entities",
+        "id": "TIMS-6",
+        "url": "/Road/all/Disruption/TIMS-6",
+        "severity": "Severe",
+        "ordinal": 0,
+        "category": "Collisions",
+        "subCategory": "Collisions",
+        "comments": "[M25] Junction 16 (Denham) - Clockwise closed after a collision.",
+        "currentUpdate": "",
+        "corridorIds": [],
+        "startDateTime": "2026-09-25T07:00:00Z",
+        "lastModifiedTime": "2026-09-25T11:40:00Z",
+        "levelOfInterest": "Low",
+        "location": "[A3] Kennington Park Road (SE11) (Lambeth)",
+        "status": "Active",
+        "isProvisional": false,
+        "hasClosures": true,
+        "point": "[-0.4900,51.5800]",
+        "endDateTime": "2026-09-25T14:00:00Z"
+      }
+    ]
+  },
+  "before": {
+    "postcodes_io_requests": 24,
+    "requests": [
+      "https://api.tfl.gov.uk/Road/all/Disruption?severities=Severe%2CSerious",
+      "https://environment.data.gov.uk/flood-monitoring/id/floodAreas?lat=51.48177&long=-3.17909&dist=5&_limit=2000",
+      "https://environment.data.gov.uk/flood-monitoring/id/floodAreas?lat=51.48873&long=-0.09766&dist=5&_limit=2000",
+      "https://environment.data.gov.uk/flood-monitoring/id/floodAreas?lat=51.51961&long=-0.05672&dist=5&_limit=2000",
+      "https://environment.data.gov.uk/flood-monitoring/id/floodAreas?lat=53.96197&long=-1.08273&dist=5&_limit=2000",
+      "https://environment.data.gov.uk/flood-monitoring/id/floodAreas?lat=54.59683&long=-5.93011&dist=5&_limit=2000",
+      "https://environment.data.gov.uk/flood-monitoring/id/floodAreas?lat=55.95325&long=-3.19046&dist=5&_limit=2000",
+      "https://environment.data.gov.uk/flood-monitoring/id/floodAreas?lat=58.43807&long=-3.09277&dist=5&_limit=2000",
+      "https://environment.data.gov.uk/flood-monitoring/id/floods",
+      "https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/UK",
+      "https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/dg",
+      "https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/ni",
+      "https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/se",
+      "https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/wl",
+      "https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/yh"
+    ],
+    "stored": {
+      "v1:notices:floods:BT15GS": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "BT1 5GS",
+        "floods": {
+          "items": []
+        }
+      },
+      "v1:notices:floods:CF101EP": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "CF10 1EP",
+        "floods": {
+          "items": []
+        }
+      },
+      "v1:notices:floods:E16AN": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "E1 6AN",
+        "floods": {
+          "items": [
+            {
+              "description": "River Thames at Southwark",
+              "severity": "Flood Warning",
+              "severityLevel": 2,
+              "floodAreaID": "062FWF46Southwrk"
+            },
+            {
+              "description": "Tidal Thames at Bankside and Rotherhithe",
+              "severity": "Severe Flood Warning",
+              "severityLevel": 1,
+              "floodAreaID": "062FWF46TidalThm"
+            }
+          ]
+        }
+      },
+      "v1:notices:floods:EH11YZ": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "EH1 1YZ",
+        "floods": {
+          "items": []
+        }
+      },
+      "v1:notices:floods:KW14YT": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "KW1 4YT",
+        "floods": {
+          "items": []
+        }
+      },
+      "v1:notices:floods:SE173LL": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "SE17 3LL",
+        "floods": {
+          "items": [
+            {
+              "description": "River Thames at Southwark",
+              "severity": "Flood Warning",
+              "severityLevel": 2,
+              "floodAreaID": "062FWF46Southwrk"
+            },
+            {
+              "description": "Tidal Thames at Bankside and Rotherhithe",
+              "severity": "Severe Flood Warning",
+              "severityLevel": 1,
+              "floodAreaID": "062FWF46TidalThm"
+            },
+            {
+              "description": "Lower River Effra",
+              "severity": "Flood Alert",
+              "severityLevel": 3,
+              "floodAreaID": "062WAF60LowEffra"
+            },
+            {
+              "description": "River Thames at Vauxhall",
+              "severity": "Warning no Longer in Force",
+              "severityLevel": 4,
+              "floodAreaID": "062FWF46Vauxhall"
+            }
+          ]
+        }
+      },
+      "v1:notices:floods:YO17HH": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "YO1 7HH",
+        "floods": {
+          "items": [
+            {
+              "description": "River Ouse at York city centre",
+              "severity": "Flood Warning",
+              "severityLevel": 2,
+              "floodAreaID": "122FWF706"
+            },
+            {
+              "description": "River Foss in York",
+              "severity": "Flood Alert",
+              "severityLevel": 3,
+              "floodAreaID": "122WAF940"
+            }
+          ]
+        }
+      },
+      "v1:notices:met-office:BT15GS": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "BT1 5GS",
+        "region": "ni",
+        "items": [
+          {
+            "title": "Yellow warning of rain affecting Northern Ireland",
+            "description": "Yellow warning of rain affecting Northern Ireland: Antrim, Down valid from 1500 Fri 25 Sep to 2100 Fri 25 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=0&referrer=rss",
+            "pub_date": "Fri, 25 Sep 2026 07:30:00 GMT"
+          }
+        ]
+      },
+      "v1:notices:met-office:CF101EP": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "CF10 1EP",
+        "region": "wl",
+        "items": []
+      },
+      "v1:notices:met-office:E16AN": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "E1 6AN",
+        "region": "se",
+        "items": [
+          {
+            "title": "Amber warning of wind affecting London & South East England",
+            "description": "Amber warning of wind affecting London & South East England: Lambeth, Southwark, Wandsworth valid from 0600 Fri 25 Sep to 2100 Fri 25 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=4b1f6a3e-2c4d-4f0e-9a51-6f0f1c2b7d10&referrer=rss",
+            "pub_date": "Thu, 24 Sep 2026 10:30:00 GMT"
+          },
+          {
+            "title": "Yellow warning of rain affecting London & South East England",
+            "description": "Yellow warning of rain affecting London & South East England: Bromley, Croydon, Lambeth, Southwark valid from 1800 Fri 25 Sep to 0900 Sat 26 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=8e2d0c71-5a3b-4c8f-b2e4-1d9a7f6e3c25&referrer=rss",
+            "pub_date": "Fri, 25 Sep 2026 09:15:00 GMT"
+          },
+          {
+            "title": "Yellow warning of thunderstorm affecting London & South East England",
+            "description": "Yellow warning of thunderstorm affecting London & South East England: Southwark valid from 0000 Fri 25 Sep to 0900 Fri 25 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=c35a9e08-7f61-4d2a-8b3c-90e4f5a6b7c8&referrer=rss",
+            "pub_date": "Thu, 24 Sep 2026 15:00:00 GMT"
+          },
+          {
+            "title": "Yellow warning of fog affecting London & South East England",
+            "description": "",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-26&id=e7d1b2a9-0c3f-4e8d-a6b5-3f2c1d0e9b84&referrer=rss",
+            "pub_date": "Fri, 25 Sep 2026 10:00:00 GMT"
+          },
+          {
+            "title": "Warnings for London & South East England are being reviewed",
+            "description": "Please check back later for the latest warnings",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings",
+            "pub_date": "Fri, 25 Sep 2026 10:31:07 GMT"
+          },
+          {
+            "title": " ",
+            "description": "An item with nothing to show",
+            "link": "",
+            "pub_date": ""
+          }
+        ]
+      },
+      "v1:notices:met-office:EH11YZ": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "EH1 1YZ",
+        "region": "dg",
+        "items": [
+          {
+            "title": "Amber warning of wind affecting Dumfries, Lothian & Borders",
+            "description": "Amber warning of wind affecting Dumfries, Lothian & Borders: City of Edinburgh valid from 0900 Fri 25 Sep to 2359 Fri 25 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=0&referrer=rss",
+            "pub_date": "Thu, 24 Sep 2026 16:00:00 GMT"
+          }
+        ]
+      },
+      "v1:notices:met-office:KW14YT": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "KW1 4YT",
+        "region": "UK",
+        "items": [
+          {
+            "title": "Yellow warning of wind affecting Highlands & Eilean Siar",
+            "description": "Yellow warning of wind affecting Highlands & Eilean Siar: Highland valid from 0000 Sat 26 Sep to 1200 Sat 26 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=0&referrer=rss",
+            "pub_date": "Fri, 25 Sep 2026 10:00:00 GMT"
+          },
+          {
+            "title": "Red warning of rain affecting Orkney & Shetland",
+            "description": "Red warning of rain affecting Orkney & Shetland: Shetland Islands valid from 0600 Fri 25 Sep to 0900 Fri 25 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=1&referrer=rss",
+            "pub_date": "Thu, 24 Sep 2026 20:00:00 GMT"
+          }
+        ]
+      },
+      "v1:notices:met-office:SE173LL": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "SE17 3LL",
+        "region": "se",
+        "items": [
+          {
+            "title": "Amber warning of wind affecting London & South East England",
+            "description": "Amber warning of wind affecting London & South East England: Lambeth, Southwark, Wandsworth valid from 0600 Fri 25 Sep to 2100 Fri 25 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=4b1f6a3e-2c4d-4f0e-9a51-6f0f1c2b7d10&referrer=rss",
+            "pub_date": "Thu, 24 Sep 2026 10:30:00 GMT"
+          },
+          {
+            "title": "Yellow warning of rain affecting London & South East England",
+            "description": "Yellow warning of rain affecting London & South East England: Bromley, Croydon, Lambeth, Southwark valid from 1800 Fri 25 Sep to 0900 Sat 26 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=8e2d0c71-5a3b-4c8f-b2e4-1d9a7f6e3c25&referrer=rss",
+            "pub_date": "Fri, 25 Sep 2026 09:15:00 GMT"
+          },
+          {
+            "title": "Yellow warning of thunderstorm affecting London & South East England",
+            "description": "Yellow warning of thunderstorm affecting London & South East England: Southwark valid from 0000 Fri 25 Sep to 0900 Fri 25 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=c35a9e08-7f61-4d2a-8b3c-90e4f5a6b7c8&referrer=rss",
+            "pub_date": "Thu, 24 Sep 2026 15:00:00 GMT"
+          },
+          {
+            "title": "Yellow warning of fog affecting London & South East England",
+            "description": "",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-26&id=e7d1b2a9-0c3f-4e8d-a6b5-3f2c1d0e9b84&referrer=rss",
+            "pub_date": "Fri, 25 Sep 2026 10:00:00 GMT"
+          },
+          {
+            "title": "Warnings for London & South East England are being reviewed",
+            "description": "Please check back later for the latest warnings",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings",
+            "pub_date": "Fri, 25 Sep 2026 10:31:07 GMT"
+          },
+          {
+            "title": " ",
+            "description": "An item with nothing to show",
+            "link": "",
+            "pub_date": ""
+          }
+        ]
+      },
+      "v1:notices:met-office:YO17HH": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "YO1 7HH",
+        "region": "yh",
+        "items": [
+          {
+            "title": "Yellow warning of rain affecting Yorkshire & Humber",
+            "description": "Yellow warning of rain affecting Yorkshire & Humber: York valid from 1200 Fri 25 Sep to 0600 Sat 26 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-09-25&id=0&referrer=rss",
+            "pub_date": "Fri, 25 Sep 2026 08:00:00 GMT"
+          }
+        ]
+      },
+      "v1:notices:tfl-roads:BT15GS": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "BT1 5GS",
+        "disruptions": []
+      },
+      "v1:notices:tfl-roads:CF101EP": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "CF10 1EP",
+        "disruptions": []
+      },
+      "v1:notices:tfl-roads:E16AN": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "E1 6AN",
+        "disruptions": [
+          {
+            "id": "TIMS-3",
+            "severity": "Serious",
+            "category": "Works",
+            "comments": "[A13] Commercial Road (E1) (Tower Hamlets) - Lane closures for Thames Water works.",
+            "point": "[-0.0550,51.5130]",
+            "endDateTime": "2026-09-29T12:00:00Z"
+          }
+        ]
+      },
+      "v1:notices:tfl-roads:EH11YZ": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "EH1 1YZ",
+        "disruptions": []
+      },
+      "v1:notices:tfl-roads:KW14YT": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "KW1 4YT",
+        "disruptions": []
+      },
+      "v1:notices:tfl-roads:SE173LL": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "SE17 3LL",
+        "disruptions": [
+          {
+            "id": "TIMS-1",
+            "severity": "Severe",
+            "category": "Collisions",
+            "comments": "[A3] Kennington Park Road (SE11) (Lambeth) - Northbound closed at Kennington Cross after a collision.",
+            "point": "[-0.1055,51.4851]",
+            "endDateTime": "2026-09-25T15:00:00Z"
+          },
+          {
+            "id": "TIMS-2",
+            "severity": "Serious",
+            "category": "Works",
+            "comments": "[A202] Camberwell New Road (SE5) (Lambeth) - Lane restrictions for gas main repairs.",
+            "point": "[-0.1010,51.4790]",
+            "endDateTime": null
+          },
+          {
+            "id": "TIMS-5",
+            "severity": "Moderate",
+            "category": "Works",
+            "comments": "[A23] Kennington Road (SE11) (Lambeth) - Footway works.",
+            "point": "[-0.1100,51.4900]",
+            "endDateTime": null
+          }
+        ]
+      },
+      "v1:notices:tfl-roads:YO17HH": {
+        "fetched_at": "2026-09-25T12:00:00Z",
+        "postcode": "YO1 7HH",
+        "disruptions": []
+      }
+    },
+    "board": {
+      "SE17 3LL": {
+        "message": null,
+        "notices": [
+          {
+            "source": "Floods",
+            "severity": "SEVERE",
+            "text": "Severe flood warning: Tidal Thames at Bankside and Rotherhithe",
+            "valid_until": null,
+            "display_time": null
+          },
+          {
+            "source": "Met Office",
+            "severity": "WARNING",
+            "text": "Amber warning: wind until Fri",
+            "valid_until": "2026-09-25T21:00:00+01:00",
+            "display_time": "2026-09-25T21:00:00+01:00"
+          },
+          {
+            "source": "Met Office",
+            "severity": "WARNING",
+            "text": "Warnings for London & South East England are being reviewed",
+            "valid_until": null,
+            "display_time": null
+          },
+          {
+            "source": "Floods",
+            "severity": "WARNING",
+            "text": "Flood warning: River Thames at Southwark",
+            "valid_until": null,
+            "display_time": null
+          },
+          {
+            "source": "Roads",
+            "severity": "WARNING",
+            "text": "Collisions: [A3] Kennington Park Road (SE11) (Lambeth) - Northbound closed at Kennington Cross after a collision.",
+            "valid_until": "2026-09-25T15:00:00+00:00",
+            "display_time": null
+          },
+          {
+            "source": "Met Office",
+            "severity": "INFO",
+            "text": "Yellow warning: rain until Sat",
+            "valid_until": "2026-09-26T09:00:00+01:00",
+            "display_time": "2026-09-26T09:00:00+01:00"
+          },
+          {
+            "source": "Met Office",
+            "severity": "INFO",
+            "text": "Yellow warning: fog",
+            "valid_until": null,
+            "display_time": null
+          },
+          {
+            "source": "Floods",
+            "severity": "INFO",
+            "text": "Flood alert: Lower River Effra",
+            "valid_until": null,
+            "display_time": null
+          },
+          {
+            "source": "Roads",
+            "severity": "INFO",
+            "text": "Works: [A202] Camberwell New Road (SE5) (Lambeth) - Lane restrictions for gas main repairs.",
+            "valid_until": null,
+            "display_time": null
+          }
+        ]
+      },
+      "E1 6AN": {
+        "message": null,
+        "notices": [
+          {
+            "source": "Floods",
+            "severity": "SEVERE",
+            "text": "Severe flood warning: Tidal Thames at Bankside and Rotherhithe",
+            "valid_until": null,
+            "display_time": null
+          },
+          {
+            "source": "Met Office",
+            "severity": "WARNING",
+            "text": "Amber warning: wind until Fri",
+            "valid_until": "2026-09-25T21:00:00+01:00",
+            "display_time": "2026-09-25T21:00:00+01:00"
+          },
+          {
+            "source": "Met Office",
+            "severity": "WARNING",
+            "text": "Warnings for London & South East England are being reviewed",
+            "valid_until": null,
+            "display_time": null
+          },
+          {
+            "source": "Floods",
+            "severity": "WARNING",
+            "text": "Flood warning: River Thames at Southwark",
+            "valid_until": null,
+            "display_time": null
+          },
+          {
+            "source": "Met Office",
+            "severity": "INFO",
+            "text": "Yellow warning: rain until Sat",
+            "valid_until": "2026-09-26T09:00:00+01:00",
+            "display_time": "2026-09-26T09:00:00+01:00"
+          },
+          {
+            "source": "Met Office",
+            "severity": "INFO",
+            "text": "Yellow warning: fog",
+            "valid_until": null,
+            "display_time": null
+          },
+          {
+            "source": "Roads",
+            "severity": "INFO",
+            "text": "Works: [A13] Commercial Road (E1) (Tower Hamlets) - Lane closures for Thames Water works.",
+            "valid_until": "2026-09-29T12:00:00+00:00",
+            "display_time": null
+          }
+        ]
+      },
+      "YO1 7HH": {
+        "message": null,
+        "notices": [
+          {
+            "source": "Floods",
+            "severity": "WARNING",
+            "text": "Flood warning: River Ouse at York city centre",
+            "valid_until": null,
+            "display_time": null
+          },
+          {
+            "source": "Met Office",
+            "severity": "INFO",
+            "text": "Yellow warning: rain until Sat",
+            "valid_until": "2026-09-26T06:00:00+01:00",
+            "display_time": "2026-09-26T06:00:00+01:00"
+          },
+          {
+            "source": "Floods",
+            "severity": "INFO",
+            "text": "Flood alert: River Foss in York",
+            "valid_until": null,
+            "display_time": null
+          }
+        ]
+      },
+      "CF10 1EP": {
+        "message": null,
+        "notices": []
+      },
+      "EH1 1YZ": {
+        "message": null,
+        "notices": [
+          {
+            "source": "Met Office",
+            "severity": "WARNING",
+            "text": "Amber warning: wind until Fri",
+            "valid_until": "2026-09-25T23:59:00+01:00",
+            "display_time": "2026-09-25T23:59:00+01:00"
+          }
+        ]
+      },
+      "BT1 5GS": {
+        "message": null,
+        "notices": [
+          {
+            "source": "Met Office",
+            "severity": "INFO",
+            "text": "Yellow warning: rain until Fri",
+            "valid_until": "2026-09-25T21:00:00+01:00",
+            "display_time": "2026-09-25T21:00:00+01:00"
+          }
+        ]
+      },
+      "KW1 4YT": {
+        "message": null,
+        "notices": [
+          {
+            "source": "Met Office",
+            "severity": "INFO",
+            "text": "Yellow warning: wind until Sat",
+            "valid_until": "2026-09-26T12:00:00+01:00",
+            "display_time": "2026-09-26T12:00:00+01:00"
+          }
+        ]
+      },
+      "ZZ1 1ZZ": {
+        "message": "Unknown postcode",
+        "notices": null
+      },
+      "0150": {
+        "message": null,
+        "notices": [
+          {
+            "source": "MET",
+            "severity": "WARNING",
+            "text": "Orange warning: wind until Fri",
+            "valid_until": "2026-10-16T19:00:00+00:00",
+            "display_time": "2026-10-16T21:00:00+02:00"
+          },
+          {
+            "source": "MET",
+            "severity": "INFO",
+            "text": "Yellow warning: rain until Sat",
+            "valid_until": "2026-10-17T06:00:00+00:00",
+            "display_time": "2026-10-17T08:00:00+02:00"
+          },
+          {
+            "source": "MET",
+            "severity": "INFO",
+            "text": "Yellow warning: icing until Thu",
+            "valid_until": "2026-10-15T09:00:00+00:00",
+            "display_time": "2026-10-15T11:00:00+02:00"
+          }
+        ]
+      }
+    }
+  }
+}
