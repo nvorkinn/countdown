@@ -73,13 +73,10 @@ workers calls that render whenever a job for a screen arrives on a Redis queue.
   `Retry-After`. It has no clock of its own.
 - **Redis** (on the broker's host, 127.0.0.1:6379) has 128 MB, `volatile-lru`, and no persistence. Keys without a TTL
   are never evicted.
-- **Already in the code:** `countdown_core/core/render_state.py` (#205), used by nothing yet:
-  - `frame_etag()`, the broker's ETag;
-  - `RenderState.needs_put()`, today's upload rule;
-  - a `RenderStateStore`.
-
-  Step 4 keeps `frame_etag()` and removes the rest: the frame record in Redis holds the one piece of state that's left,
-  the frame's hash.
+- **The frame record** (step 4): `ServerTarget` also writes each new picture to `v1:frame:<device id>`
+  (`countdown_core/store/frame_record.py`, with `frame_etag()`, the broker's ETag), and a broker that reads it serves
+  it when it's newer than its SQLite row. It replaced `render_state.py`'s `RenderState`, `needs_put()` and
+  `RenderStateStore` (#205): the record holds the one piece of state that's left, the frame's hash.
 
 ### What a renderer keeps between frames, and what becomes of it
 
@@ -105,12 +102,19 @@ workers calls that render whenever a job for a screen arrives on a Redis queue.
 
 ### Frames through Redis
 
-`v1:frame:<device id>` is a Redis hash with no TTL, so `volatile-lru` never evicts it. The broker deletes it when it
-forgets the device. Fields:
+`v1:frame:<device id>` is a Redis hash (`countdown_core/store/frame_record.py`; `tests/fixtures/frame_record.json`
+pins it in both repositories). Fields:
 
-- `frame`: the 48,000 bytes, as `PUT /api/frame` takes them now;
-- `etag`: `frame_etag(frame)`, the same 8-byte BLAKE2b the broker uses for its ETag;
-- `rendered_at`: when this picture was first written.
+- `frame`: the 48,000 bytes, as `PUT /api/frame` takes them now: raw, read with a client that doesn't decode values;
+- `etag`: `frame_etag(frame)`, the same 8-byte BLAKE2b, in hex, the broker uses for its ETag;
+- `rendered_at`: when this picture was first written, ISO 8601 in UTC to the millisecond.
+
+It has a TTL of a day, which a skipped write doesn't renew. Under `volatile-lru` only keys with a TTL can be evicted,
+and at 48 KB a frame is the biggest value in the store: the record of a screen nobody polls is the first that should
+go if Redis fills. A record nothing renews (a device forgotten while its renderer still ran, a renderer rolled back)
+goes by itself. A picture that stays the same all day is written again at the first render after its record lapsed,
+and until then, as whenever there's no record, the broker serves its SQLite copy (from step 9, 404 with a short sleep,
+for at most a minute). The broker also deletes the record when it forgets the device, or unpairs it with its config.
 
 It's one latest value per screen, the same pattern as the providers' keys, so Redis doesn't become a messaging
 platform.
@@ -121,9 +125,11 @@ An unchanged frame costs one small read and no write. When the screen last had a
 
 **The broker** answers `GET` and `POST /api/frame` from the record:
 
-- it reads `etag` first, and answers 304 when it matches `If-None-Match`, without reading the 48 KB;
-- otherwise it sends `frame`;
-- with no record, it falls back to its SQLite row, then to 404 while there's neither.
+- it reads `etag` and `rendered_at` first, and answers 304 when the `etag` matches `If-None-Match`, without reading
+  the 48 KB;
+- otherwise it sends `frame`, once it has checked it's 48,000 bytes that hash to `etag`;
+- with no record, one it can't read, or while its SQLite row holds another picture and is newer (a renderer that only
+  PUTs), it serves the row, then 404 while there's neither.
 
 The config page's preview and "Drawn" time read the same record.
 
@@ -392,7 +398,8 @@ off as a draft PR titled "[after … deployed]".
 
 - **pi-dashboard:** today's renderer writes `v1:frame:<device id>` when the hash changes, as well as PUTting. The
   record replaces `render_state.RenderState`, `needs_put` and `RenderStateStore` (`frame_etag` stays).
-- **auth-broker:** serves the record when it's there and newer than the SQLite row, else the row.
+- **auth-broker:** serves the record when it's there and newer than the SQLite row (or the same picture), else the
+  row, to the screen and on the config page; deletes it when it forgets a device.
 - **Safe alone:** an old broker ignores the record, and a new broker with no record serves the row.
 - **Rollback:** revert either. The broker then serves SQLite, which today's renderers still write.
 

@@ -24,6 +24,9 @@ itself, so a provider that stops renewing it, or dies, lets the screen go back t
 
 Images (written by auth-broker's music provider with a short TTL, read by the renderers): `v1:art:<sha1 of its URL>`
 holds an image's own bytes, not JSON, one key per image however many screens show it. See `album_art`.
+
+Frames (written by the renderers, read by auth-broker): `v1:frame:<device id>` is a hash of the screen's latest frame,
+its ETag and when it was drawn, which the broker serves the screen. See `frame`.
 """
 
 import hashlib
@@ -138,6 +141,15 @@ def pace(source: str, item_id: str) -> str:
     An integer, in seconds, with a TTL of about a minute that the provider renews each cycle it still wants it.
     """
     return f"{PREFIX}:pace:{source}:{item_id}"
+
+
+def frame(device_id: str) -> str:
+    """Return the key of a screen's latest frame, e.g. `v1:frame:a1b2c3d4e5f6`, which the broker serves the screen.
+
+    Written by the renderer when the picture changes (store.frame_record), with a TTL of a day; a hash of the frame's
+    raw bytes, its ETag and when it was first drawn, read by auth-broker with a client that doesn't decode values.
+    """
+    return f"{PREFIX}:frame:{device_id}"
 
 
 # Notices (the notice board's sources), one key per source and what it's fetched for. Keys by place use `place`.

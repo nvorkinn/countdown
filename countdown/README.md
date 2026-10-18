@@ -172,6 +172,22 @@ the screen to fetch. If the target can't take a frame, the app carries on, and a
 whole-screen picture it couldn't paint (pairing code, checklist) is retried
 every cycle until it can.
 
+**The frame record** (`store/frame_record.py`). `ServerTarget` hands each frame over twice: it writes the picture to
+the screen's record in the store, `v1:frame:<device id>`, and PUTs it to `PUT /api/frame` as before. The record is
+written only when the frame's hash isn't the record's `etag` (one small read, and no write for an unchanged picture),
+and checked again every cycle the picture stays the same, so a record that was lost (Redis restarted, or a day of the
+same picture outlived its TTL) is put back. A broker that reads the record serves it to the screen when it's there and
+newer than what was PUT; an older one ignores it. Redis not answering is logged by the error's type and changes nothing
+else: the PUT still goes. `tests/fixtures/frame_record.json` and `frame_record.bin` pin the record; auth-broker's tests
+read the same files. To check the records, on the host:
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:frame:*"'
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 HMGET v1:frame:<device id> etag rendered_at'
+```
+
+lists one per screen whose renderer is running this release, each with a TTL under a day (`TTL v1:frame:<device id>`).
+
 ## Packages
 
 This directory is a uv workspace:
