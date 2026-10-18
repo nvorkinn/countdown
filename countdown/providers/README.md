@@ -41,7 +41,7 @@ countdown-core so the providers and renderers share them.
 | `v1:config:changed` | pub/sub channel | broker | the device id, after changing its `v1:config:` key |
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages), one per place however many screens show it; see [Weather](#weather) |
-| `v1:energy:<device id>` | string, TTL ~1 h | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
+| `v1:energy:<device id>` | string, TTL ~1 day | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
 | `v1:spotify:<device id>` | string, TTL 3 min | auth-broker's `spotify-provider`, every minute | `StoredPlayer` JSON (`store/music.py`): each service's queue, in the shape of Spotify's `/me/player/queue` |
 | `v1:art:<sha1 of the image URL>` | string of raw bytes, TTL 5 min, renewed every minute while a `v1:spotify:` key shows it | auth-broker's `spotify-provider`, before the player key that shows it | the playing track's cover, the image file as its host served it (a JPEG of about 30 KB); one per image, shared by every screen showing it; see [Covers](#covers) |
 | `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): `github`, the GitHub summary (pull requests, builds, releases with their jobs), null until the owner gives a token, and `plans`, the AI plans; the broker has no route for the panel, so this key is the renderer's only source |
@@ -69,8 +69,8 @@ code, each service's part is in Spotify's own shapes (`/me/player/queue`, `/me/t
 {"fetched_at": "...", "spotify": {"long_term": {"tracks": {"items": [...]}, "artists": {"items": [...]}}, "short_term": {...}}, "apple_music": null}
 ```
 
-A part is `null` when the service is off for the device or couldn't be fetched (the renderer then keeps its last
-panel); nothing playing is a queue with `"currently_playing": null`.
+A part is `null` when the service is off for the device or couldn't be fetched (the renderer's panel then says it's
+not available); nothing playing is a queue with `"currently_playing": null`.
 
 TfL and Entur write the same `StopDepartures` into the same `v1:departures:` namespace (their ids never clash), so the
 transit panel needn't know the country. Entur's also fill the fields only it has: the stop's `modes` (a stop can serve
@@ -125,7 +125,8 @@ once asked for them itself, from the start of its page's window (the hour 24 hou
 local time to UTC, so BST is `-60`): Glowmarkt labels each bucket with its local wall-clock start as if it were UTC, and
 the renderer relabels them at that offset. It cuts each page to its window as of when it draws, so a value up to its
 TTL old still gives the right 24 hours, 31 days and year, short only of the readings since `fetched_at`. The broker
-fetches every 15 minutes, and keeps each value for an hour. `tests/fixtures/glow_energy.json` is one fetch, from
+fetches every 15 minutes, and keeps each value for about a day, as energy changes slowly: once it has expired, the
+panel says it's not available. `tests/fixtures/glow_energy.json` is one fetch, from
 Glowmarkt's answers to the stored value, and auth-broker's tests read the same file: change both together.
 `tests/fixtures/glow_energy_pages.json` is the pages the renderer drew from those answers when it still asked
 Glowmarkt itself, which the stored value must still draw.
@@ -206,7 +207,7 @@ board's old query, with the same `ET-Client-Name`, and stores Entur's GraphQL `d
 (a quay's under `"quay"`; a stop Entur doesn't know is written too, as `{"stopPlace": null}`). The renderer
 (`notices/entur.py`, `StoredEnturSituationsSource`) makes the notices from it each time the board draws: each summary
 in the screen's language, "Line 5" translated, and those that have ended since left out. With nothing stored for any
-of the screen's stops it raises a `LookupError`, and the board keeps its last notices (for an hour at most).
+of the screen's stops it raises a `NoStoredDataError`, and the board leaves it out.
 `tests/fixtures/entur_situations.json` has Entur's answers and the notices the board made from them when it still
 asked Entur itself, which the stored path must still make.
 
@@ -231,8 +232,8 @@ notice, which have ended, the shortened station names, the tags in the screen's 
   cut to what's within 3 km of each postcode, placed by its location in the store (see [Locations](#locations)).
 
 A stop with nothing wrong, or that isn't a bus stop or Tube station, is still written (with nothing in it), and so is
-a place outside London, so "nothing to report" isn't "no data". A missing key is a failed poll (a `LookupError`), and
-the board keeps that source's last notices. Postcodes stay out of the logs, and so does the app key (a failed
+a place outside London, so "nothing to report" isn't "no data". A missing key (a `NoStoredDataError`) leaves that
+source out of the board. Postcodes stay out of the logs, and so does the app key (a failed
 request is logged as its error's name and status, not its URL). `tests/fixtures/tfl_notices.json` is a set of TfL's
 answers and `tfl_notices_expected.json` the notices the renderer made from them when it asked TfL itself, which the
 stored values must still make.
@@ -315,7 +316,7 @@ MET nothing while none is, and needs no postcode's place:
 provider keeps each answer until its `Expires`, then asks again with `If-Modified-Since`, so an unchanged one costs a
 304: at most two requests every five minutes, however many screens there are. `fetched_at` is when MET last sent, or
 confirmed, the older of the two. If MET can't be reached the key is left as it was until its TTL runs out, and the
-board then keeps its last warnings for up to an hour. `tests/fixtures/metalerts_current.json` is an example, which
+board then leaves the warnings out. `tests/fixtures/metalerts_current.json` is an example, which
 the provider's and the renderer's tests both read; `metalerts_notices.json` is what the board showed from it when it
 still asked MET for its own place, which the stored value must still give.
 
@@ -499,19 +500,22 @@ that read it: their areas say "Could not connect", the device reports them as in
 `REDIS_URL` (`reader.StoreNotConfiguredError`). The rest of the screen still works. There's no going back to calling
 the APIs directly: that code is gone.
 
-A key a renderer wants that isn't in the store (its provider is down, or hasn't got to it yet), or a Redis that doesn't
-answer, is a failed read, never fatal: that stop is left off, and a panel with nothing to read keeps its last
-picture (or says "Could not connect" if it never had one).
+Each provider's TTL is the only expiry there is: a few of its own cycles, so one missed fetch changes nothing, but a
+provider that's down blanks what it provides. A key a renderer wants that isn't in the store (it has expired, or the
+provider hasn't got to it yet) is never fatal: that stop is left off, a notice source adds nothing, and a panel with
+nothing to read says "Not available" (`reader.NoStoredDataError`); nothing older than the TTL is drawn. A Redis that
+doesn't answer isn't expiry: the read raises a `RedisError`, and the panel keeps its last picture (or says "Could not
+connect" if it never had one).
 
 ### Bank holidays
 
 gov.uk's bank holidays are one small file for all of the UK, so `provider-bank-holidays` fetches it for everyone, with
 no subscription, every 6 hours (00:00, 06:00, 12:00 and 18:00 UTC, and once when it starts), and keeps it a week: gov.uk
 being down, even for days, changes nothing on the screens. An answer missing a division isn't written over a good one.
-The notice board reads it every 10 minutes and works the notice out then ("Tomorrow: Christmas Day", in the screen's
-language), so "Tomorrow" becomes "Today" within 10 minutes of midnight. Without the key (or without a store) only the
-bank holiday notice is missing: the board keeps the last one it had for an hour, the log names
-`NoStoredBankHolidaysError`, and the board's other sources carry on.
+The notice board reads it on every poll and works the notice out then ("Tomorrow: Christmas Day", in the screen's
+language), so "Tomorrow" becomes "Today" on the first poll after midnight. Without the key (or without a store) only
+the bank holiday notice is missing: the log names `NoStoredBankHolidaysError`, and the board's other sources carry
+on.
 
 The provider must be running, and the key in the store, before the renderers rely on it. They come in the same
 release: the deploy starts the provider beside the orchestrator, and it writes the key within seconds of starting,

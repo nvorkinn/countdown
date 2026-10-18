@@ -318,13 +318,13 @@ def test_the_stored_source_reads_its_postcodes_key(store, language):
     assert_same_notices(source.fetch(NOW), FEED_NOTICES[language])
 
 
-def test_a_postcode_not_in_the_store_raises_a_lookup_error_that_doesnt_say_where(store):
+def test_a_postcode_not_in_the_store_raises_a_no_stored_data_error_that_doesnt_say_where(store):
     source = StoredMetOfficeWarningsSource(requests.Session(), SOUTHWARK, "SE17 3LL")
 
     with pytest.raises(NoStoredWarningsError) as raised:
         source.fetch(NOW)
 
-    assert isinstance(raised.value, LookupError)
+    assert isinstance(raised.value, reader.NoStoredDataError)
     assert "SE17" not in str(raised.value)
 
 
@@ -356,15 +356,15 @@ def board_with_source(source) -> NoticeBoardClient:
     return client
 
 
-def test_the_board_keeps_the_last_warnings_while_the_key_is_missing(store, clock):
+def test_the_board_drops_the_warnings_once_the_key_has_expired(store, clock):
     store.set(keys.met_office("SE17 3LL"), json.dumps(STORED))
     client = board_with_source(StoredMetOfficeWarningsSource(requests.Session(), SOUTHWARK, "SE17 3LL"))
     first = asyncio.run(client.update()).notices
 
     store.delete(keys.met_office("SE17 3LL"))  # the provider's down, and its key has lapsed
-    clock.now += timedelta(minutes=10)
+    clock.now += timedelta(minutes=1)
 
-    assert asyncio.run(client.update()).notices == first
+    assert asyncio.run(client.update()).message == "Not available"  # its only source
     # The thunderstorm warning had ended by NOW, so the board leaves it out.
     assert [n.severity for n in first] == [Severity.WARNING, Severity.WARNING, Severity.INFO, Severity.INFO]
 
@@ -393,7 +393,7 @@ def test_the_board_reads_the_warnings_under_its_own_postcode_once_its_placed(sto
     store.set(keys.location("SE17 3LL"), location.model_dump_json())  # as provider-locations placed it
     store.set("v1:notices:met-office:SE173LL", json.dumps(STORED))
     client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode="SE17 3LL"))
-    client._refresh = lambda source, now: None  # only placing the postcode is under test here
+    client._read = lambda sources, now: ({}, set())  # only placing the postcode is under test here
 
     with caplog.at_level("DEBUG"), pytest.raises(RuntimeError):
         asyncio.run(client.update())  # sources added, but none has answered yet

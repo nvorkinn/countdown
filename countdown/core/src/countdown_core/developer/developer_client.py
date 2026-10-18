@@ -8,19 +8,13 @@ from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.notices import DeveloperNoticeSource
 from countdown_core.i18n import N_
-from countdown_core.store import keys, reader
-from countdown_core.store.developer import StoredDeveloper
+from countdown_core.store import developer, keys, reader
 
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
     from countdown_core.core.style import Style
-    from countdown_core.developer.models import DeveloperSummary
     from countdown_core.notices.notice import NoticeSource
     from countdown_credentials.registration import Registration
-
-
-class NoStoredDeveloperError(LookupError):
-    """The store has nothing for the device: the developer provider is down, or hasn't fetched it yet."""
 
 
 @dataclass(frozen=True)
@@ -52,9 +46,8 @@ class DeveloperClient(AbstractClient):
         self.config: DeveloperSettings = config
         self.store = reader.require_store()
         self.device_id = reader.device_id(registration)
-        # The last answer, which the notice source reads too.
-        self.summary: DeveloperSummary | None = None
-        self._notice_sources: list[NoticeSource] = [DeveloperNoticeSource(self.session, self)]
+        # Its notices read the store themselves, so they're as of the board's drawing, not this panel's last poll.
+        self._notice_sources: list[NoticeSource] = [DeveloperNoticeSource(self.store, self.device_id)]
 
     @override
     def _initialise(self) -> None:
@@ -64,15 +57,10 @@ class DeveloperClient(AbstractClient):
     def _update(self) -> Panel:
         """Return the panel drawn from what the developer provider stored.
 
-        Raises NoStoredDeveloperError if there's nothing (keeping the last panel), and RedisError if the store can't
-        be asked.
+        Raises NoStoredDeveloperError if there's nothing (so the panel says it's not available), and RedisError if the
+        store can't be asked (keeping the last panel).
         """
-        stored = reader.read(self.store, keys.developer(self.device_id), StoredDeveloper)
-        if stored is None:
-            msg = f"No developer data in the store for device {self.device_id}"
-            raise NoStoredDeveloperError(msg)
-        self.summary = stored
-        return DeveloperPanel(self.summary, self.config.style)
+        return DeveloperPanel(developer.read(self.store, self.device_id), self.config.style)
 
     @override
     def pace_keys(self) -> list[str]:

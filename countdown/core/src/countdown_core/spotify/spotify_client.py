@@ -109,10 +109,10 @@ def pages(services: tuple[MusicService, ...]) -> tuple[Page, ...]:
     )
 
 
-class NoStoredMusicError(LookupError):
+class NoStoredMusicError(reader.NoStoredDataError):
     """The store has nothing for one of the device's services: the music provider is down, or hasn't got to it yet.
 
-    Raised so the registry keeps the last panel.
+    Raised so the panel says it's not available, rather than show what was playing before the key expired.
     """
 
 

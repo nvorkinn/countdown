@@ -24,8 +24,8 @@ if TYPE_CHECKING:
     from countdown_core.store.models import Departure
 
 
-class NoStoredDeparturesError(LookupError):
-    """The store has nothing for the stop: its provider is down, or hasn't fetched it yet."""
+class NoStoredDeparturesError(reader.NoStoredDataError):
+    """The store has nothing for the stop: its provider is down (its key expired), or hasn't fetched it yet."""
 
 
 @dataclass(frozen=True)
@@ -120,7 +120,7 @@ class StoredTflSource:
         return stop_id
 
     def panel(self, stop_id: str, style: Style) -> StoredArrivalPanel:
-        """Read the stop's departures; raises NoStoredDeparturesError if there are none, or if Redis can't be asked."""
+        """Read the stop's departures; raises NoStoredDeparturesError if there are none (RedisError if it can't ask)."""
         stored = reader.read(self.client, keys.departures(stop_id), StopDepartures)
         if stored is None:
             msg = f"No departures in the store for TfL stop {stop_id}"

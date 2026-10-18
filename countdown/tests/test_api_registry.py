@@ -1,6 +1,7 @@
 import asyncio
 import datetime as dt
 import logging
+from pathlib import Path
 
 import pytest
 import responses
@@ -455,6 +456,88 @@ def test_update_all_keeps_the_last_good_panel_when_a_client_raises():
     panels = asyncio.run(registry.update_all())
 
     assert drawn(panels) == {"weather": "sunny"}
+
+
+# --- Expiry: each provider's TTL is the only expiry there is ---------------------------------------------------------
+
+DEVELOPER_FIXTURE = (Path(__file__).parent / "fixtures" / "developer.json").read_text()
+
+
+def _put_weather(store) -> str:
+    forecast = ForecastResponse.model_validate(forecast_json())
+    key = keys.weather("London")
+    store.set(
+        key, StoredForecast(fetched_at=dt.datetime.now(dt.UTC), location="London", forecast=forecast).model_dump_json()
+    )
+    return key
+
+
+def _put_developer(store) -> str:
+    key = keys.developer(REGISTRATION.device_id)
+    store.set(key, DEVELOPER_FIXTURE)
+    return key
+
+
+STORED = {
+    # The API, its client as the registry builds it, and how its provider fills its key (returning the key).
+    "weather": (lambda: WeatherClient(REGISTRATION, WeatherSection(location="London")), _put_weather),
+    "developer": (lambda: DeveloperClient(REGISTRATION, DeveloperSettings(enabled=True, style="hero")), _put_developer),
+}
+
+
+@pytest.mark.parametrize("api", list(STORED))
+def test_an_expired_key_replaces_the_last_panel_with_not_available(store, api):
+    """No last-good copy: once the provider's key has expired, the panel says so rather than draw what it last had."""
+    build, put = STORED[api]
+    key = put(store)
+    client = build()
+    registry = registry_with(**{api: client})
+    assert api in drawn(asyncio.run(registry.update_all()))
+
+    store.delete(key)  # its TTL is up: the provider has been down for a few of its cycles
+    client.last_updated = None
+    panel = asyncio.run(registry.update_all())[api]
+
+    assert isinstance(panel, MessagePanel)
+    assert (panel.title, panel.message) == (type(client).panel_title, "Not available")
+
+
+@pytest.mark.parametrize("api", list(STORED))
+def test_redis_not_answering_keeps_the_last_panel(store, monkeypatch, api):
+    """Redis being unreachable isn't the data expiring: the screen keeps what it drew."""
+    build, put = STORED[api]
+    put(store)
+    client = build()
+    registry = registry_with(**{api: client})
+    first = asyncio.run(registry.update_all())[api]
+
+    def unreachable(*args, **kwargs):
+        raise reader.redis.exceptions.ConnectionError
+
+    monkeypatch.setattr(store, "get", unreachable)
+    client.last_updated = None
+
+    assert asyncio.run(registry.update_all())[api] is first
+
+
+def test_a_key_missing_from_the_first_poll_is_not_available_rather_than_could_not_connect(store):
+    """The store answered: it just has nothing for the panel yet."""
+    registry = registry_with(developer=STORED["developer"][0]())
+
+    assert messages(asyncio.run(registry.update_all()))["developer"] == "Not available"
+
+
+def test_an_expired_key_is_logged_without_a_traceback(store, caplog):
+    registry = registry_with(developer=STORED["developer"][0]())
+
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(registry.update_all())
+
+    [record] = caplog.records
+    assert record.getMessage() == (
+        "DeveloperClient: No developer data in the store for device device-123; its panel says it's not available"
+    )
+    assert record.exc_info is None
 
 
 def test_a_client_that_raises_during_update_is_logged_with_its_traceback(caplog):

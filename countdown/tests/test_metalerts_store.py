@@ -6,6 +6,7 @@ covering its place, which must be exactly the Notices it made when it asked MET 
 fixtures/metalerts_notices.json, recorded from that code before it was removed.
 """
 
+import asyncio
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,6 +17,7 @@ import responses
 from test_utils import REGISTRATION
 
 from countdown_core import i18n
+from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.norway import (
     NoStoredMetAlertsError,
     StoredMetAlertsSource,
@@ -122,21 +124,29 @@ def test_warnings_are_worded_when_read_so_a_language_change_needs_nothing_stored
     assert [notice.text for notice in norwegian] == ["Gult farevarsel: snø til lør."]
 
 
-def test_no_warnings_in_the_store_raises_a_lookup_error_so_the_board_keeps_its_last(store):
+def test_no_warnings_in_the_store_raises_a_no_stored_data_error_so_the_board_leaves_them_out(store):
     with pytest.raises(NoStoredMetAlertsError) as raised:
         StoredMetAlertsSource(requests.Session(), OSLO).fetch(NOW)
-    assert isinstance(raised.value, LookupError)
+    assert isinstance(raised.value, reader.NoStoredDataError)
 
 
-def test_the_board_keeps_its_last_warnings_while_the_store_has_none(store):
-    board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings("0150", "NO"))
+def test_the_board_drops_the_warnings_once_the_key_has_expired(store, monkeypatch):
+    class FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return NOW
+
+    monkeypatch.setattr(board_module, "datetime", FrozenDatetime)
+    board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(None, "NO"))
     source = StoredMetAlertsSource(board.session, OSLO)
+    board.sources = [source]
     warnings = stored_path(store, OSLO, NOW)
-    board._refresh(source, NOW)
+    first = asyncio.run(board.update())
+
     store.delete(keys.metalerts())  # the provider's down, and its key has expired
-    board._refresh(source, NOW + source.refresh_interval)
-    assert board.fetched[source] == (NOW, warnings)
-    assert board.last_tried[source] == NOW + source.refresh_interval
+
+    assert sorted(first.notices, key=lambda n: n.text) == sorted(warnings, key=lambda n: n.text)
+    assert asyncio.run(board.update()).message == "Not available"  # its only source
 
 
 def test_a_renderer_without_a_store_says_so(monkeypatch):

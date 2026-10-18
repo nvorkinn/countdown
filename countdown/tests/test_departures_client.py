@@ -10,10 +10,15 @@ from countdown_api.models import DepartureStop
 from countdown_core.core.abstract_client import ClientStatus
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings, ResolvedStop
 from countdown_core.entur.stored_source import StoredEnturSource
-from countdown_core.store import reader
-from countdown_core.tfl.combined_arrival_panel import Rotation
+from countdown_core.store import keys, reader
+from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
 from countdown_core.tfl.models import MetroStopPoint, SingleStopPoint
-from countdown_core.tfl.stored_source import StoredArrivalPanel, StoredTflSource, StoredTubePanel
+from countdown_core.tfl.stored_source import (
+    NoStoredDeparturesError,
+    StoredArrivalPanel,
+    StoredTflSource,
+    StoredTubePanel,
+)
 from countdown_core.tfl.tfl_client import _find_stop_child
 
 BUS_STOP_JSON = {
@@ -246,9 +251,39 @@ def test_update_leaves_out_a_stop_the_store_has_nothing_for(store):
     assert _shown_stop_ids(client) == ["490000000"]
 
 
-def test_update_raises_when_no_stops_departures_are_in_the_store():
-    """Raised rather than returning an empty panel, so the registry keeps the last good one."""
+def test_update_says_the_departures_are_not_available_when_no_stops_are_in_the_store():
+    """Every stop's key has expired (the provider is down): no old departures are drawn, and no empty panel either."""
+    client = DeparturesClient(REGISTRATION, make_config(["490000123W", "490000456X"]))
+    asyncio.run(client.initialise())
+
+    with pytest.raises(NoStoredDeparturesError):
+        client._update()
+    panel = asyncio.run(client.update())
+
+    assert (panel.title, panel.message) == ("Arrivals", "Not available")
+
+
+def test_departures_that_expire_are_not_available_on_the_next_poll(store):
+    put_departures(store, "490000123W")
     client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
+    assert isinstance(asyncio.run(client.update()), CombinedArrivalPanel)
+
+    store.delete(keys.departures("490000123W"))  # its TTL is up
+
+    assert asyncio.run(client.update()).message == "Not available"
+
+
+def test_one_stop_failing_to_read_keeps_the_last_panel_even_if_the_others_expired(store, monkeypatch):
+    """Not every stop's key has expired: one couldn't be read at all, so it's raised, not said to be not available."""
+    client = DeparturesClient(REGISTRATION, make_config(["490000123W", "490000456X"]))
+    get = store.get
+
+    def unreachable_for_one(key):
+        if key == keys.departures("490000456X"):
+            raise reader.redis.exceptions.ConnectionError
+        return get(key)
+
+    monkeypatch.setattr(store, "get", unreachable_for_one)
 
     with pytest.raises(RuntimeError):
         asyncio.run(client.update())

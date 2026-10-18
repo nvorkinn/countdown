@@ -29,7 +29,7 @@ from countdown_core.spotify.spotify_client import (
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
-from countdown_core.store import keys
+from countdown_core.store import keys, reader
 from countdown_core.store.music import StoredPlayer, StoredTop, art_image
 from countdown_core.utils.utils import fitted_font
 
@@ -295,7 +295,8 @@ def test_nothing_playing_and_no_top_lists_says_so(store):
 
 @responses.activate
 @pytest.mark.parametrize("missing", ["player", "top"])
-def test_a_missing_key_raises_so_the_last_panel_stays(store, missing, rotation_clock):
+def test_a_missing_key_says_the_music_is_not_available(store, missing, rotation_clock):
+    """The key has expired (the music provider is down): nothing older than its TTL is drawn."""
     put(store, player=None if missing == "player" else PLAYER, top=None if missing == "top" else TOP)
     client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
     if missing == "top":
@@ -303,18 +304,23 @@ def test_a_missing_key_raises_so_the_last_panel_stays(store, missing, rotation_c
         rotation_clock.advance()  # the top lists' minute
 
     with pytest.raises(NoStoredMusicError):
-        asyncio.run(client.update())
-    assert issubclass(NoStoredMusicError, LookupError)
+        client._update()
+    panel = asyncio.run(client.update())
+
+    assert (panel.title, panel.message, panel.logo) == ("Spotify", "Not available", "spotify_logo.png")
+    assert issubclass(NoStoredMusicError, reader.NoStoredDataError)
     assert len(responses.calls) == 0
 
 
 @responses.activate
-def test_a_service_the_provider_couldnt_fetch_raises(store):
-    """Spotify's part is null (say its token was revoked): the renderer raises, so the last panel stays."""
+def test_a_service_the_provider_couldnt_fetch_is_not_available(store):
+    """Spotify's part is null (say its token was revoked): the panel says so, rather than show what played before."""
     put(store, {**PLAYER, "spotify": None})
+    client = SpotifyClient(REGISTRATION, BOTH)
 
     with pytest.raises(NoStoredMusicError):
-        asyncio.run(SpotifyClient(REGISTRATION, BOTH).update())
+        client._update()
+    assert asyncio.run(client.update()).message == "Not available"
 
 
 @responses.activate
@@ -337,7 +343,8 @@ def test_a_missing_time_range_raises(store, rotation_clock):
     rotation_clock.advance()  # the 12 months' top lists' minute
 
     with pytest.raises(NoStoredMusicError):
-        asyncio.run(client.update())
+        client._update()
+    assert asyncio.run(client.update()).message == "Not available"
 
 
 @responses.activate
@@ -345,4 +352,4 @@ def test_reads_only_its_own_devices_keys(store):
     store.set(keys.spotify("someone-else"), json.dumps(PLAYER))
 
     with pytest.raises(NoStoredMusicError):
-        asyncio.run(SpotifyClient(REGISTRATION, MusicSettings(spotify=True)).update())
+        SpotifyClient(REGISTRATION, MusicSettings(spotify=True))._update()

@@ -257,11 +257,11 @@ def test_a_situation_that_has_ended_since_the_provider_fetched_it_is_left_out(st
     assert len(notices) == len(pinned("en")) - 1
 
 
-def test_with_nothing_in_the_store_for_any_stop_it_raises_a_lookup_error(store):
+def test_with_nothing_in_the_store_for_any_stop_it_raises_a_no_stored_data_error(store):
     with pytest.raises(NoStoredSituationsError) as raised:
         StoredEnturSituationsSource(store, [MAJORSTUEN_ID, QUAY_ID]).fetch(NOW)
 
-    assert isinstance(raised.value, LookupError)
+    assert isinstance(raised.value, reader.NoStoredDataError)
     assert MAJORSTUEN_ID in str(raised.value)
 
 
@@ -306,7 +306,7 @@ def clock(monkeypatch):
     return Clock
 
 
-def test_the_board_keeps_its_last_entur_notices_while_the_store_has_none(store, provide, clock, caplog):
+def test_the_board_drops_entur_notices_once_their_keys_have_expired(store, provide, clock, caplog):
     board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
     board.sources = []  # only Entur's
     board.use_client_sources([StoredEnturSituationsSource(store, STOP_IDS)])
@@ -316,10 +316,11 @@ def test_the_board_keeps_its_last_entur_notices_while_the_store_has_none(store, 
     assert set(shown) == set(pinned("en"))
 
     store.flushall()  # the provider's keys expired
-    clock.now += timedelta(minutes=2)
+    clock.now += timedelta(minutes=1)
     caplog.clear()
     with caplog.at_level(logging.WARNING, logger=board_module.__name__):
-        assert asyncio.run(board.update()).notices == shown
+        # Its only source with data to read has none: not the old notices, and not "All clear" either.
+        assert asyncio.run(board.update()).message == "Not available"
 
     [record] = [r for r in caplog.records if r.name == board_module.__name__]
     assert record.getMessage().startswith("Entur disruptions: No situations in the store for Entur stops")
@@ -348,13 +349,11 @@ def test_the_board_reads_the_store_each_time_it_draws(store, provide, clock):
     board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
     board.sources = []
     board.use_client_sources([StoredEnturSituationsSource(store, [QUAY_ID])])
-    with pytest.raises(RuntimeError, match="None of the notice sources could be reached"):
-        asyncio.run(board.update())  # nothing stored yet
+    assert asyncio.run(board.update()).message == "Not available"  # nothing stored yet
 
     provide(QUAY_ID)
-    clock.now += StoredEnturSituationsSource.refresh_interval
 
-    assert len(asyncio.run(board.update()).notices) == 2
+    assert len(asyncio.run(board.update()).notices) == 2  # the next poll, however soon
 
 
 def test_the_departures_client_hands_the_board_its_entur_stops_from_the_store(store):

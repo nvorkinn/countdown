@@ -7,13 +7,13 @@ notices as it draws (situation_notices).
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, override
 
 from countdown_core.entur.entur_client import normalize_stop_id
 from countdown_core.i18n import _, language
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
-from countdown_core.store import keys
+from countdown_core.store import keys, reader
 from countdown_core.store.situations import StoredSituations
 
 if TYPE_CHECKING:
@@ -105,7 +105,7 @@ def situation_notices(answers: Iterable[StoredSituations], now: datetime) -> lis
     return list(notices.values())
 
 
-class NoStoredSituationsError(LookupError):
+class NoStoredSituationsError(reader.NoStoredDataError):
     """None of the screen's Entur stops has its situations in the store: their provider is down, or not there yet."""
 
 
@@ -117,8 +117,6 @@ class StoredEnturSituationsSource(NoticeSource):
     """
 
     name = "Entur disruptions"
-    # Reading the store costs nothing, so each time the board draws: a situation shows as soon as the provider has it.
-    refresh_interval = timedelta(minutes=1)
 
     def __init__(self, store: redis.Redis, stop_ids: list[str]) -> None:
         """Read from `store`; `stop_ids` are the configured stop places or quays, as `v1:sub:entur` has them."""
@@ -130,8 +128,8 @@ class StoredEnturSituationsSource(NoticeSource):
     def fetch(self, now: datetime) -> list[Notice]:
         """Make the notices from what the store has for the stops, leaving out (and logging) any it has nothing for.
 
-        Raises NoStoredSituationsError if it has nothing for any of them, so the board keeps its last notices; a
-        RedisError if the store can't be asked.
+        Raises NoStoredSituationsError if it has nothing for any of them, so the board leaves it out; a RedisError if
+        the store can't be asked.
         """
         if not self.stop_ids:
             return []

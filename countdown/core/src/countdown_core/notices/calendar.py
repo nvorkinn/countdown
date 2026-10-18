@@ -53,7 +53,7 @@ def when(day: date, today: date) -> str:
     return format_date(day, _("EEE d MMM"))
 
 
-class NoStoredBankHolidaysError(LookupError):
+class NoStoredBankHolidaysError(reader.NoStoredDataError):
     """The store has no bank holidays for the division: the bank holidays provider is down, or hasn't fetched them."""
 
 
@@ -83,7 +83,6 @@ class StoredBankHolidaySource(NoticeSource):
     """
 
     name = "Bank holidays"
-    refresh_interval = timedelta(minutes=10)  # so "Tomorrow" becomes "Today" on time
 
     def __init__(self, country: str | None = None) -> None:
         """Pick `country`'s division (postcodes.io's country; None for England and Wales)."""
@@ -94,8 +93,8 @@ class StoredBankHolidaySource(NoticeSource):
     def fetch(self, now: datetime) -> list[Notice]:
         """Return the next bank holiday's notice, if it's less than a month away.
 
-        Raises NoStoredBankHolidaysError if the store has none for the division, and StoreNotConfiguredError without a
-        store, so the board keeps the last notice. The store is asked for here, not when the board is built, so a
+        Raises NoStoredBankHolidaysError if the store has none for the division (so the board leaves it out), and
+        StoreNotConfiguredError without a store. The store is asked for here, not when the board is built, so a
         renderer without one still has its board.
         """
         stored = reader.read(reader.require_store(), keys.bank_holidays(), StoredBankHolidays)
@@ -132,7 +131,6 @@ class ClockChangeSource(NoticeSource):
     """A reminder in the week before the clocks go forward or back, in the screen's time zone. Needs no network."""
 
     name = "Clock change"
-    refresh_interval = timedelta(minutes=10)
     needs_network = False
 
     @override

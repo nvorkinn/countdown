@@ -34,8 +34,8 @@ def _bucket_starts(
     return readings
 
 
-class NoStoredEnergyError(LookupError):
-    """The store has no readings for the device: the broker's glow-provider is down, or hasn't fetched it yet."""
+class NoStoredEnergyError(reader.NoStoredDataError):
+    """The store has no readings for the device: the broker's glow-provider is down, or hasn't fetched them yet."""
 
 
 class GlowClient(AbstractClient):
@@ -62,7 +62,7 @@ class GlowClient(AbstractClient):
 
     @override
     def _update(self) -> EnergyPanel:
-        """Return this minute's page, drawn from the readings in the store; raises if there are none, keeping the last.
+        """Return this minute's page, drawn from the readings in the store; NoStoredEnergyError if there are none.
 
         The stored readings run to when they were fetched, from the start of each page's window then. Cut to the
         window as of now, in the zone they were asked for in, they're the buckets since the window's start, the last

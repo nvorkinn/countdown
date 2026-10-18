@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, override
 
-from countdown_core.core.abstract_client import AbstractClient
+from redis.exceptions import RedisError
+
+from countdown_core.core.abstract_client import NOT_AVAILABLE, AbstractClient
 from countdown_core.i18n import N_, local_zone
 from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
 from countdown_core.notices.floods import StoredFloodWarningsSource
@@ -27,9 +29,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# A source that keeps failing has its last notices dropped after this long, so a delay
-# that cleared hours ago isn't still on the board.
-STALE_AFTER = timedelta(hours=1)
 # How long to wait before reading the postcode's location from the store again when it isn't there (yet): a poll, as a
 # read costs nothing upstream, and provider-locations writes a new postcode's within seconds of the config's save.
 LOCATION_RETRY = timedelta(minutes=1)
@@ -52,10 +51,11 @@ class NoticeBoardSettings:
 
 
 class NoticeBoardClient(AbstractClient):
-    """Polls the notice sources, each on its own refresh_interval, and shows what they report, most severe first.
+    """Reads every notice source on every poll, and shows what they report, most severe first.
 
     Its own sources are about the postcode's place (holidays, weather warnings, floods, roads); the other clients
-    hand it theirs, about what they show (the departures' disruptions at their stops).
+    hand it theirs, about what they show (the departures' disruptions at their stops). They're all reads of the store
+    or sums worked out here, and nothing they said before is kept: a source whose key has expired adds nothing.
     """
 
     panel_title = N_("Notices")
@@ -74,23 +74,17 @@ class NoticeBoardClient(AbstractClient):
         # Location-based sources are added once the postcode is looked up (_ensure_location).
         self.location: Postcode | None = None
         self.location_tried: datetime | None = None
+        # Whether the store had no location for the postcode when last asked (rather than failing to answer).
+        self.location_missing = False
         self.unknown_postcode = False
-        self.fetched: dict[NoticeSource, tuple[datetime, list[Notice]]] = {}
-        self.last_tried: dict[NoticeSource, datetime] = {}
 
     @override
     def _initialise(self) -> None:
         pass  # nothing to set up that update() can't retry on its own
 
     def use_client_sources(self, sources: Iterable[NoticeSource]) -> None:
-        """Poll `sources`, the other clients' notice sources, from now on, in place of the ones given before.
-
-        A source that's no longer given takes its notices with it; one given again keeps them.
-        """
+        """Read `sources`, the other clients' notice sources, from now on, in place of the ones given before."""
         self.client_sources = list(sources)
-        kept = set(self.client_sources) | set(self.sources)
-        self.fetched = {source: answer for source, answer in self.fetched.items() if source in kept}
-        self.last_tried = {source: when for source, when in self.last_tried.items() if source in kept}
 
     def _default_holidays(self) -> NoticeSource:
         """Pick the holidays for a screen whose postcode doesn't say where it is.
@@ -104,20 +98,23 @@ class NoticeBoardClient(AbstractClient):
     def _ensure_location(self, now: datetime) -> None:
         """Add the sources about the postcode's place once the store says where it is (provider-locations writes it).
 
-        Until it does (or while the store can't be read), the board says it couldn't look the postcode up yet, and
-        reads again after LOCATION_RETRY. A postcode the store says doesn't exist gets "Unknown postcode", for good.
+        Until it does, a board with nothing else to show says it's not available (or, while the store can't be read,
+        that it couldn't look the postcode up yet), and reads again after LOCATION_RETRY. A postcode the store says
+        doesn't exist gets "Unknown postcode", for good.
         """
         if not self.postcode or self.location is not None:
             return
         if self.location_tried is not None and now - self.location_tried < LOCATION_RETRY:
             return
         self.location_tried = now
+        self.location_missing = False
         try:
             stored = reader.read(reader.require_store(), keys.location(self.postcode), StoredLocation)
         except Exception as e:  # noqa: BLE001 -- no store, Redis down, a provider on another version: tried again
             logger.warning("Couldn't read the postcode's location from the store: %s", type(e).__name__)
             return
         if stored is None:
+            self.location_missing = True
             # Not the key: where the board is stays out of the logs.
             logger.warning("No location in the store for the board's postcode yet (is provider-locations running?)")
             return
@@ -143,40 +140,56 @@ class NoticeBoardClient(AbstractClient):
         # bank holidays' division either, as each says roughly where the board, and someone's home, is.
         logger.info("Notice board: found the postcode's location; reading its local notices")
 
-    def _refresh(self, source: NoticeSource, now: datetime) -> None:
-        last = self.last_tried.get(source)
-        if last is not None and now - last < source.refresh_interval:
-            return
-        self.last_tried[source] = now
-        try:
-            self.fetched[source] = (now, source.fetch(now))
-        except LookupError as e:
-            # A stored source raises one of its own when its provider hasn't written its keys (yet): expected, so not
-            # worth a traceback each poll (unlike a KeyError or IndexError, a bug). Its last notices are kept too.
-            logger.warning("%s: %s", source.name, e, exc_info=isinstance(e, KeyError | IndexError))
-        except Exception as e:
-            # Keep its last notices (until they go stale); the others carry on regardless.
-            logger.warning("%s: %s", source.name, e, exc_info=True)
+    def _read(
+        self, sources: list[NoticeSource], now: datetime
+    ) -> tuple[dict[NoticeSource, list[Notice]], set[NoticeSource]]:
+        """Ask every source what it says as of `now`: the answers by source, and the sources whose keys have expired.
+
+        A source that fails otherwise is logged and left out of both. Redis not answering raises (RedisError), so the
+        registry keeps the last board: that's not the data expiring.
+        """
+        answers: dict[NoticeSource, list[Notice]] = {}
+        expired: set[NoticeSource] = set()
+        for source in sources:
+            try:
+                answers[source] = source.fetch(now)
+            except RedisError:
+                raise
+            except reader.NoStoredDataError as e:
+                # Its key has expired (its provider is down), or isn't there yet: expected, so not worth a traceback
+                # each poll. It adds nothing.
+                logger.warning("%s: %s", source.name, e)
+                expired.add(source)
+            except Exception as e:
+                # A bug, or a provider on another version: it adds nothing either, and the others carry on regardless.
+                logger.warning("%s: %s", source.name, e, exc_info=True)
+        return answers, expired
 
     @override
     def _update(self) -> MessagePanel | NoticeBoardPanel:
+        """Return what every source says now, most severe first; "Not available" if all their keys have expired.
+
+        Raises, keeping the last board, if Redis doesn't answer, or if none of the sources that read the store could
+        be read for some other reason.
+        """
         now = datetime.now(UTC)
         self._ensure_location(now)
         # The other clients' first, so their disruptions rank above the place's notices of the same severity.
         sources = self.client_sources + self.sources
-        for source in sources:
-            self._refresh(source, now)
+        answers, expired = self._read(sources, now)
 
         online = [source for source in sources if source.needs_network]
-        if online and not any(source in self.fetched for source in online):
+        if online and not any(source in answers for source in online):
+            if all(source in expired for source in online):
+                # Every source with data to read has none: "All clear" would be a guess.
+                return self.message_panel(NOT_AVAILABLE)
             msg = "None of the notice sources could be reached"
             raise RuntimeError(msg)
 
         order = {source: i for i, source in enumerate(sources)}
         active = [
             (notice, order[source])
-            for source, (fetched_at, notices) in self.fetched.items()
-            if now - fetched_at <= max(STALE_AFTER, 3 * source.refresh_interval)
+            for source, notices in answers.items()
             for notice in notices
             if notice.valid_until is None or notice.valid_until > now
         ]
@@ -184,6 +197,8 @@ class NoticeBoardClient(AbstractClient):
             if self.postcode and self.location is None:
                 # The postcode isn't placed yet, so the weather, floods and roads haven't
                 # been checked: "All clear" would be a guess.
+                if self.location_missing:
+                    return self.message_panel(NOT_AVAILABLE)
                 msg = "Couldn't look up the postcode yet"
                 raise RuntimeError(msg)
             if self.unknown_postcode:

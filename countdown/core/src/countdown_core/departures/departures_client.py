@@ -18,7 +18,7 @@ from countdown_core.notices.entur import StoredEnturSituationsSource
 from countdown_core.notices.tfl import StoredTflLineStatusSource, StoredTflStationSource
 from countdown_core.store import reader
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
-from countdown_core.tfl.stored_source import StoredTflSource
+from countdown_core.tfl.stored_source import NoStoredDeparturesError, StoredTflSource
 
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
@@ -164,18 +164,24 @@ class DeparturesClient(AbstractClient):
         else:
             to_fetch = list(range(len(self.stops)))
         panels = []
+        expired = 0
         for index in to_fetch:
             resolved = self.stops[index]
             try:
                 # The panels group them by route, keeping the later ones for the styles that show them.
                 panels.append(resolved.source.panel(resolved.stop, self.config.style))
-            except LookupError as e:
-                # Expected, and not worth a traceback each cycle: the store has nothing for it (yet).
+            except reader.NoStoredDataError as e:
+                # Expected, and not worth a traceback each cycle: the store has nothing for it (its key has expired, or
+                # the provider hasn't got to it yet). The page's other stops are drawn without it.
                 logger.warning("No departures for %s: %s", resolved.id, e)
+                expired += 1
             except Exception:
                 logger.exception("Error fetching departures for %s", resolved.id)
         if not panels:
-            # Raised rather than shown, so the registry keeps the last good departures.
             msg = f"Could not fetch departures for any of {len(to_fetch)} stops"
+            if expired == len(to_fetch):
+                # Every stop's key has expired: the panel says the departures aren't available, never old ones.
+                raise NoStoredDeparturesError(msg)
+            # Redis not answering, say: raised, so the registry keeps the last good departures.
             raise RuntimeError(msg)
         return CombinedArrivalPanel(panels, shown)

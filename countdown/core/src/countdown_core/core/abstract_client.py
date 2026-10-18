@@ -12,6 +12,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
+from countdown_core.i18n import N_
+from countdown_core.store.reader import NoStoredDataError
 from countdown_core.system_screens.message_panel import MessagePanel
 
 if TYPE_CHECKING:
@@ -26,6 +28,9 @@ logger = logging.getLogger(__name__)
 SLOW_CALL_S = 5
 
 DEFAULT_TIMEOUT = 10
+
+# What a panel says when the store has nothing for it: its key has expired (the provider is down), or isn't there yet.
+NOT_AVAILABLE = N_("Not available")
 
 
 class ClientStatus(StrEnum):
@@ -147,6 +152,10 @@ class AbstractClient(ABC):
     async def update(self) -> Panel | None:
         """Poll the API and return its panel, initialising first if not yet CONNECTED.
 
+        If the store has nothing for it (a NoStoredDataError: the provider's key has expired, or isn't there yet), the
+        panel says "Not available": the provider's TTL is the only expiry there is, so nothing older is drawn. Anything
+        else that fails, Redis not answering among them, raises, and the registry keeps the last panel.
+
         last_updated is stamped even when that fails, so the retry waits a full poll_interval (Glowmarkt
         rate-limits bad logins).
         """
@@ -162,6 +171,10 @@ class AbstractClient(ABC):
             started = time.monotonic()
             try:
                 panel = await asyncio.to_thread(self._update)
+            except NoStoredDataError as e:
+                # Expected while a provider is down, so no traceback; the message names no place (see its raisers).
+                logger.warning("%s: %s; its panel says it's not available", type(self).__name__, e)
+                panel = self.message_panel(NOT_AVAILABLE)
             finally:
                 self._log_if_slow("update", started)
         self.last_updated = datetime.now()  # noqa: DTZ005 -- last_updated is naive local time, as callers set it; only the elapsed interval matters

@@ -20,7 +20,7 @@ from countdown_api.models import Glowmarkt
 from countdown_core.core.abstract_client import ClientStatus
 from countdown_core.glow import glow_client
 from countdown_core.glow.glow_client import GlowClient, NoStoredEnergyError
-from countdown_core.store import keys
+from countdown_core.store import keys, reader
 from countdown_core.store.energy import StoredEnergy
 from countdown_credentials.registration import RendererRegistration
 
@@ -129,13 +129,16 @@ def test_the_readings_are_drawn_in_the_zone_they_were_asked_for_in(clock, store,
     assert pages[1][0]["start"] == "2026-08-25T00:00:00+01:00"
 
 
-def test_no_readings_in_the_store_raises_so_the_last_panel_is_kept(clock, store, no_http):
+def test_no_readings_in_the_store_say_the_energy_is_not_available(clock, store, no_http):
+    """The key has expired (glow-provider is down): no readings older than its TTL are drawn."""
     store.delete(keys.energy(DEVICE_ID))
     client = make_client()
     asyncio.run(client.initialise())
 
     with pytest.raises(NoStoredEnergyError) as raised:
-        asyncio.run(client.update())
+        client._update()
+    panel = asyncio.run(client.update())
 
-    assert isinstance(raised.value, LookupError)
+    assert isinstance(raised.value, reader.NoStoredDataError)
+    assert (panel.title, panel.message) == ("Energy", "Not available")
     assert len(no_http.calls) == 0

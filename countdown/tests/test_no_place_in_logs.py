@@ -200,8 +200,7 @@ def test_a_placed_postcode_and_its_stored_sources_log_no_place(store, caplog, pl
     put_location(store, "SE17 3LL", Postcode.model_validate(place))
     with responses.RequestsMock():  # and nothing asked of the network
         client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode="SE17 3LL"))
-        with pytest.raises(RuntimeError, match=r"^None of the notice sources could be reached$"):
-            asyncio.run(client.update())
+        assert asyncio.run(client.update()).message == "Not available"  # every one of its keys is missing
 
     assert "Notice board: found the postcode's location; reading its local notices" in caplog.messages
     assert "TfL roads: No TfL road disruptions in the store for the board's postcode" in caplog.messages
@@ -217,8 +216,7 @@ def test_a_placed_norwegian_postcode_logs_no_place(store, caplog):
     put_location(store, "3015", drammen)
     with responses.RequestsMock():
         client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode="3015", country="NO"))
-        with pytest.raises(RuntimeError, match=r"^None of the notice sources could be reached$"):
-            asyncio.run(client.update())
+        assert asyncio.run(client.update()).message == "Not available"  # every one of its keys is missing
 
     assert "Notice board: found the postcode's location; reading its local notices" in caplog.messages
     assert_nothing_says_where(caplog, traces("3015", "Drammen", 59.74389, 10.20449))
