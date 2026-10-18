@@ -31,14 +31,14 @@ countdown-core so the providers and renderers share them.
 |---|---|---|---|
 | `v1:sub:tfl` | set | broker | TfL NaPTAN stop ids, e.g. `490000123W` |
 | `v1:sub:entur` | set | broker | Entur stop place or quay ids, e.g. `NSR:StopPlace:58366`, `NSR:Quay:7333` |
-| `v1:sub:weather` | set | broker | location keys, e.g. `london-gb-2643743` |
+| `v1:sub:weather` | set | broker | location keys: a picked place's `<name>-<country>-<GeoNames id>`, e.g. `london-gb-2643743` (the config's `weather.key`); for a screen with only typed text, its slug, e.g. `london` |
 | `v1:sub:glow` | set | broker | Glow device ids |
 | `v1:sub:spotify` | set | broker | device ids |
 | `v1:sub:developer` | set | broker | device ids with the developer panel on (with or without a GitHub token) |
 | `v1:sub:postcode` | set | broker | the notice boards' postcodes in canonical form, e.g. `SW1A 1AA`, `0150` (Norwegian: four digits); keys by place use `keys.place()`, e.g. `SW1A1AA` |
 | `v1:sub:changed` | pub/sub channel | broker | empty message after replacing subscriptions |
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
-| `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages) |
+| `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages), one per place however many screens show it; see [Weather](#weather) |
 | `v1:energy:<device id>` | string, TTL ~1 h | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
 | `v1:spotify:<device id>` | string, TTL 3 min | auth-broker's `spotify-provider`, every minute | `StoredPlayer` JSON (`store/music.py`): each service's queue, as the broker's `/queue` route answers it |
 | `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): `github`, the GitHub summary (pull requests, builds, releases with their jobs), null until the owner gives a token, and `plans`, the AI plans; the broker has no route for the panel, so this key is the renderer's only source |
@@ -95,6 +95,23 @@ fetches every 15 minutes, and keeps each value for an hour. `tests/fixtures/glow
 Glowmarkt's answers to the stored value, and auth-broker's tests read the same file: change both together.
 `tests/fixtures/glow_energy_pages.json` is the pages the renderer drew from those answers when it still asked
 Glowmarkt itself, which the stored value must still draw.
+
+### Weather
+
+The broker subscribes each screen's weather by the place picked on its settings page (Open-Meteo's geocoding), as
+`<name>-<country>-<GeoNames id>` (auth-broker's `weather_place.weather_key()`, e.g. `london-gb-2643743`), and sends the
+renderer the same key as its config's `weather.key`. So screens that picked the same place share one forecast,
+however its name was typed. The provider finds a key's coordinates by the id (Open-Meteo's get-by-id, once per place
+for as long as it runs) and fetches one forecast per place each cycle. Only a number after a two-letter country is an
+id: a key without one is a screen with typed text and no picked place (saved before the picker, and not yet given one
+by the broker's `flask weather backfill`), which the broker subscribes as the text's slug (`london`, `sw1a-1aa`,
+`oslo-0150`) and the provider geocodes by name (a UK postcode by postcodes.io). A place Open-Meteo gave no country
+is `xx` (`atlantis-xx-42`). `tests/fixtures/weather_keys.json` is the configs the broker makes keys from, each key,
+and the id the provider finds in it; auth-broker's tests read the same file, so change both together.
+
+A renderer whose broker sends no `weather.key` (one that predates it) reads under `weather.location`, the text the
+broker subscribed then; one that has a key but finds nothing under it reads under `location` too, for the minutes
+after the broker switches to keys, before the provider has fetched them and while the old values haven't expired.
 
 ### Weather warnings
 
@@ -231,10 +248,8 @@ every id is fetched by exactly one copy. (Not Python's `hash()`, which differs f
 `weather/main.py` is the smallest complete example of the shape. `tfl/main.py` and `entur/main.py` are the same
 shape for departures, each wrapping countdown-core's source (`TflSource`, `EnturSource`), which only the providers
 call now. Entur, like Open-Meteo,
-needs no key, only the `ET-Client-Name` header its client already sends. Location keys there are the broker's
-`<name>-<country>-<GeoNames id>` (`london-gb-2643743`): the id finds the place exactly, and a key without one (a
-screen saved before the place picker, until it's backfilled) is geocoded by name. Open-Meteo is keyless, so it
-needs no secret.
+needs no key, only the `ET-Client-Name` header its client already sends. Open-Meteo is keyless, so it needs no
+secret; its location keys are in [Weather](#weather).
 
 ## The image
 
@@ -260,8 +275,8 @@ The renderers read the store: the orchestrator's `RENDERER_REDIS_URL` defaults t
 the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to each renderer as `REDIS_URL` and
 `REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change to the store they read counts
 as an upgrade, like a new image. The renderers read TfL's and Entur's departures (`v1:departures:<stop>`), the weather
-(`v1:weather:<location>`), the energy readings (`v1:energy:<device id>`, from auth-broker's `glow-provider`) and the
-Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
+(`v1:weather:<key>`, by the config's `weather.key`), the energy readings (`v1:energy:<device id>`, from auth-broker's
+`glow-provider`) and the Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
 the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; of the
 notice board's sources, the Met Office's warnings (`v1:notices:met-office:<place>`), the bank holidays
 (`v1:notices:bank-holidays`) and the Environment Agency's flood warnings (`v1:notices:floods:<place>`) come from the

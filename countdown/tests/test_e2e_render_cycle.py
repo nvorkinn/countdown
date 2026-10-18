@@ -293,6 +293,23 @@ def test_full_render_cycle_with_weather(isolated_cwd, monkeypatch, store):
 
 
 @responses.activate
+def test_full_render_cycle_reads_the_weather_under_the_brokers_place_key(isolated_cwd, monkeypatch, store, reads):
+    """The broker sends the picked place's key beside its name, and subscribes the key: that's what's read."""
+    config = _make_config()
+    config.weather.location, config.weather.key = "London", "london-gb-2643743"
+    _put_forecast(store, forecast_json(), location="london-gb-2643743")
+    _put_energy(store)
+    loop = _build_loop(config, monkeypatch)
+    shown = _spy_on_frames(monkeypatch)
+
+    _run_cycles(loop, monkeypatch)
+
+    assert shown[0]["weather"].weather.temperature == 14.2
+    assert keys.weather("london-gb-2643743") in reads
+    assert keys.weather("London") not in reads
+
+
+@responses.activate
 def test_one_provider_being_down_does_not_stop_the_others_reaching_the_screen(isolated_cwd, monkeypatch, store):
     """The TfL provider is down, so its stop's key has expired; the energy readings are still there."""
     config = _make_config()

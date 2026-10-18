@@ -27,21 +27,31 @@ class NoStoredForecastError(LookupError):
     """The store has no forecast for the location: the weather provider is down, or hasn't fetched it yet."""
 
 
-class WeatherClient(AbstractClient):
-    """A forecast carousel, read from the store under the location as the broker subscribes to it.
+def location_key(config: WeatherSection) -> str:
+    """Return the key the broker subscribes the screen's weather under, e.g. "london-gb-2643743"; "" for none.
 
-    That's `v1:weather:<location>`, written by the weather provider from Open-Meteo (countdown_core.weather.open_meteo),
-    which is keyless, so the config's api_key is unused. With no location configured there's nothing to read, and the
-    panel says it needs configuring.
+    That's the config's `key`: the picked place's name, country and Open-Meteo id. A broker that predates `key` sends
+    null, and subscribes the text in `location` instead.
+    """
+    return config.key or config.location
+
+
+class WeatherClient(AbstractClient):
+    """A forecast carousel, read from the store under the location key the broker subscribes to.
+
+    That's `v1:weather:<key>` (see location_key), written by the weather provider from Open-Meteo
+    (countdown_core.weather.open_meteo), which is keyless, so the config's api_key is unused. With no location
+    configured there's nothing to read, and the panel says it needs configuring.
     """
 
     panel_title = N_("Weather")
 
     def __init__(self, registration: Registration, config: WeatherSection) -> None:
-        """`config` is the broker's weather section: the place, or postcode, to forecast for. Raises without a store."""
+        """`config` is the broker's weather section: the place to forecast for. Raises without a store."""
         super().__init__(registration, config)
         self.store = reader.require_store()
         self.location = config.location
+        self.key = location_key(config)
         self._panel: Panel | None = None
         self._last_attempt: dt.datetime | None = None
         self._utc_offset = dt.timedelta(0)
@@ -54,8 +64,9 @@ class WeatherClient(AbstractClient):
 
     @override
     def needs_refresh(self, new_config: WeatherSection) -> bool:
-        # Open-Meteo is keyless, so api_key changing changes nothing.
-        return self.location != new_config.location
+        # Open-Meteo is keyless, so api_key changing changes nothing. The key changes with the place, and when a
+        # broker starts sending it; location too, as the forecast falls back to it (see _stored_forecast).
+        return (self.key, self.location) != (location_key(new_config), new_config.location)
 
     @override
     def _update(self) -> Panel:
@@ -63,7 +74,7 @@ class WeatherClient(AbstractClient):
 
         A forecast missing from the store, or Redis failing, raises, so the registry keeps the last good panel.
         """
-        if not self.location:
+        if not self.key:
             return self.message_panel(N_("Needs configuring"))
         now = dt.datetime.now(dt.UTC)
         elapsed = now - self._last_attempt if self._last_attempt is not None else None
@@ -86,9 +97,16 @@ class WeatherClient(AbstractClient):
         self._utc_offset = dt.timedelta(seconds=forecast.utc_offset_seconds)
 
     def _stored_forecast(self) -> ForecastResponse:
-        """Read the location's forecast from the store; raises if there's none, so the registry keeps the last panel."""
-        stored = reader.read(self.store, keys.weather(self.location), StoredForecast)
+        """Read the place's forecast from the store; raises if there's none, so the registry keeps the last panel.
+
+        Not there under its key, it's read under the location's text, which is what a broker subscribed before it
+        sent keys: just after one starts to, that forecast is still in the store (until its TTL) while the provider
+        hasn't yet fetched the key's.
+        """
+        stored = reader.read(self.store, keys.weather(self.key), StoredForecast)
+        if stored is None and self.location and self.location != self.key:
+            stored = reader.read(self.store, keys.weather(self.location), StoredForecast)
         if stored is None:
-            msg = f"No forecast in the store for {self.location!r}"
+            msg = f"No forecast in the store for {self.key!r}"
             raise NoStoredForecastError(msg)
         return stored.forecast
