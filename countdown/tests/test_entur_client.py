@@ -120,7 +120,7 @@ def test_settings_from_an_older_broker_take_the_tfl_stops():
 
 def test_settings_prefer_departures_with_each_stops_source():
     config = make_broker_config(
-        tfl={"stop_ids": ["940GZZLUKNG"], "app_key": "key"},
+        tfl={"stop_ids": ["940GZZLUKNG"]},
         departures={
             "stops": [{"source": "entur", "id": "NSR:Quay:7333"}, {"source": "tfl", "id": "940GZZLUKNG"}],
             "style": "card",
