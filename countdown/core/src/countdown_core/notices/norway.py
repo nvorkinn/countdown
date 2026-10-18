@@ -93,7 +93,7 @@ def norwegian_holidays(year: int) -> list[tuple[date, str]]:
 
 
 class NorwegianHolidaySource(NoticeSource):
-    """The next Norwegian public holiday, once it's less than a month away, like BankHolidaySource.
+    """The next Norwegian public holiday, once it's less than a month away, like StoredBankHolidaySource.
 
     Worked out here, so it needs no network.
     """

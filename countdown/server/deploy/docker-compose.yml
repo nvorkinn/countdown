@@ -96,3 +96,19 @@ services:
         tag: provider-met-office
         max-size: 10m
         max-file: "3"
+
+  # gov.uk's bank holidays for every board in the UK: one file, with no subscription, every 6 hours.
+  provider-bank-holidays:
+    image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
+    command: countdown-provider-bank-holidays
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
+    logging:
+      driver: json-file
+      options:
+        tag: provider-bank-holidays
+        max-size: 10m
+        max-file: "3"
