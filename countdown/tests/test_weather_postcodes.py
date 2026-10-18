@@ -297,7 +297,11 @@ def test_the_weather_provider_forecasts_where_provider_locations_placed_a_typed_
         SE17_CENTRE,
         (WESTMINSTER.latitude, WESTMINSTER.longitude),
     ]
-    postcode_lookups = [call for call in postcodes_io.calls if call.request.url.startswith("https://api.postcodes.io")]
+    postcode_lookups = [
+        call
+        for call in postcodes_io.calls
+        if (parsed := urlparse(call.request.url)).scheme == "https" and parsed.hostname == "api.postcodes.io"
+    ]
     assert len(postcode_lookups) == 3  # SE17, SW1A 1AA and ZZ1 1ZZ, once each, all by provider-locations
     assert_nothing_says_where(
         caplog.text, "SW1A", "SE17", "ZZ1", "Westminster", "Southwark", WESTMINSTER.latitude, SE17_CENTRE[0]
