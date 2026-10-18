@@ -1,4 +1,4 @@
-"""Placing a UK postcode, with postcodes.io."""
+"""Placing a UK postcode, or a postcode district, with postcodes.io (provider-locations is the one caller)."""
 
 import re
 from http import HTTPStatus
@@ -31,26 +31,22 @@ def lookup_postcode(session: requests.Session, postcode: str) -> Postcode | None
     return PostcodeResponse.model_validate_json(response.content).result
 
 
-def is_postcode(text: str) -> bool:
-    """Shaped like a UK postcode ("SE17 2PX") or postcode district ("SE17")."""
-    text = text.strip()
-    return bool(FULL_POSTCODE.fullmatch(text) or OUTCODE.fullmatch(text))
+def lookup_outcode(session: requests.Session, outcode: str) -> Postcode | None:
+    """Look up where a UK postcode district ("SE17") is: its centre, as a Postcode with the district for its postcode.
 
-
-def postcode_coordinates(session: requests.Session, text: str) -> tuple[float, float] | None:
-    """Look up the coordinates of a UK postcode or postcode district.
-
-    None if postcodes.io doesn't know it (or the text is neither); raises if postcodes.io can't be reached.
+    Its country is every country postcodes.io says the district is in, joined ("England", or "England, Wales" for one
+    across the border), and it has no region or district of its own. None if postcodes.io doesn't know it; raises if
+    postcodes.io can't be reached, so the caller can try again later.
     """
-    text = text.strip()
-    if FULL_POSTCODE.fullmatch(text):
-        postcode = lookup_postcode(session, text)
-        return (postcode.latitude, postcode.longitude) if postcode else None
-    if OUTCODE.fullmatch(text):
-        response = session.get(f"{OUTCODES_URL}/{text}", timeout=DEFAULT_TIMEOUT)
-        if response.status_code == HTTPStatus.NOT_FOUND:
-            return None
-        response.raise_for_status()
-        outcode = OutcodeResponse.model_validate_json(response.content).result
-        return (outcode.latitude, outcode.longitude)
-    return None
+    outcode = outcode.strip()
+    response = session.get(f"{OUTCODES_URL}/{outcode}", timeout=DEFAULT_TIMEOUT)
+    if response.status_code == HTTPStatus.NOT_FOUND:
+        return None
+    response.raise_for_status()
+    result = OutcodeResponse.model_validate_json(response.content).result
+    return Postcode(
+        postcode=outcode.upper(),
+        latitude=result.latitude,
+        longitude=result.longitude,
+        country=", ".join(result.country),
+    )
