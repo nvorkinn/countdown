@@ -3,7 +3,7 @@
 from datetime import timedelta
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, HttpUrl
+from pydantic import BaseModel, BeforeValidator
 
 MillisecondTimedelta = Annotated[
     timedelta, BeforeValidator(lambda v: timedelta(milliseconds=v) if isinstance(v, (int, float)) else v)
@@ -15,7 +15,9 @@ class Image(BaseModel):
 
     width: int
     height: int
-    url: HttpUrl
+    # Exactly as the service wrote it, not normalised as a URL: the cover's key in the store is made from this string
+    # (store.keys.album_art), as auth-broker's music provider made it. The renderer never fetches it.
+    url: str
 
 
 class Album(BaseModel):

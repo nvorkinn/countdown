@@ -29,9 +29,14 @@ def store(monkeypatch):
 
     Every renderer reads one, and the departures, weather, energy and music clients can't be built without it. A test
     puts what a provider would have written there; one about a renderer without a store sets reader.store to give None.
+
+    reader.binary_store (for the covers, which are bytes) reads the same fake Redis, so an image put here is read there.
     """
-    client = fakeredis.FakeRedis(decode_responses=True)
+    server = fakeredis.FakeServer()
+    client = fakeredis.FakeRedis(server=server, decode_responses=True)
+    binary = fakeredis.FakeRedis(server=server)
     monkeypatch.setattr(reader, "store", lambda: client)
+    monkeypatch.setattr(reader, "binary_store", lambda: binary)
     return client
 
 

@@ -3,18 +3,22 @@
 fixtures/music_player.json and music_top.json are the stored contract: auth-broker's provider tests check that it
 writes exactly these (its tests/fixtures holds the same files), and these tests check that the renderer reads each
 part into the models it read the proxy routes' answers with when it asked the broker itself, so it draws the same
-panels.
+panels. fixtures/music_art.json is the covers it stores for music_player.json, by key, each the raw bytes of the
+image (music_art.jpg in both repositories' tests).
 """
 
 import asyncio
 import copy
+import dataclasses
 import json
 from pathlib import Path
 
 import pytest
 import responses
+from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import REGISTRATION
 
+from countdown_core.spotify import spotify_styles
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_client import (
     MusicSettings,
@@ -26,11 +30,14 @@ from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_core.store import keys
-from countdown_core.store.music import StoredPlayer, StoredTop
+from countdown_core.store.music import StoredPlayer, StoredTop, art_image
+from countdown_core.utils.utils import fitted_font
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PLAYER = json.loads((FIXTURES / "music_player.json").read_text())
 TOP = json.loads((FIXTURES / "music_top.json").read_text())
+COVERS = json.loads((FIXTURES / "music_art.json").read_text())
+ART = (FIXTURES / "music_art.jpg").read_bytes()
 DEVICE_ID = REGISTRATION.device_id
 NOTHING_PLAYING = {"currently_playing": None, "queue": []}
 BOTH = MusicSettings(spotify=True, apple_music=True)
@@ -42,6 +49,12 @@ def put(store, player=PLAYER, top=TOP):
         store.set(keys.spotify(DEVICE_ID), json.dumps(player), ex=180)
     if top is not None:
         store.set(keys.spotify_top(DEVICE_ID), json.dumps(top), ex=7200)
+
+
+def put_art(store, *services):
+    """Store each service's cover (music_art.json's key) as the provider does: the image's own bytes."""
+    for service in services:
+        store.set(COVERS[service]["key"], ART, ex=300)
 
 
 def panels(client, count):
@@ -78,6 +91,23 @@ def test_each_stored_part_is_what_the_proxy_answered(service):
 def test_the_keys():
     assert keys.spotify("abc") == "v1:spotify:abc"
     assert keys.spotify_top("abc") == "v1:spotify-top:abc"
+
+
+@pytest.mark.parametrize("service", ["spotify", "apple_music"])
+def test_the_cover_is_read_by_the_key_the_provider_stores_it_under(service):
+    """The provider picks the same size (Spotify's 300 px, Apple Music's one) and makes the key from its URL."""
+    playing = getattr(StoredPlayer.model_validate(PLAYER), service).currently_playing
+
+    image = art_image(playing.album)
+
+    assert image.url == COVERS[service]["url"]
+    assert keys.album_art(image.url) == COVERS[service]["key"]
+
+
+def test_a_cover_key_is_the_sha1_of_the_url_exactly_as_given():
+    assert keys.album_art("https://i.scdn.co/image/ab01300") == "v1:art:f0c75b31e316838c7115ebf3205ef753eb4a0353"
+    # Not normalised: a URL is only ever compared with itself, as the service wrote it.
+    assert keys.album_art("https://example.com") != keys.album_art("https://example.com/")
 
 
 # --- Every page from the store -----------------------------------------------------
@@ -120,6 +150,103 @@ def test_both_on_rotates_through_both_services_top_lists(store):
     ]
     assert found[0].labels is SPOTIFY_LABELS
     assert len(responses.calls) == 0
+
+
+# --- The cover ---------------------------------------------------------------------
+
+
+@pytest.fixture
+def symbols(monkeypatch):
+    """Stand in for Material Symbols with a font the package has, so drawing a page needs no download."""
+    monkeypatch.setattr(spotify_styles, "google_symbols", lambda: fitted_font("Ubuntu-Regular.ttf", 15))
+
+
+@pytest.mark.parametrize(
+    ("settings", "player"),
+    [
+        (MusicSettings(spotify=True), PLAYER),
+        (MusicSettings(spotify=False, apple_music=True), PLAYER),
+        (BOTH, {**PLAYER, "spotify": NOTHING_PLAYING}),
+    ],
+    ids=["spotify", "apple-music", "apple-music-while-spotify-is-silent"],
+)
+def test_the_playing_tracks_cover_comes_from_the_store_without_a_call(store, symbols, settings, player):
+    put(store, player)
+    put_art(store, "spotify", "apple_music")
+
+    with responses.RequestsMock() as nothing:  # nothing registered: any request would fail
+        panel = asyncio.run(music_client_class(settings)(REGISTRATION, settings).update())
+        image = panel.render(536, 120)
+        assert len(nothing.calls) == 0
+
+    assert panel.art == ART
+    assert _cover_strip_alpha(image) == (255, 255)  # drawn
+
+
+def test_each_service_shows_its_own_cover(store):
+    """Covers are keyed by image, so Apple Music's last played doesn't get Spotify's."""
+    put(store, {**PLAYER, "spotify": NOTHING_PLAYING})
+    store.set(COVERS["spotify"]["key"], b"spotify's", ex=300)
+    store.set(COVERS["apple_music"]["key"], b"apple music's", ex=300)
+
+    panel = asyncio.run(SpotifyClient(REGISTRATION, BOTH).update())
+
+    assert panel.art == b"apple music's"
+
+
+def test_two_screens_playing_the_same_album_read_the_same_cover(store):
+    other = dataclasses.replace(REGISTRATION, device_id="another-device")
+    put(store)
+    store.set(keys.spotify("another-device"), json.dumps(PLAYER), ex=180)
+    put_art(store, "spotify")
+    settings = MusicSettings(spotify=True)
+
+    mine = asyncio.run(SpotifyClient(REGISTRATION, settings).update())
+    theirs = asyncio.run(SpotifyClient(other, settings).update())
+
+    assert mine.art == theirs.art == ART
+    assert store.keys("v1:art:*") == [COVERS["spotify"]["key"]]
+
+
+def test_a_missing_cover_draws_the_player_without_one(store, symbols):
+    """The provider couldn't fetch it, or Redis evicted it: the page is still drawn, just without a cover."""
+    put(store)
+
+    panel = asyncio.run(SpotifyClient(REGISTRATION, MusicSettings(spotify=True)).update())
+    image = panel.render(536, 120)
+
+    assert isinstance(panel, SpotifyPanel)
+    assert panel.art is None
+    assert _cover_strip_alpha(image) == (0, 0)  # the page's transparent background: no cover
+
+
+def _cover_strip_alpha(image):
+    """Return the alpha range of the bottom of where the hero style puts the cover, under any text drawn beside it."""
+    return image.crop((0, 113, 120, 120)).getextrema()[3]
+
+
+def test_a_cover_redis_cant_hand_over_draws_the_player_without_one(store, monkeypatch):
+    put(store)
+    client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
+
+    def down(key):
+        raise RedisConnectionError(key)
+
+    monkeypatch.setattr(client.art_store, "get", down)
+
+    panel = asyncio.run(client.update())
+
+    assert isinstance(panel, SpotifyPanel)
+    assert panel.art is None
+
+
+def test_a_track_with_no_cover_reads_none(store, monkeypatch):
+    """A local file: nothing to read."""
+    put(store, {**PLAYER, "spotify": {"currently_playing": PLAYER["spotify"]["queue"][1], "queue": []}})
+    client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
+    monkeypatch.setattr(client.art_store, "get", lambda key: pytest.fail(f"read {key}"))
+
+    assert asyncio.run(client.update()).art is None
 
 
 # --- Nothing playing, and no data ---------------------------------------------------

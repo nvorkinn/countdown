@@ -9,7 +9,6 @@ import io
 from typing import TYPE_CHECKING
 
 import pytest
-import responses
 from fake_target import FakeTarget
 from PIL import Image, ImageChops, ImageDraw
 from tfl_factory import tfl_panel
@@ -250,15 +249,13 @@ def test_screen_without_energy_panel(snapshot):
     snapshot.assert_matches("screen_no_energy", img)
 
 
-@responses.activate
 def test_screen_without_energy_panel_playing_spotify(snapshot):
     """Spotify at the full width it gets without the energy column."""
-    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
     img = _draw(
         _panels(
             _bus_only_arrivals(),
             energy=GlowClient.message_panel("Not configured"),
-            spotify=SpotifyPanel(SPOTIFY_QUEUE),
+            spotify=SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes()),
         ),
         NO_GLOWMARKT,
     )
@@ -302,18 +299,14 @@ def test_screen_with_no_panels_at_all_says_there_is_nothing_to_show(snapshot):
     snapshot.assert_matches("screen_nothing_to_show", img, threshold=0.02)
 
 
-@responses.activate
 def test_screen_with_spotify_playing(snapshot):
-    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    img = _draw(_panels(_bus_only_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE)))
+    img = _draw(_panels(_bus_only_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes())))
     snapshot.assert_matches("screen_spotify_playing", img)
 
 
-@responses.activate
 def test_screen_with_spotify_playing_the_last_queued_track(snapshot):
     """Nothing up next: that line is left out rather than drawn empty."""
-    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    img = _draw(_panels(_bus_only_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE_LAST_TRACK)))
+    img = _draw(_panels(_bus_only_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE_LAST_TRACK, art=_album_art_bytes())))
     snapshot.assert_matches("screen_spotify_last_track", img)
 
 
@@ -384,11 +377,9 @@ def _draw_portrait(panels: dict[str, Panel], available: frozenset[ClientClasses]
     return img
 
 
-@responses.activate
 def test_portrait_screen_playing_spotify(snapshot):
     """Top to bottom: the weather in full, two stops side by side, Spotify, the notices."""
-    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE)))
+    img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes())))
     snapshot.assert_matches("screen_portrait_spotify", img)
 
 
@@ -478,47 +469,43 @@ def _many_route_arrivals(style: str = "hero") -> CombinedArrivalPanel:
     )
 
 
-@responses.activate
 def test_screen_with_few_notices(snapshot):
     """The notices only as tall as their two rows, at the bottom: the stops get the rest."""
-    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    panels = _panels(_many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE), notices=FEW_NOTICES)
+    panels = _panels(
+        _many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes()), notices=FEW_NOTICES
+    )
     snapshot.assert_matches("screen_few_notices", _draw(panels))
 
 
-@responses.activate
 def test_screen_with_few_notices_and_no_energy_panel(snapshot):
     """Without the energy chart under it, the weather grows with the stops."""
-    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    panels = _panels(_many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE), notices=FEW_NOTICES)
+    panels = _panels(
+        _many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes()), notices=FEW_NOTICES
+    )
     snapshot.assert_matches("screen_few_notices_no_energy", _draw(panels, NO_GLOWMARKT))
 
 
-@responses.activate
 def test_portrait_screen_with_few_notices(snapshot):
-    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    panels = _panels(_many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE), notices=FEW_NOTICES)
+    panels = _panels(
+        _many_route_arrivals(), spotify=SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes()), notices=FEW_NOTICES
+    )
     snapshot.assert_matches("screen_portrait_few_notices", _draw_portrait(panels))
 
 
-@responses.activate
 @pytest.mark.parametrize("style", list(NOTICE_STYLES))
 def test_every_panel_in_one_style(snapshot, style):
     """Each look the config's style can pick, on every panel at once: the stops, Spotify and the notices."""
-    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    spotify = SpotifyPanel(SPOTIFY_QUEUE, style)
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, style, art=_album_art_bytes())
     notices = NoticeBoardPanel(NOTICES.notices, style)
     snapshot.assert_matches(
         f"screen_style_{style}", _draw(_panels(_many_route_arrivals(style), spotify=spotify, notices=notices))
     )
 
 
-@responses.activate
 @pytest.mark.parametrize("style", list(NOTICE_STYLES))
 def test_every_panel_in_one_style_on_a_portrait_screen(snapshot, style):
     """As the config page shows each style."""
-    responses.add(responses.GET, ALBUM_ART_URL, body=_album_art_bytes(), content_type="image/png")
-    spotify = SpotifyPanel(SPOTIFY_QUEUE, style)
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, style, art=_album_art_bytes())
     notices = NoticeBoardPanel(FEW_NOTICES.notices, style)
     img = _draw_portrait(_panels(_many_route_arrivals(style), spotify=spotify, notices=notices))
     snapshot.assert_matches(f"screen_portrait_style_{style}", img)
@@ -689,9 +676,7 @@ def _cover_art_bytes() -> bytes:
 
 def _spotify_page(page: str, style: str) -> Panel:
     if page == "now":
-        queue = SPOTIFY_QUEUE.model_copy(deep=True)
-        queue.currently_playing.album.images[0].height = queue.currently_playing.album.images[0].width = 300
-        return SpotifyPanel(queue, style)
+        return SpotifyPanel(SPOTIFY_QUEUE, style, art=_cover_art_bytes())
     tracks = [
         _track("Pink + White", "Frank Ocean", "Blonde"),
         _track("Dreams", "Fleetwood Mac", "Rumours"),
@@ -705,33 +690,25 @@ def _spotify_page(page: str, style: str) -> Panel:
     )
 
 
-@responses.activate
 @pytest.mark.parametrize("page", ["now", "top"])
 @pytest.mark.parametrize("style", SPOTIFY_STYLES)
 def test_spotify_styles(snapshot, style, page):
     """Each look the config's style can pick, on both of Spotify's pages, beside the energy chart."""
-    responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
     img = _draw(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
     snapshot.assert_matches(f"screen_spotify_{style}_{page}", img)
 
 
-@responses.activate
 @pytest.mark.parametrize("page", ["now", "top"])
 @pytest.mark.parametrize("style", SPOTIFY_STYLES)
 def test_spotify_styles_on_a_portrait_screen(snapshot, style, page):
-    responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
     img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=_spotify_page(page, style)))
     snapshot.assert_matches(f"screen_portrait_spotify_{style}_{page}", img)
 
 
-@responses.activate
 @pytest.mark.parametrize("style", SPOTIFY_STYLES)
 def test_apple_music_now(snapshot, style):
     """Apple Music's now page: the last played track, with the one before it, labelled for what they are."""
-    responses.add(responses.GET, ALBUM_ART_URL, body=_cover_art_bytes(), content_type="image/png")
-    queue = SPOTIFY_QUEUE.model_copy(deep=True)
-    queue.currently_playing.album.images[0].height = queue.currently_playing.album.images[0].width = 300
-    panel = SpotifyPanel(queue, style, APPLE_MUSIC_LABELS)
+    panel = SpotifyPanel(SPOTIFY_QUEUE, style, APPLE_MUSIC_LABELS, _cover_art_bytes())
     img = _draw_portrait(_panels(_bus_and_tube_arrivals(), spotify=panel))
     snapshot.assert_matches(f"screen_portrait_apple_music_{style}_now", img)
 

@@ -67,7 +67,8 @@ running one has its name in bold, and one waiting for the owner's approval or fa
 warning triangle; `developer/release_styles.py`) and the notice board. The departures, weather,
 energy, music and developer clients read only the shared Redis store, which the [providers](providers/README.md) (and
 auth-broker's, for energy, music and the developer panel) fill: the renderer never calls TfL, Entur, Open-Meteo,
-Glowmarkt or GitHub for them, nor the broker, and never holds a Glowmarkt password, a Spotify token or a GitHub token. A
+Glowmarkt or GitHub for them, nor the broker, nor the music services' image hosts for the album covers, and never holds
+a Glowmarkt password, a Spotify token or a GitHub token. A
 renderer started without `REDIS_URL` can't build those five, so their areas say "Could not connect" and the log says
 why (`store.reader.require_store`); a key missing from the store, or Redis not answering, is just a failed poll. The
 notice board and its disruption sources still call their APIs. `ApiRegistry` builds a client for every API the config enables.

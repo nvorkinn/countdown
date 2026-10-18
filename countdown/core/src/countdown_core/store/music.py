@@ -8,12 +8,35 @@ are an example of each, copied into both repositories' tests so neither side can
 
 A part is None when the service is switched off for the device, or the provider couldn't fetch it; nothing playing is
 a Queue with no currently_playing, not None.
+
+The playing track's cover isn't in the JSON: the provider stores the image itself, under keys.album_art(its URL), and
+picks which of the album's sizes the same way as art_image. tests/fixtures/music_art.json is the keys it stores for
+music_player.json (each holding music_art.jpg's bytes in the tests), in both repositories too.
 """
 
 from pydantic import BaseModel
 
-from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
+from countdown_core.spotify.models import Album, Artist, Image, Queue, TopResponse, Track
 from countdown_core.store.models import Stored
+
+# The tallest a cover is drawn: the Spotify area is 120 px high in every layout (rendering/layouts). The renderer
+# scales the stored one down to the style's size; a smaller one would stay small, as thumbnail() never scales up.
+ART_SIZE = 120
+
+
+def art_image(album: Album) -> Image | None:
+    """Return which of the album's sizes of cover is the one in the store; None if it has none (a local file).
+
+    The smallest at least ART_SIZE tall, else the tallest: Spotify's 300 px of its 640, 300 and 64, and the one 300 px
+    image auth-broker asks Apple Music for. auth-broker's music provider (broker/album_art.py) picks the same way, so
+    change both together.
+    """
+    if not album.images:
+        return None
+    tall_enough = [image for image in album.images if image.height >= ART_SIZE]
+    if tall_enough:
+        return min(tall_enough, key=lambda image: image.height)
+    return max(album.images, key=lambda image: image.height)
 
 
 class StoredPlayer(Stored):
