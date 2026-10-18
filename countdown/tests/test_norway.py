@@ -15,8 +15,6 @@ from countdown_core.notices.calendar import ClockChangeSource
 from countdown_core.notices.entur import EnturSituationsSource
 from countdown_core.notices.norway import (
     ADDRESSES_URL,
-    METALERTS_URL,
-    MetAlertsSource,
     NorwegianHolidaySource,
     lookup_norwegian_postcode,
     norwegian_holidays,
@@ -131,19 +129,6 @@ def test_metalerts_become_notices_until_their_end_in_oslo_time():
     )
 
 
-def test_metalerts_are_asked_for_in_the_screens_language(api):
-    api.get(METALERTS_URL, json={"features": []})
-    i18n.set_locale("nb", "Europe/Oslo")
-    try:
-        MetAlertsSource(requests.Session(), OSLO).fetch(NOW)
-    finally:
-        i18n.set_locale("en", "Europe/London")
-    request = api.calls[0].request
-    assert "lang=no" in request.url
-    assert "lat=59.9116" in request.url
-    assert request.headers["User-Agent"].startswith("countdown")
-
-
 def test_entur_situations_are_said_once_tagged_with_their_line_in_the_screens_language(api):
     situation = {
         "summary": [{"value": "Buss for T-bane", "language": "no"}, {"value": "Bus for metro", "language": "en"}],
@@ -184,7 +169,7 @@ def test_a_norwegian_postcode_brings_norways_sources(api):
     client = board("0150", "NO")
     client._ensure_location(NOW)
     names = [type(source).__name__ for source in client.sources]
-    assert names == ["ClockChangeSource", "NorwegianHolidaySource", "MetAlertsSource"]
+    assert names == ["ClockChangeSource", "NorwegianHolidaySource", "StoredMetAlertsSource"]
 
 
 def test_norwegian_stops_bring_their_disruptions_whatever_the_postcode():

@@ -186,9 +186,10 @@ stays English. After adding or changing a text, run `sh dev/update_translations.
 
 A Norwegian postcode (`notice_board.country` is `NO`) gets Norway's notices instead of the UK's: it's placed by
 [Kartverket](https://ws.geonorge.no/adresser/v1/), the public holidays are worked out here, weather warnings come
-from [MET Norway's MetAlerts](https://api.met.no/weatherapi/metalerts/2.0/documentation) in the screen's language,
-and the clocks-change reminder goes by the screen's time zone. Entur stops bring their disruptions to the board
-whatever the postcode, as TfL stops bring theirs.
+from [MET Norway's MetAlerts](https://api.met.no/weatherapi/metalerts/2.0/documentation) in the screen's language
+(through the store: `provider-metalerts` fetches them for all of Norway, and the board picks out its place's, see
+`providers/README.md`), and the clocks-change reminder goes by the screen's time zone. Entur stops bring their
+disruptions to the board whatever the postcode, as TfL stops bring theirs.
 
 ## The API contract
 

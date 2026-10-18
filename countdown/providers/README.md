@@ -47,6 +47,7 @@ countdown-core so the providers and renderers share them.
 | `v1:notices:met-office:<place>` | string, TTL ~30 min | provider-met-office, every 5 min | `StoredMetOfficeWarnings` JSON (`store/met_office.py`): the Met Office's warnings RSS for the region a UK postcode in `v1:sub:postcode` is in, its items as JSON; the renderer makes the notices. See [Weather warnings](#weather-warnings) |
 | `v1:notices:bank-holidays` | string, TTL 7 days | provider-bank-holidays, every 6 h, for everyone, with no subscription (`fixed_ids`) | `StoredBankHolidays` JSON (`store/bank_holidays.py`): gov.uk's bank-holidays.json, every division's; each board picks its own (England and Wales, Scotland, Northern Ireland) and words the notice when it draws; see [Bank holidays](#bank-holidays) |
 | `v1:notices:floods:<place>` | string, TTL ~30 min | provider-floods, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredFloods` JSON (`store/floods.py`): the Environment Agency's warnings for the flood areas within 5 km of the postcode, as the EA gives them; the renderer makes the notices; see [Flood warnings](#flood-warnings) |
+| `v1:notices:metalerts` | string, TTL 30 min | provider-metalerts, every 5 min while any screen's postcode is Norwegian | `StoredMetAlerts` JSON (`store/metalerts.py`): MetAlerts' `current.json` for all of Norway, in Norwegian and English, as MET answered; one key, not one per place, see [Norway's weather warnings](#norways-weather-warnings) |
 
 The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
 own tokens, which never leave it (auth-broker's README, "Music in the store"). As the two repositories can't share
@@ -200,6 +201,42 @@ postcodes; the provider's log says why one is missing (`docker logs countdown-re
 whose key isn't there logs "No flood warnings in the store for the board's postcode", shows the rest of its notices,
 and keeps whatever flood warnings it last read (for up to an hour); it reads again every 5 minutes.
 
+### Norway's weather warnings
+
+The notice board's MET Norway weather warnings are one key for the whole country, `v1:notices:metalerts`, rather than
+one per place: MetAlerts' `current.json` answers for all of Norway at once, each warning with its area as a GeoJSON
+polygon, and the renderer picks out those covering its postcode's place (as MET does when asked for a `lat` and `lon`)
+and words them when it draws (`notices/norway.py`, `StoredMetAlertsSource`). So `provider-metalerts` reads
+`v1:sub:postcode` only to know whether any screen is in Norway (a four-digit postcode; it skips the UK's), asks
+MET nothing while none is, and needs no postcode's place:
+
+```json
+{"fetched_at": "2026-10-16T12:00:00+00:00",
+ "no": {"type": "FeatureCollection", "lang": "no", "lastChange": "...", "features": [{"geometry": {...}, "properties": {...}, "when": {...}}]},
+ "en": {"type": "FeatureCollection", "lang": "en", ...}}
+```
+
+`no` and `en` are MET's answers with `lang=no` and `lang=en`: a screen in Norwegian reads `no`, any other `en`. MET's
+[terms](https://api.met.no/doc/TermsOfService) want an identifying `User-Agent` (`MET_HEADERS`) and caching: the
+provider keeps each answer until its `Expires`, then asks again with `If-Modified-Since`, so an unchanged one costs a
+304: at most two requests every five minutes, however many screens there are. `fetched_at` is when MET last sent, or
+confirmed, the older of the two. If MET can't be reached the key is left as it was until its TTL runs out, and the
+board then keeps its last warnings for up to an hour. `tests/fixtures/metalerts_current.json` is an example, which
+the provider's and the renderer's tests both read; `metalerts_notices.json` is what the board showed from it when it
+still asked MET for its own place, which the stored value must still give.
+
+The renderers read the warnings only from the store, so a Norwegian board has none until `provider-metalerts` is
+running and the broker writes `v1:sub:postcode` (auth-broker #174). To check, on the host:
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 SMEMBERS v1:sub:postcode'   # a four-digit one
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:metalerts*"'
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 TTL v1:notices:metalerts'
+```
+
+`docker logs countdown-renderers-provider-metalerts-1` says why it's missing (`LOG_LEVEL=debug` also shows each answer:
+new or unchanged, how many warnings, and until when it's current).
+
 ## Running locally
 
 ```sh
@@ -264,11 +301,12 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL, weather, Entur, Met Office, bank holidays) are on: they're services in `../server/deploy/docker-compose.yml`,
-so every deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s
-`deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`)
-and `TFL_APP_KEY`; without the password the deploy fails rather than start them unauthenticated. They need the broker
-writing subscriptions (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking).
+This repository's providers (TfL, weather, Entur, Met Office, bank holidays, floods, MetAlerts) are on: they're services
+in `../server/deploy/docker-compose.yml`, so every deploy starts and upgrades them, and `--wait` fails the deploy if one
+won't stay up. `release.yml`'s `deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as
+auth-broker's `secrets/redis.env`) and `TFL_APP_KEY`; without the password the deploy fails rather than start them
+unauthenticated. They need the broker writing subscriptions (auth-broker) and Redis running on the host
+(`127.0.0.1:6379`, reached over host networking).
 auth-broker's providers (energy, music, developer) are switched on in auth-broker, and deployed with the broker.
 
 The renderers read the store: the orchestrator's `RENDERER_REDIS_URL` defaults to `redis://127.0.0.1:6379/0` in
