@@ -23,14 +23,18 @@ if TYPE_CHECKING:
 
 # Material Symbols glyphs
 ROCKET = chr(0xEB9B)
+# Bare glyphs, no circles round them: inside one the mark is too small to make out on the screen.
 ICONS: dict[JobState, str] = {
-    "done": chr(0xE86C),  # check_circle
-    "failed": chr(0xE5C9),  # cancel
+    "done": chr(0xE5CA),  # check
+    "failed": chr(0xE5CD),  # close
     "running": chr(0xE9D0),  # progress_activity
     "approve": chr(0xE764),  # back_hand: waiting for the owner's approval
-    "queued": chr(0xE836),  # radio_button_unchecked: not started yet
-    "skipped": chr(0xF08F),  # do_not_disturb_on
+    "queued": chr(0xE88B),  # hourglass_empty: not started yet
+    "skipped": chr(0xE15B),  # remove
 }
+# A triangular warning sign, drawn at the end of the boxes that need the owner.
+WARNING = chr(0xE002)  # warning
+ATTENTION: frozenset[JobState] = frozenset({"approve", "failed"})
 
 NODE_HEIGHT = 22
 NODE_GAP = 7  # between the jobs of a column
@@ -50,7 +54,6 @@ class Look:
     icon_size: int
     outline: int
     radius: int
-    filled: frozenset[JobState]  # drawn white on black: what needs the owner's eye
 
 
 def aside(release: Release, others: int, now: datetime) -> str:
@@ -189,24 +192,32 @@ def _draw_lines(
 
 
 def _box(d: ImageDraw.ImageDraw, job: ReleaseJob, at: tuple[float, float], width: float, look: Look) -> None:
-    """Draw a job's box: its state's icon, its name, and how many of its jobs are done if it's several."""
+    """Draw a job's box: its state's icon, its name, and how many of its jobs are done if it's several.
+
+    A finished job is a black box with white ink; the rest are white boxes, a running job's name in bold. The ones that
+    need the owner (waiting for approval, or failed) have a heavier outline and a warning sign at the end.
+    """
     x, y = at
-    filled = job.state in look.filled
+    filled = job.state == "done"
     ink = "white" if filled else "black"
     rect = (x, y, x + width, y + NODE_HEIGHT)
     if filled:
         d.rounded_rectangle(rect, look.radius, fill="black")
     else:
-        # Without filled boxes, the ones that need the owner's eye get a heavier outline instead.
-        outline = look.outline + (1 if job.state in {"approve", "failed"} and not look.filled else 0)
+        outline = look.outline + (1 if job.state in ATTENTION else 0)
         d.rounded_rectangle(rect, look.radius, fill="white", outline="black", width=outline)
     middle = y + NODE_HEIGHT / 2
-    d.text((x + 5, middle), ICONS[job.state], ink, resized(google_symbols(), look.icon_size), anchor="lm")
-    text_x = x + 7 + look.icon_size
-    room = x + width - 6 - text_x
+    symbols = google_symbols()
+    d.text((x + 5, middle), ICONS[job.state], ink, resized(symbols, look.icon_size), anchor="lm")
+    text_x = x + 8 + look.icon_size
+    end = x + width - 6
+    if job.state in ATTENTION:
+        d.text((end, middle), WARNING, ink, resized(symbols, look.icon_size), anchor="rm")
+        end -= look.icon_size + 3
+    room = end - text_x
     if job.total is not None:
         count = f"{job.done or 0}/{job.total}"
-        d.text((x + width - 6, middle + 1), count, ink, look.count, anchor="rm")
+        d.text((end, middle + 1), count, ink, look.count, anchor="rm")
         room -= look.count.getlength(count) + 4
     font = look.running if job.state == "running" else look.text
     d.text((text_x, middle + 1), truncate_to_fit(job.name, font, room), ink, font, anchor="lm")
@@ -217,6 +228,10 @@ def _title(release: Release) -> str:
 
 
 # --- airy: a small-caps label over a hairline, and hairline boxes ----------------------------
+
+
+def _airy_look() -> Look:
+    return Look(fitted_font(SANS, 12), fitted_font(SANS_SEMI, 12), fitted_font(SANS, 11), 17, 1, 4)
 
 
 def airy(release: Release, others: int, now: datetime, width: int, height: int) -> Image.Image:
@@ -233,16 +248,19 @@ def airy(release: Release, others: int, now: datetime, width: int, height: int) 
         anchor="rm",
     )
     d.line((0, 19, width, 19), fill="black")
-    look = Look(fitted_font(SANS, 12), fitted_font(SANS_SEMI, 12), fitted_font(SANS, 11), 13, 1, 4, frozenset())
-    graph(d, release, (0, 26, width - 1, height - 2), look)
+    graph(d, release, (0, 26, width - 1, height - 2), _airy_look())
     return img
 
 
-# --- hero: an icon header over a heavy rule, and what needs the owner in black ---------------
+# --- hero: an icon header over a heavy rule, and heavy boxes ---------------------------------
+
+
+def _hero_look() -> Look:
+    return Look(fitted_font(MEDIUM, 12), fitted_font(BOLD, 12), fitted_font(MEDIUM, 11), 18, 2, 5)
 
 
 def hero(release: Release, others: int, now: datetime, width: int, height: int) -> Image.Image:
-    """Draw the graph under an icon header naming the release, a job waiting for approval or failed in black."""
+    """Draw the graph under an icon header naming the release, a finished job in black."""
     img, d = _canvas(width, height)
     side = aside(release, others, now)
     side = truncate_to_fit(side, fitted_font(MEDIUM, 13), width * 0.5)
@@ -250,41 +268,28 @@ def hero(release: Release, others: int, now: datetime, width: int, height: int) 
         _title(release), fitted_font(SANS_SEMI, 17), width - 26 - fitted_font(MEDIUM, 13).getlength(side) - 16
     )
     _hero_header(d, 0, width, ROCKET, title, side)
-    look = Look(
-        fitted_font(MEDIUM, 12),
-        fitted_font(BOLD, 12),
-        fitted_font(MEDIUM, 11),
-        14,
-        2,
-        5,
-        frozenset({"approve", "failed"}),
-    )
-    graph(d, release, (0, 34, width - 1, height - 2), look)
+    graph(d, release, (0, 34, width - 1, height - 2), _hero_look())
     return img
 
 
 # --- card: a rounded card with a black title bar ---------------------------------------------
 
 
+def _card_look() -> Look:
+    return Look(fitted_font(SANS, 12), fitted_font(SANS_SEMI, 12), fitted_font(SANS, 11), 17, 1, 4)
+
+
 def card(release: Release, others: int, now: datetime, width: int, height: int) -> Image.Image:
-    """Draw the graph in a card whose title bar names the release, a job waiting for approval or failed in black."""
+    """Draw the graph in a card whose title bar names the release, a finished job in black."""
     img, d = _canvas(width, height)
     side = truncate_to_fit(aside(release, others, now), fitted_font(SANS_SEMI, 13), width * 0.5)
     room = width - 42 - fitted_font(SANS_SEMI, 13).getlength(side) - 16
     _card(d, 0, width, height, ROCKET, truncate_to_fit(_title(release), fitted_font(SANS_SEMI, 15), room), side)
-    look = Look(
-        fitted_font(SANS, 12),
-        fitted_font(SANS_SEMI, 12),
-        fitted_font(SANS, 11),
-        13,
-        1,
-        4,
-        frozenset({"approve", "failed"}),
-    )
-    graph(d, release, (10, CARD_BAR + 5, width - 11, height - 6), look)
+    graph(d, release, (10, CARD_BAR + 5, width - 11, height - 6), _card_look())
     return img
 
 
+LOOKS: dict[str, Callable[[], Look]] = {"airy": _airy_look, "hero": _hero_look, "card": _card_look}
 STYLES: dict[str, Callable[[Release, int, datetime, int, int], Image.Image]] = {
     "airy": airy,
     "hero": hero,
