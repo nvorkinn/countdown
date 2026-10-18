@@ -1,0 +1,437 @@
+{
+  "_comment": "One cycle of the floods provider at fetched_at: the EA's warnings in force (in_force, its /id/floods), and for each postcode postcodes.io's answer, the EA's flood areas within 5 km of it (/id/floodAreas?lat&long&dist) and the value the provider stores under v1:notices:floods:<place>. floods_notices.json is what the notice board showed for each postcode when it asked the EA itself (/id/floods?lat&long&dist), from the same warnings.",
+  "fetched_at": "2026-10-18T12:00:00Z",
+  "in_force": {
+    "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+    "meta": {
+      "publisher": "Environment Agency",
+      "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+      "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+      "version": "0.9",
+      "comment": "Status: Beta service"
+    },
+    "items": [
+      {
+        "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/062FWF46Southwrk",
+        "description": "River Thames at Southwark",
+        "eaAreaName": "Hertfordshire and North London",
+        "eaRegionName": "No longer used",
+        "floodArea": {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Southwrk",
+          "county": "Greater London",
+          "notation": "062FWF46Southwrk",
+          "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Southwrk/polygon",
+          "riverOrSea": "River Thames"
+        },
+        "floodAreaID": "062FWF46Southwrk",
+        "isTidal": true,
+        "severity": "Flood Warning",
+        "severityLevel": 2,
+        "timeMessageChanged": "2026-10-18T09:12:31",
+        "timeRaised": "2026-10-18T09:12:31",
+        "timeSeverityChanged": "2026-10-18T09:12:31",
+        "message": "Flooding is possible for River Thames at Southwark. Avoid riverside paths and check the EA's updates."
+      },
+      {
+        "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/051WAF23UpSevern",
+        "description": "Upper River Severn in Shropshire",
+        "eaAreaName": "West Midlands",
+        "eaRegionName": "No longer used",
+        "floodArea": {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/051WAF23UpSevern",
+          "county": "Shropshire",
+          "notation": "051WAF23UpSevern",
+          "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/051WAF23UpSevern/polygon",
+          "riverOrSea": "River Severn"
+        },
+        "floodAreaID": "051WAF23UpSevern",
+        "isTidal": false,
+        "severity": "Flood Alert",
+        "severityLevel": 3,
+        "timeMessageChanged": "2026-10-17T21:40:02",
+        "timeRaised": "2026-10-17T21:40:02",
+        "timeSeverityChanged": "2026-10-17T21:40:02",
+        "message": "Flooding is possible for Upper River Severn in Shropshire. Avoid riverside paths and check the EA's updates."
+      },
+      {
+        "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/062FWF46TidalThm",
+        "description": "Tidal Thames at Bankside and Rotherhithe",
+        "eaAreaName": "Hertfordshire and North London",
+        "eaRegionName": "No longer used",
+        "floodArea": {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46TidalThm",
+          "county": "Greater London",
+          "notation": "062FWF46TidalThm",
+          "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46TidalThm/polygon",
+          "riverOrSea": "Tidal Thames"
+        },
+        "floodAreaID": "062FWF46TidalThm",
+        "isTidal": true,
+        "severity": "Severe Flood Warning",
+        "severityLevel": 1,
+        "timeMessageChanged": "2026-10-18T10:58:44",
+        "timeRaised": "2026-10-18T10:58:44",
+        "timeSeverityChanged": "2026-10-18T10:58:44",
+        "message": "Flooding is possible for Tidal Thames at Bankside and Rotherhithe. Avoid riverside paths and check the EA's updates."
+      },
+      {
+        "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/122FWF706",
+        "description": "River Ouse at York city centre",
+        "eaAreaName": "Yorkshire",
+        "eaRegionName": "No longer used",
+        "floodArea": {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF706",
+          "county": "York",
+          "notation": "122FWF706",
+          "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF706/polygon",
+          "riverOrSea": "River Ouse"
+        },
+        "floodAreaID": "122FWF706",
+        "isTidal": false,
+        "severity": "Flood Warning",
+        "severityLevel": 2,
+        "timeMessageChanged": "2026-10-18T06:05:10",
+        "timeRaised": "2026-10-18T06:05:10",
+        "timeSeverityChanged": "2026-10-18T06:05:10",
+        "message": "Flooding is possible for River Ouse at York city centre. Avoid riverside paths and check the EA's updates."
+      },
+      {
+        "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/062WAF60LowEffra",
+        "description": "Lower River Effra",
+        "eaAreaName": "Kent and South London",
+        "eaRegionName": "No longer used",
+        "floodArea": {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF60LowEffra",
+          "county": "Greater London",
+          "notation": "062WAF60LowEffra",
+          "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF60LowEffra/polygon",
+          "riverOrSea": "River Effra"
+        },
+        "floodAreaID": "062WAF60LowEffra",
+        "isTidal": false,
+        "severity": "Flood Alert",
+        "severityLevel": 3,
+        "timeMessageChanged": "2026-10-18T08:30:00",
+        "timeRaised": "2026-10-18T08:30:00",
+        "timeSeverityChanged": "2026-10-18T08:30:00",
+        "message": "Flooding is possible for Lower River Effra. Avoid riverside paths and check the EA's updates."
+      },
+      {
+        "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/062FWF46Vauxhall",
+        "description": "River Thames at Vauxhall",
+        "eaAreaName": "Hertfordshire and North London",
+        "eaRegionName": "No longer used",
+        "floodArea": {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Vauxhall",
+          "county": "Greater London",
+          "notation": "062FWF46Vauxhall",
+          "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Vauxhall/polygon",
+          "riverOrSea": "River Thames"
+        },
+        "floodAreaID": "062FWF46Vauxhall",
+        "isTidal": true,
+        "severity": "Warning no Longer in Force",
+        "severityLevel": 4,
+        "timeMessageChanged": "2026-10-18T11:20:15",
+        "timeRaised": "2026-10-18T11:20:15",
+        "timeSeverityChanged": "2026-10-18T11:20:15"
+      },
+      {
+        "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/034FWF3LeicSoar",
+        "description": "River Soar at Leicester",
+        "eaAreaName": "East Midlands",
+        "eaRegionName": "No longer used",
+        "floodArea": {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/034FWF3LeicSoar",
+          "county": "Leicestershire",
+          "notation": "034FWF3LeicSoar",
+          "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/034FWF3LeicSoar/polygon",
+          "riverOrSea": "River Soar"
+        },
+        "floodAreaID": "034FWF3LeicSoar",
+        "isTidal": false,
+        "severity": "Flood Warning",
+        "severityLevel": 2,
+        "timeMessageChanged": "2026-10-18T07:45:51",
+        "timeRaised": "2026-10-18T07:45:51",
+        "timeSeverityChanged": "2026-10-18T07:45:51",
+        "message": "Flooding is possible for River Soar at Leicester. Avoid riverside paths and check the EA's updates."
+      },
+      {
+        "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/122WAF940",
+        "description": "River Foss in York",
+        "eaAreaName": "Yorkshire",
+        "eaRegionName": "No longer used",
+        "floodArea": {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122WAF940",
+          "county": "York",
+          "notation": "122WAF940",
+          "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122WAF940/polygon",
+          "riverOrSea": "River Foss"
+        },
+        "floodAreaID": "122WAF940",
+        "isTidal": false,
+        "severity": "Flood Alert",
+        "severityLevel": 3,
+        "timeMessageChanged": "2026-10-18T05:12:09",
+        "timeRaised": "2026-10-18T05:12:09",
+        "timeSeverityChanged": "2026-10-18T05:12:09",
+        "message": "Flooding is possible for River Foss in York. Avoid riverside paths and check the EA's updates."
+      }
+    ]
+  },
+  "places": {
+    "SE17 3LL": {
+      "postcodes_io": {
+        "status": 200,
+        "result": {
+          "postcode": "SE17 3LL",
+          "quality": 1,
+          "country": "England",
+          "longitude": -0.09766,
+          "latitude": 51.48873,
+          "region": "London",
+          "outcode": "SE17",
+          "incode": "3LL",
+          "admin_district": "Southwark",
+          "admin_county": null
+        }
+      },
+      "flood_areas": {
+        "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+        "meta": {
+          "publisher": "Environment Agency",
+          "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+          "version": "0.9",
+          "comment": "Status: Beta service",
+          "limit": 2000
+        },
+        "items": [
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Southwrk",
+            "county": "Greater London",
+            "description": "Areas near River Thames: River Thames at Southwark",
+            "eaAreaName": "Hertfordshire and North London",
+            "fwdCode": "062FWF46Southwrk",
+            "label": "River Thames at Southwark",
+            "lat": 51.5045,
+            "long": -0.0954,
+            "notation": "062FWF46Southwrk",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Southwrk/polygon",
+            "riverOrSea": "River Thames"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46TidalThm",
+            "county": "Greater London",
+            "description": "Areas near Tidal Thames: Tidal Thames at Bankside and Rotherhithe",
+            "eaAreaName": "Hertfordshire and North London",
+            "fwdCode": "062FWF46TidalThm",
+            "label": "Tidal Thames at Bankside and Rotherhithe",
+            "lat": 51.5021,
+            "long": -0.0721,
+            "notation": "062FWF46TidalThm",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46TidalThm/polygon",
+            "riverOrSea": "Tidal Thames"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF60LowEffra",
+            "county": "Greater London",
+            "description": "Areas near River Effra: Lower River Effra",
+            "eaAreaName": "Kent and South London",
+            "fwdCode": "062WAF60LowEffra",
+            "label": "Lower River Effra",
+            "lat": 51.4712,
+            "long": -0.1153,
+            "notation": "062WAF60LowEffra",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF60LowEffra/polygon",
+            "riverOrSea": "River Effra"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Vauxhall",
+            "county": "Greater London",
+            "description": "Areas near River Thames: River Thames at Vauxhall",
+            "eaAreaName": "Hertfordshire and North London",
+            "fwdCode": "062FWF46Vauxhall",
+            "label": "River Thames at Vauxhall",
+            "lat": 51.4861,
+            "long": -0.1251,
+            "notation": "062FWF46Vauxhall",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062FWF46Vauxhall/polygon",
+            "riverOrSea": "River Thames"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF28PeckRiv",
+            "county": "Greater London",
+            "description": "Areas near River Peck: River Peck at Peckham Rye",
+            "eaAreaName": "Kent and South London",
+            "fwdCode": "062WAF28PeckRiv",
+            "label": "River Peck at Peckham Rye",
+            "lat": 51.4598,
+            "long": -0.0702,
+            "notation": "062WAF28PeckRiv",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/062WAF28PeckRiv/polygon",
+            "riverOrSea": "River Peck"
+          }
+        ]
+      },
+      "stored": {
+        "fetched_at": "2026-10-18T12:00:00Z",
+        "postcode": "SE17 3LL",
+        "floods": {
+          "items": [
+            {
+              "description": "River Thames at Southwark",
+              "severity": "Flood Warning",
+              "severityLevel": 2,
+              "floodAreaID": "062FWF46Southwrk"
+            },
+            {
+              "description": "Tidal Thames at Bankside and Rotherhithe",
+              "severity": "Severe Flood Warning",
+              "severityLevel": 1,
+              "floodAreaID": "062FWF46TidalThm"
+            },
+            {
+              "description": "Lower River Effra",
+              "severity": "Flood Alert",
+              "severityLevel": 3,
+              "floodAreaID": "062WAF60LowEffra"
+            },
+            {
+              "description": "River Thames at Vauxhall",
+              "severity": "Warning no Longer in Force",
+              "severityLevel": 4,
+              "floodAreaID": "062FWF46Vauxhall"
+            }
+          ]
+        }
+      }
+    },
+    "YO1 7HH": {
+      "postcodes_io": {
+        "status": 200,
+        "result": {
+          "postcode": "YO1 7HH",
+          "quality": 1,
+          "country": "England",
+          "longitude": -1.08273,
+          "latitude": 53.96197,
+          "region": "Yorkshire and The Humber",
+          "outcode": "YO1",
+          "incode": "7HH",
+          "admin_district": "York",
+          "admin_county": null
+        }
+      },
+      "flood_areas": {
+        "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+        "meta": {
+          "publisher": "Environment Agency",
+          "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+          "version": "0.9",
+          "comment": "Status: Beta service",
+          "limit": 2000
+        },
+        "items": [
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF706",
+            "county": "York",
+            "description": "Areas near River Ouse: River Ouse at York city centre",
+            "eaAreaName": "Yorkshire",
+            "fwdCode": "122FWF706",
+            "label": "River Ouse at York city centre",
+            "lat": 53.9578,
+            "long": -1.0832,
+            "notation": "122FWF706",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF706/polygon",
+            "riverOrSea": "River Ouse"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122WAF940",
+            "county": "York",
+            "description": "Areas near River Foss: River Foss in York",
+            "eaAreaName": "Yorkshire",
+            "fwdCode": "122WAF940",
+            "label": "River Foss in York",
+            "lat": 53.9662,
+            "long": -1.0711,
+            "notation": "122WAF940",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122WAF940/polygon",
+            "riverOrSea": "River Foss"
+          },
+          {
+            "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF707",
+            "county": "York",
+            "description": "Areas near River Ouse: River Ouse at Clifton",
+            "eaAreaName": "Yorkshire",
+            "fwdCode": "122FWF707",
+            "label": "River Ouse at Clifton",
+            "lat": 53.9741,
+            "long": -1.0989,
+            "notation": "122FWF707",
+            "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/122FWF707/polygon",
+            "riverOrSea": "River Ouse"
+          }
+        ]
+      },
+      "stored": {
+        "fetched_at": "2026-10-18T12:00:00Z",
+        "postcode": "YO1 7HH",
+        "floods": {
+          "items": [
+            {
+              "description": "River Ouse at York city centre",
+              "severity": "Flood Warning",
+              "severityLevel": 2,
+              "floodAreaID": "122FWF706"
+            },
+            {
+              "description": "River Foss in York",
+              "severity": "Flood Alert",
+              "severityLevel": 3,
+              "floodAreaID": "122WAF940"
+            }
+          ]
+        }
+      }
+    },
+    "CF10 1EP": {
+      "postcodes_io": {
+        "status": 200,
+        "result": {
+          "postcode": "CF10 1EP",
+          "quality": 1,
+          "country": "Wales",
+          "longitude": -3.17909,
+          "latitude": 51.48177,
+          "region": null,
+          "outcode": "CF10",
+          "incode": "1EP",
+          "admin_district": "Cardiff",
+          "admin_county": null
+        }
+      },
+      "flood_areas": {
+        "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+        "meta": {
+          "publisher": "Environment Agency",
+          "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+          "version": "0.9",
+          "comment": "Status: Beta service",
+          "limit": 2000
+        },
+        "items": []
+      },
+      "stored": {
+        "fetched_at": "2026-10-18T12:00:00Z",
+        "postcode": "CF10 1EP",
+        "floods": {
+          "items": []
+        }
+      }
+    }
+  }
+}

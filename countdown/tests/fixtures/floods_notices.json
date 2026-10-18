@@ -1,0 +1,89 @@
+{
+  "_comment": "What the notice board showed for each postcode in floods.json when it asked the EA itself (FloodWarningsSource, /id/floods?lat&long&dist, answered with floods.json's warnings for the flood areas near it), in each language. The notices from the stored value must be the same.",
+  "SE17 3LL": {
+    "en": [
+      {
+        "source": "Floods",
+        "severity": "WARNING",
+        "text": "Flood warning: River Thames at Southwark",
+        "valid_until": null,
+        "display_time": null
+      },
+      {
+        "source": "Floods",
+        "severity": "SEVERE",
+        "text": "Severe flood warning: Tidal Thames at Bankside and Rotherhithe",
+        "valid_until": null,
+        "display_time": null
+      },
+      {
+        "source": "Floods",
+        "severity": "INFO",
+        "text": "Flood alert: Lower River Effra",
+        "valid_until": null,
+        "display_time": null
+      }
+    ],
+    "nb": [
+      {
+        "source": "Flom",
+        "severity": "WARNING",
+        "text": "Flomfare: River Thames at Southwark",
+        "valid_until": null,
+        "display_time": null
+      },
+      {
+        "source": "Flom",
+        "severity": "SEVERE",
+        "text": "Alvorlig flomfare: Tidal Thames at Bankside and Rotherhithe",
+        "valid_until": null,
+        "display_time": null
+      },
+      {
+        "source": "Flom",
+        "severity": "INFO",
+        "text": "Flomvarsel: Lower River Effra",
+        "valid_until": null,
+        "display_time": null
+      }
+    ]
+  },
+  "YO1 7HH": {
+    "en": [
+      {
+        "source": "Floods",
+        "severity": "WARNING",
+        "text": "Flood warning: River Ouse at York city centre",
+        "valid_until": null,
+        "display_time": null
+      },
+      {
+        "source": "Floods",
+        "severity": "INFO",
+        "text": "Flood alert: River Foss in York",
+        "valid_until": null,
+        "display_time": null
+      }
+    ],
+    "nb": [
+      {
+        "source": "Flom",
+        "severity": "WARNING",
+        "text": "Flomfare: River Ouse at York city centre",
+        "valid_until": null,
+        "display_time": null
+      },
+      {
+        "source": "Flom",
+        "severity": "INFO",
+        "text": "Flomvarsel: River Foss in York",
+        "valid_until": null,
+        "display_time": null
+      }
+    ]
+  },
+  "CF10 1EP": {
+    "en": [],
+    "nb": []
+  }
+}
