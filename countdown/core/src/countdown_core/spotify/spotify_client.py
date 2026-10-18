@@ -4,11 +4,15 @@ It shows Spotify, Apple Music, or both: Spotify while it's playing, else what wa
 their top lists taking turns.
 
 They're read from the store, from what auth-broker's music provider wrote there (countdown_core.store.music) with the
-broker's own tokens, so this renderer never calls the services or the broker for them.
+broker's own tokens, so this renderer never calls the services or the broker for them. The playing track's cover too:
+the provider stores the image (keys.album_art), so the renderer never calls the services' image hosts either.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+from redis.exceptions import RedisError
 
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.style import normalise, panel_style
@@ -17,7 +21,7 @@ from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_core.store import keys, reader
-from countdown_core.store.music import StoredPlayer, StoredTop, TopLists
+from countdown_core.store.music import StoredPlayer, StoredTop, TopLists, art_image
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -25,9 +29,11 @@ if TYPE_CHECKING:
     from countdown_api.models import ConfigResponse
     from countdown_core.core.panel import Panel
     from countdown_core.core.style import Style
-    from countdown_core.spotify.models import Queue
+    from countdown_core.spotify.models import Album, Queue
     from countdown_core.spotify.spotify_styles import Labels
     from countdown_credentials.registration import Registration
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -126,6 +132,8 @@ class SpotifyClient(AbstractClient):
         """
         super().__init__(registration, config)
         self.store = reader.require_store()
+        # The covers are image files, which the store's own client can't hand back (it decodes values as text).
+        self.art_store = reader.binary_store()
         self.device_id = reader.device_id(registration)
         self.page = -1
         self.pages = pages(config.services)
@@ -157,8 +165,27 @@ class SpotifyClient(AbstractClient):
         for service in self.config.services:
             queue = _stored_queue(stored, service)
             if queue.currently_playing is not None:
-                return SpotifyPanel(queue, self.style, service.labels)
+                return SpotifyPanel(queue, self.style, service.labels, self._read_art(queue.currently_playing.album))
         return None
+
+    def _read_art(self, album: Album) -> bytes | None:
+        """Return the album's cover from the store, the image file's bytes; None if there's none to draw.
+
+        None for a track with no cover (a local file), and for a cover the store hasn't got (the provider couldn't
+        fetch it, or Redis evicted it) or couldn't hand over: the page is then drawn without one, not left undrawn.
+        """
+        image = art_image(album)
+        if image is None or self.art_store is None:
+            return None
+        key = keys.album_art(image.url)
+        try:
+            art = self.art_store.get(key)
+        except RedisError as e:
+            logger.warning("Couldn't read the cover %s from the store (%s); drawing the player without it", key, e)
+            return None
+        if art is None:
+            logger.info("No cover in the store under %s; drawing the player without it", key)
+        return art
 
     def update_top(self, page: Page) -> Panel | None:
         """Read the page's service's top five tracks and artists over its period; None if both are empty.

@@ -41,6 +41,7 @@ countdown-core so the providers and renderers share them.
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages), one per place however many screens show it; see [Weather](#weather) |
 | `v1:energy:<device id>` | string, TTL ~1 h | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
 | `v1:spotify:<device id>` | string, TTL 3 min | auth-broker's `spotify-provider`, every minute | `StoredPlayer` JSON (`store/music.py`): each service's queue, as the broker's `/queue` route answers it |
+| `v1:art:<sha1 of the image URL>` | string of raw bytes, TTL 5 min, renewed every minute while a `v1:spotify:` key shows it | auth-broker's `spotify-provider`, before the player key that shows it | the playing track's cover, the image file as its host served it (a JPEG of about 30 KB); one per image, shared by every screen showing it; see [Covers](#covers) |
 | `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): `github`, the GitHub summary (pull requests, builds, releases with their jobs), null until the owner gives a token, and `plans`, the AI plans; the broker has no route for the panel, so this key is the renderer's only source |
 | `v1:pace:<source>:<id>` | integer string, TTL ~1 min | any provider that has bursty data (the developer provider, per device, while a release runs) | the seconds it wants the screen to refresh at; renderers take the fastest of those they watch, see the renderer's README, "The pace" |
 | `v1:spotify-top:<device id>` | string, TTL 2 h | auth-broker's `spotify-provider`, every 30 min | `StoredTop` JSON (`store/music.py`): each service's top tracks and artists by time range |
@@ -76,6 +77,23 @@ quay it leaves from); a quay's own code is its `stop_letter`. TfL leaves them un
 Failures stay small: a batch whose fetch raises is logged and skipped (its keys expire if it keeps failing), an id the
 provider couldn't fetch is just left out, and an unreachable Redis is logged and retried on the next tick. A missed
 nudge only delays a change until the next tick, as every cycle re-reads the subscriptions.
+
+### Covers
+
+The playing track's cover is in the store too, as the image itself, so the renderer never calls Spotify's or Apple's
+image hosts: `v1:art:<sha1 of its URL>` (`keys.album_art`), keyed by image rather than device, so every screen showing
+the same album reads one copy. Of the album's `images`, the provider stores the smallest at least 120 px tall (the
+Spotify area's height in every layout), else the tallest: Spotify's 300 px, and the one 300 px image the broker asks
+Apple Music for. The renderer finds the key the same way (`store/music.py`'s `art_image`, with the URL exactly as the
+service wrote it) and scales the image down to the style's size.
+
+The value is the file's raw bytes, not JSON or base64 (which would take a third more of Redis's 128 MB), so it's read
+with a client that doesn't decode values (`reader.binary_store()`; `reader.store()` decodes every value as text). The
+provider writes it before the player key that shows it, and renews its TTL each minute it's still shown rather than
+fetching it again, so it outlives that key; a cover nothing shows lapses within five minutes. A cover that isn't
+there (its fetch failed, or Redis evicted it) or won't open draws the page without one, as for a local file: it never
+fails the panel. `tests/fixtures/music_art.json` is the keys stored for `music_player.json`, each holding
+`music_art.jpg` in the tests, in both repositories; auth-broker's README ("Music in the store") has the sizes.
 
 ### Energy
 
@@ -351,12 +369,12 @@ the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to e
 `REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change to the store they read counts
 as an upgrade, like a new image. The renderers read TfL's and Entur's departures (`v1:departures:<stop>`), the weather
 (`v1:weather:<key>`, by the config's `weather.key`), the energy readings (`v1:energy:<device id>`, from auth-broker's
-`glow-provider`) and the Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
-the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; of the
-notice board's sources, the Met Office's warnings (`v1:notices:met-office:<place>`), the bank holidays
-(`v1:notices:bank-holidays`), the Environment Agency's flood warnings (`v1:notices:floods:<place>`) and TfL's
-disruptions (`v1:notices:tfl-*`, from `provider-tfl-notices`) come from the store, and the rest still straight from
-their APIs. So each provider must be running for its panels to have anything to draw.
+`glow-provider`) and the Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, and the covers,
+`v1:art:<sha1>`, from auth-broker's `spotify-provider`) only from the store, and the developer panel
+(`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; of the notice board's sources, the Met
+Office's warnings (`v1:notices:met-office:<place>`), the bank holidays (`v1:notices:bank-holidays`), the Environment
+Agency's flood warnings (`v1:notices:floods:<place>`) and TfL's disruptions (`v1:notices:tfl-*`, from `provider-tfl-notices`) come from the store, and the rest still straight
+from their APIs. So each provider must be running for its panels to have anything to draw.
 
 The notice providers need auth-broker's postcode subscriptions (`v1:sub:postcode`) deployed first; see [Weather
 warnings](#weather-warnings), [Flood warnings](#flood-warnings) and [TfL notices](#tfl-notices) for how to check their
