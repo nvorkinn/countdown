@@ -1,7 +1,9 @@
 """The weather provider against mocked Open-Meteo (responses), and its stored forecast's round trip through JSON."""
 
 import asyncio
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import fakeredis
@@ -53,10 +55,31 @@ def calls_to(url: str) -> int:
 
 @pytest.mark.parametrize(
     ("location", "expected"),
-    [(LONDON, 2643743), ("saint-john-ca-6138517", 6138517), ("london", None), ("sw1a-1aa", None), ("", None)],
+    [
+        (LONDON, 2643743),
+        ("saint-john-ca-6138517", 6138517),
+        ("gb-2643743", 2643743),  # a place whose name has no ASCII slug
+        ("london", None),
+        ("sw1a-1aa", None),
+        ("", None),
+        # Slugs of typed text that end in a number, with no country before it: names, not GeoNames ids.
+        ("0150", None),
+        ("oslo-0150", None),
+        ("route-66", None),
+        ("london-gb-2643743-x", None),
+    ],
 )
 def test_place_id_of_takes_the_trailing_geonames_id(location, expected):
     assert place_id_of(location) == expected
+
+
+# The keys auth-broker's weather_place.weather_key() makes: its tests read the same file.
+WEATHER_KEYS = json.loads((Path(__file__).parent / "fixtures" / "weather_keys.json").read_text())["keys"]
+
+
+@pytest.mark.parametrize("example", WEATHER_KEYS, ids=[example["key"] for example in WEATHER_KEYS])
+def test_place_id_of_reads_the_keys_the_broker_makes(example):
+    assert place_id_of(example["key"]) == example["place_id"]
 
 
 @responses.activate
@@ -109,6 +132,20 @@ def test_a_key_without_an_id_is_geocoded_by_name():
     results = asyncio.run(make_provider().fetch(["tromso"]))
     assert list(results) == ["tromso"]
     assert forecast_points() == [(69.6489, 18.95508)]
+
+
+@responses.activate
+def test_a_slug_ending_in_a_number_is_geocoded_by_name_not_looked_up_by_id():
+    responses.add(
+        responses.GET,
+        GEOCODING_URL,
+        json={"results": [{"name": "Oslo", "latitude": 59.91, "longitude": 10.75}]},
+        match=[matchers.query_param_matcher({"name": "oslo 0150", "count": "1", "format": "json"})],
+    )
+    add_forecast()
+    assert list(asyncio.run(make_provider().fetch(["oslo-0150"]))) == ["oslo-0150"]
+    assert calls_to(PLACE_URL) == 0
+    assert forecast_points() == [(59.91, 10.75)]
 
 
 @responses.activate
