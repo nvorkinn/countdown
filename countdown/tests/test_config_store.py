@@ -71,8 +71,8 @@ def test_the_stored_config_is_a_config_the_contract_allows():
 
     assert config.device_id == DEVICE_ID
     assert config.pairing_code is None
-    # Its secrets are left out, and the renderer doesn't use them: the providers call TfL and Open-Meteo.
-    assert (config.tfl.app_key, config.weather.api_key) == ("", "")
+    # Its secret is left out, and the renderer doesn't use it: the providers call Open-Meteo. (TfL's key is gone.)
+    assert config.weather.api_key == ""
     assert config.weather.key == "london-gb-2643743"
     assert [stop.id for stop in config.departures.stops] == ["490000077E", "940GZZLUOVL", "NSR:StopPlace:58381"]
 

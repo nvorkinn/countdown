@@ -2,9 +2,9 @@
 
 The broker keeps its database as the source of truth and writes each screen's config to `v1:config:<device id>`
 (keys.config): exactly what GET /api/config answers that device, the contract's ConfigResponse, less its secrets (the
-API keys empty, no pairing code), with no TTL. It rewrites it on every config save and as it starts, then publishes
-the device's id on `v1:config:changed` (keys.CONFIG_CHANGED). So a renderer reads its config here, needs the broker
-only when there's nothing here (read() gives None: an older broker, or a pairing code to show, which only
+weather API key empty, no pairing code), with no TTL. It rewrites it on every config save and as it starts, then
+publishes the device's id on `v1:config:changed` (keys.CONFIG_CHANGED). So a renderer reads its config here, needs
+the broker only when there's nothing here (read() gives None: an older broker, or a pairing code to show, which only
 GET /api/config gives), and redraws as soon as its owner saves (ConfigWatcher).
 
 The value is self-contained: a fresh process can draw the screen from it and the providers' keys alone.

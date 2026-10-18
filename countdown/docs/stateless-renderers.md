@@ -258,8 +258,9 @@ the next frame is handed off whatever it is.
 
 ### Identity
 
-After config-in-store, the only call a renderer makes to the broker is `PUT /api/frame`. That's the only thing a
-pool's identity question is about:
+After config-in-store, the only call a renderer makes to the broker is `PUT /api/frame` (and `GET /api/config` while
+its screen has a pairing code to show: the store's copy never carries one, so the broker keeps no copy for that
+screen meanwhile). That's the only thing a pool's identity question is about:
 
 1. **Hand frames over through Redis.** The worker writes `v1:frame:<device id>` (the 48,000 bytes, with its ETag,
    pace and `rendered_at`), and the broker's `GET` and `POST /api/frame` read it there, falling back to the SQLite
@@ -487,6 +488,8 @@ The loop wakes on the nudge.
 6. **Screen-fetch timing (step 7):** worth a Redis write on every poll in the broker? Or is the clock enough?
 7. **The host:** what CPU does the renderers' host have, and how many screens should this plan for in a year? The
    capacity numbers come from an x86 sandbox.
-8. **The config nudge:** which channel will `v1:config:<device>` publish on? The workers subscribe to it.
+8. **The config nudge:** which channel will `v1:config:<device>` publish on? The workers subscribe to it. (Answered
+   by config-in-store: `v1:config:changed`, `keys.CONFIG_CHANGED`, with the device id as the payload, published only
+   for the devices whose key changed.)
 9. **Bursts:** should the developer provider nudge the screen when a release starts, so the fast refresh begins
    within seconds rather than at the next 60-s poll?

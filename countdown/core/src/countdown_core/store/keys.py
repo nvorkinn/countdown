@@ -10,10 +10,10 @@ Subscriptions (written by the broker, read by the providers):
   providers needn't wait for their next tick.
 
 Configs (written by the broker, read by the renderers): `v1:config:<device id>` holds what GET /api/config answers the
-device (the contract's ConfigResponse, without its API keys or a pairing code), with no TTL: the broker rewrites it from
-its database on every config save and as it starts. A missing key means the renderer asks GET /api/config instead (an
-older broker, or a pairing code to show). `v1:config:changed` is the channel the broker publishes a device's id on after
-changing its key. See `config`.
+device (the contract's ConfigResponse, less its secrets: no weather API key, no pairing code), with no TTL: the broker
+rewrites it from its database on every config save and as it starts. A missing key means the renderer asks
+GET /api/config instead (an older broker, or a pairing code to show). `v1:config:changed` is the channel the broker
+publishes a device's id on after changing its key. See `config`.
 
 Data (written by the providers with a TTL, read by the renderers): one key per thing, holding the JSON of a
 countdown_core.store.models model. A missing key means its provider is down (or hasn't got to it yet).

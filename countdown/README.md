@@ -53,8 +53,8 @@ changed, or at the latest when the cycle's interval is up.
 
 The screen's config is in the store: auth-broker keeps its database as the source of truth, and writes each screen's
 config to `v1:config:<device id>` (`store/keys.py`'s `config`) on every config save and as it starts. The value is
-exactly what `GET /api/config` answers the device, the contract's `ConfigResponse`, less its secrets (`tfl.app_key`
-and `weather.api_key` empty, which the renderer doesn't use, and no `pairing_code`), so the renderer reads it with the
+exactly what `GET /api/config` answers the device, the contract's `ConfigResponse`, less its secrets
+(`weather.api_key` empty, which the renderer doesn't use, and no `pairing_code`), so the renderer reads it with the
 same model (`store/config.py`'s `read`, through `BrokerClient.get_config`). It's self-contained: a fresh process can
 draw the screen from it and the providers' keys alone. `tests/fixtures/config_store.json` pins it, the same file as
 auth-broker's tests read.
