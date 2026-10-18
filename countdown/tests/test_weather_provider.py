@@ -156,7 +156,8 @@ def test_a_place_open_meteo_cant_find_is_left_out_and_asked_again_next_time(capl
     assert asyncio.run(provider.fetch(["nowhere-at-all"])) == {}
     assert calls_to(GEOCODING_URL) == 2
     assert calls_to(FORECAST_URL) == 0
-    assert "can't find a place for 'nowhere-at-all'" in caplog.text
+    assert "Open-Meteo can't find a subscribed place, so it has no weather" in caplog.messages
+    assert "nowhere" not in caplog.text  # a place says where a screen is
 
 
 @responses.activate
@@ -172,7 +173,8 @@ def test_one_failing_place_doesnt_lose_the_rest_of_the_batch(caplog):
     add_forecast()
     results = asyncio.run(make_provider().fetch(["atlantis-xx-999", OSLO]))
     assert list(results) == [OSLO]
-    assert "Couldn't fetch the weather for atlantis-xx-999" in caplog.text
+    assert "Couldn't fetch the weather for a subscribed place: HTTPError 400" in caplog.messages
+    assert "atlantis" not in caplog.text  # a place says where a screen is
 
 
 @responses.activate

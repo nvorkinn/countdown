@@ -7,6 +7,11 @@ instead. Only a number after a two-letter country is an id, so a slug that ends 
 
 It uses countdown_core.weather.open_meteo's HTTP calls, which are synchronous (requests), so each batch runs in
 a worker thread (asyncio.to_thread), like the TfL provider.
+
+A location key says where a screen is (a town, or typed text, which can be a postcode), and the logs go to the central
+log store, so nothing logged here names one, nor a URL with its name or coordinates in it: a failure is logged by its
+reason (log_format.error_reason). Which places have no forecast is in Redis: the keys in `v1:sub:weather` without a
+`v1:weather:` key.
 """
 
 import asyncio
@@ -16,7 +21,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from countdown_core.core.abstract_client import AbstractClient
-from countdown_core.core.log_format import configure_logging
+from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.store import keys
 from countdown_core.store.models import StoredForecast
 from countdown_core.weather.open_meteo import fetch_forecast, geocode, place_coordinates
@@ -73,7 +78,7 @@ class WeatherProvider:
             try:
                 forecast = self._fetch_place(location)
             except Exception as e:  # noqa: BLE001 -- one bad place mustn't lose the rest of the batch
-                logger.warning("Couldn't fetch the weather for %s: %s", location, e)
+                logger.warning("Couldn't fetch the weather for a subscribed place: %s", error_reason(e))
                 continue
             if forecast is not None:
                 results[location] = forecast
@@ -82,7 +87,7 @@ class WeatherProvider:
     def _fetch_place(self, location: str) -> StoredForecast | None:
         coordinates = self._coordinates(location)
         if coordinates is None:
-            logger.warning("Open-Meteo can't find a place for %r", location)
+            logger.warning("Open-Meteo can't find a subscribed place, so it has no weather")
             return None
         fetched_at = self.now()
         forecast = fetch_forecast(self.session, *coordinates)

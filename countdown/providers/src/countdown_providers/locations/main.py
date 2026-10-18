@@ -16,7 +16,8 @@ it (a terminated postcode) or Kartverket answers with nothing for a while.
 
 Nothing logged names a postcode or anything worked out from one (its country, district or coordinates, or a URL with
 it in): a postcode says where a screen, and someone's home, is, and the logs go to the central log store. A failure is
-logged by the error's type, and urllib3's retry warnings, which quote the URL, are kept out.
+logged by the error's type (log_format.error_reason), and urllib3's retry warnings, which quote the URL, are kept out
+of every process's logs (log_format.configure_logging).
 
 The lookups are synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread).
 """
@@ -27,10 +28,8 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-import requests
-
 from countdown_core.core.abstract_client import AbstractClient
-from countdown_core.core.log_format import configure_logging
+from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.notices.location import FULL_POSTCODE, lookup_postcode
 from countdown_core.notices.norway import lookup_norwegian_postcode
 from countdown_core.store import keys
@@ -41,6 +40,8 @@ from countdown_providers.runner import serve
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import requests
+
     from countdown_core.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
@@ -49,13 +50,6 @@ logger = logging.getLogger(__name__)
 NORWEGIAN_POSTCODE = re.compile(r"[0-9]{4}")
 # How long a lookup's answer is used before the postcode is asked about again.
 LOOKUP_EVERY = timedelta(days=1)
-
-
-def _reason(e: Exception) -> str:
-    """Say what went wrong without the error's own text, which for a failed request quotes its URL, postcode and all."""
-    if isinstance(e, requests.HTTPError) and e.response is not None:
-        return f"{type(e).__name__} {e.response.status_code}"
-    return type(e).__name__
 
 
 class LocationsProvider:
@@ -103,7 +97,7 @@ class LocationsProvider:
         try:
             place = self._look_up(postcode)
         except Exception as e:  # noqa: BLE001 -- one postcode mustn't lose the batch; it's tried again next cycle
-            logger.warning("Couldn't look up a postcode: %s", _reason(e))
+            logger.warning("Couldn't look up a postcode: %s", error_reason(e))
             return last
         if place is None and last is not None and last.found:
             logger.warning("A postcode that was found before isn't found now; keeping where it was")
@@ -124,18 +118,9 @@ class LocationsProvider:
         return None  # neither shape: the broker subscribes only those, so nobody could know it
 
 
-def configure_provider_logging() -> None:
-    """Log as every provider does, less urllib3's warnings: each retry's quotes its URL, which has the postcode in it.
-
-    urllib3 logs nothing above a warning, and a lookup that fails for good is logged here, by the error's type.
-    """
-    configure_logging()
-    logging.getLogger("urllib3").setLevel(logging.ERROR)
-
-
 def main() -> None:
     """Run the `countdown-provider-locations` console script. postcodes.io and Kartverket are keyless."""
-    configure_provider_logging()
+    configure_logging()
     # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
     session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
     asyncio.run(serve(LocationsProvider(session), Settings.from_env()))
