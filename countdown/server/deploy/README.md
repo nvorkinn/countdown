@@ -61,7 +61,8 @@ Set up once, in the repo's Settings:
 ## Providers
 
 The compose file also has a service per provider (`provider-tfl`, `provider-tfl-notices`, `provider-entur`,
-`provider-weather`), which every deploy starts and upgrades. They need the repo secrets `REDIS_PASSWORD` and `TFL_APP_KEY`. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
+`provider-weather`, `provider-met-office`), which every deploy starts and upgrades. They need the repo secrets
+`REDIS_PASSWORD` and `TFL_APP_KEY`. See [`../../providers/README.md`](../../providers/README.md#enabling-in-production).
 
 ## Day to day
 

@@ -18,7 +18,7 @@ from countdown_core.notices.calendar import (
 )
 from countdown_core.notices.floods import FLOODS_URL, FloodWarningsSource
 from countdown_core.notices.location import POSTCODES_URL
-from countdown_core.notices.met_office import MetOfficeWarningsSource, parse_warnings, region_for
+from countdown_core.notices.met_office import StoredMetOfficeWarningsSource, region_for, warning_notices
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
@@ -26,6 +26,7 @@ from countdown_core.notices.notice_styles import STYLES
 from countdown_core.notices.tfl import StoredTflRoadSource
 from countdown_core.tfl.models import Postcode
 from countdown_core.utils.clock import format_clock
+from countdown_providers.met_office.main import feed_items
 
 NOW = datetime(2026, 9, 25, 12, 0, tzinfo=UTC)
 SOUTHWARK = Postcode(
@@ -45,6 +46,12 @@ def api():
 
 
 # --- Met Office ------------------------------------------------------------------
+
+
+def parse_warnings(feed: bytes, now: datetime) -> list[Notice]:
+    """Return the notices the board makes, as of `now`, from `feed` as provider-met-office stores it."""
+    return warning_notices(feed_items(feed), now)
+
 
 AMBER_AND_YELLOW = b"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel>
@@ -186,16 +193,6 @@ def test_met_office_logs_the_area_not_the_postcode_when_it_has_no_region(caplog)
         region_for(location)
 
     assert caplog.messages == ["No Met Office warning region for Somewhere New; using the whole UK"]
-
-
-def test_met_office_source_fetches_its_region(api):
-    api.add(
-        responses.GET, "https://www.metoffice.gov.uk/public/data/PWSCache/WarningsRSS/Region/se", body=AMBER_AND_YELLOW
-    )
-
-    notices = MetOfficeWarningsSource(requests.Session(), SOUTHWARK).fetch(NOW)
-
-    assert len(notices) == 3
 
 
 # --- Floods ----------------------------------------------------------------------
@@ -465,7 +462,7 @@ def test_board_adds_local_sources_once_the_postcode_is_found(api, clock):
     assert [type(s) for s in client.sources] == [
         ClockChangeSource,
         BankHolidaySource,
-        MetOfficeWarningsSource,
+        StoredMetOfficeWarningsSource,
         FloodWarningsSource,
         StoredTflRoadSource,
     ]
