@@ -8,6 +8,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 GAP = 5  # between panels, and between them and the screen's edge
+# Between the weather and the arrivals, whose edges would otherwise read as one block.
+WEATHER_GAP = 3 * GAP
 # The width the full-screen pictures (pairing code, nothing to show) are sized for.
 DESIGN_WIDTH = 800
 

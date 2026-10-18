@@ -93,7 +93,7 @@ def test_portrait_arrivals_are_the_volatile_part():
     for layout in (SpotifyPortraitLayout(), BasePortraitLayout()):
         frame = layout.render(panels, PORTRAIT)
         assert frame.image.size == PORTRAIT.size
-        assert frame.volatile == (5, 280, 475, 280 + layout.ARRIVALS_HEIGHT)
+        assert frame.volatile == (5, 290, 475, 290 + layout.ARRIVALS_HEIGHT)
 
 
 def _notices(count: int) -> NoticeBoardPanel:

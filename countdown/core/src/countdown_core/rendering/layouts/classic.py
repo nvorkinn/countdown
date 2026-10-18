@@ -12,7 +12,7 @@ from countdown_core.core.api_registry import ClientClasses
 from countdown_core.rendering.layout import Box, Frame, Layout
 from countdown_core.rendering.screen import Canvas
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
-from countdown_core.utils.utils import GAP
+from countdown_core.utils.utils import GAP, WEATHER_GAP
 
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
@@ -99,7 +99,7 @@ class ClassicLayout(Layout):
         arrivals = self._place(img, arrival_panel, (x, y), (arrivals_width, height), clock_format=clock_format)
         arrivals_box = (x, y, x + arrivals.size[0], y + arrivals.size[1])
 
-        weather_x = arrivals_box[2] + GAP
+        weather_x = arrivals_box[2] + WEATHER_GAP
         weather_height = self.ARRIVALS_HEIGHT if self.SHOWS_ENERGY else height
         weather_panel = panels[ClientClasses.WEATHER.api_name]
         self._place(
