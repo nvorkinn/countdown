@@ -219,6 +219,8 @@ class Outcode(BaseModel):
 
     latitude: float
     longitude: float
+    # Every country the district is in (one across a border is in two).
+    country: list[str] = []
 
 
 class OutcodeResponse(BaseModel):

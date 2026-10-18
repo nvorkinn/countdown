@@ -3,7 +3,14 @@
 Location keys come from the broker's place picker: `<name>-<country>-<GeoNames id>`, e.g. `london-gb-2643743`, so the
 id, last, finds the place exactly (Open-Meteo's get-by-id, once per place). A screen saved before the picker has only
 its typed text, which the broker slugs (`london`, `sw1a-1aa`) until it's backfilled; those are geocoded by name
-instead. Only a number after a two-letter country is an id, so a slug that ends in one (`oslo-0150`) is a name.
+instead (Open-Meteo's search, once per place). Only a number after a two-letter country is an id, so a slug that ends
+in one (`oslo-0150`) is a name.
+
+Except a slug of a UK postcode or postcode district (`sw1a-1aa`, `se17`: store.location.weather_postcode), which this
+doesn't look up: provider-locations does, as the one process that looks postcodes up, and writes where it is to
+`v1:location:<place>`, which this reads every cycle (locations.reader.LocationReader, on the runner's own Redis
+client). One it hasn't placed yet, or that doesn't exist, has no forecast that cycle, as for the providers of notices
+about a place; a forecast already stored for it stays until its TTL.
 
 It uses countdown_core.weather.open_meteo's HTTP calls, which are synchronous (requests), so each batch runs in
 a worker thread (asyncio.to_thread), like the TfL provider.
@@ -23,9 +30,11 @@ from typing import TYPE_CHECKING
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.store import keys
+from countdown_core.store.location import weather_postcode
 from countdown_core.store.models import StoredForecast
 from countdown_core.weather.open_meteo import fetch_forecast, geocode, place_coordinates
 from countdown_providers.config import Settings
+from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import serve
 
 if TYPE_CHECKING:
@@ -55,12 +64,25 @@ class WeatherProvider:
     ttl_s = 30 * 60
     # Open-Meteo updates its forecasts about hourly; ten minutes keeps "now" close without hammering it.
     interval_s = 10 * 60
+    # A cycle as soon as provider-locations places a typed postcode (or moves one), not at the next tick.
+    wakes_on = (keys.LOCATION_CHANGED,)
 
-    def __init__(self, session: requests.Session, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
-        """Ask Open-Meteo through `session`; `now` stamps fetched_at (a parameter for the tests)."""
+    def __init__(
+        self,
+        session: requests.Session,
+        locations: LocationReader,
+        now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        """Ask Open-Meteo through `session`, and the store where a typed postcode is through `locations`.
+
+        `now` stamps fetched_at (a parameter for the tests).
+        """
         self.session = session
+        self.locations = locations
         self.now = now
-        # Location key -> (latitude, longitude). Places don't move, so this only grows (a few dozen bytes each).
+        # Location key -> (latitude, longitude), for the places looked up here (not the postcodes, read each cycle, so
+        # one provider-locations moves is moved here too). Places don't move, so this only grows (a few dozen bytes
+        # each).
         self.coordinates: dict[str, tuple[float, float]] = {}
 
     def output_key(self, item_id: str) -> str:
@@ -68,15 +90,27 @@ class WeatherProvider:
         return keys.weather(item_id)
 
     async def fetch(self, ids: list[str]) -> dict[str, StoredForecast]:
-        """Fetch each place's forecast, leaving out (and logging) any that fail or that Open-Meteo can't find."""
-        # One thread for the whole batch, one place after another: the requests session isn't shared across threads.
-        return await asyncio.to_thread(self._fetch_blocking, ids)
+        """Fetch each place's forecast, leaving out (and logging) any that fail or that can't be placed.
 
-    def _fetch_blocking(self, ids: list[str]) -> dict[str, StoredForecast]:
+        A typed postcode is placed from the store; one it can't place is left out, and only counted in the log.
+        """
+        postcodes = {location: postcode for location in ids if (postcode := weather_postcode(location)) is not None}
+        placed = await self.locations.places(sorted(set(postcodes.values())), notices="weather")
+        stored = {
+            location: (place.latitude, place.longitude)
+            for location, postcode in postcodes.items()
+            if (place := placed.get(postcode)) is not None
+        }
+        wanted = [location for location in ids if location not in postcodes or location in stored]
+        # One thread for the whole batch, one place after another: the requests session isn't shared across threads.
+        return await asyncio.to_thread(self._fetch_blocking, wanted, stored)
+
+    def _fetch_blocking(self, ids: list[str], stored: dict[str, tuple[float, float]]) -> dict[str, StoredForecast]:
+        """Fetch the forecasts for `ids`, placing those in `stored` there, and looking the rest up."""
         results: dict[str, StoredForecast] = {}
         for location in ids:
             try:
-                forecast = self._fetch_place(location)
+                forecast = self._fetch_place(location, stored.get(location))
             except Exception as e:  # noqa: BLE001 -- one bad place mustn't lose the rest of the batch
                 logger.warning("Couldn't fetch the weather for a subscribed place: %s", error_reason(e))
                 continue
@@ -84,8 +118,10 @@ class WeatherProvider:
                 results[location] = forecast
         return results
 
-    def _fetch_place(self, location: str) -> StoredForecast | None:
-        coordinates = self._coordinates(location)
+    def _fetch_place(self, location: str, coordinates: tuple[float, float] | None) -> StoredForecast | None:
+        """Fetch the forecast at `coordinates`, or (None) where the place is, looked up here."""
+        if coordinates is None:
+            coordinates = self._coordinates(location)
         if coordinates is None:
             logger.warning("Open-Meteo can't find a subscribed place, so it has no weather")
             return None
@@ -94,7 +130,10 @@ class WeatherProvider:
         return StoredForecast(fetched_at=fetched_at, location=location, forecast=forecast)
 
     def _coordinates(self, location: str) -> tuple[float, float] | None:
-        """Look the place up once: by its GeoNames id when the key has one, else by its (slugged) name."""
+        """Look the place up once: by its GeoNames id when the key has one, else by its (slugged) name.
+
+        Never a typed postcode's (fetch places those from the store): only provider-locations looks postcodes up.
+        """
         if location not in self.coordinates:
             place_id = place_id_of(location)
             if place_id is not None:
@@ -111,9 +150,12 @@ class WeatherProvider:
 def main() -> None:
     """Run the `countdown-provider-weather` console script."""
     configure_logging()
+    settings = Settings.from_env()
+    # One client for the runner and the locations it reads.
+    redis = settings.redis()
     # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
     session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
-    asyncio.run(serve(WeatherProvider(session), Settings.from_env()))
+    asyncio.run(serve(WeatherProvider(session, LocationReader(redis)), settings, redis=redis))
 
 
 if __name__ == "__main__":

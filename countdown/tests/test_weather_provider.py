@@ -1,4 +1,8 @@
-"""The weather provider against mocked Open-Meteo (responses), and its stored forecast's round trip through JSON."""
+"""The weather provider against mocked Open-Meteo (responses), and its stored forecast's round trip through JSON.
+
+A typed postcode's place comes from the store (fakeredis), as provider-locations writes it: test_weather_postcodes.py
+has those, both providers together.
+"""
 
 import asyncio
 import json
@@ -10,6 +14,7 @@ import fakeredis
 import pytest
 import requests
 import responses
+from location_factory import FakeLocations
 from responses import matchers
 from weather_factory import forecast_json
 
@@ -27,8 +32,9 @@ OSLO = "oslo-no-3143244"
 OSLO_PLACE = {"id": 3143244, "name": "Oslo", "latitude": 59.91273, "longitude": 10.74609, "country_code": "NO"}
 
 
-def make_provider() -> WeatherProvider:
-    return WeatherProvider(requests.Session(), now=lambda: NOW)
+def make_provider(located: FakeLocations | None = None) -> WeatherProvider:
+    """Return a provider asking Open-Meteo on a plain session, and reading typed postcodes' places from `located`."""
+    return WeatherProvider(requests.Session(), (located or FakeLocations()).reader, now=lambda: NOW)
 
 
 def add_place(place: dict) -> None:
