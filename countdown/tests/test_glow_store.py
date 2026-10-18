@@ -71,11 +71,12 @@ def make_client(registration=None) -> GlowClient:
     return GlowClient(registration, Glowmarkt(enabled=True))
 
 
-def draw_pages(client: GlowClient) -> list[list[dict]]:
+def draw_pages(client: GlowClient, rotation_clock) -> list[list[dict]]:
+    """Draw each page in turn, a minute apart, as the clock turns them (core.rotation)."""
     asyncio.run(client.initialise())
     pages = []
     for page_index in PAGES:
-        client.page_index = page_index
+        rotation_clock.at_minute(page_index)
         pages.append(asyncio.run(client.update()).readings)
     return pages
 
@@ -88,8 +89,8 @@ def test_the_fixtures_stored_value_is_a_stored_energy():
     assert [len(stored.readings(p).data) for p in ("PT1H", "P1D", "P1M")] == [25, 32, 9]
 
 
-def test_the_panel_from_the_store_is_the_panel_the_renderer_drew_from_glowmarkt(clock, store, no_http):
-    from_store = draw_pages(make_client())
+def test_the_panel_from_the_store_is_the_panel_the_renderer_drew_from_glowmarkt(clock, store, no_http, rotation_clock):
+    from_store = draw_pages(make_client(), rotation_clock)
 
     assert from_store == GLOWMARKT_PAGES
     assert [len(page) for page in from_store] == [25, 32, 9]
@@ -97,33 +98,33 @@ def test_the_panel_from_the_store_is_the_panel_the_renderer_drew_from_glowmarkt(
     assert from_store[2][-1]["start"] == "2026-09-01T00:00:00+01:00"
 
 
-def test_the_store_is_read_without_any_http(clock, store, no_http):
+def test_the_store_is_read_without_any_http(clock, store, no_http, rotation_clock):
     client = make_client()
 
-    pages = draw_pages(client)
+    pages = draw_pages(client, rotation_clock)
 
     assert [len(page) for page in pages] == [25, 32, 9]
     assert client.status == ClientStatus.CONNECTED
     assert len(no_http.calls) == 0
 
 
-def test_a_page_drawn_later_is_cut_to_its_window_as_of_then(clock, store, no_http):
+def test_a_page_drawn_later_is_cut_to_its_window_as_of_then(clock, store, no_http, rotation_clock):
     """An hour after the fetch, the last 24 hours start an hour later; the 31 days and the year are the same."""
     clock.now += timedelta(hours=1)
 
-    pages = draw_pages(make_client())
+    pages = draw_pages(make_client(), rotation_clock)
 
     assert pages[0][0]["start"] == "2026-09-24T07:00:00+01:00"
     assert [len(page) for page in pages] == [24, 32, 9]
 
 
-def test_the_readings_are_drawn_in_the_zone_they_were_asked_for_in(clock, store, no_http, monkeypatch):
+def test_the_readings_are_drawn_in_the_zone_they_were_asked_for_in(clock, store, no_http, monkeypatch, rotation_clock):
     """A renderer whose machine is on UTC still labels the buckets by the screen's time, as the broker asked."""
     monkeypatch.setenv("TZ", "UTC")
     time.tzset()
     clock.now = clock.now.astimezone(UTC)
 
-    pages = draw_pages(make_client())
+    pages = draw_pages(make_client(), rotation_clock)
 
     assert pages[1][0]["start"] == "2026-08-25T00:00:00+01:00"
 
@@ -137,5 +138,4 @@ def test_no_readings_in_the_store_raises_so_the_last_panel_is_kept(clock, store,
         asyncio.run(client.update())
 
     assert isinstance(raised.value, LookupError)
-    assert client.page_index == 0
     assert len(no_http.calls) == 0

@@ -505,7 +505,6 @@ def test_clock_changes_reformat_cached_panels_without_rebuilding_or_polling(orie
         assert {"7:58 AM", "4:22 PM"} <= twelve_hour[3]
     else:
         assert any(text.endswith((" AM", " PM")) and "until" not in text for text in twelve_hour[3])
-    assert loop.api_reg.clients["weather"]._next_page == 1
     assert reads.count(keys.weather("London")) == 1
     assert reads.count(keys.energy(DEVICE_ID)) == 1
     assert reads.count(keys.departures(BUS_STOP)) == 1

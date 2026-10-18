@@ -3,8 +3,9 @@
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, override
 
+from countdown_core.core import rotation
 from countdown_core.core.abstract_client import AbstractClient
-from countdown_core.glow.energy_panel import EnergyPanel
+from countdown_core.glow.energy_panel import PAGES, EnergyPanel
 from countdown_core.i18n import N_
 from countdown_core.store import keys, reader
 from countdown_core.store.energy import StoredEnergy
@@ -38,7 +39,7 @@ class NoStoredEnergyError(LookupError):
 
 
 class GlowClient(AbstractClient):
-    """The energy panel's pages in turn, a new one each update: the last 24 hours, 31 days, and this year.
+    """The energy panel's pages in turn, one a minute (see core.rotation): the last 24 hours, 31 days, and this year.
 
     The readings come from the store, under the device's id (`v1:energy:<device id>`, written by auth-broker's
     glow-provider, which signs in to Glowmarkt itself), so this renderer never does.
@@ -54,7 +55,6 @@ class GlowClient(AbstractClient):
         super().__init__(registration, config)
         self.store = reader.require_store()
         self.device_id = reader.device_id(registration)
-        self.page_index = 0
 
     @override
     def _initialise(self) -> None:
@@ -62,7 +62,7 @@ class GlowClient(AbstractClient):
 
     @override
     def _update(self) -> EnergyPanel:
-        """Return the next page, drawn from the readings in the store; raises if there are none, keeping the last.
+        """Return this minute's page, drawn from the readings in the store; raises if there are none, keeping the last.
 
         The stored readings run to when they were fetched, from the start of each page's window then. Cut to the
         window as of now, in the zone they were asked for in, they're the buckets since the window's start, the last
@@ -72,8 +72,9 @@ class GlowClient(AbstractClient):
         if stored is None:
             msg = f"No energy readings in the store for device {self.device_id}"
             raise NoStoredEnergyError(msg)
+        page_index = rotation.page(len(PAGES))
         current = datetime.now(UTC).astimezone(stored.zone())
-        window_start, period = self._page_config(self.page_index, current)
+        window_start, period = self._page_config(page_index, current)
         window_start = self._truncate(window_start, period)
         buckets = dict(_bucket_starts(stored.readings(period).data, current.tzinfo))
         usage = [
@@ -81,9 +82,7 @@ class GlowClient(AbstractClient):
             for bucket_start, value in sorted(buckets.items())
             if bucket_start >= window_start
         ]
-        panel = EnergyPanel(usage, self.page_index)
-        self.page_index = (self.page_index + 1) % 3
-        return panel
+        return EnergyPanel(usage, page_index)
 
     def _page_config(self, page_index: int, current: datetime) -> tuple[datetime, str]:
         """Return the page's window start as of `current`, and Glow's period for its buckets."""

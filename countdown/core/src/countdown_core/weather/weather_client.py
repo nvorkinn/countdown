@@ -4,6 +4,7 @@ import datetime as dt
 import logging
 from typing import TYPE_CHECKING, override
 
+from countdown_core.core import rotation
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.i18n import N_
 from countdown_core.store import keys, reader
@@ -56,7 +57,6 @@ class WeatherClient(AbstractClient):
         self._last_attempt: dt.datetime | None = None
         self._utc_offset = dt.timedelta(0)
         self._pages: tuple[Weather, ...] = ()
-        self._next_page = 0
 
     @override
     def _initialise(self) -> None:
@@ -70,7 +70,7 @@ class WeatherClient(AbstractClient):
 
     @override
     def _update(self) -> Panel:
-        """Return the next page of the forecast, or a MessagePanel if no location is configured.
+        """Return this minute's page of the forecast (core.rotation), or a MessagePanel if there's no location.
 
         A forecast missing from the store, or Redis failing, raises, so the registry keeps the last good panel.
         """
@@ -88,8 +88,7 @@ class WeatherClient(AbstractClient):
             self._last_attempt = now
 
         if self._pages:
-            self._panel = WeatherPanel(self._pages[self._next_page])
-            self._next_page = (self._next_page + 1) % len(self._pages)
+            self._panel = WeatherPanel(self._pages[rotation.page(len(self._pages))])
         return self._panel
 
     def _use(self, forecast: ForecastResponse) -> None:

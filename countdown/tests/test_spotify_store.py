@@ -57,8 +57,13 @@ def put_art(store, *services):
         store.set(COVERS[service]["key"], ART, ex=300)
 
 
-def panels(client, count):
-    return [asyncio.run(client.update()) for _ in range(count)]
+def panels(client, count, rotation_clock):
+    """Update `count` times, a minute apart, as the registry polls: a page a minute (core.rotation)."""
+    found = []
+    for minute in range(count):
+        rotation_clock.at_minute(minute)
+        found.append(asyncio.run(client.update()))
+    return found
 
 
 # --- The contract -------------------------------------------------------------------
@@ -119,12 +124,13 @@ def test_a_cover_key_is_the_sha1_of_the_url_exactly_as_given():
     ids=["spotify", "apple-music", "both"],
 )
 @pytest.mark.parametrize("style", ["hero", "airy"])
-def test_every_page_is_drawn_from_the_store_without_a_call(store, settings, style):
+def test_every_page_is_drawn_from_the_store_without_a_call(store, settings, style, rotation_clock):
     settings = MusicSettings(settings.spotify, settings.apple_music, style)
     put(store)
 
     with responses.RequestsMock() as nothing:  # nothing registered: any request would fail
-        found = panels(music_client_class(settings)(REGISTRATION, settings), 2 * len(pages_of(settings)) + 1)
+        client = music_client_class(settings)(REGISTRATION, settings)
+        found = panels(client, 2 * len(pages_of(settings)) + 1, rotation_clock)
         assert len(nothing.calls) == 0
 
     assert {type(p) for p in found} == {SpotifyPanel, SpotifyTopPanel}
@@ -135,11 +141,11 @@ def pages_of(settings):
 
 
 @responses.activate
-def test_both_on_rotates_through_both_services_top_lists(store):
+def test_both_on_rotates_through_both_services_top_lists(store, rotation_clock):
     put(store)
     client = SpotifyClient(REGISTRATION, BOTH)
 
-    found = panels(client, 8)
+    found = panels(client, 8, rotation_clock)
 
     tops = [(p.service, p.period) for p in found if isinstance(p, SpotifyTopPanel)]
     assert tops == [
@@ -289,11 +295,12 @@ def test_nothing_playing_and_no_top_lists_says_so(store):
 
 @responses.activate
 @pytest.mark.parametrize("missing", ["player", "top"])
-def test_a_missing_key_raises_so_the_last_panel_stays(store, missing):
+def test_a_missing_key_raises_so_the_last_panel_stays(store, missing, rotation_clock):
     put(store, player=None if missing == "player" else PLAYER, top=None if missing == "top" else TOP)
     client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
     if missing == "top":
         asyncio.run(client.update())  # the player
+        rotation_clock.advance()  # the top lists' minute
 
     with pytest.raises(NoStoredMusicError):
         asyncio.run(client.update())
@@ -321,12 +328,13 @@ def test_spotify_playing_needs_no_apple_music_part(store):
 
 
 @responses.activate
-def test_a_missing_time_range_raises(store):
+def test_a_missing_time_range_raises(store, rotation_clock):
     top = copy.deepcopy(TOP)
     del top["spotify"]["long_term"]
     put(store, top=top)
     client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
     asyncio.run(client.update())
+    rotation_clock.advance()  # the 12 months' top lists' minute
 
     with pytest.raises(NoStoredMusicError):
         asyncio.run(client.update())

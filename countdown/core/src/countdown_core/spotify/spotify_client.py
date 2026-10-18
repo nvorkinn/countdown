@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from redis.exceptions import RedisError
 
+from countdown_core.core import rotation
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.style import normalise, panel_style
 from countdown_core.i18n import N_
@@ -135,7 +136,6 @@ class SpotifyClient(AbstractClient):
         # The covers are image files, which the store's own client can't hand back (it decodes values as text).
         self.art_store = reader.binary_store()
         self.device_id = reader.device_id(registration)
-        self.page = -1
         self.pages = pages(config.services)
 
     def _initialise(self) -> None:
@@ -147,10 +147,10 @@ class SpotifyClient(AbstractClient):
         return normalise(self.config.style)
 
     def _update(self) -> Panel:
-        """Show the next page, or the one after if that has nothing to show."""
-        for _ in range(2):
-            self.page = (self.page + 1) % len(self.pages)
-            page = self.pages[self.page]
+        """Show this minute's page (see core.rotation), or the one after if that has nothing to show."""
+        first = rotation.page(len(self.pages))
+        for offset in range(2):
+            page = self.pages[(first + offset) % len(self.pages)]
             panel = self.update_player() if page.service is None else self.update_top(page)
             if panel:
                 return panel

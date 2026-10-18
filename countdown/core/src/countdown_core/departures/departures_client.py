@@ -9,6 +9,7 @@ from math import ceil
 from typing import TYPE_CHECKING, Any, Protocol, override
 
 from countdown_api.models import ConfigResponse, DepartureStop
+from countdown_core.core import rotation
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.core.style import panel_style
 from countdown_core.entur.stored_source import StoredEnturSource
@@ -86,7 +87,6 @@ class DeparturesClient(AbstractClient):
         self.sources: dict[str, StopSource] = {"tfl": StoredTflSource(store), "entur": StoredEnturSource(store)}
         self._notice_sources = self._build_notice_sources(config)
         self.stops: list[ResolvedStop] = []
-        self.current_page = 0
         # Set by the layout (ApiRegistry.show_stops).
         self.stops_per_update = 2
 
@@ -137,8 +137,8 @@ class DeparturesClient(AbstractClient):
                 resolved.append(ResolvedStop(stop.id, source, info))
         return resolved
 
-    def _next_page(self) -> tuple[list[int], Rotation]:
-        """Return the indexes of the stops on the next page, and which page it is; then move on past it.
+    def _this_page(self) -> tuple[list[int], Rotation]:
+        """Return the indexes of the stops on this minute's page, and which page it is (see core.rotation).
 
         Pages are fixed: page k is stops k * stops_per_update onwards, and the last one holds
         what's left. 5 stops 2 at a time are pages 0+1, 2+3 and 4.
@@ -147,21 +147,20 @@ class DeparturesClient(AbstractClient):
             msg = "No stops initialised"
             raise ValueError(msg)
         pages = ceil(len(self.stops) / self.stops_per_update)
-        page = self.current_page % pages  # the stops or the layout may have changed since
+        page = rotation.page(pages)
         start = page * self.stops_per_update
         indexes = list(range(start, min(start + self.stops_per_update, len(self.stops))))
-        self.current_page = (page + 1) % pages
         return indexes, Rotation(page, pages)
 
     @override
     def _update(self) -> Panel:
         if not self.stops:
             return self.message_panel(N_("Needs configuring"))
-        # All of them, in order, when they fit; otherwise the next page of them, with the
+        # All of them, in order, when they fit; otherwise this minute's page of them, with the
         # squares under the stops saying which page it is.
-        rotation = None
+        shown = None
         if len(self.stops) > self.stops_per_update:
-            to_fetch, rotation = self._next_page()
+            to_fetch, shown = self._this_page()
         else:
             to_fetch = list(range(len(self.stops)))
         panels = []
@@ -179,4 +178,4 @@ class DeparturesClient(AbstractClient):
             # Raised rather than shown, so the registry keeps the last good departures.
             msg = f"Could not fetch departures for any of {len(to_fetch)} stops"
             raise RuntimeError(msg)
-        return CombinedArrivalPanel(panels, rotation)
+        return CombinedArrivalPanel(panels, shown)

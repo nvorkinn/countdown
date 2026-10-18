@@ -71,7 +71,7 @@ def registry_with(**clients: AbstractClient) -> ApiRegistry:
     return registry
 
 
-def test_weather_rotates_only_when_the_registry_actually_polls_it(store):
+def test_weather_rotates_only_when_the_registry_actually_polls_it(store, rotation_clock):
     forecast = ForecastResponse.model_validate(forecast_json())
     store.set(
         keys.weather("London"),
@@ -83,6 +83,7 @@ def test_weather_rotates_only_when_the_registry_actually_polls_it(store):
     for _ in range(5):
         panels = asyncio.run(registry.update_all())
         seen.append(panels["weather"].weather.period)
+        rotation_clock.advance()  # the next tab's minute, but the client isn't due yet: the tab stays
         assert asyncio.run(registry.update_all())["weather"] is panels["weather"]
         client.last_updated -= client.poll_interval + dt.timedelta(seconds=1)
 

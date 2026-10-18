@@ -165,11 +165,14 @@ def test_a_forecast_not_in_the_store_raises_so_the_last_panel_stays():
         asyncio.run(make_client().update())
 
 
-def test_each_update_rotates_a_page_without_rereading_the_forecast(store, reads):
+def test_each_minute_shows_the_next_tab_without_rereading_the_forecast(store, reads, rotation_clock):
     put_forecast(store)
     client = make_client()
 
-    panels = [asyncio.run(client.update()) for _ in range(6)]
+    panels = []
+    for minute in range(6):
+        rotation_clock.at_minute(minute)
+        panels.append(asyncio.run(client.update()))
 
     assert [panel.weather.period for panel in panels] == [
         WeatherPeriod.NOW,
@@ -183,11 +186,12 @@ def test_each_update_rotates_a_page_without_rereading_the_forecast(store, reads)
     assert len(reads) == 1
 
 
-def test_rereads_after_refresh_interval(store, reads):
+def test_rereads_after_refresh_interval(store, reads, rotation_clock):
     put_forecast(store)
     client = make_client()
     asyncio.run(client.update())
     client._last_attempt -= weather_client.REFRESH_INTERVAL + dt.timedelta(seconds=1)
+    rotation_clock.advance()
 
     panel = asyncio.run(client.update())
 
@@ -199,8 +203,8 @@ def test_rereads_after_refresh_interval(store, reads):
     ("offset_hours", "local_time", "refresh"),
     [(-8, "23:59", True), (0, "23:59", True), (14, "23:59", True), (-8, "15:59", False), (14, "13:59", False)],
 )
-def test_date_rollover_uses_the_weather_locations_date_without_resetting_the_carousel(  # noqa: PLR0913, PLR0917 -- three parameters and three fixtures
-    store, reads, offset_hours, local_time, refresh, monkeypatch
+def test_date_rollover_uses_the_weather_locations_date_without_resetting_the_carousel(  # noqa: PLR0913, PLR0917 -- three parameters and four fixtures
+    store, reads, offset_hours, local_time, refresh, monkeypatch, rotation_clock
 ):
     first_forecast = forecast_json(current={"time": f"2026-01-15T{local_time}"})
     next_forecast = forecast_json(current={"time": "2026-01-16T00:01"}, start=dt.date(2026, 1, 16))
@@ -220,6 +224,7 @@ def test_date_rollover_uses_the_weather_locations_date_without_resetting_the_car
     first = asyncio.run(client.update())
     put_forecast(store, next_forecast)
     clock[0] += dt.timedelta(minutes=2)
+    rotation_clock.advance()
 
     second = asyncio.run(client.update())
 
@@ -230,11 +235,12 @@ def test_date_rollover_uses_the_weather_locations_date_without_resetting_the_car
 
 
 @pytest.mark.parametrize("failure", ["missing", "redis", "misaligned", "incomplete"])
-def test_failed_refresh_keeps_the_last_good_frame_and_does_not_skip_a_tab(store, failure, monkeypatch):
+def test_failed_refresh_keeps_the_last_good_frame(store, failure, monkeypatch, rotation_clock):
     put_forecast(store)
     client = make_client()
     first = asyncio.run(client.update())
     client._last_attempt -= weather_client.REFRESH_INTERVAL
+    rotation_clock.advance()
     if failure == "missing":
         store.delete(keys.weather("London"))
         expected = NoStoredForecastError
@@ -262,10 +268,10 @@ def test_failed_refresh_keeps_the_last_good_frame_and_does_not_skip_a_tab(store,
 
     assert client._panel is first
     put_forecast(store)
-    assert asyncio.run(client.update()).weather.period is WeatherPeriod.TONIGHT
+    assert asyncio.run(client.update()).weather.period is WeatherPeriod.TONIGHT  # the clock's tab, this minute
 
 
-def test_refreshed_forecast_data_is_used_on_the_next_tab(store):
+def test_refreshed_forecast_data_is_used_on_the_next_tab(store, rotation_clock):
     put_forecast(store)
     client = make_client()
     asyncio.run(client.update())
@@ -273,6 +279,7 @@ def test_refreshed_forecast_data_is_used_on_the_next_tab(store):
     refreshed["hourly"]["precipitation_probability"] = [35] * (8 * 24)
     put_forecast(store, refreshed)
     client._last_attempt -= weather_client.REFRESH_INTERVAL
+    rotation_clock.advance()
 
     tonight = asyncio.run(client.update()).weather
 

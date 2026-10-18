@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import fakeredis
@@ -5,6 +6,7 @@ import pytest
 from PIL import Image
 from test_utils import highlight_diff, images_equal
 
+from countdown_core.core import rotation
 from countdown_core.store import reader
 
 
@@ -38,6 +40,40 @@ def store(monkeypatch):
     monkeypatch.setattr(reader, "store", lambda: client)
     monkeypatch.setattr(reader, "binary_store", lambda: binary)
     return client
+
+
+# The minute every test starts on, for the panels that turn a page a minute (core.rotation): 2026-01-15 00:00 UTC is
+# a whole multiple of 2520 minutes since the epoch, so every page count from 1 to 10 is on its first page then.
+ROTATION_START = datetime(2026, 1, 15, tzinfo=UTC)
+
+
+class RotationClock:
+    """The clock the rotating panels turn their pages by, stopped at ROTATION_START until a test moves it."""
+
+    def __init__(self) -> None:
+        self.at = ROTATION_START
+
+    def now(self) -> datetime:
+        return self.at
+
+    def advance(self, minutes: int = 1) -> None:
+        """Move on `minutes` minutes: a page each, for every rotating panel."""
+        self.at += timedelta(minutes=minutes)
+
+    def at_minute(self, minute: int) -> None:
+        """Stop at `minute` minutes after ROTATION_START, so a panel of n pages is on page minute % n."""
+        self.at = ROTATION_START + timedelta(minutes=minute)
+
+
+@pytest.fixture(autouse=True)
+def rotation_clock(monkeypatch) -> RotationClock:
+    """Freeze the rotating panels' clock (core.rotation.now) on a minute where every panel shows its first page.
+
+    Only the pages' clock: everything else still reads the real time. A test that turns pages moves it (advance).
+    """
+    clock = RotationClock()
+    monkeypatch.setattr(rotation, "now", clock.now)
+    return clock
 
 
 # --- Visual regression snapshots -------------------------------------------------
