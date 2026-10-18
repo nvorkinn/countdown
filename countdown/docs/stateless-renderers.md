@@ -17,8 +17,8 @@ is a pure function of what's in Redis and the time, plus a little state carried 
 - **When:** a per-screen clock, which is what the loop does now: every 60 s, or the providers' pace while one asks
   for faster. A config save renders at once. Later, renders can be timed to land just before the screen's next poll,
   because the broker knows when that will be. Data-change events (keyspace notifications, or a channel the
-  providers publish) aren't needed: the screen pulls at most every 20 s, so a frame made sooner than its next poll
-  is never seen sooner.
+  providers publish) aren't needed: the screen only sees a new frame when it next polls (at most every 20 s), so a
+  frame drawn the moment the data changes shows no sooner than one drawn just before that poll.
 - **State:** almost none is left once page rotation is worked out from the clock and "keep the last good data" moves
   into the store's own keys (a longer TTL, with `fetched_at` saying how fresh the value is). What remains is the
   handoff (the last frame's hash and the pace it carried), about 100 bytes, in `v1:render-state:<device id>` with a
