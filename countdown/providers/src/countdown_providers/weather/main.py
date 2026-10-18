@@ -1,8 +1,9 @@
 """The weather provider: Open-Meteo's forecast for every subscribed place, written to `v1:weather:<location key>`.
 
 Location keys come from the broker's place picker: `<name>-<country>-<GeoNames id>`, e.g. `london-gb-2643743`, so the
-id, last, finds the place exactly. A screen saved before the picker has only its typed text, which the broker slugs
-(`london`, `sw1a-1aa`) until it's backfilled; those are geocoded by name instead.
+id, last, finds the place exactly (Open-Meteo's get-by-id, once per place). A screen saved before the picker has only
+its typed text, which the broker slugs (`london`, `sw1a-1aa`) until it's backfilled; those are geocoded by name
+instead. Only a number after a two-letter country is an id, so a slug that ends in one (`oslo-0150`) is a name.
 
 It uses countdown_core.weather.open_meteo's HTTP calls, which are synchronous (requests), so each batch runs in
 a worker thread (asyncio.to_thread), like the TfL provider.
@@ -10,6 +11,7 @@ a worker thread (asyncio.to_thread), like the TfL provider.
 
 import asyncio
 import logging
+import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -28,11 +30,17 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# A picked place's key ends in its country code (ISO 3166-1 alpha-2, lowercase) and GeoNames id: `...-gb-2643743`.
+_PLACE_ID = re.compile(r"(?:^|-)[a-z]{2}-([0-9]+)\Z")
+
 
 def place_id_of(location: str) -> int | None:
-    """Return the GeoNames id at the end of a location key (`london-gb-2643743` -> 2643743), or None if it has none."""
-    last = location.rsplit("-", 1)[-1]
-    return int(last) if last.isdigit() else None
+    """Return the GeoNames id at the end of a location key (`london-gb-2643743` -> 2643743), or None if it has none.
+
+    A key without a country before its last number is a slug of typed text (`oslo-0150`, `0150`), not a place's.
+    """
+    match = _PLACE_ID.search(location)
+    return int(match[1]) if match else None
 
 
 class WeatherProvider:
