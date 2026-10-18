@@ -6,7 +6,6 @@ The renderer doesn't call these: it reads the forecasts the provider stores (Wea
 from typing import TYPE_CHECKING
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
-from countdown_core.notices.location import is_postcode, postcode_coordinates
 from countdown_core.weather.models import ForecastResponse, GeocodingResponse, GeocodingResult
 
 if TYPE_CHECKING:
@@ -19,12 +18,10 @@ FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
 
 def geocode(session: requests.Session, location: str) -> tuple[float, float] | None:
-    """Return the coordinates of a place name or UK postcode; None if nothing matches, raises if it can't ask.
+    """Return the coordinates of the place Open-Meteo matches best to a name; None if none, raises if it can't ask.
 
-    Open-Meteo's geocoder only knows place names, so UK postcodes go to postcodes.io.
+    Not for a UK postcode: the weather provider places those from the store (provider-locations looks them up).
     """
-    if is_postcode(location):
-        return postcode_coordinates(session, location)
     response = session.get(
         GEOCODING_URL, params={"name": location, "count": 1, "format": "json"}, timeout=DEFAULT_TIMEOUT
     )

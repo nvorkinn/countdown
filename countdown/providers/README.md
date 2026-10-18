@@ -57,7 +57,7 @@ countdown-core so the providers and renderers share them.
 | `v1:notices:tfl-roads:<place>` | string, TTL 30 min | provider-tfl-notices, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredRoadDisruptions` JSON: the entries of TfL's `/Road/all/Disruption` (one request for every place) within 3 km of the postcode, placed by its `v1:location:` key; `<place>` is `keys.place(postcode)`, e.g. `SE173LL` |
 | `v1:notices:floods:<place>` | string, TTL ~30 min | provider-floods, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredFloods` JSON (`store/floods.py`): the Environment Agency's warnings for the flood areas within 5 km of the postcode, as the EA gives them; the renderer makes the notices; see [Flood warnings](#flood-warnings) |
 | `v1:notices:metalerts` | string, TTL 30 min | provider-metalerts, every 5 min while any screen's postcode is Norwegian | `StoredMetAlerts` JSON (`store/metalerts.py`): MetAlerts' `current.json` for all of Norway, in Norwegian and English, as MET answered; one key, not one per place, see [Norway's weather warnings](#norways-weather-warnings) |
-| `v1:location:<place>` | string, TTL 7 days | provider-locations, every 5 min (each postcode looked up once a day, a new one at once) | `StoredLocation` JSON (`store/location.py`): where a postcode in `v1:sub:postcode` is, from postcodes.io (UK) or Kartverket (Norway), in the fields of `tfl.models.Postcode`, or `"found": false` for one that doesn't exist; the notice board, provider-met-office, provider-floods and provider-tfl-notices' roads place a postcode only from this, see [Locations](#locations) |
+| `v1:location:<place>` | string, TTL 7 days | provider-locations, every 5 min (each postcode looked up once a day, a new one at once) | `StoredLocation` JSON (`store/location.py`): where a postcode in `v1:sub:postcode` is, from postcodes.io (UK) or Kartverket (Norway), in the fields of `tfl.models.Postcode`, or `"found": false` for one that doesn't exist; the notice board, provider-met-office, provider-floods and provider-tfl-notices' roads place a postcode only from this, see [Locations](#locations). Also each UK postcode or postcode district a `v1:sub:weather` key is the slug of (`sw1a-1aa`, `se17`), for provider-weather (a district's key, `v1:location:SE17`, holds its centre) |
 
 The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
 own tokens, which never leave it (auth-broker's README, "Music in the store"). As the two repositories can't share
@@ -142,8 +142,11 @@ however its name was typed. The provider finds a key's coordinates by the id (Op
 for as long as it runs) and fetches one forecast per place each cycle. Only a number after a two-letter country is an
 id: a key without one is a screen with typed text and no picked place (saved before the picker, and not yet given one
 by the broker's `flask weather backfill`), which the broker subscribes as the text's slug (`london`, `sw1a-1aa`,
-`oslo-0150`) and the provider geocodes by name (a UK postcode by postcodes.io). A place Open-Meteo gave no country
-is `xx` (`atlantis-xx-42`). `tests/fixtures/weather_keys.json` is the configs the broker makes keys from, each key,
+`oslo-0150`) and the provider geocodes by name (Open-Meteo's search). Except a slug of a UK postcode or postcode
+district (`sw1a-1aa`, `sw1a1aa`, `se17`; `store/location.py`'s `weather_postcode`), which the provider doesn't look
+up: provider-locations does, and writes it to `v1:location:<place>` (see [Locations](#locations)), which the weather
+provider reads each cycle, as the place notice providers do; one it can't place yet has no forecast that cycle (the
+last one stays until its TTL). A place Open-Meteo gave no country is `xx` (`atlantis-xx-42`). `tests/fixtures/weather_keys.json` is the configs the broker makes keys from, each key,
 and the id the provider finds in it; auth-broker's tests read the same file, so change both together.
 
 A renderer whose broker sends no `weather.key` (one that predates it) reads under `weather.location`, the text the
@@ -336,7 +339,7 @@ new or unchanged, how many warnings, and until when it's current).
 
 ### Locations
 
-`provider-locations` (`locations/main.py`) is the one process that looks the notice boards' postcodes up: each postcode
+`provider-locations` (`locations/main.py`) is the one process that looks postcodes up: each postcode
 in `v1:sub:postcode`, a UK one with postcodes.io and a Norwegian one (four digits) with Kartverket's address search,
 written to `v1:location:<place>` (`keys.location`, by `keys.place()`: `SE173LL`, `0150`). The board reads it to know
 where it is (its bank holidays' division, its Met Office region, the place MetAlerts' areas must cover) and which
@@ -372,6 +375,12 @@ read leaves out the batch; either way the notices already stored for them stay u
 postcodes are written. A place the store moves (postcodes.io's corrections, in the daily lookup) is used from the next
 cycle. A new postcode's notices come a cycle (up to 5 minutes) after its location: the broker's nudge runs every
 provider at once, so provider-locations' first lookup of it is usually still under way when they read.
+provider-weather reads them too, for the screens whose weather is a typed postcode, saved before the place picker
+(`v1:sub:weather`'s `sw1a-1aa`, or a district's `se17`). provider-locations places those as well, in a second runner
+(`WeatherPostcodesProvider`, sharing the first's lookups, so a postcode a board and a weather key both have is looked
+up once), under the postcode's own key (`v1:location:SW1A1AA`; a district's, `v1:location:SE17`, holds its centre from
+postcodes.io's `/outcodes`, with the district as its `postcode`). So nothing else asks postcodes.io anything
+(`test_weather_postcodes.py`).
 `tests/fixtures/place_notices.json` is a cycle of the three, from every API's answers, recorded when each looked its
 postcodes up itself: reading the store instead, they must make the same requests (none to postcodes.io), write the same
 keys, and the board show the same notices (`test_place_notices.py`).
