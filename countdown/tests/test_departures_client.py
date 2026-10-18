@@ -117,11 +117,14 @@ def test_init_stops_is_a_pure_function_returning_resolved_stops():
     assert client.stops == []  # init_stops does not mutate self
 
 
-def test_next_page_cycles_and_wraps():
+def test_the_page_is_the_minute_modulo_the_number_of_pages(rotation_clock):
     client = DeparturesClient(REGISTRATION, make_config())
     client.stops = tfl_stops(client, *stop_ids(5))
     client.stops_per_update = 2
-    pages = [client._next_page() for _ in range(4)]
+    pages = []
+    for minute in range(4):
+        rotation_clock.at_minute(minute)
+        pages.append(client._this_page())
     assert pages == [
         ([0, 1], Rotation(0, 3)),
         ([2, 3], Rotation(1, 3)),
@@ -130,12 +133,39 @@ def test_next_page_cycles_and_wraps():
     ]
 
 
-def test_next_page_starts_over_when_there_are_fewer_pages_now():
+def test_the_same_minute_shows_the_same_page(rotation_clock):
     client = DeparturesClient(REGISTRATION, make_config())
-    client.stops = tfl_stops(client, *stop_ids(4))
+    client.stops = tfl_stops(client, *stop_ids(5))
     client.stops_per_update = 2
-    client.current_page = 2  # left over from when there were more stops
-    assert client._next_page() == ([0, 1], Rotation(0, 2))
+    rotation_clock.at_minute(1)
+
+    assert client._this_page() == client._this_page() == ([2, 3], Rotation(1, 3))
+
+
+def test_the_page_follows_the_clock_when_there_are_fewer_pages_now(rotation_clock):
+    client = DeparturesClient(REGISTRATION, make_config())
+    client.stops = tfl_stops(client, *stop_ids(5))
+    client.stops_per_update = 2
+    rotation_clock.at_minute(5)
+    assert client._this_page() == ([4], Rotation(2, 3))
+
+    client.stops = client.stops[:4]  # a stop removed: two pages now, and minute 5 is the second
+
+    assert client._this_page() == ([2, 3], Rotation(1, 2))
+
+
+def test_a_client_rebuilt_by_a_config_change_carries_on_at_the_clocks_page(rotation_clock):
+    """Not back to the first page: the page is the clock's, whichever client draws it."""
+    rotation_clock.at_minute(1)
+    before = DeparturesClient(REGISTRATION, make_config())
+    before.stops = tfl_stops(before, *stop_ids(4))
+    before.stops_per_update = 2
+
+    rebuilt = DeparturesClient(REGISTRATION, make_config())
+    rebuilt.stops = tfl_stops(rebuilt, *stop_ids(4))
+    rebuilt.stops_per_update = 2
+
+    assert before._this_page() == rebuilt._this_page() == ([2, 3], Rotation(1, 2))
 
 
 def test_update_builds_correct_panels(store):
@@ -162,14 +192,16 @@ def _nothing_due(store, client: DeparturesClient) -> None:
         put_departures(store, stop.id)
 
 
-def test_update_pages_through_more_stops_than_the_layout_shows(store):
+def test_update_pages_through_more_stops_than_the_layout_shows(store, rotation_clock):
     client = DeparturesClient(REGISTRATION, make_config())
     client.stops = tfl_stops(client, *stop_ids(8))
     client.stops_per_update = 4
     _nothing_due(store, client)
 
     assert _shown_stop_ids(client) == stop_ids(4)
+    rotation_clock.advance()
     assert _shown_stop_ids(client) == stop_ids(8)[4:]
+    rotation_clock.advance()
     assert _shown_stop_ids(client) == stop_ids(4)
 
 
@@ -184,14 +216,17 @@ def test_update_shows_every_stop_in_order_when_they_all_fit(store):
     assert _shown_stop_ids(client) == ["490000000", "490000001", "490000002"]
 
 
-def test_update_says_which_page_is_on_screen_when_they_rotate(store):
+def test_update_says_which_page_is_on_screen_when_they_rotate(store, rotation_clock):
     """With 3 stops and room for 2 there are two pages: 0+1, then 2 on its own."""
     client = DeparturesClient(REGISTRATION, make_config())
     client.stops = tfl_stops(client, *stop_ids(3))
     client.stops_per_update = 2
     _nothing_due(store, client)
 
-    rotations = [asyncio.run(client.update()).rotation for _ in range(3)]
+    rotations = []
+    for minute in range(3):
+        rotation_clock.at_minute(minute)
+        rotations.append(asyncio.run(client.update()).rotation)
     assert rotations == [Rotation(0, 2), Rotation(1, 2), Rotation(0, 2)]
 
 

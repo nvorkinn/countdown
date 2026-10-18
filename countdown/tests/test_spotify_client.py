@@ -70,11 +70,20 @@ def test_update_wraps_the_queue_in_a_panel(store, client):
     assert [t.name for t in panel.queue.queue] == ["Next Song"]
 
 
-def test_updates_rotate_between_the_player_and_the_top_tracks_and_artists(store, client):
+def turn(client: SpotifyClient, rotation_clock, times: int) -> list:
+    """Update `times` times, a minute apart, as the registry polls: a page a minute (core.rotation)."""
+    panels = []
+    for minute in range(times):
+        rotation_clock.at_minute(minute)
+        panels.append(asyncio.run(client.update()))
+    return panels
+
+
+def test_updates_rotate_between_the_player_and_the_top_tracks_and_artists(store, client, rotation_clock):
     long_term = top("Long Song")["long_term"]
     put(store, spotify=QUEUE, spotify_top={"long_term": long_term, "short_term": SPOTIFY_TOP["short_term"]})
 
-    panels = [asyncio.run(client.update()) for _ in range(5)]
+    panels = turn(client, rotation_clock, 5)
 
     assert [type(panel) for panel in panels] == [SpotifyPanel, SpotifyTopPanel] * 2 + [SpotifyPanel]
     assert [panels[1].period, panels[3].period] == ["12 months", "4 weeks"]
@@ -99,14 +108,12 @@ def test_update_raises_on_a_malformed_queue(store, client):
 
 
 @pytest.mark.parametrize(("style", "drawn"), [("hero", "hero"), ("classic", "hero")], ids=["hero", "retired classic"])
-def test_the_configs_style_reaches_both_pages(store, style, drawn):
+def test_the_configs_style_reaches_both_pages(store, style, drawn, rotation_clock):
     """A broker that hasn't migrated its stored styles yet still sends classic, drawn as hero."""
     client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True, style=style))
     put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
 
-    now_playing = asyncio.run(client.update())
-    client.last_updated = None
-    top_page = asyncio.run(client.update())
+    now_playing, top_page = turn(client, rotation_clock, 2)
 
     assert isinstance(top_page, SpotifyTopPanel)
     assert (now_playing.style, top_page.style) == (drawn, drawn)
@@ -123,11 +130,11 @@ def music_client(*, spotify=True, apple_music=True) -> SpotifyClient:
     return music_client_class(settings)(REGISTRATION, settings)
 
 
-def test_apple_music_alone_reads_its_part_of_the_store_and_labels_the_last_played(store):
+def test_apple_music_alone_reads_its_part_of_the_store_and_labels_the_last_played(store, rotation_clock):
     put(store, apple_music=QUEUE, apple_music_top=APPLE_TOP)
     client = music_client(spotify=False)
 
-    now, top_page = asyncio.run(client.update()), asyncio.run(client.update())
+    now, top_page = turn(client, rotation_clock, 2)
 
     assert now.labels is APPLE_MUSIC_LABELS
     assert [t.name for t in top_page.tracks] == ["Apple Top Song"]
@@ -152,11 +159,11 @@ def test_with_both_and_spotify_idle_apple_musics_last_played_shows(store):
     assert panel.queue.currently_playing.name == "Apple Song"
 
 
-def test_with_both_the_top_lists_take_turns_and_say_whose_they_are(store):
+def test_with_both_the_top_lists_take_turns_and_say_whose_they_are(store, rotation_clock):
     put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP, apple_music=QUEUE, apple_music_top=APPLE_TOP)
     client = music_client()
 
-    panels = [asyncio.run(client.update()) for _ in range(8)]
+    panels = turn(client, rotation_clock, 8)
 
     tops = [(p.service, p.period, p.tracks[0].name) for p in panels if isinstance(p, SpotifyTopPanel)]
     assert tops == [
@@ -190,11 +197,22 @@ def test_spotify_labels_its_player_as_now_playing(store, client):
     assert asyncio.run(client.update()).labels is SPOTIFY_LABELS
 
 
-def test_empty_top_lists_give_way_to_the_player(store, client):
+def test_empty_top_lists_give_way_to_the_player(store, client, rotation_clock):
     put(store, spotify=QUEUE, spotify_top=top())
-    asyncio.run(client.update())
+    rotation_clock.at_minute(1)  # the 12 months' top lists' minute
 
     assert isinstance(asyncio.run(client.update()), SpotifyPanel)
+
+
+def test_the_same_minute_shows_the_same_page(store, client, rotation_clock):
+    put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
+    rotation_clock.at_minute(1)
+
+    first, again = asyncio.run(client.update()), asyncio.run(client.update())
+
+    assert isinstance(first, SpotifyTopPanel)
+    assert isinstance(again, SpotifyTopPanel)
+    assert first.period == again.period == "12 months"
 
 
 def test_without_a_store_it_cant_be_built_and_says_why(monkeypatch):
@@ -209,9 +227,9 @@ def test_without_a_device_id_it_cant_be_built_as_it_has_no_keys_to_read():
         SpotifyClient(Registration(REGISTRATION.broker_url, REGISTRATION.device_secret), MusicSettings(spotify=True))
 
 
-def test_it_never_calls_the_broker(store, client, monkeypatch):
+def test_it_never_calls_the_broker(store, client, monkeypatch, rotation_clock):
     """The provider calls the services with the broker's tokens; the renderer only reads what it stored."""
     monkeypatch.setattr(client.session, "request", lambda *args, **kwargs: pytest.fail("called the broker"))
     put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
 
-    assert [type(asyncio.run(client.update())) for _ in range(2)] == [SpotifyPanel, SpotifyTopPanel]
+    assert [type(panel) for panel in turn(client, rotation_clock, 2)] == [SpotifyPanel, SpotifyTopPanel]

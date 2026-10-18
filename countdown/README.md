@@ -146,6 +146,13 @@ whenever Spotify has nothing to show, or every minute while it's showing a relea
 how many stops are on screen at once (four with neither Spotify nor Glowmarkt, otherwise
 two), so it's picked before the clients are polled, and the TfL client pages through the rest.
 
+**Pages turn with the clock** (`core/rotation.py`). Every panel that rotates (the stops, the weather's tabs, the
+energy panel's three windows, the Spotify area's player and top lists) shows page *minute since the epoch mod its
+number of pages*, worked out when the client is polled. So every screen turns its pages together, on the minute, two
+polls in the same minute show the same page, and nothing about the rotation is kept: a client rebuilt by a config
+change carries on at the clock's page rather than starting again at the first. When Spotify's page has nothing to
+show, the next one is drawn in its place.
+
 **Painting** (`core/display.py`, `core/targets.py`). `DisplayController`
 only paints when the picture changes. If only the arrivals changed, it does a
 quick partial refresh of their box. Otherwise, or once 10 minutes have passed
@@ -183,13 +190,15 @@ This directory is a uv workspace:
 
 The monochrome weather panel rotates through **Now, Tonight, Tomorrow and Weekend**. A filled pill
 marks the selected tab; narrow landscape panels abbreviate the labels. Each time the weather client
-is asked to update, it returns the next tab, wrapping back to Now. Rendering a frame does not advance
-it, and the registry keeps the current tab while the client is not due for a poll.
+is asked to update, it returns the tab for the minute (see "Pages turn with the clock" above), so the
+tabs come round once every four minutes. Rendering a frame doesn't change it, and the registry keeps the
+current tab while the client is not due for a poll.
 
 The rotation uses a cached eight-day Open-Meteo forecast, which the weather provider stores for the place (under the
 config's `weather.key`, see the providers' README, "Weather"), not a read per tab. It's read again every 10 minutes, or when the date changes at the weather location. A failed read (the
-forecast not in the store, or Redis not answering) keeps the last good frame and does not skip a tab; changing the
-configured location starts a new carousel. With no location configured the panel says it needs configuring.
+forecast not in the store, or Redis not answering) keeps the last good frame; the next good read shows the minute's
+tab. Changing the configured location reads the new place's forecast at once, on the minute's tab. With no location
+configured the panel says it needs configuring.
 
 Now shows current conditions; landscape panels also show today's low, high and rain probability.
 Tonight shows the overnight low from 18:00 to 06:00, excluding hours that have already passed.

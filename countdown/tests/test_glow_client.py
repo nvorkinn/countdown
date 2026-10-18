@@ -42,7 +42,7 @@ def test_bucket_starts_are_labelled_as_local_wall_clock():
     ]
 
 
-def test_update_returns_a_panel_and_rotates_through_the_three_pages(store):
+def test_update_returns_a_panel_and_rotates_through_the_three_pages(store, rotation_clock):
     now = datetime.now(UTC)
     empty = {"data": []}
     stored = {
@@ -56,7 +56,10 @@ def test_update_returns_a_panel_and_rotates_through_the_three_pages(store):
     )
     client = make_client()
 
-    pages = [asyncio.run(client.update()).page_index for _ in range(4)]
+    pages = []
+    for minute in range(4):
+        rotation_clock.at_minute(minute)
+        pages.append(asyncio.run(client.update()).page_index)
 
     assert pages == [0, 1, 2, 0]
 
