@@ -13,3 +13,8 @@ def test_a_place_is_its_postcode_without_the_space(postcode, place):
 def test_the_postcode_is_a_subscription_source():
     assert keys.subscription(keys.POSTCODE) == "v1:sub:postcode"
     assert keys.POSTCODE in keys.SOURCES
+
+
+@pytest.mark.parametrize("postcode", ["SE17 3LL", "SE173LL", "se17 3ll"])
+def test_a_postcodes_flood_warnings_are_under_its_place(postcode):
+    assert keys.floods(postcode) == "v1:notices:floods:SE173LL"

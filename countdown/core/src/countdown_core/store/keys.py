@@ -96,3 +96,11 @@ def pace(source: str, item_id: str) -> str:
 
 
 # Notices (the notice board's sources), one key per source and what it's fetched for. Keys by place use `place`.
+
+
+def floods(postcode: str) -> str:
+    """Return the key of the Environment Agency's flood warnings near a UK postcode, e.g. `v1:notices:floods:SE173LL`.
+
+    Written by provider-floods; holds a countdown_core.store.floods.StoredFloods.
+    """
+    return f"{PREFIX}:notices:floods:{place(postcode)}"

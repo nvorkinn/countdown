@@ -44,6 +44,7 @@ countdown-core so the providers and renderers share them.
 | `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): the GitHub summary (pull requests, builds, releases with their jobs) and the AI plans, as the broker's `/api/developer` answers them; the renderer reads only this, never the route |
 | `v1:pace:<source>:<id>` | integer string, TTL ~1 min | any provider that has bursty data (the developer provider, per device, while a release runs) | the seconds it wants the screen to refresh at; renderers take the fastest of those they watch, see the renderer's README, "The pace" |
 | `v1:spotify-top:<device id>` | string, TTL 2 h | auth-broker's `spotify-provider`, every 30 min | `StoredTop` JSON (`store/music.py`): each service's top tracks and artists by time range |
+| `v1:notices:floods:<place>` | string, TTL ~30 min | provider-floods, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredFloods` JSON (`store/floods.py`): the Environment Agency's warnings for the flood areas within 5 km of the postcode, as the EA gives them; the renderer makes the notices; see [Flood warnings](#flood-warnings) |
 
 The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
 own tokens, which never leave it (auth-broker's README, "Music in the store"). As the two repositories can't share
@@ -92,6 +93,47 @@ fetches every 15 minutes, and keeps each value for an hour. `tests/fixtures/glow
 Glowmarkt's answers to the stored value, and auth-broker's tests read the same file: change both together.
 `tests/fixtures/glow_energy_pages.json` is the pages the renderer drew from those answers when it still asked
 Glowmarkt itself, which the stored value must still draw.
+
+### Flood warnings
+
+`provider-floods` (`floods/main.py`) writes the Environment Agency's flood warnings near each UK postcode in
+`v1:sub:postcode` to `v1:notices:floods:<place>` (`keys.floods`, by `keys.place()`: `SE173LL`); the notice board reads
+them there. Norwegian postcodes (four digits) are skipped: the EA covers England, and a Welsh or Scottish postcode is
+written with nothing in force.
+
+One fetch serves every postcode. The EA's `/id/floods` lists every warning in force, and its documentation asks callers
+to keep to such common requests, which it caches, rather than filter each its own way. So each cycle fetches that list
+once, and each postcode gets the warnings for the flood areas within 5 km of it, as the EA lists them
+(`/id/floodAreas?lat&long&dist`): the same areas the renderer's own `/id/floods?lat&long&dist` once picked. A postcode
+is placed once (postcodes.io, `notices.location.lookup_postcode`), and its flood areas are asked for again once a day.
+The value is the EA's own answer, the warnings' items in the EA's names (those no longer in force too), with
+`fetched_at`:
+
+```json
+{"fetched_at": "2026-10-18T12:00:00Z", "postcode": "SE17 3LL",
+ "floods": {"items": [{"description": "River Thames at Southwark", "severity": "Flood Warning", "severityLevel": 2,
+                       "floodAreaID": "062FWF46Southwrk"}, ...]}}
+```
+
+The renderer makes the notices from it as it reads it (`notices/floods.py`, `StoredFloodWarningsSource`), so their
+words are in the screen's language then; a missing key keeps the board's last flood notices. The provider's logs name
+a postcode only by its district (`SE17`), as the renderer's never name it at all. `tests/fixtures/floods.json` is one
+cycle, from the EA's answers to the stored values, and `tests/fixtures/floods_notices.json` the notices the board made
+from the same warnings when it asked the EA itself, which the stored values must still make.
+
+To deploy: auth-broker's [#174](https://github.com/nvorkinn/auth-broker/pull/174), which writes `v1:sub:postcode`,
+must be deployed first, or the provider has no postcodes and no board shows a flood. Then deploy a release with
+`provider-floods`: the deploy starts it with the other providers, and the same release's renderers read the floods only
+from the store, so they show none until the provider has written the keys (its first cycle, at once on start). Check
+they're there before relying on them; on the host,
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:floods*"'
+```
+
+should list a key for each UK postcode in `v1:sub:postcode` (the same command with `SMEMBERS v1:sub:postcode` in place
+of `--scan --pattern ...` lists those). None at all means the provider isn't running (`docker logs provider-floods`)
+or the broker isn't writing the postcodes.
 
 ## Running locally
 
@@ -173,6 +215,9 @@ Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-bro
 the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; only the
 disruption notices still come straight from their APIs. So each provider must be running for its panels to have anything
 to draw.
+
+The notice board's flood warnings come from the store too (`v1:notices:floods:<place>`, from `provider-floods`), which
+needs auth-broker's postcode subscriptions deployed first: see [Flood warnings](#flood-warnings).
 
 A renderer started without the store (`RENDERER_REDIS_URL` set to empty, so no `REDIS_URL`) can't build the clients
 that read it: their areas say "Could not connect", the device reports them as in error, and the log names

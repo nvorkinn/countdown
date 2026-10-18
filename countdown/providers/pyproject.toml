@@ -10,6 +10,7 @@ dependencies = [
 
 [project.scripts]
 countdown-provider-entur = "countdown_providers.entur.main:main"
+countdown-provider-floods = "countdown_providers.floods.main:main"
 countdown-provider-tfl = "countdown_providers.tfl.main:main"
 countdown-provider-weather = "countdown_providers.weather.main:main"
 

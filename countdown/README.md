@@ -88,7 +88,8 @@ has its own refresh interval. The board's own sources are about the postcode's p
 come from the departures client, as every client can hand the board notice sources about what it shows
 (`AbstractClient.notice_sources`, passed on by the registry). A failing source keeps its last notices for a
 while (at least an hour) before they're dropped. Notices are ranked by severity, and planned works only fill rows left
-over.
+over. The flood warnings come from the shared store (`v1:notices:floods:<place>`), which the floods provider fills from
+the Environment Agency; the board makes its notices from what's there as it reads it.
 
 **Layout** (`rendering/`). For every frame, `DisplayController` asks `LAYOUTS` (a `LayoutRegistry`) for a
 layout, and keeps nothing about the answer. Layouts are registered by the canvas they draw

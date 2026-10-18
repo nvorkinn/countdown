@@ -17,7 +17,7 @@ from countdown_core.notices.calendar import (
     BankHolidaySource,
     ClockChangeSource,
 )
-from countdown_core.notices.floods import FLOODS_URL, FloodWarningsSource
+from countdown_core.notices.floods import StoredFloodWarningsSource
 from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.met_office import MetOfficeWarningsSource, parse_warnings, region_for
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
@@ -197,28 +197,6 @@ def test_met_office_source_fetches_its_region(api):
     notices = MetOfficeWarningsSource(requests.Session(), SOUTHWARK).fetch(NOW)
 
     assert len(notices) == 3
-
-
-# --- Floods ----------------------------------------------------------------------
-
-
-def test_floods_maps_severity_levels_and_skips_ones_no_longer_in_force(api):
-    items = [
-        {"description": "River Thames at Southwark", "severity": "Flood warning", "severityLevel": 2},
-        {"description": "Tidal Thames", "severity": "Severe Flood Warning", "severityLevel": 1},
-        {"description": "Lower River Effra", "severity": "Flood alert", "severityLevel": 3},
-        {"description": "Old news", "severity": "Warning no Longer in Force", "severityLevel": 4},
-    ]
-    api.add(responses.GET, FLOODS_URL, json={"items": items})
-
-    notices = FloodWarningsSource(requests.Session(), SOUTHWARK).fetch(NOW)
-
-    assert [(n.severity, n.text) for n in notices] == [
-        (Severity.WARNING, "Flood warning: River Thames at Southwark"),
-        (Severity.SEVERE, "Severe flood warning: Tidal Thames"),
-        (Severity.INFO, "Flood alert: Lower River Effra"),
-    ]
-    assert api.calls[0].request.params == {"lat": "51.49", "long": "-0.1", "dist": "5"}
 
 
 # --- TfL -------------------------------------------------------------------------
@@ -681,9 +659,11 @@ def test_board_adds_local_sources_once_the_postcode_is_found(api, clock):
         ClockChangeSource,
         BankHolidaySource,
         MetOfficeWarningsSource,
-        FloodWarningsSource,
+        StoredFloodWarningsSource,
         TflRoadSource,
     ]
+    # The floods are read from the store, under the postcode's place.
+    assert client.sources[3].key == "v1:notices:floods:SE173LL"
 
 
 def test_board_logs_that_it_resolved_postcode(api, clock, caplog):
