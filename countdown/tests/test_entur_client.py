@@ -128,7 +128,7 @@ def test_settings_prefer_departures_with_each_stops_source():
     )
     settings = DeparturesSettings.from_config(config)
     assert [(s.source, s.id) for s in settings.stops] == [("entur", "NSR:Quay:7333"), ("tfl", "940GZZLUKNG")]
-    assert (settings.style, settings.tfl_app_key, settings.stop_ids("tfl")) == ("card", "key", ["940GZZLUKNG"])
+    assert (settings.style, settings.stop_ids("tfl")) == ("card", ["940GZZLUKNG"])
 
 
 @pytest.mark.parametrize(

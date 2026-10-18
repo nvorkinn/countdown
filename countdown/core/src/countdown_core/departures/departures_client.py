@@ -49,17 +49,14 @@ class DeparturesSettings:
 
     stops: tuple[DepartureStop, ...]
     style: Style = "hero"
-    # Only for the TfL disruption notices, which are still asked of TfL; the departures come from the store.
-    tfl_app_key: str = ""
 
     @classmethod
     def from_config(cls, config: ConfigResponse) -> DeparturesSettings:
         """Read the settings from the broker's config, from whichever of its sections it has."""
         if config.departures is not None:
-            style = panel_style(config, config.departures.style)
-            return cls(tuple(config.departures.stops), style, config.tfl.app_key)
+            return cls(tuple(config.departures.stops), panel_style(config, config.departures.style))
         stops = tuple(DepartureStop(source="tfl", id=stop_id) for stop_id in config.tfl.stop_ids)
-        return cls(stops, panel_style(config, config.tfl.style), config.tfl.app_key)
+        return cls(stops, panel_style(config, config.tfl.style))
 
     def stop_ids(self, source: str) -> list[str]:
         """Return the ids of the stops from one source, in order."""
@@ -84,7 +81,7 @@ class DeparturesClient(AbstractClient):
         """Never touches the network: stops are resolved in _initialise(). Raises without a store to read."""
         super().__init__(registration, config)
         # Departures come from the store (the TfL and Entur providers fetch them once for every screen); raises
-        # without one. The disruption notices are still asked for directly.
+        # without one. TfL's disruption notices come from the store too; Entur's are still asked for directly.
         store = reader.require_store()
         self.sources: dict[str, StopSource] = {"tfl": StoredTflSource(store), "entur": StoredEnturSource(store)}
         self._notice_sources = self._build_notice_sources(config)

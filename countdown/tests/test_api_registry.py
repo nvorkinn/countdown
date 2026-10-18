@@ -144,10 +144,7 @@ def test_each_client_is_configured_with_its_section_of_the_config():
     assert section_for("weather", config) is config.weather
     assert section_for("spotify", config) == MusicSettings.from_config(config)
     assert section_for("glowmarkt", config) is config.glowmarkt
-    # The notice board also gets the TfL key, for the road incidents near the postcode.
-    assert section_for("notice_board", config) == NoticeBoardSettings(
-        postcode="SE17 3LL", tfl_app_key=config.tfl.app_key
-    )
+    assert section_for("notice_board", config) == NoticeBoardSettings(postcode="SE17 3LL")
 
 
 def test_every_panel_is_drawn_in_the_configs_one_style():

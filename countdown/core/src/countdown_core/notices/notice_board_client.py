@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, override
 
-from countdown_api.models import Tfl
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.i18n import N_, local_zone
 from countdown_core.notices.calendar import BankHolidaySource, ClockChangeSource
@@ -36,7 +35,7 @@ LOCATION_RETRY = timedelta(minutes=10)
 
 @dataclass(frozen=True)
 class NoticeBoardSettings:
-    """What the notice board is configured with: the broker's `notice_board` section, and the TfL app key.
+    """What the notice board is configured with: the broker's `notice_board` section.
 
     The board's own sources are about the postcode's place; the disruptions at the stops come from the departures
     client (see use_client_sources). Compared by value, so a change makes AbstractClient.needs_refresh rebuild the
@@ -48,13 +47,6 @@ class NoticeBoardSettings:
     country: str | None = None
     # How the board is drawn (the config's style, see panel_style); a broker that predates both gets hero.
     style: Style = "hero"
-    # For the road incidents near the postcode, which TfL reports.
-    tfl_app_key: str = ""
-
-    @property
-    def tfl(self) -> Tfl:
-        """The app key as the TfL sources take it."""
-        return Tfl(app_key=self.tfl_app_key, stop_ids=[])
 
 
 class NoticeBoardClient(AbstractClient):
@@ -76,7 +68,6 @@ class NoticeBoardClient(AbstractClient):
             self.sources.append(self._default_holidays())
         # The other clients' sources, given by the registry (use_client_sources).
         self.client_sources: list[NoticeSource] = []
-        self.tfl_config = config.tfl
         self.style = config.style
         # Location-based sources are added once the postcode is looked up (_ensure_location).
         self.location: Postcode | None = None

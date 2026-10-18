@@ -24,10 +24,14 @@ from countdown_core.notices.tfl import (
     StoredTflLineStatusSource,
     StoredTflRoadSource,
     StoredTflStationSource,
+    is_near,
+    line_status_notices,
+    road_notices,
+    station_notices,
 )
 from countdown_core.store import keys, reader
 from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
-from countdown_core.tfl.tfl_client import TFL_URL, TflSource
+from countdown_core.tfl.tfl_client import TFL_URL, DisruptedPoints, Lines, RoadDisruptions, TflSource
 from countdown_providers import runner as runner_module
 from countdown_providers.config import Settings
 from countdown_providers.runner import ProviderRunner, serve_all
@@ -165,20 +169,6 @@ def test_the_stored_answers_make_the_notices_the_renderer_made_from_tfl(api, tfl
     assert as_json(lines.fetch(NOW)) == EXPECTED["line_status"]
     assert as_json(stations.fetch(NOW)) == EXPECTED["stations"]
     assert as_json(roads.fetch(NOW)) == EXPECTED["roads"]
-
-
-def test_the_old_sources_made_the_recorded_notices(api, tfl):
-    """The recorded notices are the old direct-API sources' own, from the same answers."""
-    from countdown_api.models import Tfl  # noqa: PLC0415 -- only the old sources take it
-    from countdown_core.notices.tfl import TflLineStatusSource, TflRoadSource, TflStationSource  # noqa: PLC0415
-    from countdown_core.tfl.models import PostcodeResponse  # noqa: PLC0415
-
-    tfl = Tfl(app_key="", stop_ids=STOPS)
-    location = PostcodeResponse.model_validate(FIXTURE["postcodes_io"]).result
-
-    assert as_json(TflLineStatusSource(requests.Session(), tfl).fetch(NOW)) == EXPECTED["line_status"]
-    assert as_json(TflStationSource(requests.Session(), tfl).fetch(NOW)) == EXPECTED["stations"]
-    assert as_json(TflRoadSource(requests.Session(), tfl, location).fetch(NOW)) == EXPECTED["roads"]
 
 
 def test_the_notices_are_worked_out_when_read(api, tfl, redis):
@@ -494,3 +484,189 @@ def test_the_road_source_reads_its_postcodes_place_however_its_written(store):
     store.set(keys.tfl_roads("se17 3ll"), value.model_dump_json())
 
     assert StoredTflRoadSource(requests.Session(), POSTCODE).fetch(NOW) == []
+
+
+# --- Making the notices ------------------------------------------------------------
+
+
+def _status(
+    severity: int, description: str, periods: list[tuple[datetime, datetime]] = (), reason: str | None = None
+) -> dict:
+    return {
+        "statusSeverity": severity,
+        "statusSeverityDescription": description,
+        "reason": reason,
+        "validityPeriods": [{"fromDate": f.isoformat(), "toDate": t.isoformat()} for f, t in periods],
+    }
+
+
+def test_line_status_reports_the_current_problems():
+    today = (NOW - timedelta(hours=2), NOW + timedelta(hours=10))
+    next_week = (NOW + timedelta(days=7), NOW + timedelta(days=8))
+    lines = [
+        {
+            "id": "northern",
+            "name": "Northern",
+            "modeName": "tube",
+            "lineStatuses": [_status(6, "Severe Delays", [today]), _status(3, "Part Suspended", [next_week])],
+        },
+        {"id": "12", "name": "12", "modeName": "bus", "lineStatuses": [_status(10, "Good Service")]},
+    ]
+
+    # No reason given: the status itself, tagged with the line.
+    assert line_status_notices(Lines.validate_python(lines), NOW) == [
+        Notice("Northern", Severity.WARNING, "Severe Delays", today[1])
+    ]
+
+
+def test_line_status_only_shows_the_statuses_worth_a_notice():
+    """The same for every mode: a suspended bus route is as severe as a suspended line."""
+    statuses = {
+        "12": (2, "Suspended"),
+        "northern": (2, "Suspended"),
+        "victoria": (9, "Minor Delays"),
+        "68": (0, "Special Service"),
+        "district": (20, "Service Closed"),
+        "circle": (17, "Issues Reported"),
+        "central": (5, "Part Closure"),
+    }
+    lines = [
+        {
+            "id": line_id,
+            "name": line_id.title(),
+            "modeName": "bus" if line_id.isdigit() else "tube",
+            "lineStatuses": [_status(code, description)],
+        }
+        for line_id, (code, description) in statuses.items()
+    ]
+
+    assert line_status_notices(Lines.validate_python(lines), NOW) == [
+        Notice("Bus 12", Severity.SEVERE, "Suspended"),
+        Notice("Northern", Severity.SEVERE, "Suspended"),
+        Notice("Circle", Severity.INFO, "Issues Reported"),
+        Notice("Central", Severity.PLANNED, "Part Closure"),
+    ]
+
+
+def test_line_status_shows_a_reason_once_for_routes_sharing_it():
+    closure = (
+        "WATERLOO ROAD, Southwark: Routes 1 68 and 188   cannot serve St. George's Circus. Use stops in Borough Road."
+    )
+    early, late = NOW + timedelta(hours=2), NOW + timedelta(hours=6)
+    today = NOW - timedelta(hours=1)
+    lines = [
+        {
+            "id": "1",
+            "name": "1",
+            "modeName": "bus",
+            "lineStatuses": [_status(3, "Part Suspended", [(today, early)], closure)],
+        },
+        {
+            "id": "68",
+            "name": "68",
+            "modeName": "bus",
+            "lineStatuses": [_status(2, "Suspended", [(today, late)], closure)],
+        },
+        {
+            "id": "188",
+            "name": "188",
+            "modeName": "bus",
+            "lineStatuses": [_status(3, "Part Suspended", [(today, early)], closure)],
+        },
+    ]
+
+    # One notice for all three routes: the most severe status, the latest end.
+    assert line_status_notices(Lines.validate_python(lines), NOW) == [
+        Notice(
+            "Buses",
+            Severity.SEVERE,
+            "WATERLOO ROAD, Southwark: Routes 1 68 and 188 cannot serve St. George's Circus.",
+            late,
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ("reason", "line", "headline"),
+    [
+        (
+            "Victoria Line: Severe delays due to a track fault at Brixton. GOOD SERVICE on the rest of the line.",
+            "Victoria",
+            "Severe delays due to a track fault at Brixton.",
+        ),
+        (
+            (
+                "CENTRAL LINE: Saturday 26 September, no service between Marble Arch and Loughton. "
+                "Replacement buses operate."
+            ),
+            "Central",
+            "Saturday 26 September, no service between Marble Arch and Loughton.",
+        ),
+        (
+            "DOCKLANDS LIGHT RAILWAY: Sunday 27 September, no service between Shadwell and Tower Gateway.",
+            "DLR",
+            "Sunday 27 September, no service between Shadwell and Tower Gateway.",
+        ),
+        (
+            "Waterloo & City line: service operates Monday to Friday only.",
+            "Waterloo & City",
+            "Service operates Monday to Friday only.",
+        ),
+        ("no full stop and no prefix", "Northern", "No full stop and no prefix"),
+    ],
+)
+def test_line_status_headline_is_the_first_sentence_without_the_line_name(reason, line, headline):
+    lines = [
+        {"id": "x", "name": line, "modeName": "tube", "lineStatuses": [_status(6, "Severe Delays", reason=reason)]}
+    ]
+
+    [notice] = line_status_notices(Lines.validate_python(lines), NOW)
+
+    assert (notice.source, notice.text) == (line, headline)
+
+
+def test_station_notices_are_shortened_deduplicated_and_expire():
+    points = [
+        {
+            "commonName": "Elephant & Castle Underground Station",
+            "description": "ELEPHANT & CASTLE UNDERGROUND STATION: The lifts are out of service.",
+            "toDate": (NOW + timedelta(days=5)).isoformat(),
+        },
+        {
+            "commonName": "Elephant & Castle Underground Station",
+            "description": "Elephant & Castle: The lifts are out of service.",
+            "toDate": (NOW + timedelta(days=2)).isoformat(),
+        },
+        {
+            "commonName": "Kennington Underground Station",
+            "description": "Kennington: Entrance closed.",
+            "toDate": (NOW - timedelta(hours=1)).isoformat(),
+        },
+    ]
+
+    notices = station_notices(DisruptedPoints.validate_python(points), NOW)
+
+    assert [n.text for n in notices] == ["Elephant & Castle: The lifts are out of service."]
+
+
+def test_roads_only_reports_serious_incidents_nearby():
+    near, far = "[-0.098,51.492]", "[-0.3,51.6]"
+    disruptions = RoadDisruptions.validate_python(
+        [
+            {
+                "id": "1",
+                "severity": "Severe",
+                "category": "Collisions",
+                "comments": "[A2] Old Kent Road",
+                "point": near,
+            },
+            {"id": "2", "severity": "Serious", "category": "Works", "comments": "[A13] Commercial Road", "point": far},
+            {"id": "3", "severity": "Serious", "category": "Works", "comments": "No location"},
+            {"id": "4", "severity": "Moderate", "category": "Works", "comments": "[A3] Kennington Road", "point": near},
+        ]
+    )
+
+    nearby = [d for d in disruptions if is_near(d, 51.49, -0.1)]
+
+    assert [d.id for d in nearby] == ["1", "4"]
+    assert road_notices(nearby) == [Notice("Roads", Severity.WARNING, "Collisions: [A2] Old Kent Road")]
