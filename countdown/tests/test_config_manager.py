@@ -71,9 +71,9 @@ def test_config_ignores_env_vars(isolated_cwd, monkeypatch):
     Broker-owned fields should never pick up a local value, only ever what the broker sent.
     """
     monkeypatch.setenv("TFL__APP_KEY", "should-be-ignored")
-    monkeypatch.setenv("GLOWMARKT__USERNAME", "should-be-ignored")
+    monkeypatch.setenv("GLOWMARKT__ENABLED", "true")
     monkeypatch.setenv("INTERVAL", "99")
     config = make_config()
     assert config.tfl.app_key == ""
-    assert config.glowmarkt.username is None
+    assert config.glowmarkt.enabled is False
     assert config.interval == 15

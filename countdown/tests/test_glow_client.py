@@ -12,7 +12,7 @@ from countdown_core.glow.glow_client import GlowClient, _bucket_starts
 from countdown_core.store import keys, reader
 from countdown_credentials.registration import Registration
 
-CONFIG = Glowmarkt(username="user@example.com", password="secret")
+CONFIG = Glowmarkt(enabled=True)
 
 
 def make_client(registration: Registration = REGISTRATION) -> GlowClient:
