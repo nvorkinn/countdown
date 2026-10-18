@@ -1,7 +1,9 @@
-"""The floods provider against mocked Environment Agency and postcodes.io (responses), and what it stores.
+"""The floods provider against a mocked Environment Agency (responses), and what it stores.
 
-fixtures/floods.json is one cycle: the EA's warnings in force, each postcode's place and flood areas, and the value
-stored for it, which test_floods_store.py reads back.
+Where each postcode is comes from the store, as provider-locations writes it (fakeredis): nothing here asks
+postcodes.io. fixtures/floods.json is one cycle: the EA's warnings in force, each postcode's place (postcodes.io's
+answer, which provider-locations stores) and flood areas, and the value stored for it, which test_floods_store.py
+reads back.
 """
 
 import asyncio
@@ -12,18 +14,17 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-import fakeredis
 import pytest
 import requests
 import responses
+from location_factory import FakeLocations
 from responses import matchers
 
 from countdown_core.core import log_format
 from countdown_core.core.abstract_client import AbstractClient
-from countdown_core.notices import location
-from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.models import FloodWarningsResponse
 from countdown_core.store import keys
+from countdown_core.tfl.models import Postcode, PostcodeResponse
 from countdown_providers.floods import main as floods_main
 from countdown_providers.floods.main import FLOOD_AREAS_URL, FLOODS_URL, FloodsProvider
 from countdown_providers.runner import ProviderRunner
@@ -34,11 +35,17 @@ POSTCODES = list(PLACES)
 UNKNOWN = "ZZ1 1ZZ"
 
 
+def place_of(postcode: str) -> Postcode:
+    """Return where the fixture has `postcode`, as provider-locations stores it (from postcodes.io's answer)."""
+    return PostcodeResponse.model_validate(PLACES[postcode]["postcodes_io"]).result
+
+
 def traces(postcode: str) -> list[str]:
     """Return what the logs mustn't hold about `postcode`: it, its place, its district, and its coordinates."""
     compact = postcode.replace(" ", "").upper()
     found = PLACES.get(postcode, {}).get("postcodes_io", {}).get("result", {})
-    return [postcode.upper(), compact, compact[:-3], *(str(found[k]) for k in ("latitude", "longitude") if k in found)]
+    about = [str(found[k]) for k in ("latitude", "longitude", "admin_district") if found.get(k)]
+    return [postcode.upper(), compact, compact[:-3], *(t.upper() for t in about)]
 
 
 def assert_no_postcode_in(text: str, postcodes: list[str]) -> None:
@@ -68,20 +75,25 @@ def api():
         yield rsps
 
 
-def add_place(api, postcode: str) -> None:
-    """Answer postcodes.io and the EA's flood areas for `postcode`, as the fixture has them."""
-    place = PLACES[postcode]
-    found = place["postcodes_io"]["result"]
-    api.add(responses.GET, f"{POSTCODES_URL}/{postcode.replace(' ', '%20')}", json=place["postcodes_io"])
+@pytest.fixture
+def located():
+    """Return a store with nowhere in it yet; add_place puts a postcode there, as provider-locations would."""
+    return FakeLocations()
+
+
+def near(postcode: str) -> dict[str, str]:
+    found = place_of(postcode)
+    return {"lat": str(found.latitude), "long": str(found.longitude)}
+
+
+def add_place(api, located: FakeLocations, postcode: str) -> None:
+    """Store where `postcode` is and answer the EA's flood areas near it, as the fixture has them."""
+    located.put(place_of(postcode))
     api.add(
         responses.GET,
         FLOOD_AREAS_URL,
-        json=place["flood_areas"],
-        match=[
-            matchers.query_param_matcher(
-                {"lat": str(found["latitude"]), "long": str(found["longitude"]), "dist": "5", "_limit": "2000"}
-            )
-        ],
+        json=PLACES[postcode]["flood_areas"],
+        match=[matchers.query_param_matcher(near(postcode) | {"dist": "5", "_limit": "2000"})],
     )
 
 
@@ -93,35 +105,33 @@ def calls_to(api, url: str) -> int:
     return sum(urlparse(call.request.url)._replace(query="").geturl() == url for call in api.calls)
 
 
-def calls_starting(api, url: str) -> int:
-    return sum(call.request.url.startswith(url) for call in api.calls)
-
-
 def fetch(provider: FloodsProvider, ids: list[str]) -> dict:
     return asyncio.run(provider.fetch(ids))
 
 
-def make_provider(clock) -> FloodsProvider:
-    return FloodsProvider(requests.Session(), now=clock)
+def make_provider(located: FakeLocations, clock) -> FloodsProvider:
+    return FloodsProvider(requests.Session(), located.reader, now=clock)
 
 
-def test_each_postcode_gets_the_eas_warnings_for_the_flood_areas_near_it(api, clock):
+def test_each_postcode_gets_the_eas_warnings_for_the_flood_areas_near_it(api, located, clock):
     add_in_force(api)
     for postcode in POSTCODES:
-        add_place(api, postcode)
+        add_place(api, located, postcode)
 
-    results = fetch(make_provider(clock), POSTCODES)
+    results = fetch(make_provider(located, clock), POSTCODES)
 
     assert list(results) == POSTCODES  # keyed by postcode, not the Redis key: the runner adds that
     for postcode in POSTCODES:
         assert json.loads(results[postcode].model_dump_json()) == PLACES[postcode]["stored"]
+    # Where each is came from the store: the EA is all that was asked.
+    assert {urlparse(call.request.url).netloc for call in api.calls} == {"environment.data.gov.uk"}
 
 
-def test_one_list_of_the_warnings_in_force_serves_every_postcode(api, clock):
+def test_one_list_of_the_warnings_in_force_serves_every_postcode(api, located, clock):
     add_in_force(api)
     for postcode in POSTCODES:
-        add_place(api, postcode)
-    provider = make_provider(clock)
+        add_place(api, located, postcode)
+    provider = make_provider(located, clock)
 
     fetch(provider, POSTCODES[:2])  # one batch...
     fetch(provider, POSTCODES[2:])  # ...and the next, in the same cycle
@@ -131,10 +141,10 @@ def test_one_list_of_the_warnings_in_force_serves_every_postcode(api, clock):
     assert next(call.request.url for call in api.calls if call.request.url.startswith(FLOODS_URL)) == FLOODS_URL
 
 
-def test_the_next_cycle_asks_for_the_warnings_in_force_again(api, clock):
+def test_the_next_cycle_asks_for_the_warnings_in_force_again(api, located, clock):
     add_in_force(api)
-    add_place(api, "SE17 3LL")
-    provider = make_provider(clock)
+    add_place(api, located, "SE17 3LL")
+    provider = make_provider(located, clock)
 
     fetch(provider, ["SE17 3LL"])
     clock.now += timedelta(seconds=provider.interval_s)
@@ -144,115 +154,155 @@ def test_the_next_cycle_asks_for_the_warnings_in_force_again(api, clock):
     assert second["SE17 3LL"].fetched_at == clock.now
 
 
-def test_a_postcode_is_placed_once_and_its_flood_areas_asked_for_once_a_day(api, clock):
+def test_a_postcodes_flood_areas_are_asked_for_once_a_day(api, located, clock):
     add_in_force(api)
-    add_place(api, "SE17 3LL")
-    provider = make_provider(clock)
+    add_place(api, located, "SE17 3LL")
+    provider = make_provider(located, clock)
 
     for _ in range(3):
         fetch(provider, ["SE17 3LL"])
         clock.now += timedelta(hours=6)
-    assert calls_starting(api, POSTCODES_URL) == 1
     assert calls_to(api, FLOOD_AREAS_URL) == 1
 
     clock.now += timedelta(hours=6)  # a day after the first
     fetch(provider, ["SE17 3LL"])
-    assert calls_starting(api, POSTCODES_URL) == 1  # a postcode's place doesn't change
-    assert calls_to(api, FLOOD_AREAS_URL) == 2  # but the EA redraws its flood areas now and then
+    assert calls_to(api, FLOOD_AREAS_URL) == 2  # the EA redraws its flood areas now and then
 
 
-def test_norwegian_postcodes_are_skipped(api, clock):
+def test_a_postcode_moved_by_provider_locations_gets_the_flood_areas_near_where_it_is_now(api, located, clock):
+    """provider-locations looks each postcode up again once a day, and postcodes.io corrects a place now and then."""
+    add_in_force(api)
+    add_place(api, located, "SE17 3LL")
+    add_place(api, located, "YO1 7HH")
+    provider = make_provider(located, clock)
+    fetch(provider, ["SE17 3LL"])
+
+    located.put(place_of("YO1 7HH").model_copy(update={"postcode": "SE17 3LL"}))
+    clock.now += timedelta(seconds=provider.interval_s)
+    moved = fetch(provider, ["SE17 3LL"])["SE17 3LL"]
+
+    assert [w.flood_area_id for w in moved.floods.items] == ["122FWF706", "122WAF940"]  # York's, not Southwark's
+    assert calls_to(api, FLOOD_AREAS_URL) == 2
+
+
+def test_norwegian_postcodes_are_skipped(api, located, clock):
     """They're in v1:sub:postcode for Norway's notices; nothing is asked about them."""
-    results = fetch(make_provider(clock), ["0150", "9008"])
+    results = fetch(make_provider(located, clock), ["0150", "9008"])
 
     assert results == {}
     assert len(api.calls) == 0
 
 
-def test_norwegian_postcodes_in_a_batch_with_uk_ones_are_left_out(api, clock):
+def test_norwegian_postcodes_in_a_batch_with_uk_ones_are_left_out(api, located, clock):
     add_in_force(api)
-    add_place(api, "YO1 7HH")
+    add_place(api, located, "YO1 7HH")
 
-    results = fetch(make_provider(clock), ["0150", "YO1 7HH"])
+    results = fetch(make_provider(located, clock), ["0150", "YO1 7HH"])
 
     assert list(results) == ["YO1 7HH"]
 
 
-def test_a_postcode_postcodes_io_doesnt_know_is_left_out_and_looked_up_again_a_day_later(api, clock, caplog):
+def test_a_postcode_that_doesnt_exist_is_left_out_and_nothing_asked_about_it(api, located, clock, caplog):
+    """provider-locations stores it as not found, and warns about it itself, once a day."""
     add_in_force(api)
-    api.add(responses.GET, f"{POSTCODES_URL}/ZZ1%201ZZ", status=404, json={"status": 404, "error": "Invalid postcode"})
-    provider = make_provider(clock)
+    located.put(not_found=(UNKNOWN,))
+    provider = make_provider(located, clock)
 
-    assert fetch(provider, ["ZZ1 1ZZ"]) == {}
-    clock.now += timedelta(hours=1)
-    assert fetch(provider, ["ZZ1 1ZZ"]) == {}
-    assert calls_starting(api, POSTCODES_URL) == 1
-    clock.now += timedelta(days=1)
-    assert fetch(provider, ["ZZ1 1ZZ"]) == {}
-    assert calls_starting(api, POSTCODES_URL) == 2
+    with caplog.at_level(logging.INFO):
+        assert fetch(provider, [UNKNOWN]) == {}
 
-    assert calls_to(api, FLOOD_AREAS_URL) == 0
-    assert caplog.messages.count("postcodes.io doesn't know a subscribed postcode; no floods for it") == 2  # once a day
-    assert_no_postcode_in(caplog.text, [UNKNOWN])
+    assert len(api.calls) == 0
+    assert caplog.messages == []
 
 
-def test_one_postcode_that_cant_be_placed_doesnt_lose_the_rest_of_the_batch(api, clock, caplog):
+def test_a_postcode_not_placed_yet_doesnt_lose_the_rest_of_the_batch(api, located, clock, caplog):
     add_in_force(api)
-    api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", status=500)
-    add_place(api, "YO1 7HH")
+    add_place(api, located, "YO1 7HH")
+    provider = make_provider(located, clock)
 
-    results = fetch(make_provider(clock), ["SE17 3LL", "YO1 7HH"])
+    with caplog.at_level(logging.INFO):
+        results = fetch(provider, ["SE17 3LL", "YO1 7HH"])
 
     assert list(results) == ["YO1 7HH"]
-    # Not the postcode, nor the HTTP error's text (which quotes the URL, postcode and all).
-    assert caplog.messages == ["Couldn't place a subscribed postcode for its floods: HTTPError"]
+    assert caplog.messages == [
+        (
+            "No location in the store yet for 1 of 2 postcodes, so no flood warnings for them this cycle "
+            "(provider-locations writes them)"
+        )
+    ]
     assert_no_postcode_in(caplog.text, POSTCODES)
 
 
-def test_flood_areas_the_ea_cant_give_leave_the_postcode_out_until_they_can(api, clock):
+def test_the_ea_isnt_asked_while_no_postcode_in_the_batch_is_placed(api, located, clock):
     add_in_force(api)
-    found = PLACES["SE17 3LL"]["postcodes_io"]
-    api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", json=found)
+
+    assert fetch(make_provider(located, clock), ["SE17 3LL"]) == {}
+    assert len(api.calls) == 0
+
+
+def test_one_postcode_whose_flood_areas_cant_be_had_doesnt_lose_the_rest_of_the_batch(api, located, clock, caplog):
+    add_in_force(api)
+    located.put(place_of("SE17 3LL"))
+    api.add(
+        responses.GET,
+        FLOOD_AREAS_URL,
+        status=500,
+        match=[matchers.query_param_matcher(near("SE17 3LL"), strict_match=False)],
+    )
+    add_place(api, located, "YO1 7HH")
+
+    results = fetch(make_provider(located, clock), ["SE17 3LL", "YO1 7HH"])
+
+    assert list(results) == ["YO1 7HH"]
+    # Not the postcode, nor the HTTP error's text (which quotes the URL, the postcode's coordinates and all).
+    assert caplog.messages == ["Couldn't fetch the flood areas near a subscribed postcode: HTTPError 500"]
+    assert_no_postcode_in(caplog.text, POSTCODES)
+
+
+def test_flood_areas_the_ea_cant_give_leave_the_postcode_out_until_they_can(api, located, clock):
+    add_in_force(api)
+    located.put(place_of("SE17 3LL"))
     api.add(responses.GET, FLOOD_AREAS_URL, status=500)
-    provider = make_provider(clock)
+    provider = make_provider(located, clock)
 
     assert fetch(provider, ["SE17 3LL"]) == {}
 
     api.replace(responses.GET, FLOOD_AREAS_URL, json=PLACES["SE17 3LL"]["flood_areas"])
     clock.now += timedelta(seconds=provider.interval_s)
     assert list(fetch(provider, ["SE17 3LL"])) == ["SE17 3LL"]
-    assert calls_starting(api, POSTCODES_URL) == 1  # the place was kept
 
 
-def test_the_ea_being_down_writes_nothing_without_naming_a_postcode(api, clock, caplog):
+def test_the_ea_being_down_writes_nothing_without_naming_a_postcode(api, located, clock, caplog):
     add_in_force(api, status=503)
-    provider = make_provider(clock)
+    for postcode in POSTCODES:
+        located.put(place_of(postcode))
+    provider = make_provider(located, clock)
 
     assert fetch(provider, ["SE17 3LL", "YO1 7HH"]) == {}
     assert fetch(provider, ["CF10 1EP"]) == {}  # the cycle's next batch doesn't ask again
 
     assert calls_to(api, FLOODS_URL) == 1
-    assert calls_starting(api, POSTCODES_URL) == 0
+    assert calls_to(api, FLOOD_AREAS_URL) == 0
     assert any(message.startswith("Couldn't fetch the flood warnings in force") for message in caplog.messages)
     assert_no_postcode_in(caplog.text, POSTCODES)
 
 
-def test_nothing_logged_names_a_postcode_or_its_district_or_place(api, clock, caplog):
+def test_nothing_logged_names_a_postcode_or_its_district_or_place(api, located, clock, caplog):
     """Every way a cycle can go, logged at DEBUG by the provider and the runner: a postcode says where someone lives."""
     caplog.set_level(logging.DEBUG)
     add_in_force(api)
-    api.add(responses.GET, f"{POSTCODES_URL}/SE17%203LL", status=500)  # can't be placed
-    yo1 = PLACES["YO1 7HH"]["postcodes_io"]
-    api.add(responses.GET, f"{POSTCODES_URL}/YO1%207HH", json=yo1)
-    near_yo1 = {"lat": str(yo1["result"]["latitude"]), "long": str(yo1["result"]["longitude"])}
-    # Its flood areas can't be had.
+    # SE17 3LL isn't placed yet.
+    located.put(place_of("YO1 7HH"))  # whose flood areas can't be had
     api.add(
-        responses.GET, FLOOD_AREAS_URL, status=500, match=[matchers.query_param_matcher(near_yo1, strict_match=False)]
+        responses.GET,
+        FLOOD_AREAS_URL,
+        status=500,
+        match=[matchers.query_param_matcher(near("YO1 7HH"), strict_match=False)],
     )
-    add_place(api, "CF10 1EP")  # written
-    api.add(responses.GET, f"{POSTCODES_URL}/ZZ1%201ZZ", status=404, json={"status": 404, "error": "Invalid postcode"})
-    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
-    provider = make_provider(clock)
+    add_place(api, located, "CF10 1EP")  # written
+    located.put(not_found=(UNKNOWN,))
+    redis = located.redis
+    provider = make_provider(located, clock)
 
     async def cycles():
         await redis.sadd(keys.subscription(keys.POSTCODE), *POSTCODES, UNKNOWN, "0150")
@@ -280,35 +330,36 @@ def provider_logging(monkeypatch):
         logger.setLevel(level)
 
 
-def test_urllib3s_retry_warnings_which_quote_the_postcodes_url_are_kept_out(
-    provider_logging, clock, caplog, monkeypatch
+def test_urllib3s_retry_warnings_which_quote_the_coordinates_are_kept_out(
+    provider_logging, located, clock, caplog, monkeypatch
 ):
     """A real connection failure, retried by the renderer's own retrying session: urllib3 warns with each URL."""
     with socket.socket() as s:  # a port nothing listens on
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    monkeypatch.setattr(location, "POSTCODES_URL", f"http://127.0.0.1:{port}/postcodes")
+    monkeypatch.setattr(floods_main, "FLOOD_AREAS_URL", f"http://127.0.0.1:{port}/id/floodAreas")
     session = AbstractClient._build_retrying_session(backoff_factor=0)
     session.trust_env = False  # straight to the closed port, not through a proxy
-    provider = FloodsProvider(session, now=clock)
-    provider.in_force = (clock.now, FloodWarningsResponse())  # only postcodes.io is asked
+    located.put(place_of("SE17 3LL"))
+    provider = FloodsProvider(session, located.reader, now=clock)
+    provider.in_force = (clock.now, FloodWarningsResponse())  # only the flood areas are asked for
     caplog.set_level(logging.DEBUG)
 
     assert asyncio.run(provider.fetch(["SE17 3LL"])) == {}
 
     assert [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING] == [
-        "Couldn't place a subscribed postcode for its floods: ConnectionError"
+        "Couldn't fetch the flood areas near a subscribed postcode: ConnectionError"
     ]
     assert not [r for r in caplog.records if r.name.startswith("urllib3")]
     assert_no_postcode_in(caplog.text, ["SE17 3LL"])
 
 
-def test_the_runner_writes_each_place_under_its_key_with_the_ttl(api, clock):
+def test_the_runner_writes_each_place_under_its_key_with_the_ttl(api, located, clock):
     add_in_force(api)
     for postcode in POSTCODES:
-        add_place(api, postcode)
-    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
-    provider = make_provider(clock)
+        add_place(api, located, postcode)
+    redis = located.redis
+    provider = make_provider(located, clock)
 
     async def cycle():
         await redis.sadd(keys.subscription(keys.POSTCODE), *POSTCODES, "0150")
@@ -328,11 +379,11 @@ def test_the_runner_writes_each_place_under_its_key_with_the_ttl(api, clock):
     assert provider.ttl_s > provider.interval_s
 
 
-def test_the_flood_areas_are_asked_for_around_the_postcodes_place(api, clock):
+def test_the_flood_areas_are_asked_for_around_the_postcodes_place(api, located, clock):
     add_in_force(api)
-    add_place(api, "YO1 7HH")
+    add_place(api, located, "YO1 7HH")
 
-    fetch(make_provider(clock), ["YO1 7HH"])
+    fetch(make_provider(located, clock), ["YO1 7HH"])
 
     [call] = [call for call in api.calls if call.request.url.startswith(FLOOD_AREAS_URL)]
     assert parse_qs(urlparse(call.request.url).query) == {

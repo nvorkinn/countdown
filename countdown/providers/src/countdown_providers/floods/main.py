@@ -7,14 +7,16 @@ digits) are in the set for Norway's notices, and are skipped.
 One fetch serves every postcode. The EA's /id/floods lists every warning in force in England, and its documentation
 asks callers to keep to such common requests, which it caches, rather than filter each its own way. So a cycle asks
 for that list once, and each postcode gets the warnings for the flood areas within RADIUS_KM of it, as the EA lists
-them (/id/floodAreas?lat&long&dist): the areas /id/floods?lat&long&dist would have picked for it. A postcode is placed
-once (postcodes.io: a postcode's place doesn't change), and its flood areas are asked for again once a day, as the EA
-redraws them now and then.
+them (/id/floodAreas?lat&long&dist): the areas /id/floods?lat&long&dist would have picked for it. Where a postcode is
+comes from the store, as provider-locations placed it (`v1:location:<place>`, read each cycle by
+locations.reader.LocationReader; one it hasn't placed, or that doesn't exist, is left out until it has), and its flood
+areas are asked for again once a day, as the EA redraws them now and then, or at once if it's moved.
 
 Nothing logged names a postcode or anything worked out from one (its district, its coordinates, a URL with either in
 it): a postcode says where a screen, and someone's home, is, and the logs go to the central log store. So a failure is
-logged by the error's type alone; urllib3's warnings, which quote the URL they retried, are kept out of every process's
-logs (countdown_core.core.log_format), and the runner names no postcode either.
+logged by its reason (log_format.error_reason: the error's type, and an HTTP error's status); urllib3's warnings, which
+quote the URL they retried, are kept out of every process's logs (countdown_core.core.log_format), and the runner names
+no postcode either.
 
 The HTTP calls are synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread), like the TfL
 provider's.
@@ -26,18 +28,21 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
-from countdown_core.core.log_format import configure_logging
-from countdown_core.notices.location import FULL_POSTCODE, lookup_postcode
+from countdown_core.core.log_format import configure_logging, error_reason
+from countdown_core.notices.location import FULL_POSTCODE
 from countdown_core.notices.models import FloodAreasResponse, FloodWarningsResponse
 from countdown_core.store import keys
 from countdown_core.store.floods import StoredFloods
 from countdown_providers.config import Settings
+from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import serve
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     import requests
+
+    from countdown_core.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +52,7 @@ FLOOD_AREAS_URL = "https://environment.data.gov.uk/flood-monitoring/id/floodArea
 RADIUS_KM = 5
 # /id/floodAreas returns 500 areas unless asked for more; ask for more than RADIUS_KM takes in anywhere.
 FLOOD_AREAS_LIMIT = 2000
-# How long a postcode's flood areas are used before they're asked for again (and an unknown postcode looked up again).
+# How long a postcode's flood areas are used before they're asked for again.
 FLOOD_AREAS_REFRESH = timedelta(days=1)
 # The runner fetches ten postcodes at a time: one list of the warnings in force serves all of a cycle's batches. Well
 # under interval_s, so the next cycle asks afresh.
@@ -77,15 +82,22 @@ class FloodsProvider:
     # The EA updates its warnings every 15 minutes; asking every 5 shows a change within 5 minutes of it.
     interval_s = 5 * 60
 
-    def __init__(self, session: requests.Session, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
-        """Ask the EA and postcodes.io through `session`; `now` stamps fetched_at (a parameter for the tests)."""
+    def __init__(
+        self,
+        session: requests.Session,
+        locations: LocationReader,
+        now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        """Ask the EA through `session`, and the store where each postcode is through `locations`.
+
+        `now` stamps fetched_at (a parameter for the tests).
+        """
         self.session = session
+        self.locations = locations
         self.now = now
-        # Postcode -> (latitude, longitude). A postcode's place doesn't change, so this only grows.
-        self.coordinates: dict[str, tuple[float, float]] = {}
-        # Postcode -> (when they were asked for, the ids of the flood areas within RADIUS_KM of it, or None if
-        # postcodes.io doesn't know the postcode).
-        self.areas: dict[str, tuple[datetime, frozenset[str] | None]] = {}
+        # Postcode -> (when they were asked for, where it was then, and the ids of the flood areas within RADIUS_KM of
+        # it). Only grows (a few hundred bytes each), like provider-locations' own.
+        self.areas: dict[str, tuple[datetime, tuple[float, float], frozenset[str]]] = {}
         # When the warnings in force were last asked for, and what they were (None if the EA couldn't be asked).
         self.in_force: tuple[datetime, FloodWarningsResponse | None] | None = None
 
@@ -95,26 +107,25 @@ class FloodsProvider:
 
     async def fetch(self, ids: list[str]) -> dict[str, StoredFloods]:
         """Fetch the warnings near each UK postcode, leaving out (and logging) any that fail or that can't be placed."""
-        # One thread for the whole batch, one postcode after another: the requests session isn't shared across threads.
-        return await asyncio.to_thread(self._fetch_blocking, ids)
-
-    def _fetch_blocking(self, ids: list[str]) -> dict[str, StoredFloods]:
         # Anything else (a Norwegian postcode) is another provider's.
         postcodes = [postcode for postcode in ids if FULL_POSTCODE.fullmatch(postcode)]
-        if not postcodes:
+        places = await self.locations.places(postcodes, notices="flood warnings")
+        if not places:
             return {}
+        # One thread for the whole batch, one postcode after another: the requests session isn't shared across threads.
+        return await asyncio.to_thread(self._fetch_blocking, places)
+
+    def _fetch_blocking(self, places: dict[str, Postcode]) -> dict[str, StoredFloods]:
         fetched_at, in_force = self._in_force()
         if in_force is None:
             return {}
         results: dict[str, StoredFloods] = {}
-        for postcode in postcodes:
+        for postcode, place in places.items():
             try:
-                areas = self._areas_near(postcode)
+                areas = self._areas_near(postcode, (place.latitude, place.longitude))
             except Exception as e:  # noqa: BLE001 -- one bad postcode mustn't lose the rest of the batch
-                # Not the error's own text: an HTTP error's quotes the URL, with the postcode or its place in it.
-                logger.warning("Couldn't place a subscribed postcode for its floods: %s", type(e).__name__)
-                continue
-            if areas is None:
+                # Not the error's own text: an HTTP error's quotes the URL, with the postcode's coordinates in it.
+                logger.warning("Couldn't fetch the flood areas near a subscribed postcode: %s", error_reason(e))
                 continue
             items = [warning for warning in in_force.items if warning.flood_area_id in areas]
             results[postcode] = StoredFloods(
@@ -137,39 +148,29 @@ class FloodsProvider:
             self.in_force = (now, answer)
         return self.in_force
 
-    def _areas_near(self, postcode: str) -> frozenset[str] | None:
-        """Return the ids of the flood areas near `postcode`, or None if postcodes.io doesn't know it.
+    def _areas_near(self, postcode: str, coordinates: tuple[float, float]) -> frozenset[str]:
+        """Return the ids of the flood areas near `postcode`, at `coordinates`; raises if the EA can't be asked.
 
-        Asked for once a day; an unknown postcode is looked up again as often, as postcodes.io learns new ones.
+        Asked for once a day, and again at once if provider-locations has moved the postcode since.
         """
         now = self.now()
         cached = self.areas.get(postcode)
-        if cached is not None and now - cached[0] < FLOOD_AREAS_REFRESH:
-            return cached[1]
-        coordinates = self._coordinates(postcode)
-        if coordinates is None:
-            logger.warning("postcodes.io doesn't know a subscribed postcode; no floods for it")
-            areas = None
-        else:
-            areas = fetch_flood_areas(self.session, *coordinates)
-        self.areas[postcode] = (now, areas)
+        if cached is not None and cached[1] == coordinates and now - cached[0] < FLOOD_AREAS_REFRESH:
+            return cached[2]
+        areas = fetch_flood_areas(self.session, *coordinates)
+        self.areas[postcode] = (now, coordinates, areas)
         return areas
-
-    def _coordinates(self, postcode: str) -> tuple[float, float] | None:
-        if postcode not in self.coordinates:
-            place = lookup_postcode(self.session, postcode)
-            if place is None:
-                return None
-            self.coordinates[postcode] = (place.latitude, place.longitude)
-        return self.coordinates[postcode]
 
 
 def main() -> None:
     """Run the `countdown-provider-floods` console script."""
     configure_logging()
+    settings = Settings.from_env()
+    # One client for the runner and the locations it reads.
+    redis = settings.redis()
     # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
     session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
-    asyncio.run(serve(FloodsProvider(session), Settings.from_env()))
+    asyncio.run(serve(FloodsProvider(session, LocationReader(redis)), settings, redis=redis))
 
 
 if __name__ == "__main__":
