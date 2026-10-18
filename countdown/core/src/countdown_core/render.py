@@ -30,6 +30,7 @@ from countdown_core.rendering.layout import Frame
 from countdown_core.rendering.screen import canvas_for
 from countdown_core.store import config as stored_config
 from countdown_core.store import frame_record, reader
+from countdown_core.store import pairing as stored_pairing
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_credentials.registration import RendererRegistration
 
@@ -112,20 +113,22 @@ def render(
 
     The config is the broker's copy in the store (`v1:config:<device id>`), unless the caller has one already
     (`config`: today's per-screen renderer, which asks the broker when the store has none, and for a pairing code).
-    With a pairing code it's the pairing screen. A client that fails other than by its key expiring draws its panel
-    from `previous`, the last render's outcome, if that drew one with the same section of the config and in the same
-    language and time zone; otherwise its area says it could not connect.
+    With a pairing code it's the pairing screen: reading the store, the code is the broker's `v1:pairing:<device id>`
+    (store.pairing), which while it's there is the config to draw. A client that fails other than by its key expiring
+    draws its panel from `previous`, the last render's outcome, if that drew one with the same section of the config
+    and in the same language and time zone; otherwise its area says it could not connect.
 
     With `raise_store_errors` (the render pool's worker), a client that can't ask Redis raises its RedisError instead,
     and nothing is written: the screen keeps the frame it has, rather than one saying it could not connect. A key that
     has expired still draws "Not available": that's the data's expiry, not Redis failing.
 
-    Raises RedisError if the config can't be read from the store, and pydantic's ValidationError if what's there
-    isn't a config. A record that can't be written is logged, and the frame still returned (Result.UNRECORDED).
+    Raises RedisError if the config (or the code) can't be read from the store, and pydantic's ValidationError if
+    what's there isn't a config. A record that can't be written is logged, and the frame still returned
+    (Result.UNRECORDED).
     """
     with moment.drawing_at(now):
         if config is None:
-            config = _stored_config(device_id)
+            config = _live_pairing(device_id) or _stored_config(device_id)
             if config is None:
                 return Outcome(Result.NO_CONFIG)
         locale = _apply_locale(config)
@@ -161,6 +164,15 @@ def _stored_config(device_id: str) -> ConfigResponse | None:
     """Return the device's config from the store; None if there's none, or no store to read it from."""
     client = reader.store()
     return None if client is None else stored_config.read(client, device_id)
+
+
+def _live_pairing(device_id: str) -> ConfigResponse | None:
+    """Return the device's config with the pairing code it's to show, from the store; None without a live code.
+
+    The store's config never carries the code, so this is how a render that reads the store shows it.
+    """
+    client = reader.store()
+    return None if client is None else stored_pairing.read(client, device_id)
 
 
 def _apply_locale(config: ConfigResponse) -> tuple[str, str]:
