@@ -267,6 +267,33 @@ def test_run_wakes_early_on_a_subscription_change(redis):
     assert asyncio.run(redis.exists(keys.departures("new"))) == 1
 
 
+async def wait_for_listener(redis, channel):
+    """Wait for a runner's listener to subscribe to `channel`. Redis has no event for that, so poll."""
+    async with asyncio.timeout(WAIT_S):
+        while not (await redis.pubsub_numsub(channel))[0][1]:  # noqa: ASYNC110 -- nothing to wait on
+            await asyncio.sleep(0.01)
+
+
+def test_run_wakes_early_on_a_channel_the_provider_asks_for(redis):
+    """E.g. `v1:location:changed`: provider-locations has placed a postcode a provider of notices about it needs."""
+    subscribe(redis, "a")
+    provider = FakeProvider(enough=2)  # ticks hourly: only the message can run the second cycle
+    provider.wakes_on = ("v1:fake:changed",)
+    runner = ProviderRunner(provider, redis)
+
+    async def scenario():
+        task = asyncio.create_task(runner.run())
+        await wait_for_listener(redis, "v1:fake:changed")
+        assert (await redis.pubsub_numsub(keys.SUB_CHANGED))[0][1] == 1  # and still on subscription changes
+        await redis.publish("v1:fake:changed", "")
+        await asyncio.wait_for(provider.fetched.wait(), WAIT_S)
+        runner.stop()
+        await asyncio.wait_for(task, WAIT_S)
+
+    asyncio.run(scenario())
+    assert provider.calls == [["a"], ["a"]]
+
+
 def test_stop_finishes_the_current_cycle(redis):
     subscribe(redis, "a", "b")
     started = asyncio.Event()
@@ -392,10 +419,100 @@ def test_a_provider_with_fixed_ids_does_not_listen_for_subscription_changes(redi
         asyncio.run(listen(FakeProvider()))  # listens until cancelled
 
 
+def test_a_provider_with_fixed_ids_still_wakes_on_a_channel_it_asks_for(redis):
+    provider = FixedProvider()
+    provider.wakes_on = ("v1:fake:changed",)
+    assert ProviderRunner(provider, redis).wakes_on == ("v1:fake:changed",)
+    assert ProviderRunner(FixedProvider(), redis).wakes_on == ()
+    assert ProviderRunner(FakeProvider(), redis).wakes_on == (keys.SUB_CHANGED,)
+
+
 def test_a_provider_with_fixed_ids_still_cycles_on_each_tick(redis):
     provider = FixedProvider(interval_s=0.02, enough=3)
     asyncio.run(run_until_fetched(ProviderRunner(provider, redis)))
     assert provider.calls == [["everyone"]] * 3
+
+
+# --- announcing: a provider whose keys other providers read, telling them it has written something new --------------
+
+
+class AnnouncingProvider(FakeProvider):
+    """Says the ids in `news` are news, once each, and records what it was asked about; announces on v1:fake:news."""
+
+    announces = "v1:fake:news"
+
+    def __init__(self, news: set[str]):
+        super().__init__()
+        self.news = news
+        self.asked: list[str] = []
+
+    def is_news(self, item_id, written):
+        self.asked.append(item_id)
+        if item_id in self.news:
+            self.news.discard(item_id)
+            return True
+        return False
+
+
+def publishes(redis, monkeypatch) -> list[tuple[str, list[str]]]:
+    """Record each PUBLISH on `redis`: its channel, and which of the departures keys were there by then."""
+    published = []
+    publish = redis.publish
+
+    async def recording(channel, message):
+        published.append((channel, sorted(await redis.keys(keys.departures("*")))))
+        return await publish(channel, message)
+
+    monkeypatch.setattr(redis, "publish", recording)
+    return published
+
+
+def test_a_batch_with_news_in_it_is_announced_once_its_written(redis, monkeypatch):
+    subscribe(redis, "a", "b", "c", "d")
+    published = publishes(redis, monkeypatch)
+    provider = AnnouncingProvider({"b", "c"})
+
+    asyncio.run(ProviderRunner(provider, redis, batch_size=2).run_cycle())
+
+    # One message for a batch however much news is in it, after its keys are written; none for a batch without.
+    assert published == [
+        ("v1:fake:news", ["v1:departures:a", "v1:departures:b"]),
+        ("v1:fake:news", ["v1:departures:a", "v1:departures:b", "v1:departures:c", "v1:departures:d"]),
+    ]
+    assert provider.asked == ["a", "b", "c", "d"]  # every value written, so none's news is lost
+
+
+def test_nothing_new_announces_nothing(redis, monkeypatch):
+    subscribe(redis, "a", "b")
+    published = publishes(redis, monkeypatch)
+    provider = AnnouncingProvider({"a"})
+    runner = ProviderRunner(provider, redis)
+
+    asyncio.run(runner.run_cycle())
+    asyncio.run(runner.run_cycle())  # "a" has been announced
+
+    assert len(published) == 1
+
+
+def test_an_id_that_wasnt_written_isnt_asked_about(redis, monkeypatch):
+    subscribe(redis, "a", "gone")
+    published = publishes(redis, monkeypatch)
+    provider = AnnouncingProvider({"gone"})
+    provider.missing = frozenset({"gone"})
+
+    asyncio.run(ProviderRunner(provider, redis).run_cycle())
+
+    assert provider.asked == ["a"]
+    assert published == []
+
+
+def test_a_provider_that_doesnt_announce_publishes_nothing(redis, monkeypatch):
+    subscribe(redis, "a")
+    published = publishes(redis, monkeypatch)
+
+    asyncio.run(ProviderRunner(FakeProvider(), redis).run_cycle())
+
+    assert published == []
 
 
 # --- Serving -----------------------------------------------------------------------

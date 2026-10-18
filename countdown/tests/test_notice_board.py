@@ -528,6 +528,20 @@ def test_board_whose_store_cant_be_read_tries_again_without_naming_the_postcode(
     assert client.postcode == "SE17 3LL"
 
 
+def test_board_whose_location_redis_cant_answer_for_raises_redis_error(store, clock, monkeypatch):
+    """As for its sources: the registry keeps the last board, and the render pool's render fails (keeps the frame)."""
+
+    def unreachable(key):
+        raise RedisConnectionError
+
+    monkeypatch.setattr(store, "get", unreachable)
+    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
+    client._read = lambda sources, now: ({}, set())
+
+    with pytest.raises(RedisConnectionError):
+        update(client)
+
+
 def test_board_asks_nothing_over_http_to_place_its_postcode(store, clock):
     put_location(store, "SE17 3LL", SOUTHWARK)
     client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))

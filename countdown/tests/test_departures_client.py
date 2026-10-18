@@ -285,7 +285,8 @@ def test_one_stop_failing_to_read_keeps_the_last_panel_even_if_the_others_expire
 
     monkeypatch.setattr(store, "get", unreachable_for_one)
 
-    with pytest.raises(RuntimeError):
+    # Redis's own error: the render pool's render fails on it (render.render's raise_store_errors).
+    with pytest.raises(reader.redis.exceptions.ConnectionError):
         asyncio.run(client.update())
 
 
@@ -299,7 +300,7 @@ def test_update_raises_when_redis_cant_be_asked_so_the_last_panel_stays(store, m
 
     monkeypatch.setattr(store, "get", unreachable)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(reader.redis.exceptions.ConnectionError):
         asyncio.run(client.update())
 
 

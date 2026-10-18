@@ -306,3 +306,86 @@ def test_the_weather_provider_forecasts_where_provider_locations_placed_a_typed_
     assert_nothing_says_where(
         caplog.text, "SW1A", "SE17", "ZZ1", "Westminster", "Southwark", WESTMINSTER.latitude, SE17_CENTRE[0]
     )
+
+
+# --- A newly placed typed postcode wakes the weather provider ---------------------------------------------------------
+
+# A test that waits this long has failed: the weather's next tick is 10 minutes away (just_after_a_tick), so only
+# provider-locations' announcement on `v1:location:changed` can run its second cycle.
+WAIT_S = 5
+
+
+def just_after_a_tick() -> float:
+    """Return the runners' time: always just after a tick, so the next is a whole interval away."""
+    return 0.0
+
+
+async def until(condition) -> None:
+    """Wait (polling: fakeredis has no event for any of these) until `condition()`, an awaitable, is true."""
+    async with asyncio.timeout(WAIT_S):
+        while not await condition():  # noqa: ASYNC110 -- nothing to wait on
+            await asyncio.sleep(0.01)
+
+
+def test_a_typed_postcodes_weather_is_written_as_soon_as_provider_locations_has_placed_it(postcodes_io):
+    """Through the real runners' loops, each on its own client as in its own process.
+
+    The weather provider runs first and finds no place for the typed postcodes (only London's forecast); then
+    provider-locations' weather runner places them and announces it, and the weather provider runs again at once,
+    rather than 10 minutes later at its next tick.
+    """
+    server = fakeredis.FakeServer()
+    store = fakeredis.FakeAsyncRedis(server=server, decode_responses=True)
+
+    def client():
+        return fakeredis.FakeAsyncRedis(server=server, decode_responses=True)
+
+    weather_redis = client()
+    forecasts = WeatherProvider(requests.Session(), FakeLocations(server=server).reader, now=lambda: NOW)
+    typed = WeatherPostcodesProvider(LocationsProvider(requests.Session(), now=lambda: NOW))
+    wanted = [keys.weather(key) for key in (LONDON, "se17", "sw1a-1aa")]
+
+    async def scenario():
+        await store.sadd(keys.subscription(keys.WEATHER), LONDON, "se17", "sw1a-1aa")
+        weather_runner = ProviderRunner(forecasts, weather_redis, clock=just_after_a_tick)
+        runners = [weather_runner]
+        tasks = [asyncio.create_task(weather_runner.run())]
+        try:
+
+            async def only_london_and_listening():
+                return (await store.exists(keys.weather(LONDON))) == 1 and (
+                    await store.pubsub_numsub(keys.LOCATION_CHANGED)
+                )[0][1] == 1
+
+            await until(only_london_and_listening)
+            assert sorted(await store.keys("v1:weather:*")) == [keys.weather(LONDON)]
+            locations_runner = ProviderRunner(typed, client(), clock=just_after_a_tick)
+            runners.append(locations_runner)
+            tasks.append(asyncio.create_task(locations_runner.run()))
+
+            async def all_written():
+                return sorted(await store.keys("v1:weather:*")) == sorted(wanted)
+
+            await until(all_written)
+        finally:
+            for runner in runners:
+                runner.stop()
+            await asyncio.wait_for(asyncio.gather(*tasks), WAIT_S)
+
+    asyncio.run(scenario())
+    assert SE17_CENTRE in forecast_points(postcodes_io.calls)
+
+
+def test_the_weather_provider_wakes_on_new_places_and_the_weathers_postcodes_are_announced_once_with_the_boards():
+    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    postcodes = LocationsProvider(requests.Session(), now=lambda: NOW)
+    typed = WeatherPostcodesProvider(postcodes)
+    westminster = StoredLocation(fetched_at=NOW, postcode="SW1A 1AA", found=True, location=WESTMINSTER)
+
+    assert ProviderRunner(weather(FakeLocations()), redis).wakes_on == (keys.SUB_CHANGED, keys.LOCATION_CHANGED)
+    assert typed.announces == keys.LOCATION_CHANGED
+    assert typed.is_news("sw1a-1aa", westminster) is True
+    # The same place: under another slug, or by the board's runner, it's been announced already.
+    assert typed.is_news("sw1a1aa", westminster) is False
+    assert postcodes.is_news("SW1A 1AA", westminster) is False
+    assert typed.is_news("zz1-1zz", StoredLocation(fetched_at=NOW, postcode="ZZ1 1ZZ", found=False)) is False

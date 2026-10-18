@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from math import ceil
 from typing import TYPE_CHECKING, Any, Protocol, override
 
+from redis.exceptions import RedisError
+
 from countdown_api.models import ConfigResponse, DepartureStop
 from countdown_core.core import rotation
 from countdown_core.core.abstract_client import AbstractClient
@@ -175,6 +177,10 @@ class DeparturesClient(AbstractClient):
                 # the provider hasn't got to it yet). The page's other stops are drawn without it.
                 logger.warning("No departures for %s: %s", resolved.id, e)
                 expired += 1
+            except RedisError:
+                # Redis not answering isn't one stop's problem: raised, so the registry keeps the last departures (and
+                # the render pool's render fails, keeping the screen's frame).
+                raise
             except Exception:
                 logger.exception("Error fetching departures for %s", resolved.id)
         if not panels:

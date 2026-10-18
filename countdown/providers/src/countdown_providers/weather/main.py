@@ -64,6 +64,8 @@ class WeatherProvider:
     ttl_s = 30 * 60
     # Open-Meteo updates its forecasts about hourly; ten minutes keeps "now" close without hammering it.
     interval_s = 10 * 60
+    # A cycle as soon as provider-locations places a typed postcode (or moves one), not at the next tick.
+    wakes_on = (keys.LOCATION_CHANGED,)
 
     def __init__(
         self,

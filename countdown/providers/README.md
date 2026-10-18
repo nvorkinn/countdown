@@ -41,6 +41,8 @@ countdown-core so the providers and renderers share them.
 | `v1:config:changed` | pub/sub channel | broker | the device id, after changing its `v1:config:` key |
 | `v1:pairing:<device id>` | string, TTL the code's own (10 min, to its expiry) | broker, whenever it issues a pairing code; deleted when the code is used, or the device paired, unpaired or forgotten | the device's live pairing code, for the render pool, which reads only the store: exactly `GET /api/config`'s JSON while the code is live, the contract's `ConfigResponse` with its `pairing_code` set (plaintext, by decision: any Redis reader can see a live code). A render that reads the store draws the pairing screen from it while it's there (`store/pairing.py`); the per-screen renderer still gets the code from `GET /api/config`. `tests/fixtures/pairing_key.json` pins it, as auth-broker's tests do |
 | `v1:frame:<device id>` | hash, TTL 1 day from the last change | the renderer, when the picture changes (`store/frame_record.py`) | the screen's latest frame, which the broker serves the screen: `frame` (the panel's 48,000 raw bytes, as `PUT /api/frame` takes them; read with `reader.binary_store()`), `etag` (its 16-hex-digit BLAKE2b, the broker's ETag) and `rendered_at` (when the picture was first written, ISO 8601 UTC); the broker falls back to its SQLite copy of the PUT when there's none, or that's newer. `tests/fixtures/frame_record.json` pins it, as auth-broker's tests do |
+| `v1:render:jobs` | list | the render pool's ticker (from step 7 the broker and the bursty providers too), by `store/render_queue.py`'s enqueue | device ids to render, each at most once (`v1:render:queued:<device id>`, a flag with the time it was queued, TTL 1 min); the render workers pop them. `v1:render:lease:<device id>` (a worker's token, TTL 30 s) is set while a render of the screen is in flight, and `v1:render:again:<device id>` (TTL 30 s) when a job came meanwhile; see the renderer's README, "The render pool" |
+| `v1:render:screens` | hash, no TTL | the orchestrator (for its `POOL_SLUGS`; from step 9 the broker) | device id to slug: the screens the render pool draws; a worker drops a job for any other |
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages), one per place however many screens show it; see [Weather](#weather) |
 | `v1:energy:<device id>` | string, TTL ~1 day | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
@@ -58,6 +60,7 @@ countdown-core so the providers and renderers share them.
 | `v1:notices:floods:<place>` | string, TTL ~30 min | provider-floods, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredFloods` JSON (`store/floods.py`): the Environment Agency's warnings for the flood areas within 5 km of the postcode, as the EA gives them; the renderer makes the notices; see [Flood warnings](#flood-warnings) |
 | `v1:notices:metalerts` | string, TTL 30 min | provider-metalerts, every 5 min while any screen's postcode is Norwegian | `StoredMetAlerts` JSON (`store/metalerts.py`): MetAlerts' `current.json` for all of Norway, in Norwegian and English, as MET answered; one key, not one per place, see [Norway's weather warnings](#norways-weather-warnings) |
 | `v1:location:<place>` | string, TTL 7 days | provider-locations, every 5 min (each postcode looked up once a day, a new one at once) | `StoredLocation` JSON (`store/location.py`): where a postcode in `v1:sub:postcode` is, from postcodes.io (UK) or Kartverket (Norway), in the fields of `tfl.models.Postcode`, or `"found": false` for one that doesn't exist; the notice board, provider-met-office, provider-floods and provider-tfl-notices' roads place a postcode only from this, see [Locations](#locations). Also each UK postcode or postcode district a `v1:sub:weather` key is the slug of (`sw1a-1aa`, `se17`), for provider-weather (a district's key, `v1:location:SE17`, holds its centre) |
+| `v1:location:changed` | pub/sub channel | provider-locations | empty message after writing a postcode's place that's new or has moved; wakes the providers that read `v1:location:` (their `wakes_on`), see [Locations](#locations) |
 
 The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
 own tokens, which never leave it (auth-broker's README, "Music in the store"). As the two repositories can't share
@@ -372,15 +375,22 @@ the same keys rather than ask postcodes.io themselves, so each postcode is looke
 `StoredLocation`, and one stored as not found are left out of that cycle and only counted in the log (at info, warn
 and debug: provider-locations already warns about a postcode that doesn't exist, once a day), and a Redis that can't be
 read leaves out the batch; either way the notices already stored for them stay until their TTL, and the batch's other
-postcodes are written. A place the store moves (postcodes.io's corrections, in the daily lookup) is used from the next
-cycle. A new postcode's notices come a cycle (up to 5 minutes) after its location: the broker's nudge runs every
-provider at once, so provider-locations' first lookup of it is usually still under way when they read.
+postcodes are written. A new postcode's notices come seconds after its location, and a place the store moves
+(postcodes.io's corrections, in the daily lookup) is used at once: once provider-locations has written a place that's
+new or has moved, its runner publishes on `v1:location:changed` (the provider's `announces` and `is_news`), and these
+providers run a cycle on it (their `wakes_on`), as on the broker's nudge. The nudge alone isn't enough: it runs every provider at
+once, so provider-locations' first lookup is usually still under way when they read, and they'd wait a whole interval
+(5 minutes). The extra cycle costs little: within a couple of minutes of the cycle before, its Met Office feeds and EA
+warnings in force are used again, so beyond what the new postcode needs (its region's feed, its flood areas) only TfL's
+road disruptions are asked for again. A missed message only puts the notices back to the next tick.
 provider-weather reads them too, for the screens whose weather is a typed postcode, saved before the place picker
 (`v1:sub:weather`'s `sw1a-1aa`, or a district's `se17`). provider-locations places those as well, in a second runner
 (`WeatherPostcodesProvider`, sharing the first's lookups, so a postcode a board and a weather key both have is looked
 up once), under the postcode's own key (`v1:location:SW1A1AA`; a district's, `v1:location:SE17`, holds its centre from
 postcodes.io's `/outcodes`, with the district as its `postcode`). So nothing else asks postcodes.io anything
-(`test_weather_postcodes.py`).
+(`test_weather_postcodes.py`). That runner announces a newly placed postcode on `v1:location:changed` too, and
+provider-weather wakes on it, so a typed postcode's forecast comes seconds after its place, not at the weather's next
+tick (10 minutes).
 `tests/fixtures/place_notices.json` is a cycle of the three, from every API's answers, recorded when each looked its
 postcodes up itself: reading the store instead, they must make the same requests (none to postcodes.io), write the same
 keys, and the board show the same notices (`test_place_notices.py`).
@@ -439,8 +449,9 @@ every id is fetched by exactly one copy. (Not Python's `hash()`, which differs f
    (a postcode, a place), its logs mustn't name them, nor anything worked out from one: log a failure by
    `log_format.error_reason(e)`, not `e`. One that needs to know where a postcode is reads it from the store with
    `locations.reader.LocationReader`, on the client its `main()` passes to `serve(..., redis=...)`, rather than look
-   it up. Reuse the renderer's client from
-   countdown-core where there is one; a synchronous one runs in `asyncio.to_thread`, as `tfl/main.py` does. One that
+   it up, and sets `wakes_on = (keys.LOCATION_CHANGED,)` so a new postcode's place runs a cycle. Reuse the
+   renderer's client from countdown-core where there is one; a synchronous one runs in `asyncio.to_thread`, as
+   `tfl/main.py` does. One that
    fetches the same thing for every screen, with nothing to subscribe to, sets `fixed_ids` instead of reading a set
    (see `provider.py`), as `bank_holidays/main.py` does for gov.uk's one file.
 3. Give it a `main()` that builds it and calls `asyncio.run(serve(provider, Settings.from_env()))`, and add it to

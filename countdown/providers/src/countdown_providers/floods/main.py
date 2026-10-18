@@ -55,7 +55,7 @@ FLOOD_AREAS_LIMIT = 2000
 # How long a postcode's flood areas are used before they're asked for again.
 FLOOD_AREAS_REFRESH = timedelta(days=1)
 # The runner fetches ten postcodes at a time: one list of the warnings in force serves all of a cycle's batches. Well
-# under interval_s, so the next cycle asks afresh.
+# under interval_s, so the next tick's cycle asks afresh; one woken sooner (wakes_on) uses the last one's.
 IN_FORCE_REUSE = timedelta(minutes=2)
 
 
@@ -81,6 +81,8 @@ class FloodsProvider:
     ttl_s = 30 * 60
     # The EA updates its warnings every 15 minutes; asking every 5 shows a change within 5 minutes of it.
     interval_s = 5 * 60
+    # A cycle as soon as provider-locations places a new postcode (or moves one), not at the next tick.
+    wakes_on = (keys.LOCATION_CHANGED,)
 
     def __init__(
         self,

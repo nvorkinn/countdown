@@ -23,6 +23,13 @@ it in): a postcode says where a screen, and someone's home, is, and the logs go 
 logged by the error's type (log_format.error_reason), and urllib3's retry warnings, which quote the URL, are kept out
 of every process's logs (log_format.configure_logging).
 
+Once it has written a place that's new (a postcode new to the set, or to this process since it started) or has moved
+(postcodes.io's corrections), the runner publishes on `v1:location:changed` (keys.LOCATION_CHANGED; `announces` and
+`is_news`, see provider.Provider), which wakes the providers that read the places (their `wakes_on`). Without it, a
+new postcode's notices would wait a whole interval: the config save's nudge runs every provider at once, so they read
+before its lookup is done. A postcode that isn't found, or whose place is unchanged, isn't announced: nothing about it
+would change.
+
 The lookups are synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread), one at a time
 however many runners ask (the requests session isn't shared across threads).
 """
@@ -67,6 +74,8 @@ class LocationsProvider:
     # Only a postcode new to the set, due again (LOOKUP_EVERY) or whose last lookup failed is asked about; a new one
     # is asked about at once anyway, as the broker's nudge runs a cycle when a config is saved.
     interval_s = 5 * 60
+    # Published on (by the runner) after writing a place that's new or has moved (is_news).
+    announces = keys.LOCATION_CHANGED
 
     def __init__(self, session: requests.Session, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
         """Ask postcodes.io and Kartverket through `session`; `now` stamps fetched_at (a parameter for the tests)."""
@@ -75,12 +84,24 @@ class LocationsProvider:
         # Postcode -> what was last looked up for it. Only grows (a hundred bytes or so each), like the other place
         # providers' caches.
         self.locations: dict[str, StoredLocation] = {}
+        # Postcode -> the place last announced for it (is_news). Only grows, as `locations` does.
+        self.announced: dict[str, Postcode] = {}
         # One batch's lookups at a time: the weather's postcodes (WeatherPostcodesProvider) are looked up here too.
         self._lookups = asyncio.Lock()
 
     def output_key(self, item_id: str) -> str:
         """Write to `v1:location:<place>`."""
         return keys.location(item_id)
+
+    def is_news(self, item_id: str, written: StoredLocation) -> bool:
+        """Say whether the runner should announce `written`, which it has just written: a place new here, or moved.
+
+        Remembers what it said, so each place is announced once.
+        """
+        if written.location is None or self.announced.get(item_id) == written.location:
+            return False
+        self.announced[item_id] = written.location
+        return True
 
     async def fetch(self, ids: list[str]) -> dict[str, StoredLocation]:
         """Return where each postcode is, or that it doesn't exist; leaves out one that couldn't be looked up yet."""
@@ -141,6 +162,9 @@ class WeatherPostcodesProvider:
     name = keys.WEATHER
     ttl_s = LocationsProvider.ttl_s
     interval_s = LocationsProvider.interval_s
+    # Published on (by the runner) after writing a place that's new or has moved, as LocationsProvider's is, so the
+    # weather provider (its wakes_on) reads a newly placed postcode at once.
+    announces = keys.LOCATION_CHANGED
 
     def __init__(self, postcodes: LocationsProvider) -> None:
         """Look the postcodes up with `postcodes`."""
@@ -153,6 +177,10 @@ class WeatherPostcodesProvider:
             msg = "not the slug of a postcode"
             raise ValueError(msg)
         return keys.location(postcode)
+
+    def is_news(self, item_id: str, written: StoredLocation) -> bool:
+        """Announce as LocationsProvider does, by the postcode the key is the slug of (one place, announced once)."""
+        return self.postcodes.is_news(weather_postcode(item_id) or item_id, written)
 
     async def fetch(self, ids: list[str]) -> dict[str, StoredLocation]:
         """Return where the postcode each key is the slug of is, by key; leaves out other keys, as LocationsProvider."""

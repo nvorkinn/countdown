@@ -34,8 +34,24 @@ clients' statuses, the panels drawn "Not available"). It has no sleeps, no loops
 threads, and it keeps nothing between calls but the read-only caches (fonts, translations, the Redis clients). Every
 "now" a panel goes by (the page it shows, the minutes to a departure, the energy panel's windows, which notices are in
 force, whose turn the Spotify area is) is the render's `now` (`core/moment.py`), so the same inputs draw the same
-frame. With a pairing code in the config the frame is the pairing screen, drawn full screen. The pool of render
-workers will call the same function (see [Stateless renderers](docs/stateless-renderers.md)).
+frame. With a pairing code in the config the frame is the pairing screen, drawn full screen. The render pool calls
+the same function (see below).
+
+**The render pool** (`server/src/countdown_server/render_pool.py`; [Stateless renderers](docs/stateless-renderers.md),
+step 6). For the screens moved to it (the orchestrator's `POOL_SLUGS`, see the
+[orchestrator's README](orchestrator/README.md#the-render-pool)), the pool draws the screen instead of its own
+renderer:
+
+- **The ticker** (`countdown-render-ticker`) queues every screen in `v1:render:screens` on every minute, on the minute.
+- **The workers** (`countdown-render-worker`, two of them) take jobs off the queue (`store/render_queue.py`: three
+  atomic Lua scripts, so one render per screen is in flight at a time and a job that comes mid-render leaves exactly
+  one follow-up), and call `render(device_id, now, raise_store_errors=True)`. One render at a time per process, each
+  within 20 s (past it, faulthandler dumps where it was stuck and ends the worker, and compose restarts it).
+- **When the store can't be read**, the render fails and writes nothing, so the screen keeps the frame it has (no
+  "could not connect" frame, and no last panel: a worker keeps none). A key that has expired still draws "Not
+  available".
+- A job for a screen not in `v1:render:screens` is dropped, so a screen that still has its own renderer is never drawn
+  twice. Both run from the renderer's image, with another entrypoint (`server/deploy/docker-compose.yml`).
 
 **The loop** (`display_loop.py`). Until the pool takes over, each screen's renderer calls the render itself:
 
@@ -453,7 +469,7 @@ Once paired, an API that still needs setting up shows "Not configured" in its ar
 The renderer and the orchestrator log one JSON object per line on stderr (`countdown_core/core/log_format.py`,
 and the orchestrator's own copy): `level` (`debug`, `info`, `warn`, `error`, `fatal`), `_msg`, `logger`,
 `source` (file:line), and `exception` when there is a traceback, kept inside its record. The renderer adds
-`device` (its slug). There is no timestamp: the container's log driver stamps each line. `LOG_LEVEL` sets the
+`device` (its slug); the render pool's workers and ticker add `worker` instead, and name the screen in the message. There is no timestamp: the container's log driver stamps each line. `LOG_LEVEL` sets the
 level (default INFO); `asyncio`, `PIL` and `opentelemetry` stay at WARNING, and the renderer's and the providers'
 `urllib3` is off (the orchestrator's stays at WARNING), as its retry warnings and request lines quote the URLs it asks.
 
@@ -468,7 +484,14 @@ auth-broker (`docs/architecture.md`).
 
 ## Metrics
 
-The renderer reports its health as OTLP/HTTP metrics (protobuf, via the
+The render pool's workers report their metrics by screen, with a `device` attribute (the slug):
+`countdown.render.duration`, `countdown.render.count` (by `outcome`: `written`, `unchanged` or `failed`),
+`countdown.render.last_success`, `countdown.render.expired_panels` (by `panel`), `countdown.render.lag`,
+`countdown.render.queued`, and the gauges below (`countdown.api.status`, `countdown.problem`, `countdown.stage`) by
+`device` rather than by `host.name`, which for them is the worker (`render-worker-1`, `-2`). See
+`server/src/countdown_server/pool_metrics.py` for how to read them across the two workers.
+
+The per-screen renderer reports its health as OTLP/HTTP metrics (protobuf, via the
 OpenTelemetry Python SDK) to the host's Fluent Bit OpenTelemetry input at
 `http://127.0.0.1:4318/v1/metrics`, tagged with `host.name` (the `DEVICE_NAME`
 setting, else the hostname). Gauges:
