@@ -44,6 +44,7 @@ countdown-core so the providers and renderers share them.
 | `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): the GitHub summary (pull requests, builds, releases with their jobs) and the AI plans, as the broker's `/api/developer` answers them; the renderer reads only this, never the route |
 | `v1:pace:<source>:<id>` | integer string, TTL ~1 min | any provider that has bursty data (the developer provider, per device, while a release runs) | the seconds it wants the screen to refresh at; renderers take the fastest of those they watch, see the renderer's README, "The pace" |
 | `v1:spotify-top:<device id>` | string, TTL 2 h | auth-broker's `spotify-provider`, every 30 min | `StoredTop` JSON (`store/music.py`): each service's top tracks and artists by time range |
+| `v1:notices:met-office:<place>` | string, TTL ~30 min | provider-met-office, every 5 min | `StoredMetOfficeWarnings` JSON (`store/met_office.py`): the Met Office's warnings RSS for the region a UK postcode in `v1:sub:postcode` is in, its items as JSON; the renderer makes the notices. See [Weather warnings](#weather-warnings) |
 | `v1:notices:floods:<place>` | string, TTL ~30 min | provider-floods, every 5 min, for the UK postcodes in `v1:sub:postcode` | `StoredFloods` JSON (`store/floods.py`): the Environment Agency's warnings for the flood areas within 5 km of the postcode, as the EA gives them; the renderer makes the notices; see [Flood warnings](#flood-warnings) |
 
 The music keys are written by a provider in auth-broker, not here: it calls Spotify and Apple Music with the broker's
@@ -94,6 +95,48 @@ Glowmarkt's answers to the stored value, and auth-broker's tests read the same f
 `tests/fixtures/glow_energy_pages.json` is the pages the renderer drew from those answers when it still asked
 Glowmarkt itself, which the stored value must still draw.
 
+### Weather warnings
+
+provider-met-office writes the notice board's Met Office warnings, by place: for each UK postcode in `v1:sub:postcode`
+(a Norwegian one, four digits, is MET Norway's, and left alone), `v1:notices:met-office:<keys.place(postcode)>`, so a
+renderer finds its warnings by its postcode alone. Each postcode is placed once with postcodes.io (a place doesn't
+move) to the Met Office warning region it's in (`notices/met_office.py`'s `region_for`, the whole UK's feed for one it
+can't place), and each region's feed is fetched once a cycle however many postcodes are in it, then written under each
+of them. What's stored is the feed's items as they came, each element's text:
+
+```json
+{"fetched_at": "2026-09-25T11:55:00Z", "postcode": "SE17 3LL", "region": "se",
+ "items": [{"title": "Amber warning of wind affecting London & South East England",
+            "description": "...: Lambeth, Southwark valid from 0600 Fri 25 Sep to 2100 Fri 25 Sep",
+            "link": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?...",
+            "pub_date": "Thu, 24 Sep 2026 10:30:00 GMT"}]}
+```
+
+The renderer makes its notices from them each time it reads them (`warning_notices`): the colour, the hazard and the
+day each ends, in the screen's language, as it once did from the feed itself. `tests/fixtures/met_office_warnings.xml`
+is a feed, `met_office_warnings.json` the stored value made of it, and `met_office_notices.json` the notices the
+renderer made from that feed when it fetched it itself, which the stored value must still make. Where the screens are
+stays out of the provider's logs, as it does out of the renderer's: nothing logged names a postcode.
+
+To deploy it: the provider must be running and its keys there before the renderers rely on them. It needs
+auth-broker's postcode subscriptions (`v1:sub:postcode`, auth-broker #174) deployed first; check the set is there, on
+the Redis host:
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 SMEMBERS v1:sub:postcode'
+```
+
+Then, once a release with `provider-met-office` is deployed (its first cycle runs as it starts), the keys:
+
+```sh
+docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:met-office*"'
+```
+
+There should be one per UK postcode in `v1:sub:postcode`; the provider's log says why one is missing (`docker logs
+countdown-renderers-provider-met-office-1`). A renderer whose key isn't there logs "No Met Office warnings in the store
+for the board's postcode", shows the rest of its notices, and keeps whatever Met Office warnings it last read (for up
+to an hour); it reads again every 5 minutes.
+
 ### Flood warnings
 
 `provider-floods` (`floods/main.py`) writes the Environment Agency's flood warnings near each UK postcode in
@@ -132,8 +175,10 @@ docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 
 ```
 
 should list a key for each UK postcode in `v1:sub:postcode` (the same command with `SMEMBERS v1:sub:postcode` in place
-of `--scan --pattern ...` lists those). None at all means the provider isn't running (`docker logs provider-floods`)
-or the broker isn't writing the postcodes.
+of `--scan --pattern ...` lists those). None at all means the provider isn't running, or the broker isn't writing the
+postcodes; the provider's log says why one is missing (`docker logs countdown-renderers-provider-floods-1`). A renderer
+whose key isn't there logs "No flood warnings in the store for the screen's postcode", shows the rest of its notices,
+and keeps whatever flood warnings it last read (for up to an hour); it reads again every 5 minutes.
 
 ## Running locally
 
@@ -199,7 +244,7 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## Enabling in production
 
-This repository's providers (TfL, weather, Entur) are on: they're services in `../server/deploy/docker-compose.yml`,
+This repository's providers (TfL, weather, Entur, Met Office) are on: they're services in `../server/deploy/docker-compose.yml`,
 so every deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. `release.yml`'s
 `deploy-renderers` job passes them the repo's secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`)
 and `TFL_APP_KEY`; without the password the deploy fails rather than start them unauthenticated. They need the broker
@@ -212,12 +257,14 @@ the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to e
 as an upgrade, like a new image. The renderers read TfL's and Entur's departures (`v1:departures:<stop>`), the weather
 (`v1:weather:<location>`), the energy readings (`v1:energy:<device id>`, from auth-broker's `glow-provider`) and the
 Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, from auth-broker's `spotify-provider`) only from
-the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; only the
-disruption notices still come straight from their APIs. So each provider must be running for its panels to have anything
+the store, and the developer panel (`v1:developer:<device id>`, from auth-broker's `developer-provider`) too; of the
+notice board's sources, the Met Office's warnings (`v1:notices:met-office:<place>`) and the Environment Agency's flood
+warnings (`v1:notices:floods:<place>`) come from the store, and the rest
+still straight from their APIs. So each provider must be running for its panels to have anything
 to draw.
 
-The notice board's flood warnings come from the store too (`v1:notices:floods:<place>`, from `provider-floods`), which
-needs auth-broker's postcode subscriptions deployed first: see [Flood warnings](#flood-warnings).
+The notice providers need auth-broker's postcode subscriptions (`v1:sub:postcode`) deployed first; see [Weather
+warnings](#weather-warnings) and [Flood warnings](#flood-warnings) for how to check their keys are there.
 
 A renderer started without the store (`RENDERER_REDIS_URL` set to empty, so no `REDIS_URL`) can't build the clients
 that read it: their areas say "Could not connect", the device reports them as in error, and the log names
