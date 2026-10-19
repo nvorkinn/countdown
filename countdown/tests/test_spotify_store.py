@@ -1,22 +1,22 @@
 """The Spotify area reading the store: what auth-broker's music provider wrote (fakeredis).
 
-fixtures/music_player.json and music_top.json are the stored contract: auth-broker's provider tests check that it
-writes exactly these (its tests/fixtures holds the same files), and these tests check that the renderer reads each
+The store contract's music_player.json and music_top.json (countdown_api.fixtures) are the stored values: auth-broker's
+provider tests check that it writes exactly these, and these tests check that the renderer reads each
 part into the models of Spotify's own answers (countdown_core.spotify.models), so both services draw the same
-panels. fixtures/music_art.json is the covers it stores for music_player.json, by key, each the raw bytes of the
-image (music_art.jpg in both repositories' tests).
+panels. The contract's music_art.json is the covers it stores for music_player.json, by key, each the raw bytes of the
+image (music_art.jpg).
 """
 
 import asyncio
 import copy
 import json
-from pathlib import Path
 
 import pytest
 import responses
 from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import TEST_DEVICE_ID
 
+from countdown_api import fixtures
 from countdown_core.spotify import spotify_styles
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_client import (
@@ -32,11 +32,10 @@ from countdown_core.store import keys, reader
 from countdown_core.store.music import StoredPlayer, StoredTop, art_image
 from countdown_core.utils.utils import fitted_font
 
-FIXTURES = Path(__file__).parent / "fixtures"
-PLAYER = json.loads((FIXTURES / "music_player.json").read_text())
-TOP = json.loads((FIXTURES / "music_top.json").read_text())
-COVERS = json.loads((FIXTURES / "music_art.json").read_text())
-ART = (FIXTURES / "music_art.jpg").read_bytes()
+PLAYER = fixtures.load("music_player.json")
+TOP = fixtures.load("music_top.json")
+COVERS = fixtures.load("music_art.json")
+ART = fixtures.read_bytes("music_art.jpg")
 DEVICE_ID = TEST_DEVICE_ID
 NOTHING_PLAYING = {"currently_playing": None, "queue": []}
 BOTH = MusicSettings(spotify=True, apple_music=True)

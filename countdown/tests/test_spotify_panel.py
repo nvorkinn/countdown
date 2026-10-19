@@ -1,17 +1,17 @@
 import countdown_core  # noqa: F401, I001  (import order: see test_display_snapshots.py)
 import io
 import logging
-from pathlib import Path
 
 import pytest
 from PIL import Image as PILImage
 
+from countdown_api import fixtures
 from countdown_core.spotify import spotify_panel
 from countdown_core.spotify.models import Album, Image
 from countdown_core.spotify.spotify_panel import _album_art
 from countdown_core.store.music import ART_SIZE, art_image
 
-ART = (Path(__file__).parent / "fixtures" / "music_art.jpg").read_bytes()
+ART = fixtures.read_bytes("music_art.jpg")
 
 
 def image(height: int) -> Image:

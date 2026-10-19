@@ -4,9 +4,7 @@ The record is written by the render (render.render), the only way a frame reache
 fake Redis, read back the way the broker reads it: as bytes.
 """
 
-import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -17,13 +15,13 @@ from config_factory import make_config
 from test_e2e_render_cycle import DEVICE_ID as E2E_DEVICE_ID
 from test_e2e_render_cycle import _make_config, _put_stops_and_energy
 
+from countdown_api import fixtures
 from countdown_core import render as render_module
 from countdown_core.render import Outcome, Result, render
 from countdown_core.store import frame_record, keys, reader
 
-FIXTURES = Path(__file__).parent / "fixtures"
-FIXTURE = json.loads((FIXTURES / "frame_record.json").read_text())
-FIXTURE_FRAME = (FIXTURES / FIXTURE["fields"]["frame"]["file"]).read_bytes()
+FIXTURE = fixtures.load("frame_record.json")
+FIXTURE_FRAME = fixtures.read_bytes(FIXTURE["fields"]["frame"]["file"])
 
 DEVICE_ID = "device-123"
 KEY = keys.frame(DEVICE_ID)

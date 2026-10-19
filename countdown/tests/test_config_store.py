@@ -2,26 +2,26 @@
 
 auth-broker writes `v1:config:<device id>` from its database on every save and as it starts, and the render reads it
 (store.config.read) with the contract's own ConfigResponse: it's the only way a config reaches the render.
-tests/fixtures/config_store.json is the stored shape, the same file as auth-broker's.
+The store contract's config_store.json (countdown_api.fixtures) is the stored shape, which auth-broker's tests read too.
 
 What the render accepts is the compatibility policy: the broker may add fields (ignored), but a value outside what the
 contract lists is invalid, and so is a config missing a section.
 """
 
 import json
-from pathlib import Path
 
 import fakeredis
 import pytest
 from config_factory import broker_payload
 from pydantic import ValidationError
 
+from countdown_api import fixtures
 from countdown_api.models import ConfigResponse
 from countdown_core.store import config as stored_config
 from countdown_core.store import keys
 from countdown_core.weather.weather_client import location_key
 
-FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "config_store.json").read_text())
+FIXTURE = fixtures.load("config_store.json")
 DEVICE_ID = FIXTURE["device_id"]
 STORED = FIXTURE["value"]
 

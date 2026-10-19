@@ -5,7 +5,6 @@ A registry is built afresh for every render (render.render) and kept for none.
 
 import datetime as dt
 import logging
-from pathlib import Path
 
 import pytest
 import responses
@@ -13,6 +12,7 @@ from config_factory import make_config, with_apple_music
 from test_utils import TEST_DEVICE_ID
 from weather_factory import forecast_json
 
+from countdown_api import fixtures
 from countdown_api.models import Glowmarkt
 from countdown_api.models import Weather as WeatherSection
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
@@ -379,7 +379,7 @@ def test_a_client_that_raises_could_not_connect():
 
 # --- Expiry: each provider's TTL is the only expiry there is ---------------------------------------------------------
 
-DEVELOPER_FIXTURE = (Path(__file__).parent / "fixtures" / "developer.json").read_text()
+DEVELOPER_FIXTURE = fixtures.path("developer.json").read_text()
 
 
 def _put_developer(store) -> str:

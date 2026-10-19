@@ -2,33 +2,32 @@
 
 The real Redis is a redis-server of the test's own, on a free port, when one is installed (CI installs it); its tests
 are skipped otherwise. Every test runs on both, so the Lua is checked by the Redis that runs it in production too.
-tests/fixtures/render_queue.json pins the enqueue script and its keys, which auth-broker copies to queue jobs itself:
-both repositories' tests read that file.
+The enqueue script is the store contract's (countdown_api.scripts.ENQUEUE), which auth-broker runs to queue jobs itself,
+and its render_queue.json (countdown_api.fixtures) pins the script's SHA1 and keys: both repositories' tests read it.
 """
 
 import hashlib
-import json
 import shutil
 import socket
 import subprocess
 import threading
 import time
 from collections import Counter
-from pathlib import Path
 
 import fakeredis
 import pytest
 import redis
 
+from countdown_api import fixtures, scripts
 from countdown_core.store import keys, render_queue
 from countdown_core.store.render_queue import Claim
 
 DEVICE = "a1b2c3d4e5f6"
 OTHER = "0f9e8d7c6b5a"
-# What auth-broker's copy of the enqueue script is checked against too (its broker/services/render_jobs.py).
-BROKER_COPY = json.loads((Path(__file__).parent / "fixtures" / "render_queue.json").read_text(encoding="utf-8"))
+# The enqueue script's SHA1 and keys, as the store contract pins them for both repositories.
+QUEUE = fixtures.load("render_queue.json")
 # The screens as auth-broker writes them (its broker/services/render_screens.py), the same file as its tests read.
-SCREENS = json.loads((Path(__file__).parent / "fixtures" / "render_screens.json").read_text(encoding="utf-8"))
+SCREENS = fixtures.load("render_screens.json")
 
 
 def _free_port() -> int:
@@ -90,13 +89,16 @@ def test_the_keys_are_the_designs():
     assert keys.render_again(DEVICE) == f"v1:render:again:{DEVICE}"
 
 
-def test_the_enqueue_script_and_its_keys_are_the_ones_auth_broker_copies():
-    # Its SHA1 is what EVALSHA calls it by: a change here means auth-broker's copy (and the fixture there) changes too.
+def test_the_enqueue_script_and_its_keys_are_the_store_contracts():
+    # Its SHA1 is what EVALSHA calls it by; auth-broker runs the same script from the contract.
     script = render_queue._ENQUEUE
-    assert hashlib.sha1(script.encode(), usedforsecurity=False).hexdigest() == BROKER_COPY["enqueue_sha1"]
-    assert BROKER_COPY["jobs_key"] == keys.RENDER_JOBS
-    assert BROKER_COPY["queued_key"] == keys.render_queued(BROKER_COPY["device_id"])
-    assert BROKER_COPY["queued_ttl_ms"] == render_queue.QUEUED_TTL_MS
+    assert script == scripts.ENQUEUE.source
+    assert hashlib.sha1(script.encode(), usedforsecurity=False).hexdigest() == QUEUE["enqueue_sha1"]
+    # The claim's and the release's clocks are the enqueue's, so a job's wait is measured on one clock.
+    assert script.startswith(render_queue._NOW_MS)
+    assert QUEUE["jobs_key"] == keys.RENDER_JOBS
+    assert QUEUE["queued_key"] == keys.render_queued(QUEUE["device_id"])
+    assert QUEUE["queued_ttl_ms"] == render_queue.QUEUED_TTL_MS
 
 
 def test_the_screens_auth_broker_writes_are_the_ones_the_pool_reads(client):
@@ -111,7 +113,7 @@ def test_the_screens_auth_broker_writes_are_the_ones_the_pool_reads(client):
 def test_redis_knows_the_enqueue_script_by_the_fixtures_sha1(client):
     render_queue.enqueue(client, DEVICE)
 
-    assert client.script_exists(BROKER_COPY["enqueue_sha1"]) == [True]
+    assert client.script_exists(QUEUE["enqueue_sha1"]) == [True]
 
 
 def test_a_screen_is_in_the_queue_at_most_once_however_many_triggers_fire(pooled):

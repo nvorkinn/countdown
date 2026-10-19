@@ -40,6 +40,7 @@ from dataclasses import dataclass
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING
 
+from countdown_api import scripts
 from countdown_core.store import keys
 
 if TYPE_CHECKING:
@@ -53,24 +54,16 @@ LEASE_TTL_MS = 30_000
 # The follow-up flag: as long as the lease it's set beside.
 AGAIN_TTL_MS = 30_000
 # The queued flag: a minute, the ticker's interval. Only a worker dying between the pop and the claim leaves one behind.
-QUEUED_TTL_MS = 60_000
+# The store contract's, as auth-broker queues jobs with the same script and TTL.
+QUEUED_TTL_MS = keys.RENDER_QUEUED_TTL_MS
 
 # Redis's clock, in Unix milliseconds, as a string: the seconds and the milliseconds, put together as text so that the
-# number doesn't go through Lua's floating point.
+# number doesn't go through Lua's floating point. The enqueue script starts with the same lines.
 _NOW_MS = "local t = redis.call('TIME')\nlocal now_ms = t[1] .. string.format('%03d', math.floor(t[2] / 1000))\n"
 
-# KEYS: queued, jobs. ARGV: the device id, the queued flag's TTL. Returns 1 if it queued the screen, 0 if it was queued
-# already.
-_ENQUEUE = (
-    _NOW_MS
-    + """
-if redis.call('SET', KEYS[1], now_ms, 'NX', 'PX', ARGV[2]) then
-  redis.call('LPUSH', KEYS[2], ARGV[1])
-  return 1
-end
-return 0
-"""
-)
+# The store contract's enqueue script (countdown-api's lua/enqueue.lua), which auth-broker runs too. KEYS: queued, jobs.
+# ARGV: the device id, the queued flag's TTL. Returns 1 if it queued the screen, 0 if it was queued already.
+_ENQUEUE = scripts.ENQUEUE.source
 
 # KEYS: queued, lease, again, screens. ARGV: the device id, the worker's token, the lease's TTL, the follow-up flag's
 # TTL.

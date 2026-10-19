@@ -44,8 +44,9 @@ logger = logging.getLogger(__name__)
 # Ids per provider.fetch() call: a failure loses at most this many, and each batch is written as soon as it's in.
 DEFAULT_BATCH_SIZE = 10
 # How long a pace a provider asked for (see provider.Provider) lasts unless the next cycle renews it: a few seconds
-# over the shortest pace asked for, a cycle of the slowest provider that does.
-PACE_TTL_S = 60
+# over the shortest pace asked for, a cycle of the slowest provider that does. The store contract's, as the broker
+# reads it.
+PACE_TTL_S = keys.PACE_TTL_S
 # How long to wait before resubscribing to `v1:sub:changed` after losing Redis.
 RESUBSCRIBE_S = 5.0
 # The sources whose ids the logs may name: stop ids, which say which stop a screen shows. Any other's say where a

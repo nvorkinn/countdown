@@ -3,8 +3,8 @@
 Written by auth-broker's glow-provider, not by countdown-providers: the Glowmarkt passwords are the broker's, and stay
 there. The broker can't import countdown-core, so the value is Glowmarkt's own answers, as the broker got them, in a
 thin wrapper, and they're read with the models of Glowmarkt's answers (countdown_core.glow.models). The
-broker documents the same shape ("The energy provider" in its README), and both repositories test against the same
-fixture (tests/fixtures/glow_energy.json): change them together.
+broker documents the same shape ("The energy provider" in its README), the store contract (countdown-api's store.yaml:
+StoredEnergy) pins its wrapper, and both repositories test against its glow_energy.json (countdown_api.fixtures).
 
     {"fetched_at": "2026-09-25T05:10:00+00:00", "device_id": "a1b2c3d4e5f6", "offset": "-60", "resource_id": "...",
      "hourly": <Glowmarkt's PT1H readings>, "daily": <P1D>, "monthly": <P1M>}

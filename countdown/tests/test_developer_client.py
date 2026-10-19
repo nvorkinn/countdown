@@ -1,18 +1,18 @@
 """The developer panel's client: it reads what auth-broker's developer provider stored, and never asks the broker.
 
-tests/fixtures/developer.json is the stored contract, the same file as auth-broker's tests/fixtures/developer.json.
+The store contract's developer.json (countdown_api.fixtures) is the stored value, which auth-broker's tests read too.
 """
 
 import asyncio
 import datetime as dt
 import json
-from pathlib import Path
 
 import pytest
 import responses
 from config_factory import make_config
 from test_utils import TEST_DEVICE_ID
 
+from countdown_api import fixtures
 from countdown_core.core.api_registry import ApiRegistry, FailedClient
 from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
 from countdown_core.developer.developer_panel import DeveloperPanel
@@ -21,7 +21,7 @@ from countdown_core.notices.notice import Severity
 from countdown_core.store import keys, reader
 from countdown_core.store.developer import NoStoredDeveloperError, StoredDeveloper
 
-FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "developer.json").read_text())
+FIXTURE = fixtures.load("developer.json")
 KEY = keys.developer("device-123")
 BROKER_URL = "https://broker.example.com"
 

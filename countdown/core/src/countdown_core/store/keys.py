@@ -2,78 +2,114 @@
 
 Everything is prefixed with `v1:`, so a later, incompatible layout can live beside this one while things move over.
 
-Subscriptions (written by the broker, read by the providers):
+The keys that cross between pi-dashboard and auth-broker are the store contract's: countdown-api's store.yaml, as
+countdown_api.keys (its builders say what each holds, its TTL, and who writes and reads it), re-exported here. They are:
 
-- `v1:sub:<source>`: a plain Redis set of the ids some screen wants from `source` (one of SOURCES), replaced
-  atomically whenever a config is saved. A missing key is an empty set.
-- `v1:sub:changed`: a pub/sub channel the broker publishes to (empty payload) after replacing subscriptions, so the
-  providers needn't wait for their next tick.
+- Subscriptions (written by the broker, read by the providers): `v1:sub:<source>` (`subscription`), a set of the ids
+  some screen wants from `source` (one of SOURCES), replaced atomically whenever a config is saved, and the
+  `v1:sub:changed` channel (SUB_CHANGED) the broker nudges after.
+- Configs and pairing codes (written by the broker, read by the render pool): `v1:config:<device id>` (`config`), with
+  no TTL, and `v1:pairing:<device id>` (`pairing`), while the device has a code to show, with the code's own TTL. See
+  store.config and store.pairing.
+- The broker's providers' data (read by the renderers): `energy`, `spotify`, `spotify_top`, `album_art` (an image's own
+  bytes, not JSON) and `developer`.
+- Pace (written by any provider, with a short TTL, read by the broker): `pace`.
+- Frames (written by the render pool, read by auth-broker): `frame`, a hash. See store.frame_record.
+- The render queue's keys the broker writes too: RENDER_JOBS, RENDER_SCREENS and `render_queued`. See
+  store.render_queue.
 
-Configs (written by the broker, read by the render pool): `v1:config:<device id>` holds the device's config (the
-contract's ConfigResponse, less its secrets: no weather API key, no pairing code), with no TTL: the broker rewrites it
-from its database on every config save and as it starts. A missing key means there's nothing to render (a device not
-paired, or with a pairing code to show). See `config`.
-
-Pairing (written by the broker, read by the render pool): `v1:pairing:<device id>` holds what GET /api/config answers
-while the device has a pairing code to show, the code included, with the code's own TTL. See `pairing`.
-
-Data (written by the providers with a TTL, read by the renderers): one key per thing, holding the JSON of a
-countdown_core.store.models model. A missing key means its provider is down (or hasn't got to it yet).
-
-Pace (written by the providers with a short TTL, read by the broker): `v1:pace:<source>:<id>` holds the seconds a
-provider wants the screen to poll at while what it fetched for `id` is bursty (a release running). It lapses by itself,
-so a provider that stops renewing it, or dies, lets the screen go back to its usual pace. See `pace`.
-
-Images (written by auth-broker's music provider with a short TTL, read by the renderers): `v1:art:<sha1 of its URL>`
-holds an image's own bytes, not JSON, one key per image however many screens show it. See `album_art`.
-
-Frames (written by the render pool, read by auth-broker): `v1:frame:<device id>` is a hash of the screen's latest frame,
-its ETag and when it was drawn, which the broker serves the screen. See `frame`.
-
-The render queue (the render pool's, store.render_queue): `v1:render:jobs`, a list of device ids to render, with a
-flag, a lease and a follow-up flag per device; and `v1:render:screens`, the hash of the screens the pool renders (device
-id to slug). See `RENDER_JOBS`.
+Defined here are the keys only pi-dashboard writes and reads. Data (written by the providers with a TTL, read by the
+renderers): one key per thing, holding the JSON of a countdown_core.store.models model; a missing key means its
+provider is down (or hasn't got to it yet). And the render pool's own lease and follow-up flag.
 """
 
-import hashlib
+from countdown_api.keys import (
+    ALBUM_ART_TTL_S,
+    DEVELOPER,
+    DEVELOPER_TTL_S,
+    ENERGY_TTL_S,
+    ENTUR,
+    FRAME_TTL_S,
+    GLOW,
+    PACE_TTL_S,
+    PAIRING_TTL_S,
+    POSTCODE,
+    PREFIX,
+    RENDER_JOBS,
+    RENDER_QUEUED_TTL_MS,
+    RENDER_SCREENS,
+    SOURCES,
+    SPOTIFY,
+    SPOTIFY_TOP_TTL_S,
+    SPOTIFY_TTL_S,
+    SUB_CHANGED,
+    TFL,
+    WEATHER,
+    album_art,
+    config,
+    developer,
+    energy,
+    frame,
+    pace,
+    pairing,
+    render_queued,
+    spotify,
+    spotify_top,
+    subscription,
+)
 
-PREFIX = "v1"
-
-# The subscription sources, as their `v1:sub:<source>` sets are named. A provider's `name` is one of these.
-TFL = "tfl"
-ENTUR = "entur"
-WEATHER = "weather"
-GLOW = "glow"
-SPOTIFY = "spotify"
-DEVELOPER = "developer"
-# The notice board's place: every screen's postcode in the broker's canonical form ("SW1A 1AA", or "0150" for a
-# Norwegian one, which is four digits), for the providers of notices about a place (floods, weather warnings, roads).
-POSTCODE = "postcode"
-SOURCES = (TFL, ENTUR, WEATHER, GLOW, SPOTIFY, DEVELOPER, POSTCODE)
-
-SUB_CHANGED = f"{PREFIX}:sub:changed"
-
-
-def subscription(source: str) -> str:
-    """Return the set of ids wanted from `source`, e.g. `v1:sub:tfl` (TfL NaPTAN stop ids)."""
-    return f"{PREFIX}:sub:{source}"
-
-
-def config(device_id: str) -> str:
-    """Return the key of a device's config, e.g. `v1:config:a1b2c3d4e5f6`.
-
-    Written by auth-broker from its database; holds a countdown_api.models.ConfigResponse, read by store.config.
-    """
-    return f"{PREFIX}:config:{device_id}"
-
-
-def pairing(device_id: str) -> str:
-    """Return the key of a device's live pairing code, e.g. `v1:pairing:a1b2c3d4e5f6`.
-
-    Written by auth-broker while the device has a code to show (there's no `v1:config:` key then), with the code's own
-    TTL; holds GET /api/config's ConfigResponse with its pairing_code set, read by store.pairing for the render pool.
-    """
-    return f"{PREFIX}:pairing:{device_id}"
+# The keys that cross to auth-broker are the store contract's (countdown-api's store.yaml: countdown_api.keys), and
+# are re-exported here so everything here names every key one way. Only the keys pi-dashboard alone writes and reads
+# are defined below.
+__all__ = [
+    "ALBUM_ART_TTL_S",
+    "DEVELOPER",
+    "DEVELOPER_TTL_S",
+    "ENERGY_TTL_S",
+    "ENTUR",
+    "FRAME_TTL_S",
+    "GLOW",
+    "LOCATION_CHANGED",
+    "PACE_TTL_S",
+    "PAIRING_TTL_S",
+    "POSTCODE",
+    "PREFIX",
+    "RENDER_JOBS",
+    "RENDER_QUEUED_TTL_MS",
+    "RENDER_SCREENS",
+    "SOURCES",
+    "SPOTIFY",
+    "SPOTIFY_TOP_TTL_S",
+    "SPOTIFY_TTL_S",
+    "SUB_CHANGED",
+    "TFL",
+    "WEATHER",
+    "album_art",
+    "bank_holidays",
+    "config",
+    "departures",
+    "developer",
+    "energy",
+    "entur_situations",
+    "floods",
+    "frame",
+    "location",
+    "met_office",
+    "metalerts",
+    "pace",
+    "pairing",
+    "place",
+    "render_again",
+    "render_lease",
+    "render_queued",
+    "spotify",
+    "spotify_top",
+    "subscription",
+    "tfl_line_status",
+    "tfl_roads",
+    "tfl_stations",
+    "weather",
+]
 
 
 def place(postcode: str) -> str:
@@ -111,79 +147,9 @@ def weather(location: str) -> str:
     return f"{PREFIX}:weather:{location}"
 
 
-def energy(device_id: str) -> str:
-    """Return the key of a Glow device's energy use."""
-    return f"{PREFIX}:energy:{device_id}"
-
-
-def spotify(device_id: str) -> str:
-    """Return the key of what a device's Spotify and Apple Music are playing, e.g. `v1:spotify:<device id>`.
-
-    Written by auth-broker's music provider; holds a countdown_core.store.music.StoredPlayer.
-    """
-    return f"{PREFIX}:spotify:{device_id}"
-
-
-def spotify_top(device_id: str) -> str:
-    """Return the key of a device's Spotify and Apple Music top tracks and artists, e.g. `v1:spotify-top:<device id>`.
-
-    Apart from the player's key because it's fetched far less often (every half hour) and kept far longer. Written by
-    auth-broker's music provider; holds a countdown_core.store.music.StoredTop.
-    """
-    return f"{PREFIX}:spotify-top:{device_id}"
-
-
-def album_art(url: str) -> str:
-    """Return the key of an album's cover, by the image's URL as the music service gave it: `v1:art:<sha1 of the URL>`.
-
-    By URL, not device, so every screen showing the same album reads one copy. Holds the image file's raw bytes (a
-    JPEG, as the service serves it; read with reader.binary_store(), as reader.store() decodes values as text), with a
-    TTL of a few minutes that auth-broker's music provider renews every minute a `spotify` key still shows it. Which of
-    an album's sizes is stored: countdown_core.store.music.art_image.
-    """
-    return f"{PREFIX}:art:{hashlib.sha1(url.encode(), usedforsecurity=False).hexdigest()}"
-
-
-def developer(device_id: str) -> str:
-    """Return the key of a device's developer panel, e.g. `v1:developer:<device id>`.
-
-    Written by auth-broker's developer provider; holds a countdown_core.store.developer.StoredDeveloper.
-    """
-    return f"{PREFIX}:developer:{device_id}"
-
-
-def pace(source: str, item_id: str) -> str:
-    """Return the key of the pace `source` wants while `item_id` is bursty, e.g. `v1:pace:developer:<device id>`.
-
-    An integer, in seconds, with a TTL of about a minute that the provider renews each cycle it still wants it.
-    """
-    return f"{PREFIX}:pace:{source}:{item_id}"
-
-
-def frame(device_id: str) -> str:
-    """Return the key of a screen's latest frame, e.g. `v1:frame:a1b2c3d4e5f6`, which the broker serves the screen.
-
-    Written by the render when the picture changes (store.frame_record), with a TTL of a day; a hash of the frame's
-    raw bytes, its ETag and when it was first drawn, read by auth-broker with a client that doesn't decode values.
-    """
-    return f"{PREFIX}:frame:{device_id}"
-
-
 # The render pool's queue (store.render_queue; docs/stateless-renderers.md, "The pool, the queue and the render
-# function"). The jobs are a list of device ids, which the workers BRPOP; a screen is in it at most once.
-RENDER_JOBS = f"{PREFIX}:render:jobs"
-# The screens the pool renders: a hash of device id to slug (the slug names the screen in the metrics). auth-broker
-# writes it, for every paired device (and one showing a pairing code); a worker drops a job for a device not in it.
-RENDER_SCREENS = f"{PREFIX}:render:screens"
-
-
-def render_queued(device_id: str) -> str:
-    """Return the flag that a job for the screen is in the queue, e.g. `v1:render:queued:a1b2c3d4e5f6`.
-
-    Set (to when it was queued, in Unix milliseconds) by enqueue, taken by the claim; with a TTL, so a worker that dies
-    between the pop and the claim can't keep the screen out of the queue for long.
-    """
-    return f"{PREFIX}:render:queued:{device_id}"
+# function"): RENDER_JOBS, RENDER_SCREENS and render_queued are the contract's, as auth-broker queues jobs and lists the
+# screens too; the lease and the follow-up flag are the pool's own.
 
 
 def render_lease(device_id: str) -> str:

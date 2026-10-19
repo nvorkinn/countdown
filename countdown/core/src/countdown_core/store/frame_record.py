@@ -26,8 +26,8 @@ read and no write. The record has a TTL of TTL_S, a day, which a skipped write d
   the minute. Until then, as whenever there's no record (expired, evicted, Redis restarted), the broker has nothing new
   to serve, and the screen keeps the picture it has.
 
-`tests/fixtures/frame_record.json` (with the frame beside it, `frame_record.bin`) pins the record, the same files as
-auth-broker's tests read.
+The store contract's `frame_record.json` (with the frame beside it, `frame_record.bin`; countdown_api.fixtures) is the
+canonical record, which auth-broker's tests read too.
 """
 
 from datetime import UTC, datetime
@@ -39,8 +39,8 @@ from countdown_core.store import keys
 if TYPE_CHECKING:
     import redis
 
-# How long a record lasts after it's written: a day. See the module's docstring.
-TTL_S = 24 * 60 * 60
+# How long a record lasts after it's written: a day (the store contract's). See the module's docstring.
+TTL_S = keys.FRAME_TTL_S
 
 # The hash's fields.
 FRAME = "frame"

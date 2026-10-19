@@ -139,7 +139,7 @@ jobs:
             for _ in $(seq 30); do docker logs "$name" 2>&1 | grep -q "Starting the render " && break; sleep 1; done
           done
           # A screen in the pool, with nothing set up but the clock, and a job for it and for a screen not in it.
-          rc SET v1:config:ci0123456789 "$(jq -c '.value + {tfl: {stop_ids: []}}' tests/fixtures/config_store.json)"
+          rc SET v1:config:ci0123456789 "$(jq -c '.value + {tfl: {stop_ids: []}}' api/src/countdown_api/fixtures/config_store.json)"
           rc HSET v1:render:screens ci0123456789 ci-smoke
           rc LPUSH v1:render:jobs ci0123456789 ci9876543210
           for _ in $(seq 30); do test "$(rc HEXISTS v1:frame:ci0123456789 etag)" = 1 && break; sleep 1; done
