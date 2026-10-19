@@ -26,7 +26,6 @@ if TYPE_CHECKING:
     from countdown_core.notices.notice import Notice, NoticeSource
     from countdown_core.system_screens.message_panel import MessagePanel
     from countdown_core.tfl.models import Postcode
-    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +60,9 @@ class NoticeBoardClient(AbstractClient):
 
     panel_title = N_("Notices")
 
-    def __init__(self, registration: Registration, config: NoticeBoardSettings) -> None:
-        """Build the sources `config` asks for, for the screen `registration` names."""
-        super().__init__(registration, config)
+    def __init__(self, device_id: str, config: NoticeBoardSettings) -> None:
+        """Build the sources `config` asks for, for the screen `device_id`."""
+        super().__init__(device_id, config)
         self.postcode = config.postcode
         self.norwegian = config.country == "NO"
         self.sources: list[NoticeSource] = [ClockChangeSource(self.session)]
@@ -112,8 +111,8 @@ class NoticeBoardClient(AbstractClient):
         try:
             stored = reader.read(reader.require_store(), keys.location(self.postcode), StoredLocation)
         except RedisError:
-            # Redis not answering, as for the sources (_read): the registry keeps the last board, and the render pool's
-            # render fails, keeping the screen's frame, rather than draw the board without its local notices.
+            # Redis not answering, as for the sources (_read): the render fails, keeping the screen's frame, rather than
+            # draw the board without its local notices.
             raise
         except Exception as e:  # noqa: BLE001 -- no store, a provider on another version: tried again
             logger.warning("Couldn't read the postcode's location from the store: %s", type(e).__name__)
@@ -152,7 +151,7 @@ class NoticeBoardClient(AbstractClient):
         """Ask every source what it says as of `now`: the answers by source, and the sources whose keys have expired.
 
         A source that fails otherwise is logged and left out of both. Redis not answering raises (RedisError), so the
-        registry keeps the last board: that's not the data expiring.
+        render fails, keeping the screen's frame: that's not the data expiring.
         """
         answers: dict[NoticeSource, list[Notice]] = {}
         expired: set[NoticeSource] = set()
@@ -175,8 +174,8 @@ class NoticeBoardClient(AbstractClient):
     def _update(self) -> MessagePanel | NoticeBoardPanel:
         """Return what every source says now, most severe first; "Not available" if all their keys have expired.
 
-        Raises, keeping the last board, if Redis doesn't answer, or if none of the sources that read the store could
-        be read for some other reason.
+        Raises if Redis doesn't answer (the render then fails, keeping the screen's frame), or if none of the sources
+        that read the store could be read for some other reason.
         """
         now = moment.now()
         self._ensure_location(now)

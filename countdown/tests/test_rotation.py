@@ -1,26 +1,21 @@
 """Rotation from the clock (core.rotation): every rotating panel shows page `epoch minute mod its page count`.
 
 Deterministic: conftest's rotation_clock freezes the pages' clock, and these tests move it. The last one drives the
-real render path, DisplayLoop.run calling the render, a minute at a time, through a config change.
+real render path, render.render as the pool's worker calls it, a minute at a time, through a config change.
 """
 
-import asyncio
 import datetime as dt
 import json
 
 import pytest
 from config_factory import make_config
 from conftest import ROTATION_START
-from fake_target import FakeTarget
-from test_utils import REGISTRATION, put_departures
+from test_utils import TEST_DEVICE_ID, put_departures
 from weather_factory import forecast_json
 
 from countdown_core import render as render_module
-from countdown_core.config_server.broker_client import BrokerClient
 from countdown_core.core import rotation
 from countdown_core.core.api_registry import ApiRegistry
-from countdown_core.core.display import DisplayController
-from countdown_core.core.display_loop import DisplayLoop
 from countdown_core.store import keys
 from countdown_core.tfl.combined_arrival_panel import Rotation
 from countdown_core.weather.models import WeatherPeriod
@@ -94,7 +89,7 @@ def test_there_must_be_a_page_to_show(pages):
 
 # --- every rotating panel at once -------------------------------------------------------------------------------
 
-DEVICE_ID = REGISTRATION.device_id
+DEVICE_ID = TEST_DEVICE_ID
 STOPS = [f"49000000{i}" for i in range(5)]
 
 
@@ -144,7 +139,7 @@ def _pages(panels: dict) -> tuple:
 def test_every_rotating_panel_shows_its_own_page_for_the_minute(store, rotation_clock):
     """Five stops two at a time are 3 pages; the weather has 4 tabs, energy 3 pages, Spotify (one service) 4."""
     _fill(store)
-    registry = ApiRegistry(REGISTRATION, _config())
+    registry = ApiRegistry(TEST_DEVICE_ID, _config())
     registry.show_stops(2)
     rotation_clock.at_minute(5)
 
@@ -156,33 +151,17 @@ def test_every_rotating_panel_shows_its_own_page_for_the_minute(store, rotation_
 # --- through the real render path -------------------------------------------------------------------------------
 
 
-class _Stop(Exception):  # noqa: N818 -- not an error: how the test ends the loop
-    """Raised by the fake sleep once enough cycles have run."""
-
-
-def test_the_render_loop_turns_every_panel_a_page_a_minute_and_a_config_change_keeps_the_page(
+def test_the_render_turns_every_panel_a_page_a_minute_and_a_config_change_keeps_the_page(
     store, rotation_clock, monkeypatch, symbols_font
 ):
-    """DisplayLoop.run, a minute between cycles: each cycle draws the minute's pages.
+    """render.render, a minute apart, as the pool's ticker queues it: each render draws the minute's pages.
 
-    After the second cycle the owner adds a stop. The next render's departures client, built afresh as every render's
+    After the second render the owner adds a stop. The next render's departures client, built afresh as every render's
     is, carries on at the clock's page (the third, of three still) rather than starting again at the first.
     """
     _fill(store)
     put_departures(store, "490000009", [("12", "Elsewhere", 60)], stop_letter="X")
     store.set(keys.config(DEVICE_ID), _config().model_dump_json())
-    broker = BrokerClient(REGISTRATION)
-    sleeps = []
-
-    async def a_minute(_seconds: float) -> None:
-        sleeps.append(_seconds)
-        if len(sleeps) == 2:
-            store.set(keys.config(DEVICE_ID), _config([*STOPS, "490000009"]).model_dump_json())
-        if len(sleeps) == 4:
-            raise _Stop
-        rotation_clock.advance()
-
-    loop = DisplayLoop(broker, broker.get_config(), DisplayController(FakeTarget()), sleep=a_minute)
     drawn = []
     real_render = render_module.draw
 
@@ -192,8 +171,12 @@ def test_the_render_loop_turns_every_panel_a_page_a_minute_and_a_config_change_k
 
     monkeypatch.setattr(render_module, "draw", recording_render)
 
-    with pytest.raises(_Stop):
-        asyncio.run(loop.run())
+    outcomes = []
+    for minute in range(4):
+        if minute == 2:
+            store.set(keys.config(DEVICE_ID), _config([*STOPS, "490000009"]).model_dump_json())
+        outcomes.append(render_module.render(DEVICE_ID, dt.datetime.now(dt.UTC)))
+        rotation_clock.advance()
 
     assert drawn == [
         (Rotation(0, 3), TABS[0], 0, "SpotifyPanel"),
@@ -202,4 +185,5 @@ def test_the_render_loop_turns_every_panel_a_page_a_minute_and_a_config_change_k
         (Rotation(2, 3), TABS[2], 2, "SpotifyPanel"),
         (Rotation(0, 3), TABS[3], 0, "SpotifyTopPanel"),
     ]
-    assert loop.last.sections["tfl"].stops[-1].id == "490000009"
+    # The last page of five stops has one; of six, the new stop is the second.
+    assert len(outcomes[2].panels["tfl"].arrival_panels) == 2

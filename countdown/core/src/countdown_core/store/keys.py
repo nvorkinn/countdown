@@ -9,11 +9,10 @@ Subscriptions (written by the broker, read by the providers):
 - `v1:sub:changed`: a pub/sub channel the broker publishes to (empty payload) after replacing subscriptions, so the
   providers needn't wait for their next tick.
 
-Configs (written by the broker, read by the renderers): `v1:config:<device id>` holds what GET /api/config answers the
-device (the contract's ConfigResponse, less its secrets: no weather API key, no pairing code), with no TTL: the broker
-rewrites it from its database on every config save and as it starts. A missing key means the renderer asks
-GET /api/config instead (an older broker, or a pairing code to show). `v1:config:changed` is the channel the broker
-publishes a device's id on after changing its key. See `config`.
+Configs (written by the broker, read by the render pool): `v1:config:<device id>` holds the device's config (the
+contract's ConfigResponse, less its secrets: no weather API key, no pairing code), with no TTL: the broker rewrites it
+from its database on every config save and as it starts. A missing key means there's nothing to render (a device not
+paired, or with a pairing code to show). See `config`.
 
 Pairing (written by the broker, read by the render pool): `v1:pairing:<device id>` holds what GET /api/config answers
 while the device has a pairing code to show, the code included, with the code's own TTL. See `pairing`.
@@ -21,14 +20,14 @@ while the device has a pairing code to show, the code included, with the code's 
 Data (written by the providers with a TTL, read by the renderers): one key per thing, holding the JSON of a
 countdown_core.store.models model. A missing key means its provider is down (or hasn't got to it yet).
 
-Pace (written by the providers with a short TTL, read by the renderers): `v1:pace:<source>:<id>` holds the seconds a
-provider wants the screen to refresh at while what it fetched for `id` is bursty (a release running). It lapses by
-itself, so a provider that stops renewing it, or dies, lets the screen go back to its usual pace. See `pace`.
+Pace (written by the providers with a short TTL, read by the broker): `v1:pace:<source>:<id>` holds the seconds a
+provider wants the screen to poll at while what it fetched for `id` is bursty (a release running). It lapses by itself,
+so a provider that stops renewing it, or dies, lets the screen go back to its usual pace. See `pace`.
 
 Images (written by auth-broker's music provider with a short TTL, read by the renderers): `v1:art:<sha1 of its URL>`
 holds an image's own bytes, not JSON, one key per image however many screens show it. See `album_art`.
 
-Frames (written by the renderers, read by auth-broker): `v1:frame:<device id>` is a hash of the screen's latest frame,
+Frames (written by the render pool, read by auth-broker): `v1:frame:<device id>` is a hash of the screen's latest frame,
 its ETag and when it was drawn, which the broker serves the screen. See `frame`.
 
 The render queue (the render pool's, store.render_queue): `v1:render:jobs`, a list of device ids to render, with a
@@ -58,10 +57,6 @@ SUB_CHANGED = f"{PREFIX}:sub:changed"
 def subscription(source: str) -> str:
     """Return the set of ids wanted from `source`, e.g. `v1:sub:tfl` (TfL NaPTAN stop ids)."""
     return f"{PREFIX}:sub:{source}"
-
-
-# The channel the broker publishes a device's id on after changing its config in the store.
-CONFIG_CHANGED = f"{PREFIX}:config:changed"
 
 
 def config(device_id: str) -> str:
@@ -168,7 +163,7 @@ def pace(source: str, item_id: str) -> str:
 def frame(device_id: str) -> str:
     """Return the key of a screen's latest frame, e.g. `v1:frame:a1b2c3d4e5f6`, which the broker serves the screen.
 
-    Written by the renderer when the picture changes (store.frame_record), with a TTL of a day; a hash of the frame's
+    Written by the render when the picture changes (store.frame_record), with a TTL of a day; a hash of the frame's
     raw bytes, its ETag and when it was first drawn, read by auth-broker with a client that doesn't decode values.
     """
     return f"{PREFIX}:frame:{device_id}"
@@ -177,8 +172,8 @@ def frame(device_id: str) -> str:
 # The render pool's queue (store.render_queue; docs/stateless-renderers.md, "The pool, the queue and the render
 # function"). The jobs are a list of device ids, which the workers BRPOP; a screen is in it at most once.
 RENDER_JOBS = f"{PREFIX}:render:jobs"
-# The screens the pool renders: a hash of device id to slug (the slug names the screen in the metrics). The orchestrator
-# writes it during the migration, for the screens in its POOL_SLUGS; a worker drops a job for a device not in it.
+# The screens the pool renders: a hash of device id to slug (the slug names the screen in the metrics). auth-broker
+# writes it, for every paired device; a worker drops a job for a device not in it.
 RENDER_SCREENS = f"{PREFIX}:render:screens"
 
 

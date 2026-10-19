@@ -1,7 +1,7 @@
 import pytest
 
-from countdown_credentials import device_name
-from countdown_credentials.device_name import device_name_from_env, resolve_device_name
+from countdown_core.core import device_name
+from countdown_core.core.device_name import device_name_from_env, resolve_device_name
 
 
 def test_explicit_device_name_wins_over_hostname():

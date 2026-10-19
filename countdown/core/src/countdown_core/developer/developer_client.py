@@ -8,13 +8,12 @@ from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.notices import DeveloperNoticeSource
 from countdown_core.i18n import N_
-from countdown_core.store import developer, keys, reader
+from countdown_core.store import developer, reader
 
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
     from countdown_core.core.style import Style
     from countdown_core.notices.notice import NoticeSource
-    from countdown_credentials.registration import Registration
 
 
 @dataclass(frozen=True)
@@ -30,22 +29,21 @@ class DeveloperClient(AbstractClient):
 
     auth-broker's developer provider writes it there: it holds the GitHub token and makes the calls, so this renderer
     never holds a token nor asks the broker. The provider polls, and asks for a faster refresh itself while a release
-    runs (the pace key, see pace_keys).
+    runs (its pace key, which the broker reads, and a render job for each of its screens on every cycle).
     """
 
     # Reading the store costs nothing: whenever the screen refreshes.
     poll_interval = timedelta(0)
     panel_title = N_("Developer")
 
-    def __init__(self, registration: Registration, config: DeveloperSettings) -> None:
-        """`registration`: this device, whose id the keys are under; `config`: the developer settings.
+    def __init__(self, device_id: str, config: DeveloperSettings) -> None:
+        """`device_id`: this screen, whose id the keys are under; `config`: the developer settings.
 
-        Raises without a store, or without a device id to read the panel by.
+        Raises without a store.
         """
-        super().__init__(registration, config)
+        super().__init__(device_id, config)
         self.config: DeveloperSettings = config
         self.store = reader.require_store()
-        self.device_id = reader.device_id(registration)
         # Its notices read the store themselves, so they're as of the board's drawing, not this panel's last poll.
         self._notice_sources: list[NoticeSource] = [DeveloperNoticeSource(self.store, self.device_id)]
 
@@ -58,14 +56,9 @@ class DeveloperClient(AbstractClient):
         """Return the panel drawn from what the developer provider stored.
 
         Raises NoStoredDeveloperError if there's nothing (so the panel says it's not available), and RedisError if the
-        store can't be asked (keeping the last panel).
+        store can't be asked (the render fails, keeping the screen's frame).
         """
         return DeveloperPanel(developer.read(self.store, self.device_id), self.config.style)
-
-    @override
-    def pace_keys(self) -> list[str]:
-        """Return the key where the developer provider asks for a faster refresh while a release runs."""
-        return [keys.pace(keys.DEVELOPER, self.device_id)]
 
     @override
     def notice_sources(self) -> list[NoticeSource]:

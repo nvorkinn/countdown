@@ -8,7 +8,7 @@ import responses
 from config_factory import make_config
 from PIL import Image, ImageDraw
 from redis.exceptions import ConnectionError as RedisConnectionError
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core.core import moment
 from countdown_core.core.api_registry import section_for
@@ -275,7 +275,7 @@ def board_settings(postcode: str | None = None) -> NoticeBoardSettings:
 
 
 def board_with(*sources: NoticeSource) -> NoticeBoardClient:
-    client = NoticeBoardClient(REGISTRATION, board_settings())
+    client = NoticeBoardClient(TEST_DEVICE_ID, board_settings())
     client.sources = list(sources)
     return client
 
@@ -417,7 +417,7 @@ def test_board_errors_rather_than_claiming_all_clear_when_no_source_answered(clo
 
 
 def test_board_with_nothing_configured_still_has_bank_holidays_and_the_clocks():
-    client = NoticeBoardClient(REGISTRATION, board_settings(postcode=None))
+    client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode=None))
 
     assert not client.is_disabled()
     assert [type(s) for s in client.sources] == [ClockChangeSource, StoredBankHolidaySource]
@@ -432,7 +432,7 @@ def put_location(store, postcode: str, location: Postcode | None) -> None:
 
 def test_board_adds_local_sources_once_the_store_says_where_the_postcode_is(store, clock):
     put_location(store, "SE17 3LL", SOUTHWARK)
-    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
+    client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="SE17 3LL"))
     client._read = lambda sources, now: ({}, set())  # only placing the postcode is under test here
 
     with pytest.raises(RuntimeError):  # sources added, but none has answered yet
@@ -452,7 +452,7 @@ def test_board_adds_local_sources_once_the_store_says_where_the_postcode_is(stor
 
 def test_board_reads_the_location_under_its_postcodes_place_however_its_written(store, clock):
     put_location(store, "SE17 3LL", SOUTHWARK)
-    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="se17 3ll"))
+    client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="se17 3ll"))
 
     client._ensure_location(NOW)
 
@@ -461,7 +461,7 @@ def test_board_reads_the_location_under_its_postcodes_place_however_its_written(
 
 def test_board_logs_that_it_placed_the_postcode_but_not_where(store, clock, caplog):
     put_location(store, "SE17 3LL", SOUTHWARK)
-    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
+    client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="SE17 3LL"))
     client._read = lambda sources, now: ({}, set())
 
     with caplog.at_level("DEBUG"), pytest.raises(RuntimeError):
@@ -476,7 +476,7 @@ def test_board_logs_that_it_placed_the_postcode_but_not_where(store, clock, capl
 def test_board_with_an_unknown_postcode_says_so(store, clock, caplog):
     put_location(store, "ZZ1 1ZZ", None)
     store.set(keys.bank_holidays(), StoredBankHolidays(fetched_at=NOW, divisions=BANK_HOLIDAYS).model_dump_json())
-    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="ZZ1 1ZZ"))
+    client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="ZZ1 1ZZ"))
 
     with caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"):
         panel = update(client)
@@ -488,7 +488,7 @@ def test_board_with_an_unknown_postcode_says_so(store, clock, caplog):
 
 
 def test_board_waits_for_a_location_not_in_the_store_yet_and_reads_again_a_poll_later(store, clock, caplog):
-    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
+    client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="SE17 3LL"))
     client._read = lambda sources, now: ({}, set())
 
     with caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"):
@@ -515,7 +515,7 @@ def test_board_whose_store_cant_be_read_tries_again_without_naming_the_postcode(
         raise ConnectionError(msg)
 
     monkeypatch.setattr(store, "get", unreachable)
-    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
+    client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="SE17 3LL"))
     client._read = lambda sources, now: ({}, set())
 
     with (
@@ -535,7 +535,7 @@ def test_board_whose_location_redis_cant_answer_for_raises_redis_error(store, cl
         raise RedisConnectionError
 
     monkeypatch.setattr(store, "get", unreachable)
-    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
+    client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="SE17 3LL"))
     client._read = lambda sources, now: ({}, set())
 
     with pytest.raises(RedisConnectionError):
@@ -544,7 +544,7 @@ def test_board_whose_location_redis_cant_answer_for_raises_redis_error(store, cl
 
 def test_board_asks_nothing_over_http_to_place_its_postcode(store, clock):
     put_location(store, "SE17 3LL", SOUTHWARK)
-    client = NoticeBoardClient(REGISTRATION, board_settings(postcode="SE17 3LL"))
+    client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="SE17 3LL"))
 
     with responses.RequestsMock():  # any request would fail
         client._ensure_location(NOW)

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from config_factory import make_config as make_broker_config
-from test_utils import REGISTRATION, put_departures
+from test_utils import TEST_DEVICE_ID, put_departures
 
 from countdown_api.models import DepartureStop
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
@@ -160,7 +160,7 @@ def test_london_and_oslo_stops_share_one_panel_in_the_owners_order(store):
     settings = DeparturesSettings(
         (DepartureStop(source="entur", id="NSR:StopPlace:58381"), DepartureStop(source="tfl", id="490000123W"))
     )
-    client = DeparturesClient(REGISTRATION, settings)
+    client = DeparturesClient(TEST_DEVICE_ID, settings)
 
     panel = asyncio.run(client.update())
 
@@ -172,7 +172,7 @@ def test_london_and_oslo_stops_share_one_panel_in_the_owners_order(store):
 
 
 def test_a_stop_from_a_source_this_renderer_doesnt_know_is_skipped():
-    client = DeparturesClient(REGISTRATION, DeparturesSettings(()))
+    client = DeparturesClient(TEST_DEVICE_ID, DeparturesSettings(()))
     unknown = DepartureStop.model_construct(source="vy", id="x")
     assert client.init_stops([unknown]) == []
 

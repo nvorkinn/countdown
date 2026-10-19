@@ -163,10 +163,8 @@ weather_cache.pkl
 # Material Symbols, downloaded on first use -- see google_symbols() in core/src/countdown_core/utils/utils.py
 core/src/countdown_core/fonts/MaterialSymbols*.ttf
 
-# auth-broker device credentials (device_id + device_secret), generated on first
-# boot -- see core/src/countdown_core/config_server/broker_client.py
+# What the retired per-screen renderer left in a development checkout: its identity and its key.
 .auth_broker_device
-# The renderer's credentials key, copied by dev/adopt_renderer.py
 dev/*/.config/
 
 # Spyder project settings

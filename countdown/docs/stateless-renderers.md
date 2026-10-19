@@ -1,12 +1,12 @@
 # Stateless renderers
 
-**Status:** decided. The design below follows Nikolai's answers to the proposal's open questions
-([#205](https://github.com/nvorkinn/pi-dashboard/pull/205#issuecomment-6246057069), 2026-10-18), and is being built
-in the steps of the [migration](#migration). Step 1, rotation from the clock, was the first.
+**Status:** done. The design below follows Nikolai's answers to the proposal's open questions
+([#205](https://github.com/nvorkinn/pi-dashboard/pull/205#issuecomment-6246057069), 2026-10-18), and was built in the
+steps of the [migration](#migration), the last of which (step 9) retired the per-screen renderers.
 
-Today every screen has its own long-lived renderer container that sleeps, wakes, draws and uploads. The goal is a
-render that runs to completion and keeps nothing: read Redis, build the frame, write it, done. A small pool of warm
-workers calls that render whenever a job for a screen arrives on a Redis queue.
+Every screen had its own long-lived renderer container that slept, woke, drew and uploaded. Now a render runs to
+completion and keeps nothing: read Redis, build the frame, write it, done. A small pool of warm workers calls that
+render whenever a job for a screen arrives on a Redis queue.
 
 ## The design, in short
 
@@ -39,48 +39,31 @@ workers calls that render whenever a job for a screen arrives on a Redis queue.
 
 ## Where we are
 
-### What runs now
+### What runs now (the final shape)
 
-- **The orchestrator** (`countdown/orchestrator/`). It polls the broker every 10 s for assignments, and keeps one
-  `renderer-<slug>` container per screen through `DockerRuntime` (`runtime.py`). Each container has host networking,
-  256 MB and half a CPU, and two volumes: the renderer's identity and its key. A renderer whose image or store label is
-  out of date is made again, keeping its volumes. `suspended` stops a renderer and `deleting` removes it with its
-  volumes.
-- **The renderer** (`countdown/server/`, drawing with `countdown/core/`). It claims its screen once with the claim
-  token (`POST /api/renderers/claim`), then `DisplayLoop.run()` calls the render function (step 5,
-  `countdown_core/render.py`) for ever:
-  - `render(device_id, now)` builds the clients fresh (`ApiRegistry`, one per render), reads their keys, draws as of
-    `now` (`core/moment.py`), writes the frame record if the hash changed, and returns an `Outcome`.
-  - The loop calls it on the minute, at once on the config nudge, and every `PACED_RENDER_S` (20) while one of the
-    clients' `v1:pace:<source>:<id>` keys is live (`display_loop.read_pace`).
-  - `DisplayController.show()` hands the frame to `ServerTarget`, which PUTs the 48,000-byte frame to `PUT /api/frame`
-    when the picture changed, with `X-Refresh-Hint`. `renew()` sends the same frame again while a pace is asked for,
-    or once more after one ends.
-  - It passes the last render's `Outcome` back in as `previous`, so a client that fails other than by its key expiring
-    draws its last panel (see "Redis being unreachable isn't expiry").
-- **The config is in the store** (auth-broker #186, pi-dashboard #208). The broker writes `v1:config:<device id>` (the
-  `GET /api/config` body, less its secrets and with no pairing code) on every save and as it starts. Then it publishes
-  the device id on `v1:config:changed` (`keys.CONFIG_CHANGED`). The renderer reads the copy (`store.config.read`),
-  falls back to `GET /api/config` when there's none (an older broker, or a pairing code to show), and
-  `ConfigWatcher` wakes the loop on the nudge.
-- **Places are in the store.** `provider-locations` writes `v1:location:<place>` (`store.location.StoredLocation`).
-  The notice board reads it, and so do the providers that need a postcode's place. So no renderer calls an upstream
-  API any more. Its only calls to the broker are `PUT /api/frame`, and `GET /api/config` when the store has no copy.
-- **Pacing is the broker's** (step 3, auth-broker #195): its one function, `services/pace.py`'s `sleep_s`, answers
-  every poll's `Retry-After` from the server's clock and the screen's `v1:pace:` keys, which providers write with
-  `PACE_TTL_S` of 60 s. The renderer only renders faster while a key is live, and still sends the pace as
-  `X-Refresh-Hint` (renewed with repeat uploads, `ServerTarget.renew`), which the broker counts as a legacy hint until
-  step 9.
+- **The render pool** (`countdown/server/`, drawing with `countdown/core/`): `render-worker-1` and `render-worker-2`
+  (`countdown-render-worker`) and `render-ticker` (`countdown-render-ticker`), compose services in
+  `server/deploy/docker-compose.yml` from the `countdown-server` image, on the host's network. They draw every screen
+  in `v1:render:screens`, which auth-broker writes for every paired device. There's no container per screen, no
+  orchestrator, no claim and no identity: the image keeps nothing.
+- **The render** is `render(device_id, now) -> Outcome` (`countdown_core/render.py`). It reads `v1:pairing:<device id>`
+  (a live pairing code) or else `v1:config:<device id>`, sets the locale, builds the clients fresh (`ApiRegistry`, by
+  the device's id), reads their keys, draws as of `now`, and writes `v1:frame:<device id>` if the hash changed. A
+  RedisError fails it and writes nothing, so the screen keeps its frame; an expired key draws "Not available".
+- **The jobs** come from the ticker (every minute), the broker (a config save, a pairing code) and the bursty providers
+  (the developer provider's release cycles), through `store/render_queue.py`.
+- **The frames** reach the broker only through `v1:frame:<device id>`; the broker serves the record to the screen.
+- **Pacing** is the broker's alone (`services/pace.py`, from the providers' `v1:pace:` keys): the render side computes
+  no interval.
+- **The config** reaches the render only through the store. Nothing here calls the broker; the countdown-api contract
+  is used for its models (`ConfigResponse`) only.
+- **Metrics** come from the workers, per screen by `device` (`pool_metrics.py`); logs only say what goes wrong.
 - **The screen** (the ESP32) polls `POST /api/frame` with `If-None-Match`, repaints only on a 200, and sleeps for
-  `Retry-After`. It has no clock of its own.
+  `Retry-After`.
 - **Redis** (on the broker's host, 127.0.0.1:6379) has 128 MB, `volatile-lru`, and no persistence. Keys without a TTL
   are never evicted.
-- **The frame record** (step 4): `ServerTarget` also writes each new picture to `v1:frame:<device id>`
-  (`countdown_core/store/frame_record.py`, with `frame_etag()`, the broker's ETag), and a broker that reads it serves
-  it when it's newer than its SQLite row. It replaced `render_state.py`'s `RenderState`, `needs_put()` and
-  `RenderStateStore` (#205): the record holds the one piece of state that's left, the frame's hash.
 
-### What a renderer keeps between frames, and what becomes of it
+### What a per-screen renderer kept between frames, and what became of it
 
 | State | Where now | Becomes |
 |---|---|---|
@@ -97,7 +80,7 @@ workers calls that render whenever a job for a screen arrives on a Redis queue.
 | What the broker has | `ServerTarget._last_frame`, `_sent_pace` | the frame record (step 4); the pace isn't the renderer's business any more (step 3) |
 | Locale | `i18n._language`, `_timezone`, module globals | set at the start of each render; a worker runs one render at a time |
 | Health | `OtlpPublisher` and `DeviceStatus`, per process | per-render metrics with a `device` attribute (step 6) |
-| Identity | `/data/.auth_broker_device` in the renderer's volume | none: frames go through Redis (steps 4 and 9) |
+| Identity | `/data/.auth_broker_device` in the renderer's volume | none: frames go through Redis (steps 4 and 9). Gone, with its volumes, in step 9 |
 | Caches | fonts, translations, Redis clients | kept per worker process, shared by every render; read-only |
 
 ## The decisions, in detail
@@ -165,13 +148,9 @@ freshness check. The screen's own picture is the only memory.
 | `v1:art:*` | renewed every minute while shown | 5 min | none |
 | `v1:pace:*` | each provider cycle | 60 s | none: this is the hint's expiry (see [Pacing](#pacing)) |
 
-**Redis being unreachable isn't expiry.** In today's renderer, a read that fails with `RedisError` keeps its last
-panel, as it does now (step 2 changes only missing keys). With the clients built fresh for each render (step 5), that
-panel is the previous render's: the per-screen loop keeps the last `Outcome` and passes it back in as `render`'s
-`previous`, and a client that fails draws the panel it gave there, as long as its section of the config and the
-language and time zone are the same (a panel from another config is never drawn). The frame record can't stand in for
-it: it's a picture, not panels, and it's in the Redis that isn't answering. In the pool, a render that can't reach
-Redis fails and writes nothing, so the screen keeps the frame it has.
+**Redis being unreachable isn't expiry.** A render that can't reach Redis fails and writes nothing, so the screen keeps
+the frame it has. (Until step 9, the per-screen renderer drew the previous render's panel for a client that failed
+that way, `render`'s `previous`; that went with it.)
 
 ### Rotation from the clock
 
@@ -464,8 +443,8 @@ off as a draft PR titled "[after … deployed]".
 **8. The dashboards** (auth-broker). The panels read the new `device`-attributed series beside the old ones. Safe at
 any time.
 
-**9. Retire the per-screen path** (both repos). Every change here waits for every screen to be on the pool, so each
-is a draft PR titled "[after every screen is pooled]".
+**9. Retire the per-screen path** (both repos). Nikolai is the only user, so the canary was skipped: the broker lists
+every paired device in `v1:render:screens`, and the per-screen path goes at once.
 
 - **pi-dashboard:**
   - the orchestrator removes the containers, and their volumes a few weeks later;
@@ -481,10 +460,28 @@ is a draft PR titled "[after every screen is pooled]".
 - **Then:** the orchestrator itself, with the `countdown-orchestrator` image, once the broker writes the screens.
 - **Rollback:** up to the deletion of the volumes, put the slugs back on containers. After it, a screen needs a new
   renderer assignment.
+- **Done** (pi-dashboard, this step's PR, after auth-broker's `claude/broker-pool-screens`, which writes
+  `v1:render:screens` for every paired device):
+  - The orchestrator is gone: its compose service, its package, its image (built and published no more), its tests,
+    its CI smoke steps, and `ORCHESTRATOR_TOKEN` and `POOL_SLUGS` in the release. The deploy removes every
+    `renderer-<slug>` container and its two volumes at once (`deploy.sh`), rather than a few weeks later: there's one
+    user, and nothing needs them.
+  - So is the per-screen code: `DisplayLoop`, `app.py`, `ServerTarget` and `countdown-server`'s own entrypoint (the
+    image's default is now a render worker), `ConfigWatcher`, `BrokerClient` (the `GET /api/config` fallback, the only
+    call to the broker left), the claim (`countdown-credentials`: `RendererRegistrar`, the encrypted identity and its
+    key; `device_name.py` moved into `countdown_core.core`), `DisplayController` and `DisplayTarget` (`panel_bytes`
+    moved to `rendering.screen`), `ApiRegistry.pace`, `AbstractClient.pace_keys`, `reader.fastest_pace`, and the
+    per-process `OtlpPublisher` and `DeviceStatus` (with `countdown.display.connected` and
+    `countdown.broker.last_sync`). The clients take the device's id rather than a registration.
+  - `render(device_id, now)` takes no `config` or `previous`: it always reads the store, and a RedisError always fails
+    it (the pool's `raise_store_errors`, now the only behaviour).
+  - `keys.CONFIG_CHANGED` is gone from here; the broker's publish goes in auth-broker's own step 9 PR.
+  - The countdown-api submodule stays: the render reads the config with its `ConfigResponse`. Its `requests` client is
+    no longer used.
 
-**When the channel and the per-screen path go.** The job queue replaces `v1:config:changed` from step 7, for every
-screen the pool renders. The channel's publisher and `ConfigWatcher`, and the per-screen renderer path with them, are
-removed in step 9, once no screen has its own container.
+**When the channel and the per-screen path went.** The job queue replaced `v1:config:changed` from step 7, for every
+screen the pool renders. `ConfigWatcher`, and the per-screen renderer path with it, went in step 9; the channel's
+publisher goes with auth-broker's step 9.
 
 ## Decided here, not in the answers
 

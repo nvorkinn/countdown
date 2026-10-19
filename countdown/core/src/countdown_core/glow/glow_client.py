@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from datetime import tzinfo
 
     from countdown_api.models import Glowmarkt
-    from countdown_credentials.registration import Registration
 
 
 def _bucket_starts(
@@ -47,14 +46,13 @@ class GlowClient(AbstractClient):
 
     panel_title = N_("Energy")
 
-    def __init__(self, registration: Registration, config: Glowmarkt) -> None:
+    def __init__(self, device_id: str, config: Glowmarkt) -> None:
         """`config` is the broker's glowmarkt section, which only switches the panel on (see api_registry.is_enabled).
 
-        Raises without a store, or without a device id to read the readings by.
+        Raises without a store.
         """
-        super().__init__(registration, config)
+        super().__init__(device_id, config)
         self.store = reader.require_store()
-        self.device_id = reader.device_id(registration)
 
     @override
     def _initialise(self) -> None:

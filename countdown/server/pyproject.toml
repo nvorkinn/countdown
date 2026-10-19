@@ -7,8 +7,7 @@ dependencies = [
 ]
 
 [project.scripts]
-countdown-server = "countdown_server.main:run"
-# The render pool (docs/stateless-renderers.md): the same image, another command.
+# The render pool (docs/stateless-renderers.md): the workers and the ticker, from the one image.
 countdown-render-worker = "countdown_server.render_pool:run_worker"
 countdown-render-ticker = "countdown_server.render_pool:run_ticker"
 

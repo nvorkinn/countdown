@@ -12,8 +12,10 @@ screen, so each screen is the `device` attribute, and each render's outcome, whe
 - `countdown.render.lag` (histogram, s): how long each job waited in the queue, by `device`.
 - The counter and the histograms also have `worker`, the worker's name (its `host.name`).
 - `countdown.render.queued` (gauge): how many jobs are waiting (the queue's, so no `device`).
-- `countdown.api.status`, `countdown.problem`, `countdown.stage` (gauges): as the per-screen renderer's
-  (home_assistant.otlp_publisher), by `device`.
+- `countdown.api.status` (gauge): 1 per API, by `device`, `api` and `status` (each client's status as of the screen's
+  latest render; an API with no client is `disabled`).
+- `countdown.problem` (gauge): by `device`, 1 while the latest render failed or any API is in `error` or `fatal`.
+- `countdown.stage` (gauge): 1, by `device` and `stage` (`pairing` or `running`).
 
 Two workers report side by side, each its own counters and histograms, so sum those across workers. Those also carry
 the worker as a `worker` attribute: the host's Fluent Bit drops the resource's attributes (`host.name` among them) on
@@ -42,13 +44,22 @@ from redis.exceptions import RedisError
 
 from countdown_core.core.abstract_client import ClientStatus
 from countdown_core.core.api_registry import API_NAMES
-from countdown_core.home_assistant.otlp_publisher import EXPORT_INTERVAL_MS, EXPORT_TIMEOUT_MS, METRICS_URL, UNHEALTHY
 from countdown_core.render import Outcome, Result
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
 logger = logging.getLogger(__name__)
+
+# The host's Fluent Bit OpenTelemetry input (OTLP/HTTP), on the host's network.
+METRICS_URL = "http://127.0.0.1:4318/v1/metrics"
+# Once a minute.
+EXPORT_INTERVAL_MS = 60_000
+# Per export, retries included. With no collector listening an export retries until this is up, and an export in
+# flight holds up the worker's exit, which a container only gets 10s for.
+EXPORT_TIMEOUT_MS = 3_000
+# A client in either of these makes the screen's countdown.problem 1.
+UNHEALTHY = frozenset({ClientStatus.ERROR, ClientStatus.FATAL})
 
 # What countdown.render.count's `outcome` is: the frame written, or skipped because the record holds it, or neither.
 WRITTEN = "written"
@@ -164,7 +175,7 @@ class PoolMetrics:
             logger.debug("Couldn't read the pool's screens for the metrics (%s)", type(e).__name__)
             return []
         with self._lock:
-            # A screen no longer in the pool (rolled back to its own renderer) isn't this worker's to report on.
+            # A screen no longer in the pool (forgotten, or unpaired) isn't this worker's to report on.
             for device_id in self._last_success.keys() - listed:
                 del self._last_success[device_id]
             return [Observation(at, {"device": slug}) for slug, at in self._last_success.values()]

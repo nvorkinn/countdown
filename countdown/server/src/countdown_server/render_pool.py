@@ -7,7 +7,7 @@ compose services on the host (server/deploy/docker-compose.yml), with REDIS_URL 
   each job, calls `render(device_id, now)` and releases the job, then records the metrics (pool_metrics). One render at
   a time, as the locale is a module global; each has a deadline (DEADLINE_S), past which faulthandler dumps where it
   was stuck and ends the process, for compose to start again. Its render raises rather than draw when the store can't
-  be read (render's raise_store_errors), and writes nothing, so the screen keeps the frame it has.
+  be read, and writes nothing, so the screen keeps the frame it has.
 - **The ticker** queues every screen in `v1:render:screens` on every minute, on the minute: the only clock on the render
   side. Running two by mistake is harmless, as enqueue coalesces.
 
@@ -126,7 +126,7 @@ class Worker:
             logger.warning("Couldn't claim a job (%s); the next tick queues the screen again", error_reason(e))
             return
         if claimed.claim is render_queue.Claim.DROPPED:
-            # A screen that still has its own renderer (or none at all): from step 7, the broker queues every screen.
+            # A device the broker doesn't list in v1:render:screens (forgotten, or not paired).
             logger.debug("Dropped a job for %s, which the pool doesn't render", device_id)
             return
         if claimed.claim is render_queue.Claim.AGAIN:
@@ -140,7 +140,7 @@ class Worker:
         # In C, on a thread of its own, so it fires even if the render is stuck holding the GIL.
         faulthandler.dump_traceback_later(self.deadline_s, exit=True)
         try:
-            outcome = self.render(device_id, self.now(), raise_store_errors=True)
+            outcome = self.render(device_id, self.now())
         except RedisError as e:
             logger.warning(
                 "Couldn't read the store to render %s (%s); the screen keeps its frame", slug, error_reason(e)
@@ -217,8 +217,8 @@ def run_worker() -> None:
         screens=lambda: render_queue.screens(client).keys(),
         queued=lambda: render_queue.queued(client),
     )
-    # Not shut down at exit, as the per-screen renderer's (OtlpPublisher): the SDK's final export would retry against a
-    # collector that's down, and log it. Its thread is a daemon's.
+    # Not shut down at exit: the SDK's final export would retry against a collector that's down, and log it. Its thread
+    # is a daemon's.
     metrics.start()
     try:
         Worker(client, metrics, stopping=stopping).run()
@@ -236,3 +236,7 @@ def run_ticker() -> None:
         Ticker(client, stopping=stopping).run()
     finally:
         client.close()
+
+
+if __name__ == "__main__":
+    run_worker()

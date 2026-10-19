@@ -1,6 +1,7 @@
-"""The device's name: the DEVICE_NAME setting (else the hostname), as a slug.
+"""The process's name: the DEVICE_NAME setting (else the hostname), as a slug.
 
-It labels the device on the broker. Not the broker's device_id, which a renderer gets when it registers.
+It's the `device` field on every log line of a process that doesn't name itself otherwise (core.log_format: the
+providers; the render pool's workers name themselves `worker`). Not the broker's device id, nor a screen's slug.
 """
 
 import os

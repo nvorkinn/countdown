@@ -1,8 +1,7 @@
 """A screen's live pairing code from the store (`v1:pairing:<device id>`, store.pairing), and the render drawing it.
 
 The broker's copy of the config never carries the code, and there's none while a code is live, so a render that reads
-the store (the pool's: render(device_id, now)) draws the pairing screen from this key while it's there. The per-screen
-renderer, which passes its config in (from the store, else GET /api/config, which has the code), is left as it was.
+the store (render(device_id, now)) draws the pairing screen from this key while it's there.
 tests/fixtures/pairing_key.json is the stored shape, the same file as auth-broker's.
 """
 
@@ -82,8 +81,6 @@ def test_a_live_code_draws_the_pairing_screen_with_no_config_in_the_store(store)
 
     assert outcome.stage is Stage.PAIRING
     assert outcome.result is Result.WRITTEN
-    # The same frame as the per-screen renderer draws from GET /api/config's answer with the code.
-    assert outcome.data == render(DEVICE_ID, NOW, config=ConfigResponse.model_validate(FIXTURE["value"])).data
 
 
 def test_it_draws_the_frame_the_old_loop_drew_for_its_code(store):
@@ -143,25 +140,3 @@ def test_the_code_never_goes_in_the_config_key(store):
     render(DEVICE_ID, NOW)
 
     assert store.get(keys.config(DEVICE_ID)) is None
-
-
-# --- the per-screen renderer, which passes its config in -----------------------------------------------------------
-
-
-def test_a_config_passed_in_is_drawn_as_it_is_whatever_the_store_has(store, monkeypatch):
-    """Today's per-screen loop: its config is from the store, else GET /api/config, which carries any code itself."""
-    _put_code(store)
-
-    def unread(*_args):
-        msg = "the per-screen path reads no pairing key"
-        raise AssertionError(msg)
-
-    monkeypatch.setattr(stored_pairing, "read", unread)
-
-    assert render(DEVICE_ID, NOW, config=make_config(device_id=DEVICE_ID)).stage is Stage.RUNNING
-
-
-def test_a_code_from_get_api_config_still_draws_the_pairing_screen(store):
-    outcome = render(DEVICE_ID, NOW, config=make_config(device_id=DEVICE_ID, pairing_code="K7Q2XP"))
-
-    assert outcome.stage is Stage.PAIRING

@@ -5,10 +5,9 @@ from PIL import Image, ImageChops
 
 from countdown_core.store import keys
 from countdown_core.store.models import Departure, StopDepartures
-from countdown_credentials.registration import RendererRegistration
 
-# A device that's already registered, for any client that needs one.
-REGISTRATION = RendererRegistration("https://broker.example.com", "shh", "device-123")
+# The screen a client is built for, whose keys by device it reads.
+TEST_DEVICE_ID = "device-123"
 
 
 def put_departures(  # noqa: PLR0913 -- a stop as a provider stores it, every field optional

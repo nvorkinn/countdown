@@ -13,7 +13,7 @@ import fakeredis
 import pytest
 import requests
 import responses
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core import i18n
 from countdown_core.core import moment
@@ -203,7 +203,7 @@ def test_stored_holidays_without_the_division_are_a_lookup_error(server):
 
 def test_without_a_store_the_board_is_still_built_and_only_this_source_fails(monkeypatch):
     monkeypatch.setattr(reader, "store", lambda: None)
-    client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
+    client = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode=None))
     [source] = [s for s in client.sources if isinstance(s, StoredBankHolidaySource)]
 
     with pytest.raises(reader.StoreNotConfiguredError):
@@ -221,7 +221,7 @@ def test_the_board_drops_the_bank_holiday_once_its_key_has_expired(server, monke
     # The moment the board draws at (core.moment), as a render sets it.
     monkeypatch.setattr(moment, "now", lambda: FrozenDatetime.now(UTC))
     provide(server)
-    client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
+    client = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode=None))
     [notice] = asyncio.run(client.update()).notices
     assert notice.text == "Tomorrow: Christmas Day"
 

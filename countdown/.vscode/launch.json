@@ -2,11 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: countdown-server",
+            "name": "Python Debugger: countdown-render-worker",
             "type": "debugpy",
             "request": "launch",
-            "module": "countdown_server.main",
-            "cwd": "${workspaceFolder}/dev/renderer",
+            "module": "countdown_server.render_pool",
             "envFile": "${workspaceFolder}/dev/.env",
             "python": "${command:python.interpreterPath}",
             "console": "integratedTerminal"

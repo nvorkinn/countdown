@@ -9,14 +9,13 @@ image (music_art.jpg in both repositories' tests).
 
 import asyncio
 import copy
-import dataclasses
 import json
 from pathlib import Path
 
 import pytest
 import responses
 from redis.exceptions import ConnectionError as RedisConnectionError
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core.spotify import spotify_styles
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
@@ -38,7 +37,7 @@ PLAYER = json.loads((FIXTURES / "music_player.json").read_text())
 TOP = json.loads((FIXTURES / "music_top.json").read_text())
 COVERS = json.loads((FIXTURES / "music_art.json").read_text())
 ART = (FIXTURES / "music_art.jpg").read_bytes()
-DEVICE_ID = REGISTRATION.device_id
+DEVICE_ID = TEST_DEVICE_ID
 NOTHING_PLAYING = {"currently_playing": None, "queue": []}
 BOTH = MusicSettings(spotify=True, apple_music=True)
 
@@ -129,7 +128,7 @@ def test_every_page_is_drawn_from_the_store_without_a_call(store, settings, styl
     put(store)
 
     with responses.RequestsMock() as nothing:  # nothing registered: any request would fail
-        client = music_client_class(settings)(REGISTRATION, settings)
+        client = music_client_class(settings)(TEST_DEVICE_ID, settings)
         found = panels(client, 2 * len(pages_of(settings)) + 1, rotation_clock)
         assert len(nothing.calls) == 0
 
@@ -137,13 +136,13 @@ def test_every_page_is_drawn_from_the_store_without_a_call(store, settings, styl
 
 
 def pages_of(settings):
-    return SpotifyClient(REGISTRATION, settings).pages
+    return SpotifyClient(TEST_DEVICE_ID, settings).pages
 
 
 @responses.activate
 def test_both_on_rotates_through_both_services_top_lists(store, rotation_clock):
     put(store)
-    client = SpotifyClient(REGISTRATION, BOTH)
+    client = SpotifyClient(TEST_DEVICE_ID, BOTH)
 
     found = panels(client, 8, rotation_clock)
 
@@ -181,7 +180,7 @@ def test_the_playing_tracks_cover_comes_from_the_store_without_a_call(store, sym
     put_art(store, "spotify", "apple_music")
 
     with responses.RequestsMock() as nothing:  # nothing registered: any request would fail
-        panel = asyncio.run(music_client_class(settings)(REGISTRATION, settings).update())
+        panel = asyncio.run(music_client_class(settings)(TEST_DEVICE_ID, settings).update())
         image = panel.render(536, 120)
         assert len(nothing.calls) == 0
 
@@ -195,19 +194,19 @@ def test_each_service_shows_its_own_cover(store):
     store.set(COVERS["spotify"]["key"], b"spotify's", ex=300)
     store.set(COVERS["apple_music"]["key"], b"apple music's", ex=300)
 
-    panel = asyncio.run(SpotifyClient(REGISTRATION, BOTH).update())
+    panel = asyncio.run(SpotifyClient(TEST_DEVICE_ID, BOTH).update())
 
     assert panel.art == b"apple music's"
 
 
 def test_two_screens_playing_the_same_album_read_the_same_cover(store):
-    other = dataclasses.replace(REGISTRATION, device_id="another-device")
+    other = "another-device"
     put(store)
     store.set(keys.spotify("another-device"), json.dumps(PLAYER), ex=180)
     put_art(store, "spotify")
     settings = MusicSettings(spotify=True)
 
-    mine = asyncio.run(SpotifyClient(REGISTRATION, settings).update())
+    mine = asyncio.run(SpotifyClient(TEST_DEVICE_ID, settings).update())
     theirs = asyncio.run(SpotifyClient(other, settings).update())
 
     assert mine.art == theirs.art == ART
@@ -218,7 +217,7 @@ def test_a_missing_cover_draws_the_player_without_one(store, symbols):
     """The provider couldn't fetch it, or Redis evicted it: the page is still drawn, just without a cover."""
     put(store)
 
-    panel = asyncio.run(SpotifyClient(REGISTRATION, MusicSettings(spotify=True)).update())
+    panel = asyncio.run(SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True)).update())
     image = panel.render(536, 120)
 
     assert isinstance(panel, SpotifyPanel)
@@ -233,7 +232,7 @@ def _cover_strip_alpha(image):
 
 def test_a_cover_redis_cant_hand_over_draws_the_player_without_one(store, monkeypatch):
     put(store)
-    client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
+    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
 
     def down(key):
         raise RedisConnectionError(key)
@@ -249,7 +248,7 @@ def test_a_cover_redis_cant_hand_over_draws_the_player_without_one(store, monkey
 def test_a_track_with_no_cover_reads_none(store, monkeypatch):
     """A local file: nothing to read."""
     put(store, {**PLAYER, "spotify": {"currently_playing": PLAYER["spotify"]["queue"][1], "queue": []}})
-    client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
+    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
     monkeypatch.setattr(client.art_store, "get", lambda key: pytest.fail(f"read {key}"))
 
     assert asyncio.run(client.update()).art is None
@@ -262,7 +261,7 @@ def test_a_track_with_no_cover_reads_none(store, monkeypatch):
 def test_nothing_playing_on_spotify_shows_apple_musics_last_played(store):
     put(store, {**PLAYER, "spotify": NOTHING_PLAYING})
 
-    panel = asyncio.run(SpotifyClient(REGISTRATION, BOTH).update())
+    panel = asyncio.run(SpotifyClient(TEST_DEVICE_ID, BOTH).update())
 
     assert isinstance(panel, SpotifyPanel)
     assert panel.labels is APPLE_MUSIC_LABELS
@@ -273,7 +272,7 @@ def test_nothing_playing_on_spotify_shows_apple_musics_last_played(store):
 def test_nothing_playing_anywhere_skips_to_the_top_lists(store):
     put(store, {**PLAYER, "spotify": NOTHING_PLAYING, "apple_music": NOTHING_PLAYING})
 
-    panel = asyncio.run(SpotifyClient(REGISTRATION, BOTH).update())
+    panel = asyncio.run(SpotifyClient(TEST_DEVICE_ID, BOTH).update())
 
     assert isinstance(panel, SpotifyTopPanel)
     assert panel.period == "12 months"
@@ -288,7 +287,7 @@ def test_nothing_playing_and_no_top_lists_says_so(store):
         {**TOP, "spotify": {"long_term": empty, "short_term": empty}},
     )
 
-    panel = asyncio.run(SpotifyClient(REGISTRATION, MusicSettings(spotify=True)).update())
+    panel = asyncio.run(SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True)).update())
 
     assert not isinstance(panel, (SpotifyPanel, SpotifyTopPanel))  # the "Nothing playing on:" message
 
@@ -298,7 +297,7 @@ def test_nothing_playing_and_no_top_lists_says_so(store):
 def test_a_missing_key_says_the_music_is_not_available(store, missing, rotation_clock):
     """The key has expired (the music provider is down): nothing older than its TTL is drawn."""
     put(store, player=None if missing == "player" else PLAYER, top=None if missing == "top" else TOP)
-    client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
+    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
     if missing == "top":
         asyncio.run(client.update())  # the player
         rotation_clock.advance()  # the top lists' minute
@@ -316,7 +315,7 @@ def test_a_missing_key_says_the_music_is_not_available(store, missing, rotation_
 def test_a_service_the_provider_couldnt_fetch_is_not_available(store):
     """Spotify's part is null (say its token was revoked): the panel says so, rather than show what played before."""
     put(store, {**PLAYER, "spotify": None})
-    client = SpotifyClient(REGISTRATION, BOTH)
+    client = SpotifyClient(TEST_DEVICE_ID, BOTH)
 
     with pytest.raises(NoStoredMusicError):
         client._update()
@@ -328,7 +327,7 @@ def test_spotify_playing_needs_no_apple_music_part(store):
     """Spotify comes first, so a missing Apple Music part doesn't matter while it plays."""
     put(store, {**PLAYER, "apple_music": None})
 
-    panel = asyncio.run(SpotifyClient(REGISTRATION, BOTH).update())
+    panel = asyncio.run(SpotifyClient(TEST_DEVICE_ID, BOTH).update())
 
     assert panel.queue.currently_playing.name == "Espresso"
 
@@ -338,7 +337,7 @@ def test_a_missing_time_range_raises(store, rotation_clock):
     top = copy.deepcopy(TOP)
     del top["spotify"]["long_term"]
     put(store, top=top)
-    client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
+    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
     asyncio.run(client.update())
     rotation_clock.advance()  # the 12 months' top lists' minute
 
@@ -352,4 +351,4 @@ def test_reads_only_its_own_devices_keys(store):
     store.set(keys.spotify("someone-else"), json.dumps(PLAYER))
 
     with pytest.raises(NoStoredMusicError):
-        SpotifyClient(REGISTRATION, MusicSettings(spotify=True))._update()
+        SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))._update()

@@ -19,7 +19,7 @@ import pytest
 import requests
 import responses
 from location_factory import FakeLocations
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core import i18n
 from countdown_core.core import moment
@@ -352,7 +352,7 @@ def clock(monkeypatch):
 
 
 def board_with_source(source) -> NoticeBoardClient:
-    client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
+    client = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode=None))
     client.sources = [source]
     return client
 
@@ -393,7 +393,7 @@ def test_the_board_reads_the_warnings_under_its_own_postcode_once_its_placed(sto
     location = StoredLocation(fetched_at=NOW, postcode="SE17 3LL", found=True, location=SOUTHWARK)
     store.set(keys.location("SE17 3LL"), location.model_dump_json())  # as provider-locations placed it
     store.set("v1:notices:met-office:SE173LL", json.dumps(STORED))
-    client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode="SE17 3LL"))
+    client = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode="SE17 3LL"))
     client._read = lambda sources, now: ({}, set())  # only placing the postcode is under test here
 
     with caplog.at_level("DEBUG"), pytest.raises(RuntimeError):

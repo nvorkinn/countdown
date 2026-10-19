@@ -5,18 +5,17 @@ import json
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_api.models import Glowmarkt
 from countdown_core.glow.glow_client import GlowClient, _bucket_starts
 from countdown_core.store import keys, reader
-from countdown_credentials.registration import Registration
 
 CONFIG = Glowmarkt(enabled=True)
 
 
-def make_client(registration: Registration = REGISTRATION) -> GlowClient:
-    return GlowClient(registration, CONFIG)
+def make_client(device_id: str = TEST_DEVICE_ID) -> GlowClient:
+    return GlowClient(device_id, CONFIG)
 
 
 def test_bucket_starts_parse_epoch_and_iso_timestamps():
@@ -47,13 +46,11 @@ def test_update_returns_a_panel_and_rotates_through_the_three_pages(store, rotat
     empty = {"data": []}
     stored = {
         "fetched_at": now.isoformat(),
-        "device_id": REGISTRATION.device_id,
+        "device_id": TEST_DEVICE_ID,
         "offset": "0",
         "resource_id": "elec-id",
     }
-    store.set(
-        keys.energy(REGISTRATION.device_id), json.dumps(stored | {"hourly": empty, "daily": empty, "monthly": empty})
-    )
+    store.set(keys.energy(TEST_DEVICE_ID), json.dumps(stored | {"hourly": empty, "daily": empty, "monthly": empty}))
     client = make_client()
 
     pages = []
@@ -67,7 +64,7 @@ def test_update_returns_a_panel_and_rotates_through_the_three_pages(store, rotat
 def test_construction_reads_nothing(store, monkeypatch):
     monkeypatch.setattr(store, "get", lambda key: pytest.fail(f"read {key}"))
 
-    assert make_client().device_id == REGISTRATION.device_id
+    assert make_client().device_id == TEST_DEVICE_ID
 
 
 def test_without_a_store_it_cant_be_built_and_says_why(monkeypatch):
@@ -75,8 +72,3 @@ def test_without_a_store_it_cant_be_built_and_says_why(monkeypatch):
 
     with pytest.raises(reader.StoreNotConfiguredError, match="REDIS_URL"):
         make_client()
-
-
-def test_without_a_device_id_it_cant_be_built_as_it_has_no_key_to_read():
-    with pytest.raises(ValueError, match="device id"):
-        make_client(Registration(REGISTRATION.broker_url, REGISTRATION.device_secret))

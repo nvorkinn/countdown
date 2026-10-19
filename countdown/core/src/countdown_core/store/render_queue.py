@@ -1,7 +1,8 @@
 """The render pool's job queue: which screens to draw next, one render per screen at a time.
 
 docs/stateless-renderers.md ("The pool, the queue and the render function") is the design. Anything that wants a screen
-drawn (the ticker on every minute; from step 7 the broker on a config save, and a provider whose data turns bursty)
+drawn (the ticker on every minute, the broker on a config save or a pairing code, and a provider whose data turns
+bursty)
 calls enqueue(device id). A worker pops a job (next_job), claims it, renders the screen, and releases it. Three small
 Lua scripts make enqueue, claim and release each atomic in Redis, over these keys (keys.py):
 
@@ -15,16 +16,15 @@ Lua scripts make enqueue, claim and release each atomic in Redis, over these key
 
 - **enqueue(id):** `SET queued NX`; only if that set it, `LPUSH jobs id`. So a screen is in the queue at most once,
   however many triggers fire.
-- **claim(id), after the pop:** `DEL queued`. If the screen isn't in `v1:render:screens`, the job is dropped: a screen
-  that still has its own renderer is never drawn twice. Otherwise `SET lease token NX`, and the worker renders; if the
+- **claim(id), after the pop:** `DEL queued`. If the screen isn't in `v1:render:screens` (which auth-broker writes, for
+  every paired device), the job is dropped. Otherwise `SET lease token NX`, and the worker renders; if the
   lease is taken, `SET again` instead, and the job is done.
 - **release(id):** if the lease is still this worker's token, `DEL lease`; if `DEL again` removed one, enqueue(id).
 
 So at most one render per screen is in flight, and a job that comes during a render leaves exactly one follow-up: the
 claim and the release are atomic over the same keys, so either the job's claim sees the lease and flags `again` before
 the release checks it, or it comes after the release and renders itself. Checking the screen is listed inside the claim
-means that once the orchestrator has taken a screen out of the hash, no render of it can start, and the lease is the
-only thing it has to wait for before starting the screen's own renderer again.
+means that once the broker has taken a screen out of the hash (forgotten, or unpaired), no render of it can start.
 
 A worker that dies mid-render loses its job and its follow-up: the lease and the flag lapse by themselves, and the next
 minute's tick draws the screen. A worker that dies between the pop and the claim leaves the `queued` flag, which lapses

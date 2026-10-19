@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import pytest
 from config_factory import make_config
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core.core import abstract_client
 from countdown_core.core.abstract_client import AbstractClient, ClientStatus
@@ -15,7 +15,7 @@ class FakeClient(AbstractClient):
     poll_interval = timedelta(minutes=5)
 
     def __init__(self, config=None, initialise_failures: int = 0):
-        super().__init__(REGISTRATION, config)
+        super().__init__(TEST_DEVICE_ID, config)
         self.initialise_failures = initialise_failures
         self.initialise_calls = 0
         self.update_calls = 0

@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from countdown_api.models import Weather as WeatherSection
     from countdown_core.core.panel import Panel
     from countdown_core.weather.models import ForecastResponse
-    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +43,9 @@ class WeatherClient(AbstractClient):
 
     panel_title = N_("Weather")
 
-    def __init__(self, registration: Registration, config: WeatherSection) -> None:
+    def __init__(self, device_id: str, config: WeatherSection) -> None:
         """`config` is the broker's weather section: the place to forecast for. Raises without a store."""
-        super().__init__(registration, config)
+        super().__init__(device_id, config)
         self.store = reader.require_store()
         self.location = config.location
         self.key = location_key(config)
@@ -66,7 +65,7 @@ class WeatherClient(AbstractClient):
         """Return this minute's page (core.rotation) of the forecast the store has now; a MessagePanel without a place.
 
         A forecast missing from the store raises NoStoredForecastError, so the panel says it's not available; Redis
-        failing raises too, and the registry keeps the last panel.
+        failing raises too, and the render fails, keeping the screen's frame.
         """
         if not self.key:
             return self.message_panel(N_("Needs configuring"))

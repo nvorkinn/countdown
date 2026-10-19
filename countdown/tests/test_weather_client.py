@@ -5,7 +5,7 @@ import datetime as dt
 import json
 
 import pytest
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 from weather_factory import forecast_json
 
 from countdown_api.models import Weather as WeatherSection
@@ -27,7 +27,7 @@ def weather_section(location: str = "London", key: str | None = None) -> Weather
 
 
 def make_client(location: str = "London", key: str | None = None) -> WeatherClient:
-    return WeatherClient(REGISTRATION, weather_section(location, key))
+    return WeatherClient(TEST_DEVICE_ID, weather_section(location, key))
 
 
 def put_forecast(store, forecast: dict = FORECAST_JSON, location: str = "London") -> None:
@@ -272,7 +272,7 @@ def test_a_forecast_missing_at_first_is_read_on_the_next_cycle(store):
 
 
 def test_needs_refresh_only_when_the_location_changes():
-    client = WeatherClient(REGISTRATION, WeatherSection(location="London"))
+    client = WeatherClient(TEST_DEVICE_ID, WeatherSection(location="London"))
 
     assert not client.needs_refresh(WeatherSection(location="London"))
     assert client.needs_refresh(WeatherSection(location="Paris"))

@@ -9,10 +9,8 @@ requires-python = ">=3.14"
 # The workspace's own packages, so `uv sync` installs them all (editable) for the tests.
 dependencies = [
     "countdown-api",
-    "countdown-credentials",
     "countdown-core",
     "countdown-server",
-    "countdown-orchestrator",
     "countdown-providers",
 ]
 
@@ -21,10 +19,8 @@ package = false
 
 [tool.uv.sources]
 countdown-api = { workspace = true }
-countdown-credentials = { workspace = true }
 countdown-core = { workspace = true }
 countdown-server = { workspace = true }
-countdown-orchestrator = { workspace = true }
 countdown-providers = { workspace = true }
 
 [dependency-groups]
@@ -44,20 +40,16 @@ dev = [
 [tool.uv.workspace]
 members = [
     "api",
-    "credentials",
     "core",
     "server",
-    "orchestrator",
     "providers"
 ]
 
 [tool.coverage.run]
 source = [
     "api/src",
-    "credentials/src",
     "core/src",
     "server/src",
-    "orchestrator/src",
     "providers/src"
 ]
 [tool.coverage.report]
@@ -69,10 +61,8 @@ line-length = 120
 # So isort knows the workspace packages are first-party.
 src = [
     "api/src",
-    "credentials/src",
     "core/src",
     "server/src",
-    "orchestrator/src",
     "providers/src"
 ]
 # Even when a file is named on the command line, as pre-commit does with every changed file.

@@ -1,7 +1,6 @@
 """The API clients one render builds (ApiRegistry): which, from what part of the config, and the panels they give.
 
-A registry is built afresh for every render (render.render) and kept for none: what a screen last showed comes back
-in only as the previous render's panels, handed to poll().
+A registry is built afresh for every render (render.render) and kept for none.
 """
 
 import datetime as dt
@@ -11,7 +10,7 @@ from pathlib import Path
 import pytest
 import responses
 from config_factory import make_config, with_apple_music
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 from weather_factory import forecast_json
 
 from countdown_api.models import Glowmarkt
@@ -40,7 +39,7 @@ class FakeClient(AbstractClient):
     """Scriptable stand-in: each update() returns/raises the next item in `results`."""
 
     def __init__(self, *results):
-        super().__init__(REGISTRATION)
+        super().__init__(TEST_DEVICE_ID)
         self.results = list(results)
         self.initialised = False
         self.updates = 0
@@ -60,8 +59,8 @@ class FakeClient(AbstractClient):
 def unbuildable_spotify(monkeypatch):
     """Make building the Spotify client raise, as a constructor that can't get what it needs would."""
 
-    def broken(self, registration, config):
-        AbstractClient.__init__(self, registration, config)  # so its __del__ can still close the session
+    def broken(self, device_id, config):
+        AbstractClient.__init__(self, device_id, config)  # so its __del__ can still close the session
         msg = "can't build"
         raise ValueError(msg)
 
@@ -70,7 +69,7 @@ def unbuildable_spotify(monkeypatch):
 
 def registry_with(**clients: AbstractClient) -> ApiRegistry:
     """Return a registry holding just `clients`, as if the config had built them."""
-    registry = ApiRegistry(REGISTRATION, make_config())
+    registry = ApiRegistry(TEST_DEVICE_ID, make_config())
     registry.clients.clear()
     registry.clients.update(clients)
     return registry
@@ -90,7 +89,7 @@ def test_weather_shows_the_tab_of_the_minute_it_is_polled_in(store, rotation_clo
     seen = []
     for _ in range(5):
         # A registry of its own each minute, as each render builds one.
-        registry = registry_with(weather=WeatherClient(REGISTRATION, WeatherSection(location="London")))
+        registry = registry_with(weather=WeatherClient(TEST_DEVICE_ID, WeatherSection(location="London")))
         seen.append(registry.poll()["weather"].weather.period)
         rotation_clock.advance()
 
@@ -114,7 +113,7 @@ def test_a_renderer_without_a_store_shows_the_panels_that_need_one_as_failing(mo
         glowmarkt={"enabled": True},
     )
 
-    registry = ApiRegistry(REGISTRATION, config)
+    registry = ApiRegistry(TEST_DEVICE_ID, config)
 
     for name in ("tfl", "weather", "spotify", "glowmarkt"):
         client = registry.clients[name]
@@ -220,7 +219,7 @@ def test_glowmarkt_is_on_exactly_when_its_switch_is(enabled, credentials):
 
 
 def test_the_developer_client_is_built_when_it_is_switched_on():
-    registry = ApiRegistry(REGISTRATION, make_config(developer={"enabled": True}))
+    registry = ApiRegistry(TEST_DEVICE_ID, make_config(developer={"enabled": True}))
 
     assert isinstance(registry.clients["developer"], DeveloperClient)
     assert ClientClasses.DEVELOPER in registry.available()
@@ -232,7 +231,7 @@ def test_the_enabled_clients_are_built():
     config = make_config()
     config.spotify.enabled = True
 
-    registry = ApiRegistry(REGISTRATION, config)
+    registry = ApiRegistry(TEST_DEVICE_ID, config)
 
     assert {name: type(client) for name, client in registry.clients.items()} == {
         "notice_board": NoticeBoardClient,
@@ -240,12 +239,11 @@ def test_the_enabled_clients_are_built():
         "weather": WeatherClient,
         "spotify": SpotifyClient,
     }
-    assert registry.sections == {name: section_for(name, config) for name in registry.clients}
 
 
 def test_apple_music_alone_builds_its_client_and_with_spotify_too_the_spotify_one():
-    alone = ApiRegistry(REGISTRATION, with_apple_music(make_config(spotify={"enabled": False})))
-    both = ApiRegistry(REGISTRATION, with_apple_music(make_config(spotify={"enabled": True})))
+    alone = ApiRegistry(TEST_DEVICE_ID, with_apple_music(make_config(spotify={"enabled": False})))
+    both = ApiRegistry(TEST_DEVICE_ID, with_apple_music(make_config(spotify={"enabled": True})))
 
     assert type(alone.clients["spotify"]) is AppleMusicClient
     assert type(both.clients["spotify"]) is SpotifyClient
@@ -253,7 +251,7 @@ def test_apple_music_alone_builds_its_client_and_with_spotify_too_the_spotify_on
 
 
 def test_apple_musics_area_says_whose_service_could_not_connect():
-    registry = ApiRegistry(REGISTRATION, with_apple_music(make_config(spotify={"enabled": False})))
+    registry = ApiRegistry(TEST_DEVICE_ID, with_apple_music(make_config(spotify={"enabled": False})))
 
     panel = registry.panels({})["spotify"]
 
@@ -268,7 +266,7 @@ def source_names(registry: ApiRegistry) -> list[str]:
 def test_the_notice_board_polls_the_departures_disruptions_for_their_stops():
     config = make_config(departures={"stops": [{"source": "entur", "id": "NSR:StopPlace:58366"}]})
 
-    registry = ApiRegistry(REGISTRATION, config)
+    registry = ApiRegistry(TEST_DEVICE_ID, config)
 
     assert registry.clients["notice_board"].client_sources == registry.clients["tfl"].notice_sources()
     assert source_names(registry) == ["StoredEnturSituationsSource"]
@@ -281,22 +279,21 @@ def test_the_disruptions_follow_the_stops():
     norway = make_config(notice_board=board, departures={"stops": [{"source": "entur", "id": "NSR:StopPlace:58366"}]})
     london = make_config(notice_board=board, departures={"stops": [{"source": "tfl", "id": "940GZZLUKNG"}]})
 
-    assert source_names(ApiRegistry(REGISTRATION, norway)) == ["StoredEnturSituationsSource"]
-    assert source_names(ApiRegistry(REGISTRATION, london)) == ["StoredTflLineStatusSource", "StoredTflStationSource"]
+    assert source_names(ApiRegistry(TEST_DEVICE_ID, norway)) == ["StoredEnturSituationsSource"]
+    assert source_names(ApiRegistry(TEST_DEVICE_ID, london)) == ["StoredTflLineStatusSource", "StoredTflStationSource"]
 
 
 def test_disabled_apis_get_no_client():
-    registry = ApiRegistry(REGISTRATION, make_config())  # spotify is off until the broker says otherwise
+    registry = ApiRegistry(TEST_DEVICE_ID, make_config())  # spotify is off until the broker says otherwise
 
     assert set(registry.clients) == {"notice_board", "tfl", "weather"}  # glowmarkt: switched off
-    assert set(registry.sections) == set(registry.clients)
 
 
 def test_a_client_that_cannot_be_built_stands_in_as_failed(unbuildable_spotify, caplog):
     config = make_config()
     config.spotify.enabled = True
 
-    registry = ApiRegistry(REGISTRATION, config)
+    registry = ApiRegistry(TEST_DEVICE_ID, config)
 
     assert isinstance(registry.clients["spotify"], FailedClient)
     assert registry.statuses()["spotify"] == ClientStatus.ERROR
@@ -309,7 +306,7 @@ def test_a_client_that_could_not_be_built_says_it_could_not_connect_and_is_logge
     caplog.set_level(logging.INFO)
     config = make_config()
     config.spotify.enabled = True
-    registry = ApiRegistry(REGISTRATION, config)
+    registry = ApiRegistry(TEST_DEVICE_ID, config)
     caplog.clear()
 
     panels = registry.panels(registry.poll())
@@ -324,7 +321,7 @@ def test_a_client_that_fails_to_initialise_is_an_error_and_the_others_carry_on(m
         raise ConnectionError(msg)
 
     monkeypatch.setattr(DeparturesClient, "_initialise", broken)
-    registry = ApiRegistry(REGISTRATION, make_config(weather={"location": "London"}))
+    registry = ApiRegistry(TEST_DEVICE_ID, make_config(weather={"location": "London"}))
 
     polled = registry.poll()
 
@@ -370,13 +367,7 @@ def test_there_is_a_message_for_a_disabled_client():
     assert messages(registry.panels(registry.poll()))["glowmarkt"] == "Not configured"
 
 
-def test_a_client_that_raises_gives_its_previous_panel():
-    registry = registry_with(weather=FakeClient(ConnectionError("down")), tfl=FakeClient("arrivals"))
-
-    assert registry.poll({"weather": "sunny", "tfl": "old arrivals"}) == {"weather": "sunny", "tfl": "arrivals"}
-
-
-def test_a_client_that_raises_with_no_previous_panel_could_not_connect():
+def test_a_client_that_raises_could_not_connect():
     registry = registry_with(tfl=FakeClient(RuntimeError("boom")), weather=FakeClient("sunny"))
 
     panels = registry.panels(registry.poll())
@@ -392,20 +383,23 @@ DEVELOPER_FIXTURE = (Path(__file__).parent / "fixtures" / "developer.json").read
 
 
 def _put_developer(store) -> str:
-    key = keys.developer(REGISTRATION.device_id)
+    key = keys.developer(TEST_DEVICE_ID)
     store.set(key, DEVELOPER_FIXTURE)
     return key
 
 
 STORED = {
     # The API, its client as the registry builds it, and how its provider fills its key (returning the key).
-    "weather": (lambda: WeatherClient(REGISTRATION, WeatherSection(location="London")), _put_forecast),
-    "developer": (lambda: DeveloperClient(REGISTRATION, DeveloperSettings(enabled=True, style="hero")), _put_developer),
+    "weather": (lambda: WeatherClient(TEST_DEVICE_ID, WeatherSection(location="London")), _put_forecast),
+    "developer": (
+        lambda: DeveloperClient(TEST_DEVICE_ID, DeveloperSettings(enabled=True, style="hero")),
+        _put_developer,
+    ),
 }
 
 
 @pytest.mark.parametrize("api", list(STORED))
-def test_an_expired_key_draws_not_available_and_not_the_previous_panel(store, api):
+def test_an_expired_key_draws_not_available(store, api):
     """No last-good copy: once the provider's key has expired, the panel says so rather than draw what it last had."""
     build, put = STORED[api]
     key = put(store)
@@ -415,7 +409,7 @@ def test_an_expired_key_draws_not_available_and_not_the_previous_panel(store, ap
     store.delete(key)  # its TTL is up: the provider has been down for a few of its cycles
     client = build()
     registry = registry_with(**{api: client})
-    panel = registry.poll(first)[api]
+    panel = registry.poll()[api]
 
     assert isinstance(panel, MessagePanel)
     assert (panel.title, panel.message) == (type(client).panel_title, "Not available")
@@ -423,19 +417,19 @@ def test_an_expired_key_draws_not_available_and_not_the_previous_panel(store, ap
 
 
 @pytest.mark.parametrize("api", list(STORED))
-def test_redis_not_answering_draws_the_previous_panel(store, monkeypatch, api):
-    """Redis being unreachable isn't the data expiring: the screen keeps what it drew."""
+def test_redis_not_answering_fails_the_poll(store, monkeypatch, api):
+    """Redis being unreachable isn't the data expiring: the render fails, so the screen keeps the frame it has."""
     build, put = STORED[api]
     put(store)
-    first = registry_with(**{api: build()}).poll()
 
     def unreachable(*args, **kwargs):
         raise reader.redis.exceptions.ConnectionError
 
     monkeypatch.setattr(store, "get", unreachable)
-    registry = registry_with(**{api: build()})
+    registry = registry_with(**{api: build()}, tfl=FakeClient("arrivals"))
 
-    assert registry.poll(first)[api] is first[api]
+    with pytest.raises(reader.redis.exceptions.ConnectionError):
+        registry.poll()
     assert registry.expired() == frozenset()
 
 
@@ -472,12 +466,12 @@ def test_a_client_that_raises_is_logged_with_its_traceback(caplog):
     assert "_update" in caplog.text
 
 
-def test_a_clients_own_message_is_drawn_rather_than_its_previous_panel():
+def test_a_clients_own_message_is_its_panel():
     """A client's own message (nothing playing, no stops set) is a real answer, unlike an error."""
     nothing_playing = SpotifyClient.message_panel("Nothing playing on:")
     registry = registry_with(spotify=FakeClient(nothing_playing))
 
-    assert registry.poll({"spotify": "now playing"})["spotify"] is nothing_playing
+    assert registry.poll()["spotify"] is nothing_playing
 
 
 @pytest.mark.parametrize("bad", [ValueError("bad"), KeyError("bad")])
@@ -488,17 +482,11 @@ def test_one_clients_failure_never_escapes(bad):
 
 
 def test_the_statuses_are_each_clients():
-    failed = FailedClient(REGISTRATION, make_config().weather, ValueError("can't build"))
+    failed = FailedClient(TEST_DEVICE_ID, make_config().weather, ValueError("can't build"))
     registry = registry_with(tfl=FakeClient("arrivals"), weather=failed)
     registry.poll()
 
     assert registry.statuses() == {"tfl": ClientStatus.CONNECTED, "weather": ClientStatus.ERROR}
-
-
-def test_the_pace_keys_are_the_clients_own(store):
-    registry = ApiRegistry(REGISTRATION, make_config(developer={"enabled": True}))
-
-    assert registry.pace_keys() == [keys.pace(keys.DEVELOPER, REGISTRATION.device_id)]
 
 
 def test_available_is_the_built_clients_that_are_not_disabled():
@@ -507,7 +495,7 @@ def test_available_is_the_built_clients_that_are_not_disabled():
     registry = registry_with(
         tfl=FakeClient(),
         glowmarkt=disabled,
-        weather=FailedClient(REGISTRATION, WeatherSection(location=""), ValueError()),
+        weather=FailedClient(TEST_DEVICE_ID, WeatherSection(location=""), ValueError()),
     )
 
     # A failing client keeps its area (to say so); a disabled or missing one doesn't.
@@ -515,19 +503,19 @@ def test_available_is_the_built_clients_that_are_not_disabled():
 
 
 def test_available_leaves_out_glowmarkt_and_spotify_when_off():
-    registry = ApiRegistry(REGISTRATION, make_config())
+    registry = ApiRegistry(TEST_DEVICE_ID, make_config())
 
     assert registry.available() == frozenset({ClientClasses.TFL, ClientClasses.WEATHER, ClientClasses.NOTICE_BOARD})
 
 
 def test_glowmarkt_switched_on_builds_its_client():
     assert isinstance(
-        ApiRegistry(REGISTRATION, make_config(glowmarkt={"enabled": True})).clients["glowmarkt"], GlowClient
+        ApiRegistry(TEST_DEVICE_ID, make_config(glowmarkt={"enabled": True})).clients["glowmarkt"], GlowClient
     )
 
 
 def test_show_stops_tells_the_tfl_client_how_many_to_fetch():
-    registry = registry_with(tfl=DeparturesClient(REGISTRATION, DeparturesSettings(())))
+    registry = registry_with(tfl=DeparturesClient(TEST_DEVICE_ID, DeparturesSettings(())))
 
     registry.show_stops(4)
 

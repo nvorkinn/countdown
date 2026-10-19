@@ -135,7 +135,7 @@ def test_last_success_is_reported_every_export_but_only_for_screens_still_in_the
     assert len(collect(reader)["countdown.render.last_success"]) == 1
     assert len(collect(reader)["countdown.render.last_success"]) == 1
 
-    store.screens = set()  # rolled back to its own renderer
+    store.screens = set()  # forgotten, or unpaired: the broker took it out
 
     assert "countdown.render.last_success" not in collect(reader)
 

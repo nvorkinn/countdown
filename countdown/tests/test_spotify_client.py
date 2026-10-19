@@ -6,16 +6,15 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core.spotify.spotify_client import AppleMusicClient, MusicSettings, SpotifyClient, music_client_class
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_core.store import keys, reader
-from countdown_credentials.registration import Registration
 
-DEVICE_ID = REGISTRATION.device_id
+DEVICE_ID = TEST_DEVICE_ID
 
 
 def track(name: str) -> dict:
@@ -56,7 +55,7 @@ def put(store, *, spotify=None, spotify_top=None, apple_music=None, apple_music_
 
 @pytest.fixture
 def client() -> SpotifyClient:
-    return SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
+    return SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
 
 
 def test_update_wraps_the_queue_in_a_panel(store, client):
@@ -110,7 +109,7 @@ def test_update_raises_on_a_malformed_queue(store, client):
 @pytest.mark.parametrize(("style", "drawn"), [("hero", "hero"), ("classic", "hero")], ids=["hero", "retired classic"])
 def test_the_configs_style_reaches_both_pages(store, style, drawn, rotation_clock):
     """A broker that hasn't migrated its stored styles yet still sends classic, drawn as hero."""
-    client = SpotifyClient(REGISTRATION, MusicSettings(spotify=True, style=style))
+    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True, style=style))
     put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
 
     now_playing, top_page = turn(client, rotation_clock, 2)
@@ -127,7 +126,7 @@ def test_the_services_pick_the_client():
 
 def music_client(*, spotify=True, apple_music=True) -> SpotifyClient:
     settings = MusicSettings(spotify=spotify, apple_music=apple_music)
-    return music_client_class(settings)(REGISTRATION, settings)
+    return music_client_class(settings)(TEST_DEVICE_ID, settings)
 
 
 def test_apple_music_alone_reads_its_part_of_the_store_and_labels_the_last_played(store, rotation_clock):
@@ -219,12 +218,7 @@ def test_without_a_store_it_cant_be_built_and_says_why(monkeypatch):
     monkeypatch.setattr(reader, "store", lambda: None)
 
     with pytest.raises(reader.StoreNotConfiguredError, match="REDIS_URL"):
-        SpotifyClient(REGISTRATION, MusicSettings(spotify=True))
-
-
-def test_without_a_device_id_it_cant_be_built_as_it_has_no_keys_to_read():
-    with pytest.raises(ValueError, match="device id"):
-        SpotifyClient(Registration(REGISTRATION.broker_url, REGISTRATION.device_secret), MusicSettings(spotify=True))
+        SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
 
 
 def test_it_never_calls_the_broker(store, client, monkeypatch, rotation_clock):

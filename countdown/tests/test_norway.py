@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime
 import pytest
 import requests
 import responses
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_api.models import DepartureStop
 from countdown_core import i18n
@@ -138,7 +138,7 @@ def test_the_clocks_change_in_the_screens_time_zone(oslo_screen):
 
 
 def board(postcode: str | None, country: str | None) -> NoticeBoardClient:
-    return NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode, country))
+    return NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode, country))
 
 
 def test_a_norwegian_postcode_brings_norways_sources(store):
@@ -162,7 +162,7 @@ def test_a_norwegian_postcode_kartverket_doesnt_know_gets_norways_holidays_alone
 
 
 def test_norwegian_stops_bring_their_disruptions_whatever_the_postcode():
-    client = DeparturesClient(REGISTRATION, DeparturesSettings((DepartureStop(source="entur", id="NSR:Quay:7333"),)))
+    client = DeparturesClient(TEST_DEVICE_ID, DeparturesSettings((DepartureStop(source="entur", id="NSR:Quay:7333"),)))
     [source] = client.notice_sources()
     assert isinstance(source, StoredEnturSituationsSource)
     assert source.stop_ids == ["NSR:Quay:7333"]

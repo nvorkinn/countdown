@@ -30,3 +30,9 @@ def test_the_met_office_warnings_are_by_place():
 @pytest.mark.parametrize("postcode", ["SE17 3LL", "SE173LL", "se17 3ll"])
 def test_a_postcodes_flood_warnings_are_under_its_place(postcode):
     assert keys.floods(postcode) == "v1:notices:floods:SE173LL"
+
+
+def test_the_pace_key_is_per_source_and_item():
+    assert keys.pace("developer", "abc") == "v1:pace:developer:abc"
+    assert keys.developer("abc") == "v1:developer:abc"
+    assert keys.DEVELOPER in keys.SOURCES

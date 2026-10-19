@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import requests
 import responses
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core import i18n
 from countdown_core.core import moment
@@ -138,7 +138,7 @@ def test_the_board_drops_the_warnings_once_the_key_has_expired(store, monkeypatc
 
     # The moment the board draws at (core.moment), as a render sets it.
     monkeypatch.setattr(moment, "now", lambda: FrozenDatetime.now(UTC))
-    board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(None, "NO"))
+    board = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(None, "NO"))
     source = StoredMetAlertsSource(board.session, OSLO)
     board.sources = [source]
     warnings = stored_path(store, OSLO, NOW)

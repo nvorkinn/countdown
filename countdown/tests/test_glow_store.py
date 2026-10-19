@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 import responses
-from test_utils import REGISTRATION
 
 from countdown_api.models import Glowmarkt
 from countdown_core.core import moment
@@ -22,7 +21,6 @@ from countdown_core.core.abstract_client import ClientStatus
 from countdown_core.glow.glow_client import GlowClient, NoStoredEnergyError
 from countdown_core.store import keys, reader
 from countdown_core.store.energy import StoredEnergy
-from countdown_credentials.registration import RendererRegistration
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "glow_energy.json").read_text())
 STORED = FIXTURE["stored"]
@@ -67,9 +65,8 @@ def store(store):
     return store
 
 
-def make_client(registration=None) -> GlowClient:
-    registration = registration or RendererRegistration(REGISTRATION.broker_url, REGISTRATION.device_secret, DEVICE_ID)
-    return GlowClient(registration, Glowmarkt(enabled=True))
+def make_client() -> GlowClient:
+    return GlowClient(DEVICE_ID, Glowmarkt(enabled=True))
 
 
 def draw_pages(client: GlowClient, rotation_clock) -> list[list[dict]]:

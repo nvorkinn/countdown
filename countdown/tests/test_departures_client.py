@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 from requests.adapters import HTTPAdapter
-from test_utils import REGISTRATION, put_departures
+from test_utils import TEST_DEVICE_ID, put_departures
 
 from countdown_api.models import DepartureStop
 from countdown_core.core.abstract_client import ClientStatus
@@ -82,7 +82,7 @@ def test_find_stop_child_not_found_returns_none():
 
 
 def test_construction_reads_nothing_and_reads_both_sources_from_the_store(store):
-    client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["940GZZLUKNG"]))
     assert client.stops == []
     assert isinstance(client.sources["tfl"], StoredTflSource)
     assert isinstance(client.sources["entur"], StoredEnturSource)
@@ -94,12 +94,12 @@ def test_without_a_store_it_cant_be_built_and_says_why(monkeypatch):
     monkeypatch.setattr(reader, "store", lambda: None)
 
     with pytest.raises(reader.StoreNotConfiguredError, match="REDIS_URL"):
-        DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"]))
+        DeparturesClient(TEST_DEVICE_ID, make_config(["940GZZLUKNG"]))
 
 
 def test_initialise_resolves_stops_without_reading_the_store():
     """A stop the provider hasn't fetched yet is kept, so it's drawn once it has."""
-    client = DeparturesClient(REGISTRATION, make_config(["940GZZLUKNG"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["940GZZLUKNG"]))
 
     asyncio.run(client.initialise())
 
@@ -108,13 +108,13 @@ def test_initialise_resolves_stops_without_reading_the_store():
 
 
 def test_initialise_leaves_stops_empty_when_none_configured():
-    client = DeparturesClient(REGISTRATION, make_config())
+    client = DeparturesClient(TEST_DEVICE_ID, make_config())
     asyncio.run(client.initialise())
     assert client.stops == []
 
 
 def test_init_stops_is_a_pure_function_returning_resolved_stops():
-    client = DeparturesClient(REGISTRATION, make_config())
+    client = DeparturesClient(TEST_DEVICE_ID, make_config())
 
     result = client.init_stops(make_config(["940GZZLUKNG"]).stops)
 
@@ -123,7 +123,7 @@ def test_init_stops_is_a_pure_function_returning_resolved_stops():
 
 
 def test_the_page_is_the_minute_modulo_the_number_of_pages(rotation_clock):
-    client = DeparturesClient(REGISTRATION, make_config())
+    client = DeparturesClient(TEST_DEVICE_ID, make_config())
     client.stops = tfl_stops(client, *stop_ids(5))
     client.stops_per_update = 2
     pages = []
@@ -139,7 +139,7 @@ def test_the_page_is_the_minute_modulo_the_number_of_pages(rotation_clock):
 
 
 def test_the_same_minute_shows_the_same_page(rotation_clock):
-    client = DeparturesClient(REGISTRATION, make_config())
+    client = DeparturesClient(TEST_DEVICE_ID, make_config())
     client.stops = tfl_stops(client, *stop_ids(5))
     client.stops_per_update = 2
     rotation_clock.at_minute(1)
@@ -148,7 +148,7 @@ def test_the_same_minute_shows_the_same_page(rotation_clock):
 
 
 def test_the_page_follows_the_clock_when_there_are_fewer_pages_now(rotation_clock):
-    client = DeparturesClient(REGISTRATION, make_config())
+    client = DeparturesClient(TEST_DEVICE_ID, make_config())
     client.stops = tfl_stops(client, *stop_ids(5))
     client.stops_per_update = 2
     rotation_clock.at_minute(5)
@@ -162,11 +162,11 @@ def test_the_page_follows_the_clock_when_there_are_fewer_pages_now(rotation_cloc
 def test_a_client_rebuilt_by_a_config_change_carries_on_at_the_clocks_page(rotation_clock):
     """Not back to the first page: the page is the clock's, whichever client draws it."""
     rotation_clock.at_minute(1)
-    before = DeparturesClient(REGISTRATION, make_config())
+    before = DeparturesClient(TEST_DEVICE_ID, make_config())
     before.stops = tfl_stops(before, *stop_ids(4))
     before.stops_per_update = 2
 
-    rebuilt = DeparturesClient(REGISTRATION, make_config())
+    rebuilt = DeparturesClient(TEST_DEVICE_ID, make_config())
     rebuilt.stops = tfl_stops(rebuilt, *stop_ids(4))
     rebuilt.stops_per_update = 2
 
@@ -178,7 +178,7 @@ def test_update_builds_correct_panels(store):
     put_departures(
         store, "940GZZLUKNG", [("Northern", "Bank", 120)], name="Kennington Underground Station", mode="tube"
     )
-    client = DeparturesClient(REGISTRATION, make_config(["490000123W", "940GZZLUKNG"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["490000123W", "940GZZLUKNG"]))
 
     panel = asyncio.run(client.update())
 
@@ -198,7 +198,7 @@ def _nothing_due(store, client: DeparturesClient) -> None:
 
 
 def test_update_pages_through_more_stops_than_the_layout_shows(store, rotation_clock):
-    client = DeparturesClient(REGISTRATION, make_config())
+    client = DeparturesClient(TEST_DEVICE_ID, make_config())
     client.stops = tfl_stops(client, *stop_ids(8))
     client.stops_per_update = 4
     _nothing_due(store, client)
@@ -212,7 +212,7 @@ def test_update_pages_through_more_stops_than_the_layout_shows(store, rotation_c
 
 def test_update_shows_every_stop_in_order_when_they_all_fit(store):
     """No rotation, so no stop shown twice: 3 stops in a 4-stop layout are just 1, 2, 3."""
-    client = DeparturesClient(REGISTRATION, make_config())
+    client = DeparturesClient(TEST_DEVICE_ID, make_config())
     client.stops = tfl_stops(client, *stop_ids(3))
     client.stops_per_update = 4
     _nothing_due(store, client)
@@ -223,7 +223,7 @@ def test_update_shows_every_stop_in_order_when_they_all_fit(store):
 
 def test_update_says_which_page_is_on_screen_when_they_rotate(store, rotation_clock):
     """With 3 stops and room for 2 there are two pages: 0+1, then 2 on its own."""
-    client = DeparturesClient(REGISTRATION, make_config())
+    client = DeparturesClient(TEST_DEVICE_ID, make_config())
     client.stops = tfl_stops(client, *stop_ids(3))
     client.stops_per_update = 2
     _nothing_due(store, client)
@@ -236,7 +236,7 @@ def test_update_says_which_page_is_on_screen_when_they_rotate(store, rotation_cl
 
 
 def test_update_has_no_rotation_when_every_stop_fits(store):
-    client = DeparturesClient(REGISTRATION, make_config())
+    client = DeparturesClient(TEST_DEVICE_ID, make_config())
     client.stops = tfl_stops(client, *stop_ids(2))
     client.stops_per_update = 2
     _nothing_due(store, client)
@@ -246,14 +246,14 @@ def test_update_has_no_rotation_when_every_stop_fits(store):
 
 def test_update_leaves_out_a_stop_the_store_has_nothing_for(store):
     put_departures(store, "490000000")
-    client = DeparturesClient(REGISTRATION, make_config(stop_ids(2)))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(stop_ids(2)))
 
     assert _shown_stop_ids(client) == ["490000000"]
 
 
 def test_update_says_the_departures_are_not_available_when_no_stops_are_in_the_store():
     """Every stop's key has expired (the provider is down): no old departures are drawn, and no empty panel either."""
-    client = DeparturesClient(REGISTRATION, make_config(["490000123W", "490000456X"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["490000123W", "490000456X"]))
     asyncio.run(client.initialise())
 
     with pytest.raises(NoStoredDeparturesError):
@@ -265,7 +265,7 @@ def test_update_says_the_departures_are_not_available_when_no_stops_are_in_the_s
 
 def test_departures_that_expire_are_not_available_on_the_next_poll(store):
     put_departures(store, "490000123W")
-    client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["490000123W"]))
     assert isinstance(asyncio.run(client.update()), CombinedArrivalPanel)
 
     store.delete(keys.departures("490000123W"))  # its TTL is up
@@ -275,7 +275,7 @@ def test_departures_that_expire_are_not_available_on_the_next_poll(store):
 
 def test_one_stop_failing_to_read_keeps_the_last_panel_even_if_the_others_expired(store, monkeypatch):
     """Not every stop's key has expired: one couldn't be read at all, so it's raised, not said to be not available."""
-    client = DeparturesClient(REGISTRATION, make_config(["490000123W", "490000456X"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["490000123W", "490000456X"]))
     get = store.get
 
     def unreachable_for_one(key):
@@ -285,7 +285,7 @@ def test_one_stop_failing_to_read_keeps_the_last_panel_even_if_the_others_expire
 
     monkeypatch.setattr(store, "get", unreachable_for_one)
 
-    # Redis's own error: the render pool's render fails on it (render.render's raise_store_errors).
+    # Redis's own error: the render fails on it, and writes nothing.
     with pytest.raises(reader.redis.exceptions.ConnectionError):
         asyncio.run(client.update())
 
@@ -293,7 +293,7 @@ def test_one_stop_failing_to_read_keeps_the_last_panel_even_if_the_others_expire
 def test_update_raises_when_redis_cant_be_asked_so_the_last_panel_stays(store, monkeypatch):
     """A transient Redis outage is just a failed update: the registry keeps the last panel."""
     put_departures(store, "490000123W")
-    client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["490000123W"]))
 
     def unreachable(*args, **kwargs):
         raise reader.redis.exceptions.ConnectionError
@@ -305,14 +305,14 @@ def test_update_raises_when_redis_cant_be_asked_so_the_last_panel_stays(store, m
 
 
 def test_update_says_so_when_no_stops_are_configured():
-    client = DeparturesClient(REGISTRATION, make_config([]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config([]))
 
     assert asyncio.run(client.update()).message == "Needs configuring"
 
 
 def test_session_has_retry_adapter_mounted():
     """Every client keeps a retrying session, even though the departures and their notices now come from the store."""
-    client = DeparturesClient(REGISTRATION, make_config())
+    client = DeparturesClient(TEST_DEVICE_ID, make_config())
     adapter = client.session.get_adapter("https://api.tfl.gov.uk")
     assert isinstance(adapter, HTTPAdapter)
     assert adapter.max_retries.total == 3
@@ -321,7 +321,7 @@ def test_session_has_retry_adapter_mounted():
 def test_the_configured_style_reaches_the_panels_with_every_departure_grouped_by_route(store):
     departures = [("36", "Queen's Park", 540), ("185", "Victoria", 240), ("36", "Queen's Park", 120)]
     put_departures(store, "490000123W", departures)
-    client = DeparturesClient(REGISTRATION, make_config(["490000123W"], style="hero"))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["490000123W"], style="hero"))
 
     (panel,) = asyncio.run(client.update()).arrival_panels
 

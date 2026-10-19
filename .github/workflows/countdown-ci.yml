@@ -82,56 +82,9 @@ jobs:
         if: always()
         run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
 
-  orchestrator-image:
-    # The orchestrator's image (countdown/orchestrator/Dockerfile), so a broken one shows up here rather than
-    # at release time. Built for amd64 only; the release builds arm64 too.
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Build wheels
-        run: uv build --wheel --all-packages
-
-      - name: Build image
-        run: docker build -f orchestrator/Dockerfile -t countdown-orchestrator:ci .
-
-      - name: Smoke-test the image
-        # Without its settings it must start and say which one is missing.
-        run: |
-          out="$(docker run --rm countdown-orchestrator:ci 2>&1 || true)"
-          echo "$out"
-          grep -q "BROKER_URL" <<< "$out"
-
-      - name: Smoke-test the image with its settings
-        # With the environment server/deploy/docker-compose.yml gives it (stand-ins for the deploy's variables, and a
-        # broker that refuses) and the Docker socket, as on the host, but no network: it must load every setting and
-        # get as far as asking the broker for the assignments, then keep going. Removed rather than stopped: it doesn't
-        # handle SIGTERM, so docker stop would wait 10s and kill it.
-        run: |
-          mapfile -t env < <(COUNTDOWN_SERVER_VERSION=ci REDIS_PASSWORD=ci ORCHESTRATOR_TOKEN=ci \
-            docker compose -f server/deploy/docker-compose.yml config --format json \
-            | jq -r '.services.orchestrator.environment + {BROKER_URL: "http://127.0.0.1:9"}
-                     | to_entries[] | "--env=\(.key)=\(.value)"')
-          test "${#env[@]}" -gt 1
-          docker run -d --name smoke --network none -v /var/run/docker.sock:/var/run/docker.sock "${env[@]}" \
-            countdown-orchestrator:ci
-          for _ in $(seq 30); do
-            docker logs smoke 2>&1 | grep -q "Couldn't reach the broker" && break
-            sleep 1
-          done
-          docker logs smoke
-          docker logs smoke 2>&1 | grep -q "Couldn't reach the broker"
-          test "$(docker inspect -f '{{.State.Running}}' smoke)" = true
-          docker rm -f smoke
-
   server-image:
-    # The image renderers run (countdown/server/Dockerfile), so a broken one shows up here rather than
-    # at release time. Built for amd64 only; the release builds arm64 too.
+    # The render pool's image (countdown/server/Dockerfile), so a broken one shows up here rather than at release time.
+    # Built for amd64 only; the release builds arm64 too.
     runs-on: ubuntu-latest
 
     steps:
@@ -153,23 +106,13 @@ jobs:
         # Its own checks run here: the font is baked in and Raqm text layout is available.
         run: docker build -f server/Dockerfile -t countdown-server:ci .
 
-      - name: Smoke-test the image
-        # Gets as far as trying to register (with a broker that refuses), then stops cleanly: as the
-        # container's PID 1 the app must handle SIGTERM itself, or docker stop has to kill it.
-        run: |
-          docker run -d --name smoke -e BROKER_URL=http://127.0.0.1:9 -e CLAIM_TOKEN=ci-smoke-test countdown-server:ci
-          for _ in $(seq 30); do
-            docker logs smoke 2>&1 | grep -q "Couldn't register with the broker" && break
-            sleep 1
-          done
-          docker logs smoke
-          docker logs smoke 2>&1 | grep -q "Couldn't register with the broker"
-          docker stop smoke
-          test "$(docker inspect -f '{{.State.ExitCode}}' smoke)" = 0
+      - name: Check the image's default entrypoint
+        # A render worker, with no per-screen renderer left to start: the compose services name theirs anyway.
+        run: test "$(docker image inspect -f '{{json .Config.Entrypoint}}' countdown-server:ci)" = '["countdown-render-worker"]'
 
       - name: Smoke-test the render pool
-        # The render pool's services in server/deploy/docker-compose.yml (the workers and the ticker: this image with
-        # another entrypoint), each with its own entrypoint and environment (stand-ins for the deploy's variables), on the
+        # The render pool's services in server/deploy/docker-compose.yml (the workers and the ticker, all this image),
+        # each with its own entrypoint and environment (stand-ins for the deploy's variables), on the
         # host's network with a Redis of their own there, as on the host. Each must start its loop and keep going; the
         # workers must draw a screen put in the pool (its frame record appears) and drop a job for one that isn't; and
         # each must stop cleanly on docker stop.
@@ -178,7 +121,7 @@ jobs:
             redis-server --bind 127.0.0.1 --port 6379 --requirepass ci --save ''
           rc() { docker exec redis redis-cli -a ci --no-auth-warning "$@"; }
           for _ in $(seq 30); do rc ping 2>/dev/null | grep -q PONG && break; sleep 1; done
-          services="$(COUNTDOWN_SERVER_VERSION=ci REDIS_PASSWORD=ci ORCHESTRATOR_TOKEN=ci \
+          services="$(COUNTDOWN_SERVER_VERSION=ci REDIS_PASSWORD=ci \
             docker compose -f server/deploy/docker-compose.yml config --format json \
             | jq -c '.services | to_entries[] | select(.value.image | startswith("ghcr.io/nvorkinn/countdown-server:"))
                      | select(.value.entrypoint != null)')"
@@ -253,7 +196,7 @@ jobs:
         # get as far as its loop ("Starting the ... provider") and keep going (not crash-loop), then stop cleanly: as
         # the container's PID 1 it must handle SIGTERM itself, or docker stop has to kill it.
         run: |
-          services="$(COUNTDOWN_SERVER_VERSION=ci REDIS_PASSWORD=ci ORCHESTRATOR_TOKEN=ci \
+          services="$(COUNTDOWN_SERVER_VERSION=ci REDIS_PASSWORD=ci \
             docker compose -f server/deploy/docker-compose.yml config --format json \
             | jq -c '.services | to_entries[] | select(.value.image | startswith("ghcr.io/nvorkinn/countdown-providers:"))')"
           test -n "$services"

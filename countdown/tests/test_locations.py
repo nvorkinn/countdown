@@ -21,7 +21,7 @@ import pytest
 import requests
 import responses
 from responses import matchers
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core.core import log_format, moment
 from countdown_core.core.abstract_client import AbstractClient
@@ -459,7 +459,7 @@ def test_the_board_builds_and_shows_from_the_stored_location_what_it_did_from_it
         assert asyncio.run(provide()) == 1
     fill_notices(renderer_store, postcode, now)
     freeze_board_clock(monkeypatch, now)
-    board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=postcode, country=case["country"]))
+    board = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode=postcode, country=case["country"]))
 
     with responses.RequestsMock() as nothing:  # the board asks nobody: any request would fail
         panel = asyncio.run(board.update())

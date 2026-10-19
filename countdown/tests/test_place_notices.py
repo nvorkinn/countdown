@@ -29,7 +29,7 @@ import responses
 from location_factory import FakeLocations
 from redis.exceptions import ConnectionError as RedisConnectionError
 from responses import matchers
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core.core import moment
 from countdown_core.notices.location import POSTCODES_URL
@@ -138,7 +138,7 @@ def board_shows(renderer, monkeypatch) -> dict:
     shown = {}
     for postcode in POSTCODES:
         country = "NO" if postcode.isdigit() else "GB"
-        board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=postcode, country=country))
+        board = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode=postcode, country=country))
         with responses.RequestsMock() as nothing:  # the board asks nobody: any request would fail
             panel = asyncio.run(board.update())
             assert len(nothing.calls) == 0

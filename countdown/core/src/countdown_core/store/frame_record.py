@@ -1,15 +1,13 @@
 """The screen's latest frame in the store, `v1:frame:<device id>` (keys.frame), which the broker serves the screen.
 
-Frames reach the screen through Redis: the renderer writes each new picture here, and auth-broker answers the screen's
-polls from it (its `services/frame_record.py`). It's one latest value per screen, like the providers' keys, not a
-queue. While renderers still PUT each frame to the broker as well (see docs/stateless-renderers.md, step 4), the broker
-serves this record when it's there and newer than its own SQLite copy of the PUT (or the same picture), and the copy
-otherwise. A broker that predates the record never reads it.
+Frames reach the screen through Redis alone: the render writes each new picture here, and auth-broker answers the
+screen's polls from it (its `services/frame_record.py`). It's one latest value per screen, like the providers' keys, not
+a queue.
 
 The record is a Redis hash, so the broker can read its small fields without the frame (and answer a screen that has
 the picture already with a 304):
 
-- `frame`: the panel's 48,000 bytes (800x480, a bit a pixel), as PUT /api/frame takes them. Raw, not base64, which
+- `frame`: the panel's 48,000 bytes (800x480, a bit a pixel), as the screen takes them. Raw, not base64, which
   would take a third more of Redis's 128 MB; so it's written and read with a client that doesn't decode values
   (reader.binary_store()).
 - `etag`: frame_etag(frame), the 16 hex digits the broker sends as the frame's ETag, for this copy and its own alike;
@@ -23,10 +21,10 @@ read and no write. The record has a TTL of TTL_S, a day, which a skipped write d
 
 - Under the production Redis's `maxmemory-policy volatile-lru`, only keys with a TTL can be evicted. At 48 KB a frame
   is the store's biggest value, and the record of a screen nobody polls is the first that should go if Redis fills.
-- A record nothing renews any more (its device forgotten while its renderer was still running, a renderer rolled
-  back to one that only PUTs) goes by itself.
-- A picture that stays the same for a whole day is written again by the first render after its record lapsed. Until
-  then, as whenever there's no record (expired, evicted, Redis restarted), the broker serves its SQLite copy.
+- A record nothing renews any more (its device forgotten, or out of `v1:render:screens`) goes by itself.
+- A picture that stays the same for a whole day is written again by the first render after its record lapsed, within
+  the minute. Until then, as whenever there's no record (expired, evicted, Redis restarted), the broker has nothing new
+  to serve, and the screen keeps the picture it has.
 
 `tests/fixtures/frame_record.json` (with the frame beside it, `frame_record.bin`) pins the record, the same files as
 auth-broker's tests read.

@@ -1,25 +1,19 @@
-"""End-to-end tests for the display refresh cycle, through to a rendered image.
+"""End-to-end tests for the render, through to a rendered image, as the pool's worker calls it.
 
-DisplayLoop.run() calls the render (render.render), which builds the real clients afresh each time, reading a fake
-store (conftest's `store`) that the tests fill as the providers would, with any other HTTP (the broker, the notices)
-mocked with `responses`.
-
-The loop's sleep is a fake that raises after N calls (see _run_cycles()). Most tests leave the broker's /config
-unmocked, so refreshing the config fails and is swallowed, and the loop carries on with the config it was built with.
+render.render(device_id, now) reads the screen's config from a fake store (conftest's `store`), where the tests put it
+as the broker does, and builds the real clients afresh each time, reading what the tests put there as the providers
+would. Nothing is asked of any other service: `responses` refuses every request.
 """
 
-import asyncio
 import datetime
 import io
 import json
-import logging
 import socket
 from typing import TYPE_CHECKING
 
 import pytest
 import responses
-from config_factory import broker_payload, make_config
-from fake_target import FakeTarget
+from config_factory import make_config
 from PIL import Image, ImageDraw, ImageFont
 from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import put_departures
@@ -28,28 +22,22 @@ from weather_factory import forecast_json
 from countdown_api.models import ConfigResponse, Screen
 from countdown_core import i18n
 from countdown_core import render as render_module
-from countdown_core.config_server.broker_client import BrokerClient
-from countdown_core.core import display_loop
-from countdown_core.core.api_registry import API_NAMES
-from countdown_core.core.display import DisplayController
-from countdown_core.core.display_loop import DisplayLoop
 from countdown_core.glow.energy_panel import EnergyPanel
-from countdown_core.home_assistant.otlp_publisher import OtlpPublisher
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
+from countdown_core.render import Outcome, Result, Stage
 from countdown_core.rendering import layout_for
 from countdown_core.rendering.layouts.classic import BaseLayout, GlowLayout
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
-from countdown_core.store import keys
+from countdown_core.store import keys, reader
 from countdown_core.store.location import StoredLocation
 from countdown_core.store.tfl_notices import StoredLineStatus, StoredStationDisruptions
 from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.tfl.models import Postcode
 from countdown_core.utils import utils
 from countdown_core.weather.weather_panel import WeatherPanel
-from countdown_credentials.registration import RendererRegistration
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -57,13 +45,7 @@ if TYPE_CHECKING:
 # Material Symbols stood in for (conftest), so every frame draws offline too: these are about what's drawn when.
 pytestmark = pytest.mark.usefixtures("symbols_font")
 
-TEST_BROKER_URL = "https://broker.example.com"
 DEVICE_ID = "test-device"
-
-
-def _app_config_json(pairing_code: str | None = None, interval: int = 1) -> dict:
-    """Build what the broker's /api/config returns: all of it, as the contract says (see config_factory)."""
-    return broker_payload(interval=interval, pairing_code=pairing_code)
 
 
 BUS_STOP = "490000123W"
@@ -76,10 +58,6 @@ TRACK_JSON = {
     "album": {"name": "Test Album", "images": [{"width": 64, "height": 64, "url": "https://example.com/album.jpg"}]},
     "duration_ms": 200_000,
 }
-
-
-class _StopLoopError(Exception):
-    """Raised by the fake sleep to break out of DisplayLoop.run()'s `while True`."""
 
 
 def _png_bytes() -> bytes:
@@ -149,17 +127,13 @@ def reads(store, monkeypatch) -> list[str]:
 def _make_config() -> ConfigResponse:
     # Glowmarkt is off unless the broker switches it on. Passed in, not set afterwards: it's
     # checked when the config is validated.
-    config = make_config(glowmarkt={"enabled": True})
-    config.interval = 1  # the fake sleep in _run_cycles() means this never actually waits
-    return config
+    return make_config(glowmarkt={"enabled": True})
 
 
-def _build_loop(config: ConfigResponse, monkeypatch, pairing_code: str | None = None) -> DisplayLoop:
-    broker = BrokerClient(RendererRegistration(TEST_BROKER_URL, "test-secret", DEVICE_ID))
-    asyncio.run(broker.initialise())
-    if pairing_code is not None:
-        config = config.model_copy(update={"pairing_code": pairing_code})
-    return DisplayLoop(broker, config, DisplayController(FakeTarget()), OtlpPublisher(API_NAMES))
+def _put_config(store, config: ConfigResponse) -> None:
+    """Store the config as the broker does: a live pairing code under its own key, anything else as the config."""
+    key = keys.pairing(DEVICE_ID) if config.pairing_code else keys.config(DEVICE_ID)
+    store.set(key, config.model_dump_json())
 
 
 def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]:
@@ -180,22 +154,17 @@ def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]
     return seen
 
 
-def _run_cycles(loop: DisplayLoop, monkeypatch, cycles: int = 1) -> None:
-    """Run exactly `cycles` refresh cycles.
+def _render(store, config: ConfigResponse, *between: Callable[[], None], now=None) -> list[Outcome]:
+    """Store `config`, render the screen, then again after each of `between` (the broker's or a provider's doing).
 
-    The loop sleeps once after each, and the fake sleep stops it there (before the broker config refresh, on the
-    last one).
+    Every render is as of `now`, or else the time.
     """
-    sleeps: list[float] = []
-
-    async def fake_sleep(seconds: float) -> None:
-        sleeps.append(seconds)
-        if len(sleeps) >= cycles:
-            raise _StopLoopError
-
-    loop._sleep = fake_sleep
-    with pytest.raises(_StopLoopError):
-        asyncio.run(loop.run())
+    _put_config(store, config)
+    outcomes = [render_module.render(DEVICE_ID, now or datetime.datetime.now(datetime.UTC))]
+    for step in between:
+        step()
+        outcomes.append(render_module.render(DEVICE_ID, now or datetime.datetime.now(datetime.UTC)))
+    return outcomes
 
 
 def _calls_to(url_prefix: str) -> int:
@@ -221,10 +190,9 @@ def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch, stor
     config.tfl.stop_ids = [BUS_STOP, TUBE_STATION]
     _put_stops_and_energy(store, BUS_STOP, TUBE_STATION)
     _put_cold_forecast(store, config)
-    loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
-    _run_cycles(loop, monkeypatch)
+    _render(store, config)
 
     assert len(shown) == 1
     panels = shown[0]
@@ -242,17 +210,15 @@ def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch, stor
 def test_full_render_cycle_skips_glowmarkt_when_switched_off(isolated_cwd, monkeypatch, store, reads):
     """The common case: Glowmarkt never set up, so its readings are never even read."""
     config = make_config()
-    config.interval = 1
     config.tfl.stop_ids = [BUS_STOP]
     assert config.glowmarkt.enabled is False
     _put_stops_and_energy(store, BUS_STOP)
-    loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
-    _run_cycles(loop, monkeypatch)
+    [outcome] = _render(store, config)
 
     assert keys.energy(DEVICE_ID) not in reads
-    assert "glowmarkt" not in loop.last.statuses  # never built while switched off
+    assert "glowmarkt" not in outcome.statuses  # never built while switched off
     assert shown[0]["glowmarkt"].message == "Not configured"
     assert len(shown[0]["tfl"].arrival_panels) == 1
 
@@ -266,10 +232,9 @@ def test_full_render_cycle_with_spotify_track(isolated_cwd, monkeypatch, store):
     _put_music(store, {"currently_playing": TRACK_JSON, "queue": []})
     # Its cover, as the music provider stores it: the image's bytes, by its URL.
     store.set(keys.album_art("https://example.com/album.jpg"), _png_bytes())
-    loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
-    _run_cycles(loop, monkeypatch)
+    _render(store, config)
 
     assert isinstance(shown[0]["spotify"], SpotifyPanel)
     assert shown[0]["spotify"].queue.currently_playing.name == "Test Song"
@@ -285,10 +250,9 @@ def test_full_render_cycle_when_nothing_is_playing(isolated_cwd, monkeypatch, st
     _put_stops_and_energy(store, BUS_STOP)
     top = {"tracks": {"items": []}, "artists": {"items": [{"name": "An Artist"}]}}
     _put_music(store, {"currently_playing": None, "queue": []}, top)
-    loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
-    _run_cycles(loop, monkeypatch)
+    _render(store, config)
 
     assert isinstance(shown[0]["spotify"], SpotifyTopPanel)  # the player has nothing to show
     assert isinstance(shown[0]["glowmarkt"], EnergyPanel)
@@ -300,10 +264,9 @@ def test_full_render_cycle_with_weather(isolated_cwd, monkeypatch, store):
     config.weather.location = "London"
     _put_forecast(store, forecast_json())
     _put_energy(store)
-    loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
-    _run_cycles(loop, monkeypatch)
+    _render(store, config)
 
     assert isinstance(shown[0]["weather"], WeatherPanel)
     assert shown[0]["weather"].weather.temperature == 14.2
@@ -316,10 +279,9 @@ def test_full_render_cycle_reads_the_weather_under_the_brokers_place_key(isolate
     config.weather.location, config.weather.key = "London", "london-gb-2643743"
     _put_forecast(store, forecast_json(), location="london-gb-2643743")
     _put_energy(store)
-    loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
-    _run_cycles(loop, monkeypatch)
+    _render(store, config)
 
     assert shown[0]["weather"].weather.temperature == 14.2
     assert keys.weather("london-gb-2643743") in reads
@@ -332,10 +294,9 @@ def test_one_provider_being_down_does_not_stop_the_others_reaching_the_screen(is
     config = _make_config()
     config.tfl.stop_ids = [BUS_STOP]
     _put_energy(store)
-    loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
-    _run_cycles(loop, monkeypatch)
+    _render(store, config)
 
     assert len(shown) == 1
     assert shown[0]["tfl"].message == "Not available"  # no stop's departures in the store
@@ -349,10 +310,9 @@ def test_every_render_builds_its_clients_afresh_and_reads_the_store_again(isolat
     stops = [BUS_STOP, TUBE_STATION, "490000456X", "940GZZLUABC"]
     config.tfl.stop_ids = stops
     _put_stops_and_energy(store, *stops)
-    loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
-    _run_cycles(loop, monkeypatch, cycles=2)
+    _render(store, config, lambda: None)
 
     assert len(shown) == 2
     assert reads.count(keys.energy(DEVICE_ID)) == 2
@@ -361,70 +321,36 @@ def test_every_render_builds_its_clients_afresh_and_reads_the_store_again(isolat
 
 
 @responses.activate
-def test_run_shows_pairing_screen_and_skips_normal_display_while_unpaired(isolated_cwd, monkeypatch):
-    """While a pairing code is active, run() shouldn't fetch anything or draw the dashboard.
-
-    Nothing is mocked, so any request would fail.
-    """
-    loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
+def test_a_pairing_code_draws_the_pairing_screen_and_nothing_else(isolated_cwd, monkeypatch, store, reads):
+    """While the broker has a pairing code for the screen, nothing is read or drawn but the code."""
+    _put_stops_and_energy(store, BUS_STOP)
     shown = _spy_on_frames(monkeypatch)
 
-    _run_cycles(loop, monkeypatch)
+    [outcome] = _render(store, make_config(pairing_code="ABC123", tfl={"stop_ids": [BUS_STOP]}))
 
-    assert loop.display.target.paints == [None]  # the pairing screen, in full
+    assert outcome.stage is Stage.PAIRING
     assert shown == []
-    assert loop.last is None
+    assert reads == [keys.pairing(DEVICE_ID)]
     assert len(responses.calls) == 0
 
 
 @responses.activate
-def test_run_only_repaints_pairing_screen_when_code_changes(isolated_cwd, monkeypatch):
-    """An unchanged pairing code isn't repainted.
+def test_the_same_pairing_code_again_writes_nothing(isolated_cwd, store):
+    first, again = _render(store, make_config(pairing_code="ABC123"), lambda: None)
 
-    /config is mocked here (always the same code), so each cycle really re-reads it from the broker.
-    """
-    responses.add(
-        responses.GET,
-        f"{TEST_BROKER_URL}/api/config",
-        json=_app_config_json(pairing_code="ABC123"),
-    )
-    loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-
-    _run_cycles(loop, monkeypatch, cycles=2)
-
-    assert loop.display.target.paints == [None]
-    assert loop.display.target.renewals == 1
+    assert (first.result, again.result) == (Result.WRITTEN, Result.UNCHANGED)
 
 
 @responses.activate
-def test_refresh_broker_config_applies_the_new_config_and_pairing_state(isolated_cwd, monkeypatch):
-    responses.add(
-        responses.GET,
-        f"{TEST_BROKER_URL}/api/config",
-        json=_app_config_json(pairing_code=None, interval=42),
-    )
-    loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
+def test_config_changes_from_the_broker_reach_the_screen_on_the_next_render(isolated_cwd, monkeypatch, store):
+    """The screen starts with nothing set up; the owner then adds a stop on the broker, which stores the config.
 
-    asyncio.run(loop.refresh_broker_config())
-
-    assert loop.config.interval == 42
-    assert loop.config.pairing_code is None  # the device just got paired
-
-
-@responses.activate
-def test_config_changes_from_the_broker_reach_the_screen_on_the_next_cycle(isolated_cwd, monkeypatch, store):
-    """The device boots with nothing set up; the owner then adds a stop on the broker.
-
-    Cycle 2 must pick that up without a restart.
+    The next render must pick that up.
     """
     _put_stops(store, BUS_STOP)
-    new_config = _app_config_json()
-    new_config["tfl"]["stop_ids"] = [BUS_STOP]
-    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=new_config)
-    loop = _build_loop(make_config(), monkeypatch)
     shown = _spy_on_frames(monkeypatch)
 
-    _run_cycles(loop, monkeypatch, cycles=2)
+    _render(store, make_config(), lambda: _put_config(store, make_config(tfl={"stop_ids": [BUS_STOP]})))
 
     assert shown[0]["tfl"].message == "Needs configuring"
     assert len(shown[1]["tfl"].arrival_panels) == 1
@@ -438,12 +364,6 @@ def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monke
     config.tfl.stop_ids = [BUS_STOP]
     _put_stops_and_energy(store, BUS_STOP)
     _put_cold_forecast(store, config)
-    for clock_format in ("12h", "24h"):
-        responses.add(
-            responses.GET,
-            f"{TEST_BROKER_URL}/api/config",
-            json=config.model_dump(mode="json") | {"clock_format": clock_format},
-        )
     expiry = datetime.datetime.fromisoformat("2026-09-25T21:00:00+01:00")
     notice_panel = NoticeBoardPanel(
         [
@@ -452,11 +372,8 @@ def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monke
         ]
     )
     monkeypatch.setattr(NoticeBoardClient, "_update", lambda self: notice_panel)
-    loop = _build_loop(config, monkeypatch)
-    # The same moment for each render, as if each came at once (as a nudge's does): only the clock format differs.
+    # The same moment for each render, as if each came at once (as a save's does): only the clock format differs.
     stopped = datetime.datetime.now(datetime.UTC)
-    loop._clock = lambda: stopped
-    monkeypatch.setattr(display_loop, "next_render", lambda now, *, paced: now)
     texts, frames = [], []
     original_text = ImageDraw.ImageDraw.text
     original_render = render_module.draw
@@ -473,7 +390,11 @@ def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monke
 
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", record_text)
     monkeypatch.setattr(render_module, "draw", record_frame)
-    _run_cycles(loop, monkeypatch, cycles=3)
+
+    def save(clock_format: str) -> Callable[[], None]:
+        return lambda: _put_config(store, config.model_copy(update={"clock_format": clock_format}))
+
+    _render(store, config, save("12h"), save("24h"), now=stopped)
 
     assert [f[1] for f in frames] == ["24h", "12h", "24h"]
     first, twelve_hour, restored = frames
@@ -493,114 +414,25 @@ def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monke
     assert reads.count(keys.weather("London")) == 3
     assert reads.count(keys.energy(DEVICE_ID)) == 3
     assert reads.count(keys.departures(BUS_STOP)) == 3
-    assert loop.display.target.paints == [None, None, None]
 
 
 @responses.activate
 def test_the_layout_follows_what_the_config_lets_the_device_show(isolated_cwd, monkeypatch, store):
-    """Boots with Glowmarkt set up but not Spotify (GlowLayout), then loses Glowmarkt.
+    """Starts with Glowmarkt set up but not Spotify (GlowLayout), then loses Glowmarkt.
 
-    The owner removes Glowmarkt's credentials on the broker, and the next cycle drops the energy column (BaseLayout,
-    with neither). The screen is hung landscape: those are its layouts.
+    The owner switches Glowmarkt off on the broker, and the next render drops the energy column (BaseLayout, with
+    neither). The screen is hung landscape: those are its layouts.
     """
     _put_energy(store)
     landscape = {"orientation": "horizontal", "width": 800, "height": 480}
-    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=broker_payload(interval=1, screen=landscape))
     config = _make_config()
     config.screen = Screen.model_validate(landscape)
-    loop = _build_loop(config, monkeypatch)
     layouts: list[type] = []
     _spy_on_frames(monkeypatch, layouts)
 
-    _run_cycles(loop, monkeypatch, cycles=2)
+    _render(store, config, lambda: _put_config(store, make_config(screen=landscape)))
 
     assert layouts == [GlowLayout, BaseLayout]
-
-
-@responses.activate
-def test_the_first_cycle_reports_how_long_startup_took_once(isolated_cwd, monkeypatch, caplog):
-    caplog.set_level(logging.INFO)
-    responses.add(
-        responses.GET,
-        f"{TEST_BROKER_URL}/api/config",
-        json=_app_config_json(pairing_code="ABC123"),
-    )
-    loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-
-    _run_cycles(loop, monkeypatch, cycles=2)
-
-    assert caplog.text.count("First cycle finished") == 1
-
-
-def _mock_config(**kwargs) -> None:
-    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=_app_config_json(**kwargs))
-
-
-@responses.activate
-@pytest.mark.parametrize(("pairing_code", "stage"), [("ABC123", "pairing"), (None, "running")])
-def test_run_reports_the_stage_it_is_in(isolated_cwd, monkeypatch, pairing_code, stage):
-    _mock_config(pairing_code=pairing_code)
-    loop = _build_loop(make_config(), monkeypatch, pairing_code=pairing_code)
-
-    _run_cycles(loop, monkeypatch)
-
-    assert loop.publisher.device_status.stage == stage
-
-
-def _record_publishes(loop: DisplayLoop, monkeypatch) -> list[str]:
-    """Record the stage each time the loop asks the publisher to publish early."""
-    stages: list[str] = []
-    monkeypatch.setattr(loop.publisher, "publish_soon", lambda: stages.append(loop.publisher.device_status.stage))
-    return stages
-
-
-@responses.activate
-def test_run_asks_for_an_early_publish_only_when_the_stage_changes(isolated_cwd, monkeypatch):
-    _mock_config(pairing_code="ABC123")
-    loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-    published = _record_publishes(loop, monkeypatch)
-
-    _run_cycles(loop, monkeypatch, cycles=2)
-
-    assert published == ["pairing"]  # waiting_for_broker -> pairing, then no change
-
-
-@responses.activate
-def test_run_forces_a_publish_when_pairing_completes(isolated_cwd, monkeypatch):
-    _mock_config(pairing_code=None)
-    loop = _build_loop(make_config(), monkeypatch, pairing_code="ABC123")
-    published = _record_publishes(loop, monkeypatch)
-
-    _run_cycles(loop, monkeypatch, cycles=2)
-
-    assert published == ["pairing", "running"]
-
-
-@responses.activate
-def test_refreshing_the_config_records_when_the_broker_last_answered(isolated_cwd, monkeypatch):
-    _mock_config()
-    loop = _build_loop(make_config(), monkeypatch)
-    assert loop.publisher.device_status.last_broker_sync is None
-
-    _run_cycles(loop, monkeypatch, cycles=2)
-
-    assert loop.publisher.device_status.last_broker_sync is not None
-
-
-@responses.activate
-@pytest.mark.parametrize("pairing_code", ["ABC123", None], ids=["pairing", "dashboard"])
-def test_run_paints_a_screen_the_panel_could_not_take_on_the_next_cycle(isolated_cwd, monkeypatch, pairing_code):
-    _mock_config(pairing_code=pairing_code)
-    loop = _build_loop(make_config(), monkeypatch, pairing_code=pairing_code)
-    target = loop.display.target
-    target.accepts = False
-
-    def the_screen_appears() -> None:
-        target.accepts = True
-
-    _run_cycles_between(loop, monkeypatch, the_screen_appears)
-
-    assert target.paints == [None]  # the same picture, painted once there was a screen to take it
 
 
 @pytest.fixture
@@ -642,7 +474,7 @@ OSLO = Postcode(postcode="0150", latitude=59.9116, longitude=10.7505, country="N
 
 @responses.activate
 @pytest.mark.parametrize(("place", "country"), [(SOUTHWARK, "GB"), (OSLO, "NO")], ids=["uk", "norway"])
-def test_a_full_render_cycle_reaches_nothing_but_the_broker(monkeypatch, store, no_network, place, country):
+def test_a_full_render_reaches_nothing_at_all(monkeypatch, store, no_network, place, country):
     """Every panel and the notice board, its postcode placed too, read from the store: no upstream is asked anything."""
     config = _make_config()
     config.tfl.stop_ids = [BUS_STOP, TUBE_STATION]
@@ -655,8 +487,6 @@ def test_a_full_render_cycle_reaches_nothing_but_the_broker(monkeypatch, store, 
     now = datetime.datetime.now(datetime.UTC)
     location = StoredLocation(fetched_at=now, postcode=place.postcode, found=True, location=place)
     store.set(keys.location(place.postcode), location.model_dump_json())  # as provider-locations placed it
-    responses.add(responses.GET, f"{TEST_BROKER_URL}/api/config", json=config.model_dump(mode="json"))
-    loop = _build_loop(config, monkeypatch)
     shown = _spy_on_frames(monkeypatch)
     placed = []
     ensure_location = NoticeBoardClient._ensure_location
@@ -667,10 +497,10 @@ def test_a_full_render_cycle_reaches_nothing_but_the_broker(monkeypatch, store, 
 
     monkeypatch.setattr(NoticeBoardClient, "_ensure_location", recording)
 
-    _run_cycles(loop, monkeypatch, cycles=2)
+    _render(store, config, lambda: None)
 
     assert no_network == []
-    assert [call.request.url for call in responses.calls if not call.request.url.startswith(TEST_BROKER_URL)] == []
+    assert [call.request.url for call in responses.calls] == []
     assert len(shown) == 2
     assert placed == [place, place]  # each render's board placed from the store, not by asking anyone
     assert isinstance(shown[0]["tfl"], CombinedArrivalPanel)
@@ -681,31 +511,16 @@ def test_a_full_render_cycle_reaches_nothing_but_the_broker(monkeypatch, store, 
 # --- Expiry: the provider's TTL is all there is -----------------------------------------------------------------------
 
 
-def _run_cycles_between(loop: DisplayLoop, monkeypatch, *between: Callable[[], None]) -> None:
-    """Run a cycle, then one more after each of `between`, which runs while the loop sleeps (a provider's doing)."""
-    steps = list(between)
-
-    async def fake_sleep(seconds: float) -> None:
-        if not steps:
-            raise _StopLoopError
-        steps.pop(0)()
-
-    loop._sleep = fake_sleep
-    with pytest.raises(_StopLoopError):
-        asyncio.run(loop.run())
-
-
 @responses.activate
 def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_down_keeps_the_frame(
     monkeypatch, store, no_network
 ):
-    """The whole render path: the loop, the render, the real clients reading the store, the layout and the drawing.
+    """The whole render path: the render, the real clients reading the store, the layout and the drawing.
 
     The screen is in Norwegian. Its departures' key expires between the first and second frames (the TfL provider is
     down), while the energy readings stay: the second frame draws "Ikke tilgjengelig" where the departures were,
-    translated as it's drawn, and none of the old departures. Then Redis stops answering: the third frame keeps
-    what the second drew (the render draws the last render's panel for a client that fails), rather than saying
-    anything has expired.
+    translated as it's drawn, and none of the old departures. Then Redis stops answering: the third render fails and
+    writes nothing, so the record keeps what the second drew, rather than a frame saying anything has expired.
     """
     monkeypatch.setattr(i18n, "_language", i18n.language())  # put the language back afterwards
     monkeypatch.setattr(i18n, "_timezone", i18n.local_zone())
@@ -720,7 +535,6 @@ def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_do
     )
     stations = StoredStationDisruptions(fetched_at=now, stop_id=BUS_STOP, disruptions=[])
     store.set(keys.tfl_stations(BUS_STOP), stations.model_dump_json())
-    loop = _build_loop(config, monkeypatch)
     frames: list[tuple[dict, set[str], bytes]] = []
     texts: list[str] = []
     original_text = ImageDraw.ImageDraw.text
@@ -746,10 +560,14 @@ def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_do
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", record_text)
     monkeypatch.setattr(render_module, "draw", record_frame)
 
-    _run_cycles_between(loop, monkeypatch, lambda: store.delete(keys.departures(BUS_STOP)), redis_down)
+    _render(store, config, lambda: store.delete(keys.departures(BUS_STOP)))
+    record = reader.binary_store().hgetall(keys.frame(DEVICE_ID))
+    redis_down()
+    with pytest.raises(RedisConnectionError):
+        render_module.render(DEVICE_ID, datetime.datetime.now(datetime.UTC))
 
-    assert len(frames) == 3
-    (first, first_texts, _), (expired, expired_texts, expired_image), (kept, _, kept_image) = frames
+    assert len(frames) == 2
+    (first, first_texts, _), (expired, expired_texts, _) = frames
     assert isinstance(first["tfl"], CombinedArrivalPanel)
     assert "N155" in first_texts
     assert expired["tfl"].message == "Not available"
@@ -760,6 +578,5 @@ def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_do
     assert "Not available" not in expired_texts
     assert "N155" not in expired_texts  # no old departures
     assert isinstance(expired["glowmarkt"], EnergyPanel)  # its key is still there: drawn as before
-    # Redis down: every panel read from the store is the one the last frame drew, and so is the picture.
-    assert all(kept[name] is expired[name] for name in ("tfl", "glowmarkt", "notice_board"))
-    assert kept_image == expired_image
+    # Redis down: nothing drawn, nothing written; the screen keeps the second frame.
+    assert reader.binary_store().hgetall(keys.frame(DEVICE_ID)) == record
