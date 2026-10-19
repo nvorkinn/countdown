@@ -32,6 +32,15 @@ jobs:
         run: git submodule update --init --remote
 
       - uses: astral-sh/setup-uv@v5
+        with:
+          # The cache step below does the caching, in uv's default directory.
+          enable-cache: false
+          cache-local-path: ~/.cache/uv
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('countdown/**/pyproject.toml', 'countdown/uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
