@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 import requests
 import responses
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core import i18n
 from countdown_core.core import moment
@@ -141,7 +141,7 @@ def clock(monkeypatch):
 
 def test_the_board_drops_the_flood_notices_once_the_key_has_expired(store, clock, no_http):
     store.set(keys.floods("SE17 3LL"), json.dumps(stored("SE17 3LL")))
-    board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
+    board = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode=None))
     board.sources = [StoredFloodWarningsSource(requests.Session(), "SE17 3LL")]
     first = asyncio.run(board.update()).notices
 

@@ -6,10 +6,9 @@ store.frame_record) if the hash changed, and returns what happened (an Outcome).
 panels, starts no threads and keeps nothing between calls but the read-only caches every render shares: the fonts,
 the translations and the Redis clients (reader.store). So the same inputs draw the same frame, whoever calls it.
 
-Each screen's own renderer calls it (core.display_loop: on the minute, on the broker's nudge, and every 20 s while a
-provider asks for a faster refresh), and still PUTs the frame to the broker beside the record. The render pool's
-workers (countdown_server.render_worker) call it from a job queue (store.render_queue), for the screens moved to the
-pool (docs/stateless-renderers.md, "The pool, the queue and the render function").
+The render pool's workers (countdown_server.render_pool) call it from a job queue (store.render_queue), for every
+screen the broker lists in `v1:render:screens` (docs/stateless-renderers.md, "The pool, the queue and the render
+function"). The broker serves the record to the screen.
 """
 
 import logging
@@ -22,17 +21,15 @@ from redis.exceptions import RedisError
 
 from countdown_core.core import moment
 from countdown_core.core.api_registry import ApiRegistry
-from countdown_core.core.targets import panel_bytes
 from countdown_core.i18n import set_locale
 from countdown_core.rendering import layout_for, to_native
 from countdown_core.rendering import render as draw
 from countdown_core.rendering.layout import Frame
-from countdown_core.rendering.screen import canvas_for
+from countdown_core.rendering.screen import canvas_for, panel_bytes
 from countdown_core.store import config as stored_config
 from countdown_core.store import frame_record, reader
 from countdown_core.store import pairing as stored_pairing
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_credentials.registration import RendererRegistration
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -55,14 +52,14 @@ class Result(StrEnum):
     WRITTEN = auto()
     # The record holds this picture already, so nothing was written.
     UNCHANGED = auto()
-    # Drawn, but not written: there's no store (no REDIS_URL), or Redis wouldn't take it (logged).
+    # Drawn, but not written: Redis wouldn't take it (logged).
     UNRECORDED = auto()
-    # Nothing to draw: the store has no config for the device.
+    # Nothing to draw: the store has no config for the device (or there's no store: no REDIS_URL).
     NO_CONFIG = auto()
 
 
 class Stage(StrEnum):
-    """What the screen shows, as the metrics report it (home_assistant.device_status.STAGES)."""
+    """What the screen shows, as the metrics report it (countdown.stage's `stage`)."""
 
     PAIRING = "pairing"
     RUNNING = "running"
@@ -70,30 +67,21 @@ class Stage(StrEnum):
 
 @dataclass(frozen=True)
 class Outcome:
-    """What a render did, for its caller: the frame, whether it was written, and what the metrics report.
-
-    `panels`, `sections` and `locale` are what the next render needs to draw a failing client's last panel in its
-    place (render's `previous`), if its caller keeps them.
-    """
+    """What a render did, for its caller: the frame, whether it was written, and what the metrics report."""
 
     result: Result
     stage: Stage | None = None
     # The picture as the panel takes it (the landscape picture, a portrait screen's turned a quarter), with its
-    # volatile box; and its bytes, as the record and PUT /api/frame have them.
+    # volatile box; and its bytes, as the record has them.
     frame: Frame | None = None
     data: bytes | None = None
-    # The panel each API's client gave, or the one kept from `previous` for a client that failed; none for an API
-    # whose client gave nothing.
+    # The panel each API's client gave; none for an API whose client gave nothing (its area says it could not
+    # connect).
     panels: Mapping[str, Panel] = field(default_factory=dict)
-    # What each client was built with, and the language and time zone it drew in.
-    sections: Mapping[str, object] = field(default_factory=dict)
-    locale: tuple[str, str] | None = None
     # Where each client stood after it read (an API with no client isn't there), for the metrics.
     statuses: Mapping[str, ClientStatus] = field(default_factory=dict)
     # The APIs drawn "Not available" because their keys had expired.
     expired: frozenset[str] = frozenset()
-    # Where the clients' providers can ask for a faster refresh (keys.pace).
-    pace_keys: tuple[str, ...] = ()
 
     @property
     def etag(self) -> str | None:
@@ -101,48 +89,38 @@ class Outcome:
         return None if self.data is None else frame_record.frame_etag(self.data)
 
 
-def render(
-    device_id: str,
-    now: datetime,
-    *,
-    config: ConfigResponse | None = None,
-    previous: Outcome | None = None,
-    raise_store_errors: bool = False,
-) -> Outcome:
+def render(device_id: str, now: datetime) -> Outcome:
     """Draw the screen `device_id` as of `now` (aware), write its frame to its record if changed, and say how it went.
 
-    The config is the broker's copy in the store (`v1:config:<device id>`), unless the caller has one already
-    (`config`: today's per-screen renderer, which asks the broker when the store has none, and for a pairing code).
-    With a pairing code it's the pairing screen: reading the store, the code is the broker's `v1:pairing:<device id>`
-    (store.pairing), which while it's there is the config to draw. A client that fails other than by its key expiring
-    draws its panel from `previous`, the last render's outcome, if that drew one with the same section of the config
-    and in the same language and time zone; otherwise its area says it could not connect.
+    The config is the broker's copy in the store (`v1:config:<device id>`). While the broker has a pairing code for
+    the screen to show, it's the pairing screen: the code is the broker's `v1:pairing:<device id>` (store.pairing),
+    which while it's there is the config to draw.
 
-    With `raise_store_errors` (the render pool's worker), a client that can't ask Redis raises its RedisError instead,
-    and nothing is written: the screen keeps the frame it has, rather than one saying it could not connect. A key that
-    has expired still draws "Not available": that's the data's expiry, not Redis failing.
+    A client that can't ask Redis raises its RedisError, and nothing is written: the screen keeps the frame it has,
+    rather than one saying it could not connect. A key that has expired still draws "Not available": that's the
+    data's expiry, not Redis failing. A client that fails any other way (a bug) gives no panel, and its area says it
+    could not connect.
 
     Raises RedisError if the config (or the code) can't be read from the store, and pydantic's ValidationError if
     what's there isn't a config. A record that can't be written is logged, and the frame still returned
     (Result.UNRECORDED).
     """
     with moment.drawing_at(now):
+        config = _live_pairing(device_id) or _stored_config(device_id)
         if config is None:
-            config = _live_pairing(device_id) or _stored_config(device_id)
-            if config is None:
-                return Outcome(Result.NO_CONFIG)
-        locale = _apply_locale(config)
+            return Outcome(Result.NO_CONFIG)
+        _apply_locale(config)
         if config.pairing_code:
             pairing = PairingCodePanel(config.pairing_code, device_id, has_changed=True)
             frame = to_native(Frame(pairing.render(*canvas_for(config.screen).size)), config.screen)
             data = bytes(panel_bytes(frame.image))
-            return Outcome(_record(device_id, data), Stage.PAIRING, frame, data, locale=locale)
+            return Outcome(_record(device_id, data), Stage.PAIRING, frame, data)
 
         # The clients only read the store, by the device's id: none of them calls the broker.
-        registry = ApiRegistry(RendererRegistration(broker_url="", device_secret="", device_id=device_id), config)
+        registry = ApiRegistry(device_id, config)
         available = registry.available()
         registry.show_stops(layout_for(config.screen, available)[0].stops_shown)
-        polled = registry.poll(_still_drawable(previous, registry, locale), raise_store_errors=raise_store_errors)
+        polled = registry.poll()
         drawn = draw(registry.panels(polled), config.screen, available, clock_format=config.clock_format, now=now)
         frame = to_native(drawn, config.screen)
         data = bytes(panel_bytes(frame.image))
@@ -152,11 +130,8 @@ def render(
             frame,
             data,
             panels=polled,
-            sections=registry.sections,
-            locale=locale,
             statuses=registry.statuses(),
             expired=registry.expired(),
-            pace_keys=tuple(registry.pace_keys()),
         )
 
 
@@ -175,31 +150,13 @@ def _live_pairing(device_id: str) -> ConfigResponse | None:
     return None if client is None else stored_pairing.read(client, device_id)
 
 
-def _apply_locale(config: ConfigResponse) -> tuple[str, str]:
-    """Set the config's language and time zone (a module global: one render at a time), and return them."""
+def _apply_locale(config: ConfigResponse) -> None:
+    """Set the config's language and time zone: a module global, so a worker runs one render at a time."""
     try:
         set_locale(config.language, config.timezone)
     except ZoneInfoNotFoundError, ValueError:
         logger.warning("Unknown time zone %r; using %s", config.timezone, FALLBACK_TIMEZONE)
         set_locale(config.language, FALLBACK_TIMEZONE)
-    return config.language, config.timezone
-
-
-def _still_drawable(previous: Outcome | None, registry: ApiRegistry, locale: tuple[str, str]) -> dict[str, Panel]:
-    """Return the previous render's panels that are still this config's to draw, for a client that fails now.
-
-    That's each one drawn in this language and time zone, whose client was built with a section of the config this
-    render's wouldn't be rebuilt for (AbstractClient.needs_refresh): a panel from another config is never drawn.
-    """
-    if previous is None or previous.locale != locale:
-        return {}
-    return {
-        name: panel
-        for name, panel in previous.panels.items()
-        if (client := registry.clients.get(name)) is not None
-        and name in previous.sections
-        and not client.needs_refresh(previous.sections[name])
-    }
 
 
 def _record(device_id: str, data: bytes) -> Result:

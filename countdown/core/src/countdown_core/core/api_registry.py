@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from countdown_core.core.panel import Panel
-    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -99,9 +98,9 @@ class FailedClient(AbstractClient):
 
     poll_interval = timedelta(minutes=10)
 
-    def __init__(self, registration: Registration, config: object, error: Exception) -> None:
-        """Stand in for the client that was built with `registration` and `config` and raised `error`."""
-        super().__init__(registration, config)
+    def __init__(self, device_id: str, config: object, error: Exception) -> None:
+        """Stand in for the client that was built for `device_id` with `config` and raised `error`."""
+        super().__init__(device_id, config)
         self.error = error
         self.status = ClientStatus.ERROR
 
@@ -116,32 +115,28 @@ class ApiRegistry:
     """The API clients one render draws with, built afresh from the config for that render alone.
 
     Nothing of a registry outlives its render (see render.render): the clients, what they read and their statuses are
-    the render's, and the next render builds its own. What a screen last showed comes in from outside, as the previous
-    render's panels (poll's `previous`), never from a registry kept between them.
+    the render's, and the next render builds its own.
     """
 
-    def __init__(self, registration: Registration, config: ConfigResponse) -> None:
+    def __init__(self, device_id: str, config: ConfigResponse) -> None:
         """Build a client for every API `config` switches on, each with its section of the config.
 
-        `registration` is handed to every client: the device whose keys they read. A client whose constructor raises
-        is logged, and stands in as a FailedClient, so one broken API doesn't take the others down. The language and
-        time zone must be set first (i18n.set_locale): some clients put their texts together as they read.
+        `device_id` is handed to every client: the device whose keys they read. A client whose constructor raises is
+        logged, and stands in as a FailedClient, so one broken API doesn't take the others down. The language and time
+        zone must be set first (i18n.set_locale): some clients put their texts together as they read.
         """
-        self.registration = registration
+        self.device_id = device_id
         self.clients: dict[str, AbstractClient] = {}
-        # What each client was built with, so the next render can tell whether this one's panel is still its own.
-        self.sections: dict[str, object] = {}
         for member in ClientClasses:
             name = member.api_name
             section = section_for(name, config)
             if not is_enabled(section):
                 continue
-            self.sections[name] = section
             try:
-                self.clients[name] = client_class(member, section)(registration, section)
+                self.clients[name] = client_class(member, section)(device_id, section)
             except Exception as e:
                 logger.exception("Error building %s client", name)
-                self.clients[name] = FailedClient(registration, section, e)
+                self.clients[name] = FailedClient(device_id, section, e)
         self._share_notice_sources()
 
     def _share_notice_sources(self) -> None:
@@ -152,31 +147,23 @@ class ApiRegistry:
                 source for client in self.clients.values() if client is not board for source in client.notice_sources()
             )
 
-    def poll(
-        self, previous: Mapping[str, Panel] | None = None, *, raise_store_errors: bool = False
-    ) -> dict[str, Panel]:
+    def poll(self) -> dict[str, Panel]:
         """Read every client's data, one after another, and return the panel each gave, by API.
 
-        A client that raises (Redis not answering, a bug) gives its panel in `previous` if there's one there: the panel
-        the screen last had from it, which the caller has checked is still this config's. Otherwise it gives none, and
-        its area says it could not connect (see panels()). A key that has expired is no failure: the client gives a
-        "Not available" panel (AbstractClient.poll).
-
-        With `raise_store_errors`, a client that can't ask Redis (a RedisError) raises it instead, unlogged, and the
-        rest aren't read: the render pool's render then fails and writes nothing, so the screen keeps the frame it has.
+        A client that can't ask Redis (a RedisError) raises it, unlogged, and the rest aren't read: the render then
+        fails and writes nothing, so the screen keeps the frame it has. Any other failure (a bug) is logged, and that
+        client gives no panel: its area says it could not connect (see panels()). A key that has expired is no failure:
+        the client gives a "Not available" panel (AbstractClient.poll).
         """
-        previous = previous or {}
         polled: dict[str, Panel] = {}
         for name, client in self.clients.items():
             try:
                 polled[name] = client.poll()
-            except Exception as e:
-                if raise_store_errors and isinstance(e, RedisError):
-                    raise
+            except RedisError:
+                raise
+            except Exception:
                 if not isinstance(client, FailedClient):  # whose constructor's error was logged as it was built
                     logger.exception("Error updating %s", name)
-                if name in previous:
-                    polled[name] = previous[name]
         return polled
 
     def panels(self, polled: Mapping[str, Panel]) -> dict[str, Panel]:
@@ -190,10 +177,6 @@ class ApiRegistry:
     def expired(self) -> frozenset[str]:
         """Return the APIs whose panel says "Not available" because the store had nothing for them."""
         return frozenset(name for name, client in self.clients.items() if client.expired)
-
-    def pace_keys(self) -> list[str]:
-        """Return the store keys (keys.pace) where these clients' providers can ask for a faster refresh."""
-        return [key for client in self.clients.values() for key in client.pace_keys()]
 
     def available(self) -> frozenset[ClientClasses]:
         """Return the APIs that get an area on the screen.

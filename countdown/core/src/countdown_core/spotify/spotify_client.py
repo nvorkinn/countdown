@@ -32,7 +32,6 @@ if TYPE_CHECKING:
     from countdown_core.core.style import Style
     from countdown_core.spotify.models import Album, Queue
     from countdown_core.spotify.spotify_styles import Labels
-    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -120,22 +119,21 @@ class SpotifyClient(AbstractClient):
     """Now playing and top tracks/artists, from Spotify, Apple Music or both, read from the store.
 
     auth-broker's music provider calls the services server-side, so this device never holds a token; it reads the
-    keys of the device `registration` registered.
+    keys of the screen `device_id`.
     """
 
     panel_title = N_("Spotify")
     panel_logo = "spotify_logo.png"
 
-    def __init__(self, registration: Registration, config: MusicSettings) -> None:
-        """`registration`: this device, whose keys it reads; `config`: the services and style.
+    def __init__(self, device_id: str, config: MusicSettings) -> None:
+        """`device_id`: this screen, whose keys it reads; `config`: the services and style.
 
-        Raises without a store, or without a device id to read the keys by.
+        Raises without a store.
         """
-        super().__init__(registration, config)
+        super().__init__(device_id, config)
         self.store = reader.require_store()
         # The covers are image files, which the store's own client can't hand back (it decodes values as text).
         self.art_store = reader.binary_store()
-        self.device_id = reader.device_id(registration)
         self.pages = pages(config.services)
 
     def _initialise(self) -> None:

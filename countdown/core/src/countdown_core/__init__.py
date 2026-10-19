@@ -1,5 +1,1 @@
-"""The dashboard app: polls the APIs, draws the screen and hands each frame to a DisplayTarget."""
-
-from countdown_core.core.app import main
-
-__all__ = ["main"]
+"""The dashboard's drawing: the clients reading the store, the panels, the layouts, and the render (render.py)."""

@@ -1,70 +1,50 @@
-"""The screen's config from the store: auth-broker's copy of GET /api/config, its nudge, and the broker as fallback.
+"""The screen's config from the store: auth-broker's copy of the device's settings, which the render reads.
 
-auth-broker writes `v1:config:<device id>` from its database and publishes the device id on `v1:config:changed`;
-the renderer reads it (BrokerClient.get_config), asks the broker only when it isn't there, and redraws as soon as it's
-nudged (ConfigWatcher, DisplayLoop calling the render at once). tests/fixtures/config_store.json is the stored shape,
-the same file as auth-broker's.
+auth-broker writes `v1:config:<device id>` from its database on every save and as it starts, and the render reads it
+(store.config.read) with the contract's own ConfigResponse: it's the only way a config reaches the render.
+tests/fixtures/config_store.json is the stored shape, the same file as auth-broker's.
+
+What the render accepts is the compatibility policy: the broker may add fields (ignored), but a value outside what the
+contract lists is invalid, and so is a config missing a section.
 """
 
-import asyncio
 import json
 from pathlib import Path
-from unittest.mock import patch
 
 import fakeredis
-import fakeredis.aioredis
 import pytest
-import redis
-import responses
 from config_factory import broker_payload
-from fake_target import FakeTarget
+from pydantic import ValidationError
 
 from countdown_api.models import ConfigResponse
-from countdown_core.config_server import broker_client
-from countdown_core.config_server.broker_client import BrokerClient
-from countdown_core.core import display_loop
-from countdown_core.core.display import DisplayController
-from countdown_core.core.display_loop import DisplayLoop
 from countdown_core.store import config as stored_config
-from countdown_core.store import keys, reader
-from countdown_core.store.config import ConfigWatcher
-from countdown_credentials.registration import RendererRegistration
+from countdown_core.store import keys
+from countdown_core.weather.weather_client import location_key
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "config_store.json").read_text())
 DEVICE_ID = FIXTURE["device_id"]
-BROKER_URL = "https://broker.example.com"
-CONFIG_URL = f"{BROKER_URL}/api/config"
 STORED = FIXTURE["value"]
 
 
 @pytest.fixture
-def server(monkeypatch):
-    """Return the fake Redis server the renderer's store (reader.store) is on, so an async client can share it."""
-    shared = fakeredis.FakeServer()
-    client = fakeredis.FakeRedis(server=shared, decode_responses=True)
-    monkeypatch.setattr(reader, "store", lambda: client)
-    return shared
-
-
-@pytest.fixture
-def store(server):
-    return reader.store()
-
-
-def _broker() -> BrokerClient:
-    return BrokerClient(RendererRegistration(BROKER_URL, "shh", DEVICE_ID))
+def store():
+    return fakeredis.FakeRedis(decode_responses=True)
 
 
 def _put(store, value: dict) -> None:
     store.set(keys.config(DEVICE_ID), json.dumps(value))
 
 
+def _read(store, value: dict) -> ConfigResponse | None:
+    _put(store, value)
+    return stored_config.read(store, DEVICE_ID)
+
+
 # --- the stored shape ---------------------------------------------------------------------------------------------
 
 
-def test_the_broker_writes_where_the_renderer_reads():
+def test_the_broker_writes_where_the_render_reads():
     assert keys.config(DEVICE_ID) == FIXTURE["key"]
-    assert FIXTURE["channel"] == keys.CONFIG_CHANGED
 
 
 def test_the_stored_config_is_a_config_the_contract_allows():
@@ -81,228 +61,71 @@ def test_the_stored_config_is_a_config_the_contract_allows():
 # --- reading it ---------------------------------------------------------------------------------------------------
 
 
-@responses.activate
-def test_the_config_comes_from_the_store_without_asking_the_broker(store):
-    _put(store, STORED)
-
-    config = _broker().get_config()
-
-    assert config == ConfigResponse.model_validate(STORED)
-    assert len(responses.calls) == 0  # responses would refuse any request anyway
-
-
-@responses.activate
-def test_boot_reads_the_store_too(store):
-    _put(store, STORED)
-
-    config, pairing_code_panel = _broker().fetch_app_config()
-
-    assert config.device_id == DEVICE_ID
-    assert pairing_code_panel.pairing_code is None
-    assert len(responses.calls) == 0
-
-
-@responses.activate
-def test_without_a_config_in_the_store_the_broker_is_asked(store):
-    """An older broker that writes none, or a pairing code to show, which only GET /api/config has."""
-    responses.get(CONFIG_URL, json=broker_payload(device_id=DEVICE_ID, pairing_code="ABC234"))
-
-    config = _broker().get_config()
-
-    assert config.pairing_code == "ABC234"
-    assert len(responses.calls) == 1
-
-
-@responses.activate
-def test_without_a_store_the_broker_is_asked(monkeypatch):
-    monkeypatch.setattr(reader, "store", lambda: None)
-    responses.get(CONFIG_URL, json=broker_payload(device_id=DEVICE_ID))
-
-    assert _broker().get_config().device_id == DEVICE_ID
-    assert len(responses.calls) == 1
-
-
-@responses.activate
-def test_a_store_that_cant_be_read_means_asking_the_broker(store, monkeypatch):
-    def refuse(key):
-        raise redis.ConnectionError
-
-    monkeypatch.setattr(store, "get", refuse)
-    responses.get(CONFIG_URL, json=broker_payload(device_id=DEVICE_ID, interval=42))
-
-    with patch.object(broker_client, "logger") as logger:
-        config = _broker().get_config()
-
-    assert config.interval == 42
-    logger.warning.assert_called_once_with(
-        "Can't read the config from the store (%s); asking the broker", "ConnectionError"
-    )
-
-
-@responses.activate
-def test_a_stored_config_that_isnt_valid_means_asking_the_broker(store):
-    _put(store, STORED | {"interval": 0})  # not one the contract allows
-    responses.get(CONFIG_URL, json=broker_payload(device_id=DEVICE_ID, interval=42))
-
-    with patch.object(broker_client, "logger") as logger:
-        config = _broker().get_config()
-
-    assert config.interval == 42
-    logger.warning.assert_called_once_with("The config in the store isn't valid for this renderer; asking the broker")
-
-
-def test_a_field_a_newer_broker_adds_is_ignored(store):
-    _put(store, STORED | {"brightness": 7})
-
-    assert _broker().get_config() == ConfigResponse.model_validate(STORED)
-
-
-@responses.activate
-def test_once_paired_the_renderer_moves_from_the_broker_to_the_store(store):
-    responses.get(CONFIG_URL, json=broker_payload(device_id=DEVICE_ID, pairing_code="ABC234"))
-    broker = _broker()
-
-    with patch.object(broker_client, "logger") as logger:
-        assert broker.get_config().pairing_code == "ABC234"
-        assert broker.get_config().pairing_code == "ABC234"
-        _put(store, STORED)  # the code was typed in: the broker stores the config, now there's no code
-        assert broker.get_config().pairing_code is None
-        assert broker.get_config().pairing_code is None
-
-    # Logged only when the source changes.
-    assert [c.args for c in logger.info.call_args_list] == [
-        ("Reading the config from %s", "the broker (there's none for it in the store)"),
-        ("Reading the config from %s", "the store"),
-    ]
-    assert broker.get_pairing_code_panel(broker.get_config()).pairing_code is None
+def test_the_config_is_read_from_the_store(store):
+    assert _read(store, STORED) == ConfigResponse.model_validate(STORED)
 
 
 def test_read_gives_none_for_a_device_with_nothing_stored(store):
+    _put(store, STORED)
+
     assert stored_config.read(store, "someone-else") is None
 
 
-# --- the nudge ----------------------------------------------------------------------------------------------------
+def test_a_full_config_reads_back_as_written(store):
+    sent = ConfigResponse.model_validate(
+        broker_payload(
+            interval=20,
+            screen={"orientation": "horizontal", "width": 800, "height": 480},
+            weather={"location": "London", "key": "london-gb-2643743"},
+            notice_board={"postcode": "SW1A 1AA"},
+            tfl={"stop_ids": ["940GZZLUKNG", "490000077E"]},
+            spotify={"enabled": True},
+            glowmarkt={"enabled": True},
+        )
+    )
+
+    assert _read(store, sent.model_dump(mode="json")) == sent
 
 
-def _watcher(server, device_id=DEVICE_ID) -> ConfigWatcher:
-    return ConfigWatcher(fakeredis.aioredis.FakeRedis(server=server, decode_responses=True), device_id)
+def test_a_field_a_newer_broker_adds_is_ignored(store):
+    """The broker may add fields, to the config or to a section: a render that predates them must not break."""
+    weather = STORED["weather"] | {"units": "metric"}
+
+    assert _read(store, STORED | {"brightness": 7, "weather": weather}) == ConfigResponse.model_validate(STORED)
 
 
-async def _until(condition):
-    """Wait until `condition()` holds, failing after 5 s."""
-    async with asyncio.timeout(5):
-        while not condition():  # noqa: ASYNC110 -- what's awaited (a subscription, a draw) sets no event of ours
-            await asyncio.sleep(0.01)
+def test_a_broker_that_still_sends_a_weather_api_key_has_it_dropped(store):
+    weather = STORED["weather"] | {"api_key": "weather-key"}
+
+    config = _read(store, STORED | {"weather": weather})
+
+    assert location_key(config.weather) == "london-gb-2643743"
+    assert "weather-key" not in config.model_dump_json()
 
 
-def test_the_watcher_wakes_for_its_own_device_only(server, store):
-    async def scenario():
-        watcher = _watcher(server)
-        watcher.start()
-        await _until(lambda: store.pubsub_numsub(keys.CONFIG_CHANGED)[0][1] == 1)
-        try:
-            store.publish(keys.CONFIG_CHANGED, "someone-else")
-            woken_by_another = await watcher.wait(0.2)
-            store.publish(keys.CONFIG_CHANGED, DEVICE_ID)
-            woken_by_its_own = await watcher.wait(5)
-            nothing_since = await watcher.wait(0.05)
-        finally:
-            await watcher.close()
-        return woken_by_another, woken_by_its_own, nothing_since
+def test_without_the_weathers_key_it_reads_under_the_location(store):
+    """An older broker subscribes the location's text, and sends no key, which parses as null."""
+    weather = {name: value for name, value in STORED["weather"].items() if name != "key"}
 
-    assert asyncio.run(scenario()) == (False, True, False)
+    config = _read(store, STORED | {"weather": weather})
+
+    assert config.weather.key is None
+    assert location_key(config.weather) == config.weather.location
 
 
-def test_a_nudge_while_the_loop_is_busy_ends_its_next_wait_at_once(server, store):
-    async def scenario():
-        watcher = _watcher(server)
-        watcher.start()
-        await _until(lambda: store.pubsub_numsub(keys.CONFIG_CHANGED)[0][1] == 1)
-        try:
-            store.publish(keys.CONFIG_CHANGED, DEVICE_ID)
-            await _until(watcher._changed.is_set)
-            return await watcher.wait(3600)
-        finally:
-            await watcher.close()
-
-    assert asyncio.run(scenario()) is True
+def test_a_value_the_contract_does_not_list_is_invalid(store):
+    """A third screen orientation: widening a list of values is a breaking change the broker makes deliberately."""
+    with pytest.raises(ValidationError):
+        _read(store, STORED | {"screen": STORED["screen"] | {"orientation": "diagonal"}})
 
 
-def test_there_is_no_watcher_without_a_store(monkeypatch):
-    monkeypatch.delenv("REDIS_URL", raising=False)
-
-    assert ConfigWatcher.from_env(DEVICE_ID) is None
-
-
-def test_the_watcher_listens_on_the_renderers_store(monkeypatch):
-    monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:6379/0")
-    monkeypatch.setenv("REDIS_PASSWORD", "secret")
-
-    watcher = ConfigWatcher.from_env(DEVICE_ID)
-
-    kwargs = watcher.client.connection_pool.connection_kwargs
-    assert (kwargs["host"], kwargs["password"], kwargs.get("socket_timeout")) == ("127.0.0.1", "secret", None)
-    asyncio.run(watcher.client.aclose())
+@pytest.mark.parametrize("interval", [0, -1])
+def test_an_interval_that_is_not_positive_is_invalid(store, interval):
+    with pytest.raises(ValidationError, match="interval"):
+        _read(store, STORED | {"interval": interval})
 
 
-def test_the_watcher_resubscribes_after_losing_redis(server, store, monkeypatch):
-    monkeypatch.setattr(stored_config, "RESUBSCRIBE_S", 0.01)
-    watcher = _watcher(server)
-    real_pubsub = watcher.client.pubsub
-    failures = [redis.ConnectionError("gone")]
-
-    def pubsub():
-        if failures:
-            raise failures.pop()
-        return real_pubsub()
-
-    monkeypatch.setattr(watcher.client, "pubsub", pubsub)
-
-    async def scenario():
-        with patch.object(stored_config, "logger") as logger:
-            watcher.start()
-            await _until(lambda: store.pubsub_numsub(keys.CONFIG_CHANGED)[0][1] == 1)
-            store.publish(keys.CONFIG_CHANGED, DEVICE_ID)
-            try:
-                return await watcher.wait(5), logger.warning.call_args.args
-            finally:
-                await watcher.close()
-
-    woken, warning = asyncio.run(scenario())
-
-    assert woken is True
-    assert warning == ("Lost %s (%s); resubscribing", keys.CONFIG_CHANGED, "ConnectionError")
-
-
-def test_a_nudge_redraws_with_the_new_config_without_waiting_for_the_minute(server, store, monkeypatch):
-    """The owner saves on the settings page: the broker rewrites the key and nudges, and the screen is redrawn."""
-    # Nothing on the screen, so no client has anything to read. The next minute is up to 60 s off; the test gives 5.
-    quiet = broker_payload(device_id=DEVICE_ID, interval=60, style="hero")
-    _put(store, quiet)
-    broker = _broker()
-    config = broker.get_config()
-    loop = DisplayLoop(broker, config, DisplayController(FakeTarget()), watcher=_watcher(server))
-    drawn: list[str] = []
-    render = display_loop.render
-
-    def recording(device_id, now, **kwargs):
-        drawn.append(kwargs["config"].style)
-        return render(device_id, now, **kwargs)
-
-    monkeypatch.setattr(display_loop, "render", recording)
-
-    async def scenario():
-        running = asyncio.create_task(loop.run())
-        try:
-            await _until(lambda: drawn and store.pubsub_numsub(keys.CONFIG_CHANGED)[0][1] == 1)
-            _put(store, quiet | {"style": "card"})
-            store.publish(keys.CONFIG_CHANGED, DEVICE_ID)
-            await _until(lambda: len(drawn) == 2)
-        finally:
-            running.cancel()
-            await asyncio.gather(running, return_exceptions=True)
-
-    asyncio.run(scenario())
-
-    assert drawn == ["hero", "card"]
-    assert loop.watcher._task is None  # closed with the loop
+def test_a_config_missing_a_section_is_invalid(store):
+    """Rather than read as an empty config, which would blank the screen: the render fails, and it keeps its frame."""
+    with pytest.raises(ValidationError, match="tfl"):
+        _read(store, {name: value for name, value in STORED.items() if name != "tfl"})

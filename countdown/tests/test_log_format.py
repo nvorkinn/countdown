@@ -1,7 +1,6 @@
-"""The JSON log lines the renderer and the orchestrator write for VictoriaLogs.
+"""The JSON log lines the render pool and the providers write for VictoriaLogs.
 
-They have `_msg` and `level`, and one record per exception. Both packages carry the same formatter, since the
-orchestrator's image installs only its own.
+They have `_msg` and `level`, and one record per exception.
 """
 
 import json
@@ -12,12 +11,8 @@ import pytest
 import requests
 
 from countdown_core.core import log_format as renderer
-from countdown_orchestrator import log_format as orchestrator
 
-FORMATTERS = [
-    pytest.param(renderer.JsonFormatter(), id="renderer"),
-    pytest.param(orchestrator.JsonFormatter(), id="orchestrator"),
-]
+FORMATTERS = [pytest.param(renderer.JsonFormatter(), id="renderer")]
 
 
 def record(level=logging.INFO, msg="hello %s", args=("world",), exc_info=None):
@@ -97,7 +92,7 @@ def test_a_process_drawing_many_screens_names_itself_instead_of_a_device(monkeyp
 @pytest.fixture
 def levels_kept():
     """Put the third-party loggers' levels back after a test that configures the logging."""
-    loggers = [logging.getLogger(name) for name in ("urllib3", "asyncio", "PIL", "opentelemetry", "docker")]
+    loggers = [logging.getLogger(name) for name in ("urllib3", "asyncio", "PIL", "opentelemetry")]
     levels = [logger.level for logger in loggers]
     yield
     for logger, level in zip(loggers, levels, strict=True):
@@ -105,16 +100,34 @@ def levels_kept():
 
 
 @pytest.mark.usefixtures("levels_kept")
-@pytest.mark.parametrize(("module", "noisy"), [(renderer, "asyncio"), (orchestrator, "docker")])
-def test_third_party_loggers_stay_quiet_even_when_the_app_is_at_debug(module, noisy, monkeypatch):
+def test_third_party_loggers_stay_quiet_even_when_the_app_is_at_debug(monkeypatch):
     monkeypatch.setenv("LOG_LEVEL", "debug")
-    monkeypatch.setattr(module.logging, "basicConfig", lambda **kwargs: None)
+    monkeypatch.setattr(renderer.logging, "basicConfig", lambda **kwargs: None)
 
-    module.configure_logging()
+    renderer.configure_logging()
 
-    assert logging.getLogger(noisy).level == logging.WARNING
-    # The orchestrator asks only the broker; its urllib3 warnings (each retry) are worth having.
-    assert logging.getLogger("urllib3").level == (logging.ERROR if module is renderer else logging.WARNING)
+    assert logging.getLogger("asyncio").level == logging.WARNING
+    assert logging.getLogger("urllib3").level == logging.ERROR
+
+
+@pytest.mark.usefixtures("levels_kept")
+@pytest.mark.parametrize(
+    ("env", "expected"), [(None, logging.INFO), ("debug", logging.DEBUG), ("nonsense", logging.INFO)]
+)
+def test_logging_defaults_to_info_and_honours_log_level(monkeypatch, env, expected):
+    calls = []
+    monkeypatch.setattr(renderer.logging, "basicConfig", lambda **kwargs: calls.append(kwargs))
+    if env is None:
+        monkeypatch.delenv("LOG_LEVEL", raising=False)
+    else:
+        monkeypatch.setenv("LOG_LEVEL", env)
+
+    renderer.configure_logging()
+
+    (kwargs,) = calls
+    assert kwargs["level"] == expected
+    (handler,) = kwargs["handlers"]
+    assert isinstance(handler.formatter, renderer.JsonFormatter)  # the container's log driver timestamps each line
 
 
 @pytest.mark.usefixtures("levels_kept")

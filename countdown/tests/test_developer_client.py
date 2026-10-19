@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import responses
 from config_factory import make_config
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core.core.api_registry import ApiRegistry, FailedClient
 from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
@@ -19,8 +19,7 @@ from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.models import AiPlan, DeveloperSummary, Release
 from countdown_core.notices.notice import Severity
 from countdown_core.store import keys, reader
-from countdown_core.store.developer import NoStoredDeveloperError
-from countdown_credentials.registration import Registration
+from countdown_core.store.developer import NoStoredDeveloperError, StoredDeveloper
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "developer.json").read_text())
 KEY = keys.developer("device-123")
@@ -45,7 +44,7 @@ def _put(store, answer):
 
 @pytest.fixture
 def client() -> DeveloperClient:
-    return DeveloperClient(REGISTRATION, DeveloperSettings(enabled=True, style="card"))
+    return DeveloperClient(TEST_DEVICE_ID, DeveloperSettings(enabled=True, style="card"))
 
 
 @responses.activate  # nothing registered: any HTTP call would fail
@@ -130,20 +129,13 @@ def test_without_a_store_it_cant_be_built(monkeypatch):
     monkeypatch.setattr(reader, "store", lambda: None)
 
     with pytest.raises(reader.StoreNotConfiguredError):
-        DeveloperClient(REGISTRATION, DeveloperSettings(enabled=True, style="card"))
-
-
-def test_without_a_device_id_it_cant_be_built():
-    with pytest.raises(ValueError, match="device id"):
-        DeveloperClient(
-            Registration("https://broker.example.com", "shh"), DeveloperSettings(enabled=True, style="card")
-        )
+        DeveloperClient(TEST_DEVICE_ID, DeveloperSettings(enabled=True, style="card"))
 
 
 @responses.activate  # nothing registered: the notice board's calls fail at once
 def test_a_renderer_without_a_store_shows_the_developer_panel_as_failing(monkeypatch):
     monkeypatch.setattr(reader, "store", lambda: None)
-    registry = ApiRegistry(REGISTRATION, make_config(developer={"enabled": True}))
+    registry = ApiRegistry(TEST_DEVICE_ID, make_config(developer={"enabled": True}))
 
     failed = registry.clients["developer"]
     assert isinstance(failed, FailedClient)
@@ -268,3 +260,11 @@ def test_a_finished_release_counts_the_minutes_it_ran_for():
 
     assert release.minutes(NOW + dt.timedelta(hours=1)) == 10
     assert release.waiting == ["deploy-authentik"]
+
+
+def test_the_shared_fixture_is_a_stored_developer():
+    stored = StoredDeveloper.model_validate(FIXTURE)
+
+    assert stored.github.login == "nvorkinn"
+    assert [release.state for release in stored.releases] == ["running"]
+    assert [plan.name for plan in stored.plans] == ["Copilot", "Claude"]

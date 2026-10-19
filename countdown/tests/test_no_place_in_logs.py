@@ -19,7 +19,7 @@ import requests
 import responses
 from location_factory import FakeLocations
 from redis.exceptions import RedisError
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_core.core import log_format, moment
 from countdown_core.core.abstract_client import AbstractClient
@@ -199,7 +199,7 @@ def test_a_placed_postcode_and_its_stored_sources_log_no_place(store, caplog, pl
     """Placed from the store, its sources read from it with nothing there: the success, and each missing key."""
     put_location(store, "SE17 3LL", Postcode.model_validate(place))
     with responses.RequestsMock():  # and nothing asked of the network
-        client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode="SE17 3LL"))
+        client = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode="SE17 3LL"))
         assert asyncio.run(client.update()).message == "Not available"  # every one of its keys is missing
 
     assert "Notice board: found the postcode's location; reading its local notices" in caplog.messages
@@ -215,7 +215,7 @@ def test_a_placed_norwegian_postcode_logs_no_place(store, caplog):
     assert drammen is not None
     put_location(store, "3015", drammen)
     with responses.RequestsMock():
-        client = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode="3015", country="NO"))
+        client = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode="3015", country="NO"))
         assert asyncio.run(client.update()).message == "Not available"  # every one of its keys is missing
 
     assert "Notice board: found the postcode's location; reading its local notices" in caplog.messages

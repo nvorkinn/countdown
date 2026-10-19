@@ -1,10 +1,10 @@
-# countdown-server: the renderer for a screen that only shows frames (the
-# ESP32). Built from a release's wheels -- the build context is countdown/, after
-# `uv build --wheel --all-packages` has filled countdown/dist/. See deploy/README.md.
+# countdown-server: the render pool (countdown-render-worker, the default, and countdown-render-ticker), which draws
+# the frames the screens (the ESP32) fetch from the broker. Built from a release's wheels -- the build context is
+# countdown/, after `uv build --wheel --all-packages` has filled countdown/dist/. See deploy/README.md.
 FROM python:3.14-slim
 
 LABEL org.opencontainers.image.source="https://github.com/nvorkinn/pi-dashboard"
-LABEL org.opencontainers.image.description="countdown renderer for a separate screen"
+LABEL org.opencontainers.image.description="countdown render pool: the workers and the ticker"
 
 # fribidi turns on Pillow's Raqm text layout, which the Pis and the snapshot tests render with.
 RUN apt-get update \
@@ -13,7 +13,7 @@ RUN apt-get update \
 
 # Our packages only ever come from these wheels, never an index: anyone could publish a
 # package there under one of their names. That includes countdown-api, which isn't on PyPI at all.
-COPY dist/countdown_server-*.whl dist/countdown_core-*.whl dist/countdown_credentials-*.whl dist/countdown_api-*.whl /tmp/wheels/
+COPY dist/countdown_server-*.whl dist/countdown_core-*.whl dist/countdown_api-*.whl /tmp/wheels/
 RUN pip install --no-cache-dir --root-user-action=ignore --disable-pip-version-check /tmp/wheels/*.whl \
     && rm -rf /tmp/wheels
 
@@ -22,15 +22,10 @@ RUN python -c "from countdown_core.utils.utils import google_symbols; google_sym
 # Fail the build rather than render text differently from the Pis.
 RUN python -c "from PIL import features; assert features.check('raqm'), 'Pillow has no Raqm text layout'"
 
-RUN useradd --system --create-home countdown && mkdir /data /keys && chown countdown:countdown /data /keys
+# It keeps nothing: no identity, no key, no volumes.
+RUN useradd --system --create-home countdown
 USER countdown
-# The renderer's identity (.auth_broker_device) is written to its working directory.
-WORKDIR /data
-VOLUME /data
-# Its key is made on first start, in a volume of its own so it isn't in the same copy as the identity it encrypts.
-# A mounted Docker secret (/run/secrets/credentials-key) is used instead if there is one.
-ENV XDG_CONFIG_HOME=/keys
-VOLUME /keys
 
 ENV PYTHONUNBUFFERED=1
-ENTRYPOINT ["countdown-server"]
+# A render worker; the ticker is the same image with `countdown-render-ticker` (server/deploy/docker-compose.yml).
+ENTRYPOINT ["countdown-render-worker"]

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, override
 
 import requests
 
-from countdown_credentials.device_name import device_name_from_env
+from countdown_core.core.device_name import device_name_from_env
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

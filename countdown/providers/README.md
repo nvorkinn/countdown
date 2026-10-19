@@ -37,19 +37,18 @@ countdown-core so the providers and renderers share them.
 | `v1:sub:developer` | set | broker | device ids with the developer panel on (with or without a GitHub token) |
 | `v1:sub:postcode` | set | broker | the notice boards' postcodes in canonical form, e.g. `SW1A 1AA`, `0150` (Norwegian: four digits); keys by place use `keys.place()`, e.g. `SW1A1AA` |
 | `v1:sub:changed` | pub/sub channel | broker | empty message after replacing subscriptions |
-| `v1:config:<device id>` | string, no TTL | broker, from its database, on every config save, as it starts and by `flask config publish` | the device's config: exactly `GET /api/config`'s JSON for it, the contract's `ConfigResponse`, less its secrets (the weather API key empty, no pairing code); none while the device isn't paired or has a pairing code to show. The renderer reads it, and asks the broker without it; see the renderer's README, "The config" |
-| `v1:config:changed` | pub/sub channel | broker | the device id, after changing its `v1:config:` key |
-| `v1:pairing:<device id>` | string, TTL the code's own (10 min, to its expiry) | broker, whenever it issues a pairing code; deleted when the code is used, or the device paired, unpaired or forgotten | the device's live pairing code, for the render pool, which reads only the store: exactly `GET /api/config`'s JSON while the code is live, the contract's `ConfigResponse` with its `pairing_code` set (plaintext, by decision: any Redis reader can see a live code). A render that reads the store draws the pairing screen from it while it's there (`store/pairing.py`); the per-screen renderer still gets the code from `GET /api/config`. `tests/fixtures/pairing_key.json` pins it, as auth-broker's tests do |
-| `v1:frame:<device id>` | hash, TTL 1 day from the last change | the renderer, when the picture changes (`store/frame_record.py`) | the screen's latest frame, which the broker serves the screen: `frame` (the panel's 48,000 raw bytes, as `PUT /api/frame` takes them; read with `reader.binary_store()`), `etag` (its 16-hex-digit BLAKE2b, the broker's ETag) and `rendered_at` (when the picture was first written, ISO 8601 UTC); the broker falls back to its SQLite copy of the PUT when there's none, or that's newer. `tests/fixtures/frame_record.json` pins it, as auth-broker's tests do |
-| `v1:render:jobs` | list | the render pool's ticker (from step 7 the broker and the bursty providers too), by `store/render_queue.py`'s enqueue | device ids to render, each at most once (`v1:render:queued:<device id>`, a flag with the time it was queued, TTL 1 min); the render workers pop them. `v1:render:lease:<device id>` (a worker's token, TTL 30 s) is set while a render of the screen is in flight, and `v1:render:again:<device id>` (TTL 30 s) when a job came meanwhile; see the renderer's README, "The render pool" |
-| `v1:render:screens` | hash, no TTL | the orchestrator (for its `POOL_SLUGS`; from step 9 the broker) | device id to slug: the screens the render pool draws; a worker drops a job for any other |
+| `v1:config:<device id>` | string, no TTL | broker, from its database, on every config save, as it starts and by `flask config publish` | the device's config: exactly `GET /api/config`'s JSON for it, the contract's `ConfigResponse`, less its secrets (the weather API key empty, no pairing code); none while the device isn't paired or has a pairing code to show. The render reads it, and has nothing to draw without it; see the renderer's README, "The config" |
+| `v1:pairing:<device id>` | string, TTL the code's own (10 min, to its expiry) | broker, whenever it issues a pairing code; deleted when the code is used, or the device paired, unpaired or forgotten | the device's live pairing code, for the render pool, which reads only the store: exactly `GET /api/config`'s JSON while the code is live, the contract's `ConfigResponse` with its `pairing_code` set (plaintext, by decision: any Redis reader can see a live code). The render draws the pairing screen from it while it's there (`store/pairing.py`). `tests/fixtures/pairing_key.json` pins it, as auth-broker's tests do |
+| `v1:frame:<device id>` | hash, TTL 1 day from the last change | the render pool's render, when the picture changes (`store/frame_record.py`) | the screen's latest frame, which the broker serves the screen: `frame` (the panel's 48,000 raw bytes, as the screen takes them; read with `reader.binary_store()`), `etag` (its 16-hex-digit BLAKE2b, the broker's ETag) and `rendered_at` (when the picture was first written, ISO 8601 UTC). The only way a frame reaches the broker. `tests/fixtures/frame_record.json` pins it, as auth-broker's tests do |
+| `v1:render:jobs` | list | the render pool's ticker, the broker (on a config save or a pairing code) and the bursty providers, by `store/render_queue.py`'s enqueue | device ids to render, each at most once (`v1:render:queued:<device id>`, a flag with the time it was queued, TTL 1 min); the render workers pop them. `v1:render:lease:<device id>` (a worker's token, TTL 30 s) is set while a render of the screen is in flight, and `v1:render:again:<device id>` (TTL 30 s) when a job came meanwhile; see the renderer's README, "The render pool" |
+| `v1:render:screens` | hash, no TTL | the broker, for every paired device (and one showing a live pairing code) | device id to slug: the screens the render pool draws; a worker drops a job for any other. `tests/fixtures/render_screens.json` pins it, as auth-broker's tests do |
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages), one per place however many screens show it; see [Weather](#weather) |
 | `v1:energy:<device id>` | string, TTL ~1 day | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
 | `v1:spotify:<device id>` | string, TTL 3 min | auth-broker's `spotify-provider`, every minute | `StoredPlayer` JSON (`store/music.py`): each service's queue, in the shape of Spotify's `/me/player/queue` |
 | `v1:art:<sha1 of the image URL>` | string of raw bytes, TTL 5 min, renewed every minute while a `v1:spotify:` key shows it | auth-broker's `spotify-provider`, before the player key that shows it | the playing track's cover, the image file as its host served it (a JPEG of about 30 KB); one per image, shared by every screen showing it; see [Covers](#covers) |
 | `v1:developer:<device id>` | string, TTL ~15 min | auth-broker's `developer-provider`, every 2 min, every 20 s while a release runs (a device whose token GitHub rate-limits is left alone until GitHub says) | `StoredDeveloper` JSON (`store/developer.py`): `github`, the GitHub summary (pull requests, builds, releases with their jobs), null until the owner gives a token, and `plans`, the AI plans; the broker has no route for the panel, so this key is the renderer's only source |
-| `v1:pace:<source>:<id>` | integer string, TTL ~1 min | any provider that has bursty data (the developer provider, per device, while a release runs) | the seconds it wants the screen to refresh at. auth-broker's pacing function reads the screen's own (`services/pace.py`) and times its polls by them; while one is live the renderer renders every 20 s rather than every minute. See the renderer's README, "The pace" |
+| `v1:pace:<source>:<id>` | integer string, TTL ~1 min | any provider that has bursty data (the developer provider, per device, while a release runs) | the seconds it wants the screen to refresh at. auth-broker's pacing function reads the screen's own (`services/pace.py`) and times its polls by them; the provider also queues a render of each of its screens on every cycle. See the renderer's README, "The pace" |
 | `v1:spotify-top:<device id>` | string, TTL 2 h | auth-broker's `spotify-provider`, every 30 min | `StoredTop` JSON (`store/music.py`): each service's top tracks and artists by time range |
 | `v1:notices:met-office:<place>` | string, TTL ~30 min | provider-met-office, every 5 min | `StoredMetOfficeWarnings` JSON (`store/met_office.py`): the Met Office's warnings RSS for the region a UK postcode in `v1:sub:postcode` is in, its items as JSON; the renderer makes the notices. See [Weather warnings](#weather-warnings) |
 | `v1:notices:bank-holidays` | string, TTL 7 days | provider-bank-holidays, every 6 h, for everyone, with no subscription (`fixed_ids`) | `StoredBankHolidays` JSON (`store/bank_holidays.py`): gov.uk's bank-holidays.json, every division's; each board picks its own (England and Wales, Scotland, Northern Ireland) and words the notice when it draws; see [Bank holidays](#bank-holidays) |
@@ -468,7 +467,7 @@ secret; its location keys are in [Weather](#weather).
 ## The image
 
 Every provider is in one image, `ghcr.io/nvorkinn/countdown-providers:<tag>`, built by each release from its own
-wheels and pinned to the release's version by the deploy, like the orchestrator. Its default command is the TfL
+wheels and pinned to the release's version by the deploy, like the render pool's. Its default command is the TfL
 provider; a service picks another with `command`. To build it locally, from `countdown/`:
 
 ```sh
@@ -486,10 +485,8 @@ without the password the deploy fails rather than start them unauthenticated. Th
 (auth-broker) and Redis running on the host (`127.0.0.1:6379`, reached over host networking). auth-broker's providers
 (energy, music, developer) are switched on in auth-broker, and deployed with the broker.
 
-The renderers read the store: the orchestrator's `RENDERER_REDIS_URL` defaults to `redis://127.0.0.1:6379/0` in
-the compose file (it gets `REDIS_PASSWORD` from the deploy). It passes them to each renderer as `REDIS_URL` and
-`REDIS_PASSWORD`, and remakes the running ones (keeping their volumes), because a change to the store they read counts
-as an upgrade, like a new image. The renderers read TfL's and Entur's departures (`v1:departures:<stop>`), the weather
+The render pool reads the store: its services have `REDIS_URL` `redis://127.0.0.1:6379/0` in the compose file, and
+`REDIS_PASSWORD` from the deploy. It reads TfL's and Entur's departures (`v1:departures:<stop>`), the weather
 (`v1:weather:<key>`, by the config's `weather.key`), the energy readings (`v1:energy:<device id>`, from auth-broker's
 `glow-provider`) and the Spotify area (`v1:spotify:<device>` and `v1:spotify-top:<device>`, and the covers,
 `v1:art:<sha1>`, from auth-broker's `spotify-provider`) only from the store, and the developer panel
@@ -540,9 +537,8 @@ the bank holiday notice is missing: the log names `NoStoredBankHolidaysError`, a
 on.
 
 The provider must be running, and the key in the store, before the renderers rely on it. They come in the same
-release: the deploy starts the provider beside the orchestrator, and it writes the key within seconds of starting,
-usually before the orchestrator has remade the renderers (one that reads first only misses the notice until its next
-poll, 10 minutes later). After the first deploy with it, check the key is there, on the host:
+release: the deploy starts the provider beside the render pool, and it writes the key within seconds of starting (a
+render that reads first only misses the notice until a render after it's written, a minute later). After the first deploy with it, check the key is there, on the host:
 
 ```sh
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 get v1:notices:bank-holidays | head -c 200'

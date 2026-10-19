@@ -19,7 +19,6 @@ from countdown_core.system_screens.message_panel import MessagePanel
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
     from countdown_core.notices.notice import NoticeSource
-    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +57,10 @@ class AbstractClient(ABC):
     panel_title: str = ""
     panel_logo: str | None = None
 
-    def __init__(self, registration: Registration, config: object | None = None) -> None:
-        """`registration` is the device, as the broker knows it; `config`, this API's section of the broker's config."""
-        # The device, as the broker knows it. Only the clients that call the broker send its
-        # secret (session.auth): it mustn't go to third-party APIs.
-        self.registration = registration
+    def __init__(self, device_id: str, config: object | None = None) -> None:
+        """`device_id` is the screen, as the broker knows it; `config`, this API's section of the broker's config."""
+        # The screen whose keys in the store the client reads (the ones by device: energy, music, developer).
+        self.device_id = device_id
         self.config = config
         self.session = self._build_retrying_session()
         self.cache: dict[str, object] = {}
@@ -128,13 +126,6 @@ class AbstractClient(ABC):
         """
         return self.config != new_config
 
-    def pace_keys(self) -> list[str]:
-        """Return the store keys (store.keys.pace) where this client's provider asks for a faster refresh.
-
-        None by default: only the clients whose providers can turn bursty have any.
-        """
-        return []
-
     def notice_sources(self) -> list[NoticeSource]:
         """Return the sources of notices about what this client shows, for the notice board to poll and rank.
 
@@ -163,8 +154,7 @@ class AbstractClient(ABC):
 
         If the store has nothing for it (a NoStoredDataError: the provider's key has expired, or isn't there yet), the
         panel says "Not available", and `expired` is set: the provider's TTL is the only expiry there is, so nothing
-        older is drawn. Anything else that fails, Redis not answering among them, raises, and the render draws the
-        panel the screen last had, if it has one (render.render's `previous`).
+        older is drawn. Anything else that fails, Redis not answering among them, raises (see ApiRegistry.poll).
 
         last_updated is stamped even when that fails.
         """

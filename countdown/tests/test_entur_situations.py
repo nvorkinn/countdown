@@ -17,7 +17,7 @@ import fakeredis
 import pytest
 import requests
 import responses
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 
 from countdown_api.models import DepartureStop
 from countdown_core import i18n
@@ -309,7 +309,7 @@ def clock(monkeypatch):
 
 
 def test_the_board_drops_entur_notices_once_their_keys_have_expired(store, provide, clock, caplog):
-    board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
+    board = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode=None))
     board.sources = []  # only Entur's
     board.use_client_sources([StoredEnturSituationsSource(store, STOP_IDS)])
     provide(*STOP_IDS)
@@ -337,7 +337,7 @@ def test_a_key_error_in_a_source_is_still_a_bug_with_its_traceback(clock, caplog
         def fetch(self, now):
             return {}["items"]
 
-    board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
+    board = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode=None))
     board.sources = []
     board.use_client_sources([Broken(requests.Session())])
     with pytest.raises(RuntimeError):
@@ -348,7 +348,7 @@ def test_a_key_error_in_a_source_is_still_a_bug_with_its_traceback(clock, caplog
 
 
 def test_the_board_reads_the_store_each_time_it_draws(store, provide, clock):
-    board = NoticeBoardClient(REGISTRATION, NoticeBoardSettings(postcode=None))
+    board = NoticeBoardClient(TEST_DEVICE_ID, NoticeBoardSettings(postcode=None))
     board.sources = []
     board.use_client_sources([StoredEnturSituationsSource(store, [QUAY_ID])])
     assert asyncio.run(board.update()).message == "Not available"  # nothing stored yet
@@ -361,7 +361,7 @@ def test_the_board_reads_the_store_each_time_it_draws(store, provide, clock):
 def test_the_departures_client_hands_the_board_its_entur_stops_from_the_store(store):
     stops = (DepartureStop(source="entur", id=QUAY_ID), DepartureStop(source="tfl", id="490000123W"))
 
-    sources = DeparturesClient(REGISTRATION, DeparturesSettings(stops)).notice_sources()
+    sources = DeparturesClient(TEST_DEVICE_ID, DeparturesSettings(stops)).notice_sources()
 
     [entur_source] = [s for s in sources if isinstance(s, StoredEnturSituationsSource)]
     assert (entur_source.store, entur_source.stop_ids) == (store, [QUAY_ID])

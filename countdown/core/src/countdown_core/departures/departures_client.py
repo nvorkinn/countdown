@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     from countdown_core.core.style import Style
     from countdown_core.notices.notice import NoticeSource
     from countdown_core.tfl.abstract_arrival_panel import AbstractArrivalPanel
-    from countdown_credentials.registration import Registration
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +79,9 @@ class DeparturesClient(AbstractClient):
 
     panel_title = N_("Arrivals")
 
-    def __init__(self, registration: Registration, config: DeparturesSettings) -> None:
+    def __init__(self, device_id: str, config: DeparturesSettings) -> None:
         """Never touches the network: stops are resolved in _initialise(). Raises without a store to read."""
-        super().__init__(registration, config)
+        super().__init__(device_id, config)
         # Departures come from the store (the TfL and Entur providers fetch them once for every screen); raises
         # without one. So do TfL's and Entur's disruption notices.
         store = reader.require_store()
@@ -178,8 +177,7 @@ class DeparturesClient(AbstractClient):
                 logger.warning("No departures for %s: %s", resolved.id, e)
                 expired += 1
             except RedisError:
-                # Redis not answering isn't one stop's problem: raised, so the registry keeps the last departures (and
-                # the render pool's render fails, keeping the screen's frame).
+                # Redis not answering isn't one stop's problem: raised, so the render fails, keeping the screen's frame.
                 raise
             except Exception:
                 logger.exception("Error fetching departures for %s", resolved.id)
@@ -188,6 +186,6 @@ class DeparturesClient(AbstractClient):
             if expired == len(to_fetch):
                 # Every stop's key has expired: the panel says the departures aren't available, never old ones.
                 raise NoStoredDeparturesError(msg)
-            # Redis not answering, say: raised, so the registry keeps the last good departures.
+            # Every stop failed some other way (a bug): its area says it could not connect.
             raise RuntimeError(msg)
         return CombinedArrivalPanel(panels, shown)

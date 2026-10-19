@@ -1,15 +1,14 @@
 """The renderer's side of the store: reading what the providers wrote.
 
-Every renderer runs on the server and reads the store: the orchestrator passes it REDIS_URL (and REDIS_PASSWORD, if
-Redis wants one). The departures, weather, energy, music and developer clients read only the store (require_store()); a
-renderer started without REDIS_URL can't draw them, and those panels show their error state instead. Only the refresh
-pace still copes without one (store()).
+The render pool's workers run on the server and read the store: compose gives them REDIS_URL (and REDIS_PASSWORD, if
+Redis wants one). Every client reads only the store (require_store()); without REDIS_URL there's nothing to draw.
 
 Each provider's TTL is the only expiry there is: a key that has expired (or isn't there yet) raises a NoStoredDataError,
-and its panel says "Not available" (AbstractClient.update), while Redis not answering raises a RedisError, which keeps
-the panel the screen last had.
+and its panel says "Not available" (AbstractClient.poll), while Redis not answering raises a RedisError, which fails the
+render, so the screen keeps the frame it has.
 
-Synchronous (redis.Redis, not redis.asyncio): the clients' _initialise() and _update() run in worker threads.
+Synchronous (redis.Redis, not redis.asyncio): a render, and the clients' _initialise() and _update(), run to completion
+in the worker's own thread.
 """
 
 import functools
@@ -24,7 +23,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Short: a slow Redis must not hold up a render cycle. A failed read raises, so the registry keeps the last panel.
+# Short: a slow Redis must not hold up a render. A failed read raises, and fails the render.
 TIMEOUT_S = 2
 
 
@@ -80,25 +79,13 @@ def require_store() -> redis.Redis:
     """Return the client for the store, for a client that has nowhere else to get its data.
 
     Raises StoreNotConfiguredError without REDIS_URL. Only that: making the client doesn't connect, so Redis being
-    down raises later (a RedisError), from each read, and the registry just keeps the last panel.
+    down raises later (a RedisError), from each read, which fails the render.
     """
     client = store()
     if client is None:
         msg = "REDIS_URL is not set: this renderer reads its panels' data from the store, and has none to read"
         raise StoreNotConfiguredError(msg)
     return client
-
-
-def device_id(registration: object) -> str:
-    """Return the device id a renderer's keys in the store are under; raises ValueError if `registration` has none.
-
-    Only a renderer's registration (RendererRegistration) carries one.
-    """
-    found = getattr(registration, "device_id", None)
-    if not found:
-        msg = "This registration has no device id, which the store's keys for this device are under"
-        raise ValueError(msg)
-    return found
 
 
 def read[M: BaseModel](client: redis.Redis, key: str, model: type[M]) -> M | None:
@@ -108,15 +95,3 @@ def read[M: BaseModel](client: redis.Redis, key: str, model: type[M]) -> M | Non
     """
     value = client.get(key)
     return None if value is None else model.model_validate_json(value)
-
-
-def fastest_pace(client: redis.Redis, pace_keys: list[str]) -> int | None:
-    """Return the shortest refresh pace, in seconds, that the providers behind `pace_keys` ask for; None if none do.
-
-    A key is there only while its provider wants the screen faster (see keys.pace). Anything that isn't a positive
-    whole number is ignored, so one provider on another version can't stall the screen.
-    """
-    if not pace_keys:
-        return None
-    paces = [int(value) for value in client.mget(pace_keys) if value is not None and value.isdigit() and int(value) > 0]
-    return min(paces, default=None)

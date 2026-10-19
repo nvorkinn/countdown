@@ -1,40 +1,7 @@
-# The orchestrator starts one renderer for each screen assignment. This file deploys the orchestrator to the
-# renderers' host (deploy.sh, run by release.yml); see README.md.
+# The providers and the render pool, on the renderers' host (deploy.sh, run by release.yml); see README.md.
 name: countdown-renderers
 
 services:
-  # Starts renderers for assignments (see ../../orchestrator/README.md). Its renderer containers are not
-  # Compose services; they carry no Compose labels and are upgraded by the orchestrator on each release.
-  orchestrator:
-    image: ghcr.io/nvorkinn/countdown-orchestrator:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
-    pull_policy: always
-    restart: unless-stopped
-    environment:
-      BROKER_URL: https://auth.nikolaivorkinn.com
-      ORCHESTRATOR_TOKEN: ${ORCHESTRATOR_TOKEN:?the orchestrator's token on the broker}
-      RENDERER_IMAGE: ghcr.io/nvorkinn/countdown-server:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
-      MAX_RENDERERS: ${MAX_RENDERERS:-20}
-      # The store the renderers read (as REDIS_URL, with REDIS_PASSWORD) for the departures, weather, energy and music:
-      # the host's Redis, which the providers fill. The renderers no longer call those APIs themselves, so without it
-      # (RENDERER_REDIS_URL set to empty: `-`, not `:-`, so an empty value is kept) those panels can't be drawn.
-      RENDERER_REDIS_URL: ${RENDERER_REDIS_URL-redis://127.0.0.1:6379/0}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      # The screens (by slug, separated by commas) the render pool draws instead of their own renderers: each one's
-      # renderer is stopped, kept with its volumes, and the screen written into v1:render:screens. Empty: none. From
-      # the deploy-renderers job's POOL_SLUGS variable (see ../../orchestrator/README.md, "The render pool").
-      POOL_SLUGS: ${POOL_SLUGS:-}
-    # For the host's Redis on 127.0.0.1:6379 (RENDERER_REDIS_URL), which it writes the pool's screens to.
-    network_mode: host
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    # The tag is the stream's `service` in VictoriaLogs (the renderers' is renderer-<slug>, see runtime.py).
-    logging:
-      driver: json-file
-      options:
-        tag: orchestrator
-        max-size: 10m
-        max-file: "3"
-
   # The providers (see ../../providers/README.md): one per API, all from the one image, each picking its provider by
   # `command`. They fetch what the broker's subscriptions in Redis ask for and write it back there, on the host's Redis
   # (host networking). Every deploy starts and upgrades them; REDIS_PASSWORD (and TFL_APP_KEY) come from the
@@ -44,7 +11,7 @@ services:
     command: countdown-provider-tfl
     pull_policy: always
     restart: unless-stopped
-    # Redis listens on the host's 127.0.0.1:6379 (deployed by auth-broker), as Fluent Bit does for the renderers.
+    # Redis listens on the host's 127.0.0.1:6379 (deployed by auth-broker), as Fluent Bit does for the render pool.
     network_mode: host
     environment:
       # Required: a deploy without it fails, rather than start a provider Redis turns away. TFL_APP_KEY is optional.
@@ -204,9 +171,9 @@ services:
         max-file: "3"
 
   # The render pool (docs/stateless-renderers.md, "The pool, the queue and the render function"): workers that take
-  # render jobs off the queue in the host's Redis and draw the screens in v1:render:screens, and a ticker that queues
-  # each of those screens every minute. From the renderers' image, with another entrypoint. Idle until the
-  # orchestrator's POOL_SLUGS puts a screen in the pool. Host networking for Redis and the host's Fluent Bit (metrics).
+  # render jobs off the queue in the host's Redis and draw the screens in v1:render:screens (which auth-broker writes,
+  # for every paired device), and a ticker that queues each of those screens every minute. Both from the
+  # countdown-server image, each with its own entrypoint. Host networking for Redis and the host's Fluent Bit (metrics).
   render-worker-1: &render-worker
     image: ghcr.io/nvorkinn/countdown-server:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
     entrypoint: ["countdown-render-worker"]
@@ -215,10 +182,6 @@ services:
     restart: unless-stopped
     network_mode: host
     mem_limit: 512m
-    # The image declares these for a screen's own renderer's identity and key; the pool keeps nothing, so no volumes.
-    tmpfs:
-      - /data
-      - /keys
     environment: &render-pool-environment
       REDIS_URL: redis://127.0.0.1:6379/0
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
@@ -249,9 +212,6 @@ services:
     pull_policy: always
     restart: unless-stopped
     network_mode: host
-    tmpfs:
-      - /data
-      - /keys
     environment:
       REDIS_URL: redis://127.0.0.1:6379/0
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}

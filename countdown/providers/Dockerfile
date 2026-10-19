@@ -7,8 +7,8 @@ LABEL org.opencontainers.image.source="https://github.com/nvorkinn/pi-dashboard"
 LABEL org.opencontainers.image.description="countdown providers: fetch each API's data into the shared Redis store"
 
 # Our packages only ever come from these wheels, never an index: anyone could publish a package there under one of
-# their names. countdown-core (and with it -credentials and -api) is here for its API clients and the store's models.
-COPY dist/countdown_providers-*.whl dist/countdown_core-*.whl dist/countdown_credentials-*.whl dist/countdown_api-*.whl /tmp/wheels/
+# their names. countdown-core (and with it countdown-api) is here for its API clients and the store's models.
+COPY dist/countdown_providers-*.whl dist/countdown_core-*.whl dist/countdown_api-*.whl /tmp/wheels/
 RUN pip install --no-cache-dir --root-user-action=ignore --disable-pip-version-check /tmp/wheels/*.whl \
     && rm -rf /tmp/wheels
 

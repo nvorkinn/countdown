@@ -10,7 +10,7 @@ import responses
 from test_departures_client import make_config
 from test_entur_provider import MAJORSTUEN_ID, QUAY_ID, fetched, mock_entur
 from test_tfl_provider import BUS_STOP, NOW, TUBE_STATION, bus, train
-from test_utils import REGISTRATION
+from test_utils import TEST_DEVICE_ID
 from weather_factory import forecast_json
 
 from countdown_api.models import DepartureStop
@@ -95,16 +95,16 @@ def test_the_covers_are_read_from_the_same_store_as_bytes(monkeypatch, real_stor
 def test_requiring_a_store_doesnt_connect_so_redis_being_down_isnt_fatal(monkeypatch, real_store):
     """Nothing listens on 6399: building the clients still works, and only each read fails (keeping the last panel)."""
     monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:6399/0")
-    client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["490000123W"]))
     asyncio.run(client.initialise())
 
-    # Redis's own error, which the render pool's render fails on (render.render's raise_store_errors).
+    # Redis's own error, which the render fails on, writing nothing.
     with pytest.raises(redis.exceptions.ConnectionError):
         client._update()
 
 
 def test_departures_come_from_the_store_with_one(store):
-    client = DeparturesClient(REGISTRATION, make_config(["490000123W"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["490000123W"]))
     assert isinstance(client.sources["tfl"], StoredTflSource)
     assert isinstance(client.sources["entur"], StoredEnturSource)
 
@@ -166,14 +166,14 @@ def test_departures_client_draws_stored_stops_and_skips_missing_ones(store):
     store.set(
         keys.departures(BUS_STOP.naptan_id), to_stop_departures(BUS_STOP, [bus("12", "X", 60)], NOW).model_dump_json()
     )
-    client = DeparturesClient(REGISTRATION, make_config([BUS_STOP.naptan_id, "490000999Z"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config([BUS_STOP.naptan_id, "490000999Z"]))
     asyncio.run(client.initialise())
     panel = client._update()
     assert [p.stop_name for p in panel.arrival_panels] == [BUS_STOP.common_name]
 
 
 def test_departures_client_says_not_available_when_nothing_is_in_the_store(store):
-    client = DeparturesClient(REGISTRATION, make_config(["490000999Z"]))
+    client = DeparturesClient(TEST_DEVICE_ID, make_config(["490000999Z"]))
     asyncio.run(client.initialise())
     with pytest.raises(NoStoredDeparturesError):
         client._update()
@@ -279,7 +279,7 @@ def test_departures_client_draws_stored_entur_stops_without_asking_entur(store):
     mock_entur()
     store.set(keys.departures(MAJORSTUEN_ID), entur_stop_departures(*fetched(MAJORSTUEN_ID), NOW).model_dump_json())
     asked_before = len(responses.calls)
-    client = DeparturesClient(REGISTRATION, entur_settings(MAJORSTUEN_ID, "NSR:StopPlace:999"))
+    client = DeparturesClient(TEST_DEVICE_ID, entur_settings(MAJORSTUEN_ID, "NSR:StopPlace:999"))
     asyncio.run(client.initialise())
     panel = client._update()
     assert [p.stop_name for p in panel.arrival_panels] == ["Majorstuen"]
@@ -290,7 +290,7 @@ def test_departures_client_draws_stored_entur_stops_without_asking_entur(store):
 
 
 def make_weather_client(location: str = "London") -> WeatherClient:
-    return WeatherClient(REGISTRATION, WeatherSection(location=location))
+    return WeatherClient(TEST_DEVICE_ID, WeatherSection(location=location))
 
 
 @responses.activate  # with nothing registered: any call to Open-Meteo fails the test
