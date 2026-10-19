@@ -173,7 +173,7 @@ def frame(device_id: str) -> str:
 # function"). The jobs are a list of device ids, which the workers BRPOP; a screen is in it at most once.
 RENDER_JOBS = f"{PREFIX}:render:jobs"
 # The screens the pool renders: a hash of device id to slug (the slug names the screen in the metrics). auth-broker
-# writes it, for every paired device; a worker drops a job for a device not in it.
+# writes it, for every paired device (and one showing a pairing code); a worker drops a job for a device not in it.
 RENDER_SCREENS = f"{PREFIX}:render:screens"
 
 

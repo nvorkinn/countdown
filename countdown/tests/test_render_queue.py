@@ -27,6 +27,8 @@ DEVICE = "a1b2c3d4e5f6"
 OTHER = "0f9e8d7c6b5a"
 # What auth-broker's copy of the enqueue script is checked against too (its broker/services/render_jobs.py).
 BROKER_COPY = json.loads((Path(__file__).parent / "fixtures" / "render_queue.json").read_text(encoding="utf-8"))
+# The screens as auth-broker writes them (its broker/services/render_screens.py), the same file as its tests read.
+SCREENS = json.loads((Path(__file__).parent / "fixtures" / "render_screens.json").read_text(encoding="utf-8"))
 
 
 def _free_port() -> int:
@@ -95,6 +97,15 @@ def test_the_enqueue_script_and_its_keys_are_the_ones_auth_broker_copies():
     assert BROKER_COPY["jobs_key"] == keys.RENDER_JOBS
     assert BROKER_COPY["queued_key"] == keys.render_queued(BROKER_COPY["device_id"])
     assert BROKER_COPY["queued_ttl_ms"] == render_queue.QUEUED_TTL_MS
+
+
+def test_the_screens_auth_broker_writes_are_the_ones_the_pool_reads(client):
+    assert SCREENS["key"] == keys.RENDER_SCREENS
+    client.hset(SCREENS["key"], mapping=SCREENS["screens"])
+
+    assert render_queue.screens(client) == SCREENS["screens"]
+    render_queue.enqueue(client, DEVICE)
+    assert render_queue.claim(client, _pop(client)).claim is not Claim.DROPPED  # a listed device is drawn
 
 
 def test_redis_knows_the_enqueue_script_by_the_fixtures_sha1(client):
