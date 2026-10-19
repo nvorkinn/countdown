@@ -24,6 +24,7 @@ import pytest
 from config_factory import make_config
 from test_utils import put_departures
 
+from countdown_api import fixtures
 from countdown_api.models import ConfigResponse
 from countdown_core import i18n
 from countdown_core.core import moment, rotation
@@ -267,9 +268,7 @@ def test_the_render_fails_and_writes_nothing_when_the_store_cant_be_read(store, 
     assert reader.binary_store().hgetall(keys.frame(DEVICE_ID)) == before
 
 
-EVERY_PANEL = json.loads((Path(__file__).parent / "fixtures" / "config_store.json").read_text(encoding="utf-8"))[
-    "value"
-]
+EVERY_PANEL = fixtures.load("config_store.json")["value"]
 
 
 @pytest.mark.parametrize(

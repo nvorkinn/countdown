@@ -56,14 +56,14 @@ The screen's config is in the store: auth-broker keeps its database as the sourc
 config to `v1:config:<device id>` (`store/keys.py`'s `config`) on every config save and as it starts, and queues a
 render of the screen. The value is the contract's `ConfigResponse`, less its `pairing_code` (and it carries no API key),
 so the render reads it with the same model (`store/config.py`'s `read`). It's self-contained: a fresh process can draw
-the screen from it and the providers' keys alone. `tests/fixtures/config_store.json` pins it, the same file as
-auth-broker's tests read. A config that doesn't validate (a section missing, a value the contract doesn't list) fails
+the screen from it and the providers' keys alone. The store contract's `config_store.json` (countdown-api's
+`countdown_api.fixtures`) pins it, the same file as auth-broker's tests read. A config that doesn't validate (a section missing, a value the contract doesn't list) fails
 the render, and the screen keeps its frame; a field the broker adds is ignored.
 
 - **The pairing code.** While the broker has a code for the screen to show, it writes `v1:pairing:<device id>`: the
   config, code included, expiring with the code (`store/pairing.py`), and queues a render. While it's there the render
   draws the pairing screen from it; once it goes (used, lapsed, the device paired) the render draws from
-  `v1:config:<device id>` again. `tests/fixtures/pairing_key.json` pins it.
+  `v1:config:<device id>` again. The contract's `pairing_key.json` pins it.
 - **The interval.** The config's `interval` is in the body, and so in the stored value, but nothing goes by it: the
   screens are drawn on the minute, and the broker paces the polls.
 
@@ -157,8 +157,8 @@ picture to the screen's record in the store, `v1:frame:<device id>`, and the bro
 is written only when the frame's hash isn't the record's `etag` (one small read, and no write for an unchanged
 picture), and checked again by every render, so a record that was lost (Redis restarted, or a day of the same picture
 outlived its TTL) is put back within the minute. Redis not taking the write is logged by the error's type (the
-render's result is `unrecorded`, counted as `failed`). `tests/fixtures/frame_record.json` and `frame_record.bin` pin
-the record; auth-broker's tests read the same files. To check the records, on the host:
+render's result is `unrecorded`, counted as `failed`). The store contract's `frame_record.json` and
+`frame_record.bin` pin the record; auth-broker's tests read the same files. To check the records, on the host:
 
 ```sh
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:frame:*"'
@@ -234,14 +234,16 @@ MetAlerts](https://api.met.no/weatherapi/metalerts/2.0/documentation) in the scr
 and the clocks-change reminder goes by the screen's time zone. Entur stops bring their disruptions to the board whatever
 the postcode, as TfL stops bring theirs.
 
-## The API contract
+## The store contract
 
-The config's shape is defined in neither this repository nor auth-broker but in
-[countdown-api](https://github.com/nvorkinn/countdown-api): an OpenAPI file and a Python package with Pydantic models.
-The broker writes the config to the store in that shape, and the render reads it with the contract's own
-`ConfigResponse` (and its sections), with no model of its own beside it, so the two can't diverge. Nothing here calls
-the broker's `GET /api/config` any more, nor any other broker route: the package's generated `requests` client goes
-unused, and only its models are read.
+This repository and auth-broker share only Redis, and what crosses between them is defined in neither but in
+[countdown-api](https://github.com/nvorkinn/countdown-api), the store contract: `store.yaml` and the Python package
+generated from it. `countdown_api.keys` names every key that crosses (`store/keys.py` re-exports them beside the keys
+only this repository uses), `countdown_api.models` has a model of each value (the config is read with its own
+`ConfigResponse` and its sections, with no model of its own beside it, so the two can't diverge),
+`countdown_api.scripts` has the enqueue script both sides run (`store/render_queue.py`), and `countdown_api.fixtures`
+the canonical examples both sides' tests read (`tests/test_store_contract.py` round-trips this side's readers and
+writers through them). Nothing here calls the broker over HTTP.
 
 Here it is a git submodule and a member of the uv workspace:
 

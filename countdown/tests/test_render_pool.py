@@ -24,6 +24,7 @@ from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from test_render_queue import redis_server  # noqa: F401 -- a fixture
 from test_utils import put_departures
 
+from countdown_api import fixtures
 from countdown_core import i18n
 from countdown_core import render as rendering
 from countdown_core.core import log_format
@@ -35,9 +36,8 @@ from countdown_server.render_pool import Ticker, Worker
 
 DEVICE, SLUG = "a1b2c3d4e5f6", "nvorkinn-test"
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
-FIXTURES = Path(__file__).parent / "fixtures"
 # The config the broker stores for a screen with every panel on (auth-broker writes the same).
-EVERY_PANEL = json.loads((FIXTURES / "config_store.json").read_text(encoding="utf-8"))["value"]
+EVERY_PANEL = fixtures.load("config_store.json")["value"]
 STOP_CONFIG = {
     **EVERY_PANEL,
     "screen": {"orientation": "horizontal", "width": 800, "height": 480},

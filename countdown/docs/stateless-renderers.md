@@ -87,7 +87,7 @@ render whenever a job for a screen arrives on a Redis queue.
 
 ### Frames through Redis
 
-`v1:frame:<device id>` is a Redis hash (`countdown_core/store/frame_record.py`; `tests/fixtures/frame_record.json`
+`v1:frame:<device id>` is a Redis hash (`countdown_core/store/frame_record.py`; the store contract's `frame_record.json`
 pins it in both repositories). Fields:
 
 - `frame`: the 48,000 bytes, as `PUT /api/frame` takes them now: raw, read with a client that doesn't decode values;

@@ -3,15 +3,16 @@
 The provider runs in auth-broker (broker/spotify_provider.py, see "Music in the store" in its README), which can't
 import this, so the contract is the JSON itself: each service's part is in Spotify's own shapes (/me/player/queue,
 /me/top/tracks, ...; Apple Music's made to look like them), read with the models in countdown_core.spotify.models.
-Only these wrappers are the store's own. tests/fixtures/music_player.json and music_top.json
-are an example of each, copied into both repositories' tests so neither side can drift alone.
+Only these wrappers are the store's own. The store contract (countdown-api's store.yaml: StoredPlayer, StoredTop) pins
+them, and its music_player.json and music_top.json (countdown_api.fixtures) are an example of each, which both
+repositories' tests read, so neither side can drift alone.
 
 A part is None when the service is switched off for the device, or the provider couldn't fetch it; nothing playing is
 a Queue with no currently_playing, not None.
 
 The playing track's cover isn't in the JSON: the provider stores the image itself, under keys.album_art(its URL), and
-picks which of the album's sizes the same way as art_image. tests/fixtures/music_art.json is the keys it stores for
-music_player.json (each holding music_art.jpg's bytes in the tests), in both repositories too.
+picks which of the album's sizes the same way as art_image. The contract's music_art.json is the keys it stores for
+music_player.json (each holding music_art.jpg's bytes in the tests).
 """
 
 from pydantic import BaseModel

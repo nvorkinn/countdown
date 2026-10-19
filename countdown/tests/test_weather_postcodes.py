@@ -11,7 +11,6 @@ import asyncio
 import json
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import fakeredis
@@ -22,6 +21,7 @@ from location_factory import FakeLocations
 from redis.exceptions import RedisError
 from weather_factory import forecast_json
 
+from countdown_api import fixtures
 from countdown_core.notices.location import OUTCODES_URL, POSTCODES_URL, lookup_outcode
 from countdown_core.store import keys
 from countdown_core.store.location import StoredLocation, weather_postcode
@@ -95,7 +95,7 @@ def assert_nothing_says_where(text: str, *traces: str | float) -> None:
 # --- Which weather keys are postcodes --------------------------------------------------------------------------------
 
 # The keys auth-broker's weather_place.weather_key() makes: its tests read the same file.
-WEATHER_KEYS = json.loads((Path(__file__).parent / "fixtures" / "weather_keys.json").read_text())["keys"]
+WEATHER_KEYS = fixtures.load("weather_keys.json")["keys"]
 
 
 @pytest.mark.parametrize(

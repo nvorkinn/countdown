@@ -1,9 +1,9 @@
 """The energy panel from the store (`v1:energy:<device id>`, written by auth-broker's glow-provider).
 
-fixtures/glow_energy.json is the contract with auth-broker, whose tests read the same file: what Glowmarkt answers,
-what's asked of it, and the stored value the broker writes from those answers. The panel drawn from the stored value
-must be the one the renderer drew from Glowmarkt's answers when it asked Glowmarkt itself: fixtures/
-glow_energy_pages.json is what it drew then, from the same answers at the fixture's `now`.
+The store contract's glow_energy.json (countdown_api.fixtures), which auth-broker's tests read too: what Glowmarkt
+answers, what's asked of it, and the stored value the broker writes from those answers. The panel drawn from the
+stored value must be the one the renderer drew from Glowmarkt's answers when it asked Glowmarkt itself:
+fixtures/glow_energy_pages.json is what it drew then, from the same answers at the fixture's `now`.
 """
 
 import asyncio
@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 import responses
 
+from countdown_api import fixtures
 from countdown_api.models import Glowmarkt
 from countdown_core.core import moment
 from countdown_core.core.abstract_client import ClientStatus
@@ -22,7 +23,7 @@ from countdown_core.glow.glow_client import GlowClient, NoStoredEnergyError
 from countdown_core.store import keys, reader
 from countdown_core.store.energy import StoredEnergy
 
-FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "glow_energy.json").read_text())
+FIXTURE = fixtures.load("glow_energy.json")
 STORED = FIXTURE["stored"]
 DEVICE_ID = FIXTURE["device_id"]
 # The pages the renderer drew from FIXTURE's Glowmarkt answers when it signed in to Glowmarkt itself.

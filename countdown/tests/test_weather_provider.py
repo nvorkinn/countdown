@@ -5,9 +5,7 @@ has those, both providers together.
 """
 
 import asyncio
-import json
 from datetime import UTC, datetime
-from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import fakeredis
@@ -18,6 +16,7 @@ from location_factory import FakeLocations
 from responses import matchers
 from weather_factory import forecast_json
 
+from countdown_api import fixtures
 from countdown_core.store import keys
 from countdown_core.store.models import StoredForecast
 from countdown_core.weather.open_meteo import FORECAST_URL, GEOCODING_URL, PLACE_URL
@@ -80,7 +79,7 @@ def test_place_id_of_takes_the_trailing_geonames_id(location, expected):
 
 
 # The keys auth-broker's weather_place.weather_key() makes: its tests read the same file.
-WEATHER_KEYS = json.loads((Path(__file__).parent / "fixtures" / "weather_keys.json").read_text())["keys"]
+WEATHER_KEYS = fixtures.load("weather_keys.json")["keys"]
 
 
 @pytest.mark.parametrize("example", WEATHER_KEYS, ids=[example["key"] for example in WEATHER_KEYS])

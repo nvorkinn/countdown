@@ -7,7 +7,7 @@ config as the contract's ConfigResponse, with its `pairing_code` set, and queues
 screen is drawn in the screen's own size and language even with no config in the store. Its TTL is the code's own
 expiry (ten minutes), and the broker deletes it sooner when the code is used, or the device paired, unpaired or
 forgotten.
-tests/fixtures/pairing_key.json pins the shape, the same file as auth-broker's tests read.
+The store contract's pairing_key.json (countdown_api.fixtures) pins the shape, which auth-broker's tests read too.
 
 Plaintext, by decision: any Redis reader on the host can see a live code. Nothing here logs one.
 """

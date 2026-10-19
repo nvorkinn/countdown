@@ -25,7 +25,11 @@ auth-broker ──SADD (replace)──▶ v1:sub:tfl ──SMEMBERS──▶ pro
   "no data"; a **missing key** means the provider is down (its keys expired), and the panel is hidden.
 
 The key names are in `countdown_core/store/keys.py` and the stored models in `countdown_core/store/models.py`, in
-countdown-core so the providers and renderers share them.
+countdown-core so the providers and renderers share them. The keys that cross to auth-broker (the subscriptions, the
+config and pairing keys, the render queue's jobs, queued flags and screens, the frame records, the pace keys, and the
+broker's providers' energy, music, cover and developer keys) are the store contract's: countdown-api's `store.yaml`,
+which `keys.py` re-exports from `countdown_api.keys`, with their schemas in `countdown_api.models`, the enqueue script in
+`countdown_api.scripts` and canonical examples in `countdown_api.fixtures`, which both repositories' tests read.
 
 | Key | Type | Written by | Holds |
 |---|---|---|---|
@@ -37,11 +41,11 @@ countdown-core so the providers and renderers share them.
 | `v1:sub:developer` | set | broker | device ids with the developer panel on (with or without a GitHub token) |
 | `v1:sub:postcode` | set | broker | the notice boards' postcodes in canonical form, e.g. `SW1A 1AA`, `0150` (Norwegian: four digits); keys by place use `keys.place()`, e.g. `SW1A1AA` |
 | `v1:sub:changed` | pub/sub channel | broker | empty message after replacing subscriptions |
-| `v1:config:<device id>` | string, no TTL | broker, from its database, on every config save, as it starts and by `flask config publish` | the device's config: exactly `GET /api/config`'s JSON for it, the contract's `ConfigResponse`, less its secrets (the weather API key empty, no pairing code); none while the device isn't paired or has a pairing code to show. The render reads it, and has nothing to draw without it; see the renderer's README, "The config" |
-| `v1:pairing:<device id>` | string, TTL the code's own (10 min, to its expiry) | broker, whenever it issues a pairing code; deleted when the code is used, or the device paired, unpaired or forgotten | the device's live pairing code, for the render pool, which reads only the store: exactly `GET /api/config`'s JSON while the code is live, the contract's `ConfigResponse` with its `pairing_code` set (plaintext, by decision: any Redis reader can see a live code). The render draws the pairing screen from it while it's there (`store/pairing.py`). `tests/fixtures/pairing_key.json` pins it, as auth-broker's tests do |
-| `v1:frame:<device id>` | hash, TTL 1 day from the last change | the render pool's render, when the picture changes (`store/frame_record.py`) | the screen's latest frame, which the broker serves the screen: `frame` (the panel's 48,000 raw bytes, as the screen takes them; read with `reader.binary_store()`), `etag` (its 16-hex-digit BLAKE2b, the broker's ETag) and `rendered_at` (when the picture was first written, ISO 8601 UTC). The only way a frame reaches the broker. `tests/fixtures/frame_record.json` pins it, as auth-broker's tests do |
+| `v1:config:<device id>` | string, no TTL | broker, from its database, on every config save, as it starts and by `flask config publish` | the device's config: the contract's `ConfigResponse`, with no pairing code and no secret; none while the device isn't paired or has a pairing code to show. The render reads it, and has nothing to draw without it; see the renderer's README, "The config" |
+| `v1:pairing:<device id>` | string, TTL the code's own (10 min, to its expiry) | broker, whenever it issues a pairing code; deleted when the code is used, or the device paired, unpaired or forgotten | the device's live pairing code, for the render pool, which reads only the store: the device's config while the code is live, the contract's `PairingConfig` (its `ConfigResponse` with `pairing_code` set) (plaintext, by decision: any Redis reader can see a live code). The render draws the pairing screen from it while it's there (`store/pairing.py`). The contract's `pairing_key.json` pins it, for both repositories' tests |
+| `v1:frame:<device id>` | hash, TTL 1 day from the last change | the render pool's render, when the picture changes (`store/frame_record.py`) | the screen's latest frame, which the broker serves the screen: `frame` (the panel's 48,000 raw bytes, as the screen takes them; read with `reader.binary_store()`), `etag` (its 16-hex-digit BLAKE2b, the broker's ETag) and `rendered_at` (when the picture was first written, ISO 8601 UTC). The only way a frame reaches the broker. The contract's `frame_record.json` pins it, for both repositories' tests |
 | `v1:render:jobs` | list | the render pool's ticker, the broker (on a config save or a pairing code) and the bursty providers, by `store/render_queue.py`'s enqueue | device ids to render, each at most once (`v1:render:queued:<device id>`, a flag with the time it was queued, TTL 1 min); the render workers pop them. `v1:render:lease:<device id>` (a worker's token, TTL 30 s) is set while a render of the screen is in flight, and `v1:render:again:<device id>` (TTL 30 s) when a job came meanwhile; see the renderer's README, "The render pool" |
-| `v1:render:screens` | hash, no TTL | the broker, for every paired device (and one showing a live pairing code) | device id to slug: the screens the render pool draws; a worker drops a job for any other. `tests/fixtures/render_screens.json` pins it, as auth-broker's tests do |
+| `v1:render:screens` | hash, no TTL | the broker, for every paired device (and one showing a live pairing code) | device id to slug: the screens the render pool draws; a worker drops a job for any other. The contract's `render_screens.json` pins it, for both repositories' tests |
 | `v1:departures:<stop id>` | string, TTL ~2 min | provider-tfl, provider-entur | `StopDepartures` JSON |
 | `v1:weather:<key>` | string, TTL ~30 min | provider-weather | `StoredForecast` JSON (Open-Meteo's forecast; the renderer makes the pages), one per place however many screens show it; see [Weather](#weather) |
 | `v1:energy:<device id>` | string, TTL ~1 day | auth-broker's glow-provider | `StoredEnergy` JSON (`store/energy.py`): Glowmarkt's own readings answers (`hourly`, `daily`, `monthly`) with the `offset` they were asked at; see [Energy](#energy) |
@@ -66,7 +70,7 @@ own tokens, which never leave it (auth-broker's README, "Music in the store"). A
 code, each service's part is in Spotify's own shapes (`/me/player/queue`, `/me/top/tracks?time_range=long_term&limit=5`,
 ...; Apple Music's made to look like them), read with the models in `spotify/models.py`; only the wrappers in
 `store/music.py` are the store's own. Both repositories' tests read the same examples
-(`tests/fixtures/music_*.json`), so keep them in step:
+(the store contract's `music_*.json`, in `countdown_api.fixtures`), so keep them in step:
 
 ```json
 {"fetched_at": "2026-10-17T12:00:00+00:00", "spotify": {"currently_playing": {...}, "queue": [...]}, "apple_music": null}
@@ -108,7 +112,7 @@ with a client that doesn't decode values (`reader.binary_store()`; `reader.store
 provider writes it before the player key that shows it, and renews its TTL each minute it's still shown rather than
 fetching it again, so it outlives that key; a cover nothing shows lapses within five minutes. A cover that isn't
 there (its fetch failed, or Redis evicted it) or won't open draws the page without one, as for a local file: it never
-fails the panel. `tests/fixtures/music_art.json` is the keys stored for `music_player.json`, each holding
+fails the panel. The contract's `music_art.json` is the keys stored for `music_player.json`, each holding
 `music_art.jpg` in the tests, in both repositories; auth-broker's README ("Music in the store") has the sizes.
 
 ### Energy
@@ -130,7 +134,7 @@ local time to UTC, so BST is `-60`): Glowmarkt labels each bucket with its local
 the renderer relabels them at that offset. It cuts each page to its window as of when it draws, so a value up to its
 TTL old still gives the right 24 hours, 31 days and year, short only of the readings since `fetched_at`. The broker
 fetches every 15 minutes, and keeps each value for about a day, as energy changes slowly: once it has expired, the
-panel says it's not available. `tests/fixtures/glow_energy.json` is one fetch, from
+panel says it's not available. The contract's `glow_energy.json` is one fetch, from
 Glowmarkt's answers to the stored value, and auth-broker's tests read the same file: change both together.
 `tests/fixtures/glow_energy_pages.json` is the pages the renderer drew from those answers when it still asked
 Glowmarkt itself, which the stored value must still draw.
@@ -148,7 +152,7 @@ by the broker's `flask weather backfill`), which the broker subscribes as the te
 district (`sw1a-1aa`, `sw1a1aa`, `se17`; `store/location.py`'s `weather_postcode`), which the provider doesn't look
 up: provider-locations does, and writes it to `v1:location:<place>` (see [Locations](#locations)), which the weather
 provider reads each cycle, as the place notice providers do; one it can't place yet has no forecast that cycle (the
-last one stays until its TTL). A place Open-Meteo gave no country is `xx` (`atlantis-xx-42`). `tests/fixtures/weather_keys.json` is the configs the broker makes keys from, each key,
+last one stays until its TTL). A place Open-Meteo gave no country is `xx` (`atlantis-xx-42`). The contract's `weather_keys.json` is the configs the broker makes keys from, each key,
 and the id the provider finds in it; auth-broker's tests read the same file, so change both together.
 
 A renderer whose broker sends no `weather.key` (one that predates it) reads under `weather.location`, the text the

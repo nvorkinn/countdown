@@ -2,7 +2,7 @@
 
 The broker's copy of the config never carries the code, and there's none while a code is live, so a render that reads
 the store (render(device_id, now)) draws the pairing screen from this key while it's there.
-tests/fixtures/pairing_key.json is the stored shape, the same file as auth-broker's.
+The store contract's pairing_key.json (countdown_api.fixtures) is the stored shape, which auth-broker's tests read too.
 """
 
 import json
@@ -14,13 +14,14 @@ import pytest
 import redis
 from config_factory import make_config
 
+from countdown_api import fixtures
 from countdown_api.models import ConfigResponse
 from countdown_core import i18n
 from countdown_core.render import Outcome, Result, Stage, render
 from countdown_core.store import frame_record, keys, reader
 from countdown_core.store import pairing as stored_pairing
 
-FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "pairing_key.json").read_text(encoding="utf-8"))
+FIXTURE = fixtures.load("pairing_key.json")
 DEVICE_ID = FIXTURE["device_id"]
 CODE = FIXTURE["value"]["pairing_code"]
 PARITY = json.loads((Path(__file__).parent / "fixtures" / "render_parity.json").read_text(encoding="utf-8"))
