@@ -383,7 +383,7 @@ def test_an_incomplete_weekend_is_an_explicit_error(forecast_weather):
     ],
 )
 def test_weather_layout_snapshots(snapshot, name, panel_type, size, overrides):
-    snapshot.assert_matches(name, panel_type(make_weather(**overrides)).render(*size), threshold=0.01)
+    snapshot.assert_matches(name, panel_type(make_weather(**overrides)).render(*size))
 
 
 @pytest.mark.parametrize("period", [WeatherPeriod.TONIGHT, WeatherPeriod.TOMORROW, WeatherPeriod.WEEKEND])
@@ -397,4 +397,4 @@ def test_weather_layout_snapshots(snapshot, name, panel_type, size, overrides):
 )
 def test_forecast_layout_snapshots(snapshot, period, layout, panel_type, size, forecast_weather):  # noqa: PLR0913, PLR0917 -- pytest passes each parameter and fixture
     image = panel_type(forecast_weather[period]).render(*size)
-    snapshot.assert_matches(f"weather_carousel_{period.value.lower()}_{layout}", image, threshold=0.01)
+    snapshot.assert_matches(f"weather_carousel_{period.value.lower()}_{layout}", image)

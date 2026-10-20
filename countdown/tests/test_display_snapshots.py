@@ -301,7 +301,7 @@ def test_screen_with_no_panels_at_all_says_there_is_nothing_to_show(snapshot):
     img = _draw({})
     assert img.size == DEFAULT_CANVAS.size
     # Text-only and large: CI renders it ~1% differently from macOS.
-    snapshot.assert_matches("screen_nothing_to_show", img, threshold=0.02)
+    snapshot.assert_matches("screen_nothing_to_show", img)
 
 
 def test_screen_with_spotify_playing(snapshot):
@@ -321,12 +321,12 @@ def test_weather_panel_rainy_night(snapshot):
         make_weather(temperature=8.6, weather_code=63, is_day=False, high=11, low=6, precipitation_probability=85)
     )
     # Small and mostly text, so macOS/Linux anti-aliasing differences weigh more (CI: 0.0059).
-    snapshot.assert_matches("weather_rainy_night", panel.render(528, 170), threshold=0.01)
+    snapshot.assert_matches("weather_rainy_night", panel.render(528, 170))
 
 
 def test_pairing_code_screen(snapshot):
     img = PairingCodePanel("C4FFEZ", "7218485b654f").render(*DEFAULT_CANVAS.size)
-    snapshot.assert_matches("screen_pairing_code", img, threshold=0.02)
+    snapshot.assert_matches("screen_pairing_code", img)
 
 
 @pytest.mark.parametrize("code", ["C4FFEZ", "ABCDEFGH", "ABCDEFGHJKLM"])
@@ -355,7 +355,7 @@ PORTRAIT = (480, 800)
 
 def test_pairing_code_screen_on_a_vertical_screen(snapshot):
     img = PairingCodePanel("C4FFEZ", "7218485b654f").render(*PORTRAIT)
-    snapshot.assert_matches("screen_pairing_code_portrait", img, threshold=0.02)
+    snapshot.assert_matches("screen_pairing_code_portrait", img)
 
 
 @pytest.mark.parametrize("code", ["C4FFEZ", "ABCDEFGH", "ABCDEFGHJKLM"])
@@ -369,7 +369,7 @@ def test_pairing_code_stays_on_a_vertical_screen_whatever_its_length(code):
 def test_screen_with_no_panels_at_all_on_a_vertical_screen(snapshot):
     img = draw_screen({}, Screen(orientation="vertical", width=800, height=480), EVERYTHING)
     assert img.size == PORTRAIT
-    snapshot.assert_matches("screen_nothing_to_show_portrait", img, threshold=0.02)
+    snapshot.assert_matches("screen_nothing_to_show_portrait", img)
 
 
 def test_empty_screen_stays_clear_of_a_vertical_screens_edges():

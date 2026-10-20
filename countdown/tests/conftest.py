@@ -89,9 +89,8 @@ def symbols_font(monkeypatch):
 SNAPSHOT_DIR = Path(__file__).parent / "images"
 FAILURE_DIR = SNAPSHOT_DIR / "_failures"
 
-# Pillow's rasterization differs by a few anti-aliased pixels between macOS and Linux
-# even with identical fonts and code; a real regression moves far more than this.
-DEFAULT_SNAPSHOT_THRESHOLD = 0.005
+# Snapshots compare exactly: they're drawn, and compared, in the pinned Linux image (dev/snapshots.sh), where the
+# render is byte-identical on amd64 and arm64. A Mac's or a CI runner's own rendering differs, so don't run them bare.
 
 
 def pytest_configure(config):
@@ -122,7 +121,7 @@ class Snapshot:
     def __init__(self, *, update: bool) -> None:
         self.update = update
 
-    def assert_matches(self, name: str, image: Image.Image, threshold: float = DEFAULT_SNAPSHOT_THRESHOLD) -> None:
+    def assert_matches(self, name: str, image: Image.Image) -> None:
         golden_path = SNAPSHOT_DIR / f"{name}.png"
         failure_actual = FAILURE_DIR / f"{name}.actual.png"
         failure_diff = FAILURE_DIR / f"{name}.diff.png"
@@ -138,11 +137,11 @@ class Snapshot:
         if not golden_path.exists():
             pytest.fail(
                 f"No snapshot for '{name}' yet at {golden_path}. Run "
-                "`pytest --update-snapshots`, review the generated image, then commit it."
+                "`dev/snapshots.sh update`, review the generated image, then commit it."
             )
 
         golden = Image.open(golden_path).convert("RGB")
-        if images_equal(golden, actual, threshold=threshold):
+        if images_equal(golden, actual):
             failure_actual.unlink(missing_ok=True)
             failure_diff.unlink(missing_ok=True)
             return
@@ -157,7 +156,7 @@ class Snapshot:
         pytest.fail(
             f"Rendered output for '{name}' no longer matches tests/images/{name}.png.\n"
             f"Actual render saved to {failure_actual}{diff_note}.\n"
-            "If this change is intentional, run `pytest --update-snapshots`, review "
+            "If this change is intentional, run `dev/snapshots.sh update`, review "
             "the new image, and commit it."
         )
 
