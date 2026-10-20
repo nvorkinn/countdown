@@ -157,13 +157,22 @@ class SpotifyClient(AbstractClient):
     def update_player(self) -> Panel | None:
         """What's playing on Spotify, else what was last played on Apple Music; None if neither has anything.
 
-        Each with what's next (or, for Apple Music, what was played before).
+        Each with what's next (or, for Apple Music, what was played before). Spotify's also gets where the player was
+        in the track (the panel draws a progress bar from it if it is the playing track's).
         """
         stored = self._read_store(StoredPlayer, keys.spotify)
         for service in self.config.services:
             queue = _stored_queue(stored, service)
             if queue.currently_playing is not None:
-                return SpotifyPanel(queue, self.style, service.labels, self._read_art(queue.currently_playing.album))
+                # Only Spotify says how far into the track it is; Apple Music has no position.
+                playback = stored.spotify_playback if service is SPOTIFY else None
+                return SpotifyPanel(
+                    queue,
+                    self.style,
+                    service.labels,
+                    self._read_art(queue.currently_playing.album),
+                    playback,
+                )
         return None
 
     def _read_art(self, album: Album) -> bytes | None:
