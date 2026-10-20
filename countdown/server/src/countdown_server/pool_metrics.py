@@ -1,6 +1,6 @@
 """The render pool's metrics: every one per screen, by its `device` attribute (the slug), sent as OTLP to Fluent Bit.
 
-docs/stateless-renderers.md, "Observability". A worker's resource is the worker (`host.name` is its WORKER_NAME), not a
+See countdown/docs/stateless-renderers.md. A worker's resource is the worker (`host.name` is its WORKER_NAME), not a
 screen, so each screen is the `device` attribute, and each render's outcome, where there is one, is `outcome`:
 
 - `countdown.render.duration` (histogram, s): how long each render took, by `device` and `outcome`.

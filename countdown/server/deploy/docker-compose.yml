@@ -170,7 +170,7 @@ services:
         max-size: 10m
         max-file: "3"
 
-  # The render pool (docs/stateless-renderers.md, "The pool, the queue and the render function"): workers that take
+  # The render pool (countdown/docs/stateless-renderers.md): workers that take
   # render jobs off the queue in the host's Redis and draw the screens in v1:render:screens (which auth-broker writes,
   # for every paired device), and a ticker that queues each of those screens every minute. Both from the
   # countdown-server image, each with its own entrypoint. Host networking for Redis and the host's Fluent Bit (metrics).
