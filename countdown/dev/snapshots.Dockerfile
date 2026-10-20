@@ -43,8 +43,11 @@ url = (
 data = urllib.request.urlopen(url, timeout=60).read()
 digest = hashlib.sha256(data).hexdigest()
 print("Material Symbols sha256:", digest)
-expected = os.environ["SYMBOLS_SHA256"]
-assert not expected or digest == expected, f"Material Symbols changed: {digest} != {expected}"
+expected = os.environ.get("SYMBOLS_SHA256", "")
+if not expected:
+    raise SystemExit("SYMBOLS_SHA256 is empty: the font can't be verified")
+if digest != expected:
+    raise SystemExit(f"Material Symbols changed: {digest} != {expected}")
 out = pathlib.Path("/opt/fonts")
 out.mkdir()
 (out / name).write_bytes(data)
