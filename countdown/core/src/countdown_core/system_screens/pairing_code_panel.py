@@ -38,17 +38,13 @@ QR_TOP_TALL = -28
 
 
 class PairingCodePanel(Panel):
-    """Shown full-screen while a device isn't paired yet.
+    """Shown full-screen while a device isn't paired yet."""
 
-    `has_changed` is kept on the panel, and plays no part in drawing it.
-    """
-
-    def __init__(self, pairing_code: str | None, device_id: str, *, has_changed: bool) -> None:
+    def __init__(self, pairing_code: str | None, device_id: str) -> None:
         """`pairing_code` is the broker's code to show (None for no code yet); `device_id` names the device."""
         super().__init__()
         self.pairing_code = pairing_code
         self.device_id = device_id
-        self.has_changed = has_changed
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:

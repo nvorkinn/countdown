@@ -111,7 +111,7 @@ def render(device_id: str, now: datetime) -> Outcome:
             return Outcome(Result.NO_CONFIG)
         _apply_locale(config)
         if config.pairing_code:
-            pairing = PairingCodePanel(config.pairing_code, device_id, has_changed=True)
+            pairing = PairingCodePanel(config.pairing_code, device_id)
             frame = to_native(Frame(pairing.render(*canvas_for(config.screen).size)), config.screen)
             data = bytes(panel_bytes(frame.image))
             return Outcome(_record(device_id, data), Stage.PAIRING, frame, data)
