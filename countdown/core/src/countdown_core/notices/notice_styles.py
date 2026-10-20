@@ -1,8 +1,8 @@
 """The looks the notice board can have (the config's style).
 
-airy, hero and card match the Spotify styles of the same name. A style only
-draws the chrome round the rows (the title, the count, any frame) and says how much room that takes; the panel draws
-the rows inside it, the same in every style.
+airy, hero and card match the Spotify styles of the same name. A style only draws the chrome round the rows (the
+title, the count, any frame) and says how much room that takes; the panel draws the rows inside it, the same in every
+style.
 """
 
 from dataclasses import dataclass

@@ -1,1 +1,1 @@
-"""Transport for London: its stops' departures, and the panels that draw them."""
+"""Transport for London's models and API client, and the departures panels every source shares."""

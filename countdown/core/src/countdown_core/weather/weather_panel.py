@@ -76,7 +76,7 @@ class WeatherPanel(Panel):
         return img
 
     def _render_inline(self, draw: ImageDraw.ImageDraw, image_width: int, image_height: int) -> None:
-        # A single bus stop crops the top row down to a short, wide strip.
+        # A single stop crops the top row down to a short, wide strip.
         scale = min(image_width / 528, image_height / 76, 1.25)
         x = 12 * scale
         y = (image_height - 76 * scale) / 2

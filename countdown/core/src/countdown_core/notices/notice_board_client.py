@@ -44,9 +44,9 @@ class NoticeBoardSettings:
     """
 
     postcode: str | None
-    # The postcode's country; None for a broker that predates it, whose postcodes are all British.
+    # The postcode's country; None if the broker sends none, and the postcode is then British.
     country: str | None = None
-    # How the board is drawn (the config's style, see panel_style); a broker that predates both gets hero.
+    # How the board is drawn (the config's style, see panel_style); hero if the broker sends neither.
     style: Style = "hero"
 
 

@@ -21,7 +21,7 @@ class DeveloperPanel(Panel):
     """The owner's pull requests and failing builds beside their AI plans, or the latest release as it goes."""
 
     def __init__(self, summary: DeveloperSummary, style: Style = "hero", now: datetime | None = None) -> None:
-        """`summary`: the broker's answer; `style`: how to draw it; `now`: the time to draw it at (the clock's)."""
+        """`summary`: what the store holds; `style`: how to draw it; `now`: when to draw it (default: the render's)."""
         self.summary = summary
         self.style = style
         self.now = now

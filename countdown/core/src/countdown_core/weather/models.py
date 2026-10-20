@@ -39,7 +39,7 @@ class CurrentConditions(OpenMeteoModel):
 
     time: dt.datetime  # the location's local time, since the forecast asks for timezone=auto
     temperature: float = Field(alias="temperature_2m")
-    weather_code: int  # WMO code, see display.weather_panel.ICON_MAP
+    weather_code: int  # WMO code, see weather_panel.ICON_MAP
     is_day: bool
     humidity: int = Field(alias="relative_humidity_2m")
     wind_speed: float = Field(alias="wind_speed_10m")

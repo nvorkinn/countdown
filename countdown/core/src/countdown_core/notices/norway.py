@@ -208,7 +208,7 @@ def warnings_at(payload: dict, location: Postcode) -> dict:
     """Cut MetAlerts' answer for all of Norway down to the warnings whose area covers `location`.
 
     What MET answers when asked for the place itself (current.json?lat=...&lon=..., "all alerts covered by the search
-    location"), at the four decimals the board once asked at.
+    location"), with the location at four decimals.
     """
     latitude, longitude = round(location.latitude, 4), round(location.longitude, 4)
     features = [

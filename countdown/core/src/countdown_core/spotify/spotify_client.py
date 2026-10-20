@@ -62,7 +62,7 @@ class MusicSettings:
 
     @classmethod
     def from_config(cls, config: ConfigResponse) -> MusicSettings:
-        """Take the switches from the broker's config; one that predates Apple Music leaves it off."""
+        """Take the switches from the broker's config; Apple Music is off if the config has no section for it."""
         apple_music = config.apple_music
         return cls(
             spotify=config.spotify.enabled,
@@ -118,7 +118,7 @@ class NoStoredMusicError(reader.NoStoredDataError):
 class SpotifyClient(AbstractClient):
     """Now playing and top tracks/artists, from Spotify, Apple Music or both, read from the store.
 
-    auth-broker's music provider calls the services server-side, so this device never holds a token; it reads the
+    auth-broker's music provider calls the services server-side, so this renderer never holds a token; it reads the
     keys of the screen `device_id`.
     """
 
@@ -141,7 +141,7 @@ class SpotifyClient(AbstractClient):
 
     @property
     def style(self) -> Style:
-        """The configured style, its old names (classic) mapped onto the shared ones."""
+        """The configured style, an older name (classic) mapped onto the shared ones."""
         return normalise(self.config.style)
 
     def _update(self) -> Panel:
