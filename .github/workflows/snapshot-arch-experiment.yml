@@ -1,0 +1,105 @@
+# THROWAWAY experiment for the exploration PR (#21): do the snapshots come out byte-identical on amd64 and arm64 in the
+# pinned image? Remove before merging.
+name: snapshot arch experiment
+
+on:
+  push:
+    branches: [claude/docker-snapshots]
+    paths:
+      - ".github/workflows/snapshot-arch-experiment.yml"
+      - "countdown/dev/snapshots.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: amd64, runner: ubuntu-24.04, platform: ""}
+          - {name: arm64, runner: ubuntu-24.04-arm, platform: ""}
+          - {name: arm64-emulated, runner: ubuntu-24.04, platform: linux/arm64}
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: countdown
+    steps:
+      - uses: actions/checkout@v7
+      - run: git submodule update --init
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.platform != ''
+      - name: Base image digest
+        run: docker buildx imagetools inspect python:3.14-slim --format '{{json .Manifest.Digest}}' | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Build image
+        env:
+          SNAPSHOT_PLATFORM: ${{ matrix.platform }}
+        run: |
+          start=$(date +%s)
+          ./dev/snapshots.sh build 2>&1 | tee /tmp/build.log
+          echo "build_seconds=$(( $(date +%s) - start ))" | tee /tmp/timing.txt
+          grep "Material Symbols sha256" /tmp/build.log | tee -a /tmp/timing.txt || true
+          docker run --rm ${SNAPSHOT_PLATFORM:+--platform "$SNAPSHOT_PLATFORM"} countdown-snapshots sh -c \
+            'uname -m; python -V; dpkg -s libfribidi0 | grep ^Version; python -c "from PIL import features,__version__ as v; print(v, features.check(\"raqm\"), features.version(\"freetype2\"), features.version(\"raqm\"), features.version(\"harfbuzz\"), features.version(\"fribidi\"))"' | tee -a /tmp/timing.txt
+        shell: bash
+      - name: Render every snapshot, twice
+        env:
+          SNAPSHOT_PLATFORM: ${{ matrix.platform }}
+          SNAPSHOT_SKIP_BUILD: "1"
+        run: |
+          for run in 1 2; do
+            start=$(date +%s)
+            ./dev/snapshots.sh update -q
+            echo "render${run}_seconds=$(( $(date +%s) - start ))" | tee -a /tmp/timing.txt
+            mkdir -p /tmp/out/run$run && cp tests/images/*.png /tmp/out/run$run/
+            rm -f tests/images/*.png; git checkout -- tests/images
+          done
+          (cd /tmp/out/run1 && sha256sum *.png) > /tmp/out/run1.sha
+          (cd /tmp/out/run2 && sha256sum *.png) > /tmp/out/run2.sha
+          if cmp -s /tmp/out/run1.sha /tmp/out/run2.sha; then echo "run_to_run=identical" | tee -a /tmp/timing.txt; else echo "run_to_run=DIFFERENT" | tee -a /tmp/timing.txt; fi
+          wc -l < /tmp/out/run1.sha | sed 's/^/files=/' | tee -a /tmp/timing.txt
+          cp /tmp/timing.txt /tmp/out/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: images-${{ matrix.name }}
+          path: /tmp/out/
+          if-no-files-found: ignore
+
+  compare:
+    needs: render
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+      - name: Compare
+        run: |
+          pip install -q pillow numpy
+          cat art/*/timing.txt
+          python - <<'PY'
+          import hashlib, pathlib, numpy as np
+          from PIL import Image
+          root = pathlib.Path("art")
+          names = ["amd64", "arm64", "arm64-emulated"]
+          def load(n): return {p.name: p for p in (root / f"images-{n}" / "run1").glob("*.png")}
+          imgs = {n: load(n) for n in names}
+          def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
+          out = []
+          for a, b in [("amd64", "arm64"), ("arm64", "arm64-emulated"), ("amd64", "arm64-emulated")]:
+              differing, worst = [], 0.0
+              for name, pa in imgs[a].items():
+                  pb = imgs[b].get(name)
+                  if pb is None or sha(pa) != sha(pb):
+                      ia, ib = np.asarray(Image.open(pa).convert("RGB"), dtype=int), np.asarray(Image.open(pb).convert("RGB"), dtype=int)
+                      m = 0.0 if ia.shape != ib.shape else np.abs(ia - ib).mean() / 255
+                      differing.append((name, m, int((np.abs(ia - ib).sum(-1) > 0).sum()) if ia.shape == ib.shape else -1))
+                      worst = max(worst, m)
+              out.append(f"{a} vs {b}: {len(imgs[a])} files, {len(differing)} differ, worst mean diff {worst:.6f}")
+              for d in sorted(differing, key=lambda d: -d[1])[:15]: out.append(f"    {d[0]} mean={d[1]:.6f} pixels={d[2]}")
+          print("\n".join(out))
+          pathlib.Path("summary.md").write_text("```\n" + "\n".join(out) + "\n```\n")
+          PY
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"

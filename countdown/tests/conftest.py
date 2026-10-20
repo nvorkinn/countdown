@@ -94,6 +94,20 @@ FAILURE_DIR = SNAPSHOT_DIR / "_failures"
 DEFAULT_SNAPSHOT_THRESHOLD = 0.005
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "snapshot: compares a render with a golden in tests/images/; run in the pinned Linux image (dev/snapshots.sh)",
+    )
+
+
+def pytest_collection_modifyitems(items):
+    """Mark every test that takes the `snapshot` fixture, so `-m snapshot` picks them out (and `-m 'not snapshot'` the rest)."""
+    for item in items:
+        if "snapshot" in getattr(item, "fixturenames", ()):
+            item.add_marker(pytest.mark.snapshot)
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--update-snapshots",
