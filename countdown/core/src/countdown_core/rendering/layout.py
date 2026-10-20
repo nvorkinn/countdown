@@ -22,8 +22,6 @@ class Frame:
     """A finished picture, the size of the canvas it was drawn for."""
 
     image: Image.Image
-    # The box of the part that changes most often (the arrivals), or None.
-    volatile: Box | None = None
 
 
 class Layout(ABC):

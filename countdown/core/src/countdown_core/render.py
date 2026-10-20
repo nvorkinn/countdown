@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from countdown_api.models import ConfigResponse
+
     from countdown_core.core.abstract_client import ClientStatus
     from countdown_core.core.panel import Panel
 
@@ -71,8 +72,8 @@ class Outcome:
 
     result: Result
     stage: Stage | None = None
-    # The picture as the panel takes it (the landscape picture, a portrait screen's turned a quarter), with its
-    # volatile box; and its bytes, as the record has them.
+    # The picture as the panel takes it (the landscape picture, a portrait screen's turned a quarter); and its bytes,
+    # as the record has them.
     frame: Frame | None = None
     data: bytes | None = None
     # The panel each API's client gave; none for an API whose client gave nothing (its area says it could not

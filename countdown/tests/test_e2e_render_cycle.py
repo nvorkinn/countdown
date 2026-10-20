@@ -400,7 +400,6 @@ def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monke
     first, twelve_hour, restored = frames
     assert first[2].image.tobytes() == restored[2].image.tobytes()
     assert first[2].image.tobytes() != twelve_hour[2].image.tobytes()
-    assert first[2].volatile == twelve_hour[2].volatile == restored[2].volatile
     for frame in frames:
         assert "Works at 18:00" in frame[3]
     assert any(text.endswith("21:00") for text in first[3])

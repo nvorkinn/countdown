@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
     from countdown_core.utils.clock import ClockFormat
 
-# Where every variant puts the arrivals panel, the part of the screen that changes every minute (Frame.volatile).
+# Where every variant puts the arrivals panel.
 ARRIVALS_ORIGIN = (5, 5)
 # The arrivals panel is as wide as its stops; a message in its place gets one stop's width.
 ARRIVALS_MESSAGE_WIDTH = 262
@@ -79,7 +79,7 @@ class ClassicLayout(Layout):
                 (canvas.width - x - GAP, canvas.height - y - GAP),
                 clock_format=clock_format,
             )
-        return Frame(img, arrivals_box)
+        return Frame(img)
 
     def _column_width(self, canvas: Canvas, arrivals_box: Box) -> int:  # noqa: ARG002 -- variants size it by the arrivals
         """How wide Spotify and the notices are drawn."""
@@ -90,7 +90,7 @@ class ClassicLayout(Layout):
     ) -> Box:
         """Draw the arrivals, `height` tall, with the weather beside them, and return the arrivals' box.
 
-        They're at the same place in every variant so the arrivals' partial refreshes keep working.
+        They're at the same place in every variant.
         """
         arrival_panel = panels[ClientClasses.TFL.api_name]
         arrivals_width = canvas.width if isinstance(arrival_panel, CombinedArrivalPanel) else ARRIVALS_MESSAGE_WIDTH

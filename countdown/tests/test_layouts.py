@@ -14,7 +14,7 @@ from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.rendering import LAYOUTS, to_native
 from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLayout, SpotifyGlowLayout, SpotifyLayout
-from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT, ENERGY_ROW_HEIGHT
+from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
 from countdown_core.rendering.layouts.classic_portrait import (
     BasePortraitLayout,
     GlowPortraitLayout,
@@ -23,7 +23,6 @@ from countdown_core.rendering.layouts.classic_portrait import (
 )
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
-from countdown_core.utils.utils import GAP
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -94,22 +93,10 @@ def test_a_portrait_screen_gets_the_classic_layout_stacked(unavailable, expected
     assert type(LAYOUTS.select(PORTRAIT, None, EVERYTHING - unavailable)) is expected
 
 
-def test_portrait_arrivals_are_the_volatile_part():
+def test_a_portrait_layout_draws_a_portrait_frame():
     panels = _solid_panels()
     for layout in CLASSIC_PORTRAIT:
-        frame = layout.render(panels, PORTRAIT)
-        top = 5 + ENERGY_ROW_HEIGHT + 15 if layout.SHOWS_ENERGY else 290
-        assert frame.image.size == PORTRAIT.size
-        assert frame.volatile == (5, top, 475, top + layout.ARRIVALS_HEIGHT)
-
-
-def test_portrait_energy_chart_leaves_the_notices_the_room_they_had_under_the_full_weather():
-    panels = _solid_panels() | {"notice_board": _notices(20)}
-    for with_energy, without in [
-        (SpotifyGlowPortraitLayout(), SpotifyPortraitLayout()),
-        (GlowPortraitLayout(), BasePortraitLayout()),
-    ]:
-        assert with_energy.render(panels, PORTRAIT).volatile[3] == without.render(panels, PORTRAIT).volatile[3]
+        assert layout.render(panels, PORTRAIT).image.size == PORTRAIT.size
 
 
 def _solid_panels() -> dict[str, Panel]:
@@ -122,22 +109,6 @@ def _solid_panels() -> dict[str, Panel]:
 
 def _notices(count: int) -> NoticeBoardPanel:
     return NoticeBoardPanel([Notice("TfL", Severity.INFO, "Victoria: Minor Delays")] * count)
-
-
-@pytest.mark.parametrize("layout", [*CLASSIC, *CLASSIC_PORTRAIT], ids=type)
-@pytest.mark.parametrize("clock_format", ["12h", "24h"])
-def test_fewer_notices_give_the_arrivals_more_room(layout, clock_format):
-    canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
-
-    def arrivals_height(notices: Panel) -> int:
-        panels = _solid_panels() | {"notice_board": notices}
-        box = layout.render(panels, canvas, clock_format=clock_format).volatile
-        return box[3] - box[1]
-
-    full, two, none = arrivals_height(_notices(20)), arrivals_height(_notices(2)), arrivals_height(_notices(0))
-    assert full == layout.ARRIVALS_HEIGHT  # a full board keeps the room it always had
-    assert full < two < none
-    assert none - two == _notices(2).fitted_height(1000) + GAP  # the board and the gap above it
 
 
 @pytest.mark.parametrize("layout", [*CLASSIC, *CLASSIC_PORTRAIT], ids=type)
@@ -157,16 +128,13 @@ def test_clock_switching_preserves_compact_notice_fitting_and_reaches_each_layou
         return original(draw, xy, text, *args, **kwargs)
 
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
-    full = layout.render(panels | {"notice_board": _notices(20)}, canvas).volatile
     default = layout.render(panels, canvas)
     assert "Until 21:07" in texts
     texts.clear()
-    twelve_hour = layout.render(panels, canvas, clock_format="12h")
+    layout.render(panels, canvas, clock_format="12h")
     assert "Until 9:07 PM" in texts
     if layout in CLASSIC and layout.SHOWS_ENERGY:
         assert {"12:07 AM", "12:07 PM"} <= set(texts)
-    assert default.volatile == twelve_hour.volatile
-    assert default.volatile[3] > full[3]
     assert default.image.tobytes() == layout.render(panels, canvas).image.tobytes()
     assert notices.fitted_height(1000) < 100
 
@@ -174,16 +142,6 @@ def test_clock_switching_preserves_compact_notice_fitting_and_reaches_each_layou
 class _SolidPanel(Panel):
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         return Image.new("RGBA", (image_width, image_height), "black")
-
-
-class _FittedPanel(_SolidPanel):
-    """A panel only `height` tall, as the developer strip is."""
-
-    def __init__(self, height: int) -> None:
-        self.height = height
-
-    def fitted_height(self, max_height: int) -> int:
-        return min(self.height, max_height)
 
 
 def test_a_canvas_no_layout_draws_on_falls_back_to_the_default_with_one_warning(caplog):
@@ -259,39 +217,17 @@ HORIZONTAL = Screen(orientation="horizontal", width=800, height=480)
 
 
 def test_a_landscape_frame_goes_to_the_panel_as_it_is():
-    frame = Frame(Image.new("RGB", (800, 480)), (5, 5, 100, 50))
+    frame = Frame(Image.new("RGB", (800, 480)))
 
     assert to_native(frame, HORIZONTAL) is frame
 
 
-def test_a_portrait_frame_is_turned_into_the_panels_landscape_picture_with_its_volatile_box():
+def test_a_portrait_frame_is_turned_into_the_panels_landscape_picture():
     image = Image.new("RGB", (480, 800), "white")
     image.paste("black", (10, 20, 110, 70))  # a 100x50 block, top-left of the portrait picture
-    frame = Frame(image, (10, 20, 110, 70))
 
-    native = to_native(frame, VERTICAL)
+    native = to_native(Frame(image), VERTICAL)
 
     assert native.image.size == (800, 480)
-    # The box moved with the picture: it's exactly the black block, now 50 wide and 100 tall.
-    assert native.volatile == (20, 370, 70, 470)
-    assert native.image.getbbox() is not None
-    assert ImageOps.invert(native.image).getbbox() == native.volatile
-
-
-def test_a_portrait_frame_without_a_volatile_part_has_none_once_turned():
-    assert to_native(Frame(Image.new("RGB", (480, 800))), VERTICAL).volatile is None
-
-
-@pytest.mark.parametrize("layout", [*CLASSIC[:2], *CLASSIC_PORTRAIT[:2]], ids=type)
-def test_developer_strip_above_spotify_takes_its_height_from_the_arrivals_room(layout):
-    """The strip and its gap come out of what the notices and the arrivals share, Spotify's room stays."""
-    canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
-
-    def arrivals_height(panels: dict[str, Panel]) -> int:
-        box = layout.render(panels | {"notice_board": _notices(0)}, canvas).volatile
-        return box[3] - box[1]
-
-    strip = _FittedPanel(30)
-    alone = arrivals_height(_solid_panels())
-    stacked = arrivals_height(_solid_panels() | {ClientClasses.DEVELOPER.api_name: strip})
-    assert alone - stacked == 30 + GAP
+    # The block moved with the picture: now 50 wide and 100 tall, at the bottom left.
+    assert ImageOps.invert(native.image).getbbox() == (20, 370, 70, 470)
