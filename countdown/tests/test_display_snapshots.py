@@ -353,7 +353,7 @@ def test_pairing_qr_code_opens_the_pairing_page_with_the_code_filled_in(monkeypa
 
     PairingCodePanel("C4FFEZ", "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size)
 
-    assert urls == ["https://auth.nikolaivorkinn.com/pair?t=C4FFEZ"]
+    assert urls == ["https://auth.nikolaivorkinn.com/pair?code=C4FFEZ"]
 
 
 def test_pairing_screen_without_a_code_draws_no_qr_code():
