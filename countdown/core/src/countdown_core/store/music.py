@@ -1,6 +1,6 @@
 """What auth-broker's music provider stores for the Spotify area, and the renderer reads back.
 
-The provider runs in auth-broker (broker/spotify_provider.py, see "Music in the store" in its README), which can't
+The provider runs in auth-broker (broker/spotify_provider.py), which can't
 import this, so the contract is the JSON itself: each service's part is in Spotify's own shapes (/me/player/queue,
 /me/top/tracks, ...; Apple Music's made to look like them), read with the models in countdown_core.spotify.models.
 Only these wrappers are the store's own. The store contract (countdown-api's store.yaml: StoredPlayer, StoredTop) pins

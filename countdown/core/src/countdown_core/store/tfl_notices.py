@@ -10,7 +10,7 @@ language and what's current is judged as of drawing, not of fetching:
     v1:notices:tfl-roads:<place>       {"fetched_at": ..., "postcode": "SE17 3LL", "disruptions": [<RoadDisruption>]}
 
 `tests/fixtures/tfl_notices.json` is a set of TfL answers, and `tfl_notices_expected.json` the notices the renderer
-made from them when it still asked TfL itself, which the stored values must still make.
+must make from them.
 """
 
 from countdown_core.store.models import Stored

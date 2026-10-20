@@ -22,8 +22,7 @@ class Frame:
     """A finished picture, the size of the canvas it was drawn for."""
 
     image: Image.Image
-    # The one part of it that changes often enough to be worth a partial refresh (the
-    # arrivals), or None if every change should repaint the whole screen.
+    # The box of the part that changes most often (the arrivals), or None.
     volatile: Box | None = None
 
 
@@ -31,7 +30,7 @@ class Layout(ABC):
     """One way of arranging the panels on a canvas.
 
     Layouts are stateless: everything they know is in class attributes, so the registry can hand the same instance
-    out every cycle.
+    out every render.
     """
 
     # What the config's layout choice names. Layouts sharing an id are its variants, one per
@@ -41,7 +40,7 @@ class Layout(ABC):
     # This variant fits when every API in `requires` is available and none in `excludes` is.
     requires: ClassVar[frozenset[ClientClasses]] = frozenset()
     excludes: ClassVar[frozenset[ClientClasses]] = frozenset()
-    # The TfL client fetches this many stops per update and pages through the rest.
+    # The departures client reads this many stops per poll and pages through the rest (ApiRegistry.show_stops).
     stops_shown: ClassVar[int] = 2
 
     def fits(self, available: frozenset[ClientClasses]) -> bool:

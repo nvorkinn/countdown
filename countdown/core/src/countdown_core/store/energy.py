@@ -2,16 +2,16 @@
 
 Written by auth-broker's glow-provider, not by countdown-providers: the Glowmarkt passwords are the broker's, and stay
 there. The broker can't import countdown-core, so the value is Glowmarkt's own answers, as the broker got them, in a
-thin wrapper, and they're read with the models of Glowmarkt's answers (countdown_core.glow.models). The
-broker documents the same shape ("The energy provider" in its README), the store contract (countdown-api's store.yaml:
-StoredEnergy) pins its wrapper, and both repositories test against its glow_energy.json (countdown_api.fixtures).
+thin wrapper, and they're read with the models of Glowmarkt's answers (countdown_core.glow.models). The store contract
+(countdown-api's store.yaml: StoredEnergy) pins the wrapper, and both repositories test against its glow_energy.json
+(countdown_api.fixtures).
 
     {"fetched_at": "2026-09-25T05:10:00+00:00", "device_id": "a1b2c3d4e5f6", "offset": "-60", "resource_id": "...",
      "hourly": <Glowmarkt's PT1H readings>, "daily": <P1D>, "monthly": <P1M>}
 
 Each page's readings run from the start of its window's first bucket as of `fetched_at` (the hour 24 hours before,
-midnight 31 days before, 1st January) to `fetched_at`, as the renderer once asked Glowmarkt for them itself. The
-renderer cuts each page to its window as of when it draws (GlowClient._update).
+midnight 31 days before, 1st January) to `fetched_at`. The renderer cuts each page to its
+window as of when it draws (GlowClient._update).
 """
 
 from datetime import timedelta, timezone

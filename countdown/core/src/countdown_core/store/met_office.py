@@ -4,7 +4,7 @@ Written by provider-met-office for each UK postcode in `v1:sub:postcode`: the wa
 postcode is in (countdown_core.notices.met_office.region_for), its <item>s as JSON. A region's feed is fetched once
 however many postcodes are in it, and written under each of them, so a renderer finds its warnings by its postcode
 alone. The notices themselves (their text in the screen's language, their severity, when each ends) are worked out by
-the renderer when it draws (countdown_core.notices.met_office.warning_notices), as they were from the feed itself.
+the renderer when it draws (countdown_core.notices.met_office.warning_notices).
 
     {"fetched_at": "2026-09-25T11:55:00Z", "postcode": "SE17 3LL", "region": "se",
      "items": [{"title": "Amber warning of wind affecting London & South East England",

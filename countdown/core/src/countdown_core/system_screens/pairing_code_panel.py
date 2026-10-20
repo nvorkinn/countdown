@@ -40,7 +40,7 @@ QR_TOP_TALL = -28
 class PairingCodePanel(Panel):
     """Shown full-screen while a device isn't paired yet.
 
-    has_changed says whether the code differs from the last check, so an unchanged screen isn't repainted.
+    `has_changed` is kept on the panel, and plays no part in drawing it.
     """
 
     def __init__(self, pairing_code: str | None, device_id: str, *, has_changed: bool) -> None:

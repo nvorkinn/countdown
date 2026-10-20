@@ -35,7 +35,7 @@ class NoStoredDataError(LookupError):
     """The store has nothing under a key a panel needs: its provider is down (the key expired) or hasn't written it yet.
 
     Every client's and notice source's own "nothing stored" error is one. The client's panel then says "Not available"
-    (AbstractClient.update), and the notice board leaves that source out: nothing is drawn from data older than its TTL.
+    (AbstractClient.poll), and the notice board leaves that source out: nothing is drawn from data older than its TTL.
     Unlike a KeyError or an IndexError, which are LookupErrors too but bugs.
     """
 

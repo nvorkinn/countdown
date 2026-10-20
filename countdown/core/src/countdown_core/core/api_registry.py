@@ -31,7 +31,7 @@ class ClientClasses(Enum):
 
     NOTICE_BOARD = ("notice_board", NoticeBoardClient)
     GLOWMARKT = ("glowmarkt", GlowClient)
-    # Departures from every source; named for the broker's first section, which the layouts still go by.
+    # Departures from every source; the name is that of the broker's `tfl` section, which the layouts go by.
     TFL = ("tfl", DeparturesClient)
     WEATHER = ("weather", WeatherClient)
     # Spotify, Apple Music or both; AppleMusicClient when it's only Apple Music (see client_class).
@@ -65,7 +65,7 @@ def section_for(name: str, config: ConfigResponse) -> object:
     if name == ClientClasses.SPOTIFY.api_name:
         return MusicSettings.from_config(config)
     if name == ClientClasses.DEVELOPER.api_name:
-        # A broker that predates the developer panel leaves it off; it has no style of its own to fall back on.
+        # The section is optional, and the panel has no style of its own to fall back on.
         enabled = config.developer is not None and config.developer.enabled
         return DeveloperSettings(enabled=enabled, style=panel_style(config, "hero"))
     return getattr(config, name)

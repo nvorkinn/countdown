@@ -14,8 +14,8 @@ A postcode that neither knows is written too, as `{"found": false, "location": n
 postcode" rather than wait for a location that will never come. tests/fixtures/locations.json has examples.
 
 provider-locations places the UK postcodes, and postcode districts, that weather location keys stand for the same way
-(weather_postcode): a screen saved before the weather's place picker, with a postcode typed for its weather, is
-subscribed as its slug (`sw1a-1aa`), and the weather provider reads where it is from here rather than ask postcodes.io.
+(weather_postcode): a screen whose weather is a typed postcode is subscribed as its slug (`sw1a-1aa`), and the
+weather provider reads where it is from here rather than ask postcodes.io.
 A district's key (`v1:location:SE17`) holds its centre, with the district for its postcode.
 """
 

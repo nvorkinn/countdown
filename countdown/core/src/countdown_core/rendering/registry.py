@@ -1,4 +1,4 @@
-"""Every layout there is, and which one draws a given cycle."""
+"""Every layout there is, and which one draws a given render."""
 
 import logging
 from typing import TYPE_CHECKING
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class LayoutRegistry:
     """Every layout, by the canvas it draws on.
 
-    select() is a lookup with nothing to remember (beyond not repeating a warning), so it's asked again every cycle
+    select() is a lookup with nothing to remember (beyond not repeating a warning), so it's asked again on every render
     rather than its answer kept.
     """
 
@@ -48,7 +48,7 @@ class LayoutRegistry:
     def drawable(self, canvas: Canvas) -> Canvas:
         """`canvas` if some layout draws on it, else the default canvas.
 
-        So a screen nothing has been designed for yet still shows the dashboard the way it always has.
+        So a screen that no layout is designed for still shows the default dashboard.
         """
         if canvas in self._by_canvas:
             return canvas
@@ -56,7 +56,7 @@ class LayoutRegistry:
         return DEFAULT_CANVAS
 
     def select(self, canvas: Canvas, layout_id: str | None, available: frozenset[ClientClasses]) -> Layout:
-        """Pick the layout to draw this cycle on `canvas` (one drawable() returned).
+        """Pick the layout to draw on `canvas` (one drawable() returned).
 
         That's the chosen layout, else the canvas's first, in its variant for what's `available`. A layout id the
         canvas doesn't have gets the default, so a choice gone stale never blanks the screen.
@@ -73,7 +73,7 @@ class LayoutRegistry:
         return next((layout for layout in variants if layout.fits(available)), variants[0])
 
     def _warn_once(self, canvas: Canvas, layout_id: str | None, message: str) -> None:
-        # Asked every cycle: once per config is plenty.
+        # Asked on every render: once per process is plenty.
         if (canvas, layout_id) not in self._warned:
             self._warned.add((canvas, layout_id))
             logger.warning(message)

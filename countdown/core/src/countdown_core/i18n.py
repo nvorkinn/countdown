@@ -1,6 +1,6 @@
 """The language the screen is drawn in and its time zone.
 
-They're the broker's `language` and `timezone`, one per renderer (one renderer draws one screen).
+They're the screen's `language` and `timezone` from the broker's config, set for each render.
 
 Every text the screen shows is English in the code and translated as it's drawn, so a change of language shows on
 the next frame. Mark a text with `_()` where it's drawn, or with `N_()` where it's defined and drawn elsewhere (then
@@ -30,7 +30,7 @@ _timezone = ZoneInfo("Europe/London")
 
 def set_locale(language: Language, timezone: str) -> None:
     """Set the screen's language and time zone. Run with each config, before the clients are built."""
-    global _language, _timezone  # noqa: PLW0603 -- one renderer, one screen, one language
+    global _language, _timezone  # noqa: PLW0603 -- a render sets it for the screen it draws, one at a time
     _language = language
     _timezone = ZoneInfo(timezone)
 

@@ -7,18 +7,17 @@ if TYPE_CHECKING:
 
 Style = Literal["airy", "hero", "card"]
 
-# What an older broker may still send in a panel's own style field, and the style each is drawn as: the retired
-# classic, the departures' grouped (now airy) and the notice board's boxed (dropped for card, its rounded cousin).
+# The names an older broker may still send in a panel's own style field, and the shared style each is drawn as.
 _RENAMED: dict[str, Style] = {"classic": "hero", "grouped": "airy", "boxed": "card"}
 
 
 def normalise(style: str) -> Style:
-    """Return the style `style` is drawn as, mapping the old names onto the shared ones."""
+    """Return the style `style` is drawn as, mapping the older names onto the shared ones."""
     return _RENAMED.get(style, cast("Style", style))
 
 
 def panel_style(config: ConfigResponse, own: str) -> Style:
-    """Return the style to draw a panel in: the config's shared one, or, from a broker that predates it, `own`.
+    """Return the style to draw a panel in: the config's shared one, or, if the broker sends none, `own`.
 
     `own` is the panel's own style field (tfl.style, spotify.style and so on).
     """

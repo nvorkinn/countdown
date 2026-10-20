@@ -1,4 +1,4 @@
-"""The dashboard as it has always looked on an 800x480 screen hung landscape.
+"""The dashboard on an 800x480 screen hung landscape.
 
 The arrivals and weather go along the top, and below them whichever of Spotify, the notices and the energy chart the
 device can show. One variant per combination of Spotify and Glowmarkt.
@@ -18,8 +18,7 @@ if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
     from countdown_core.utils.clock import ClockFormat
 
-# Where every variant puts the arrivals panel, the part of the screen that changes every
-# minute and so the only part worth a partial refresh.
+# Where every variant puts the arrivals panel, the part of the screen that changes every minute (Frame.volatile).
 ARRIVALS_ORIGIN = (5, 5)
 # The arrivals panel is as wide as its stops; a message in its place gets one stop's width.
 ARRIVALS_MESSAGE_WIDTH = 262
