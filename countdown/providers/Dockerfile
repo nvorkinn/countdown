@@ -6,10 +6,17 @@ FROM python:3.14-slim
 LABEL org.opencontainers.image.source="https://github.com/nvorkinn/pi-dashboard"
 LABEL org.opencontainers.image.description="countdown providers: fetch each API's data into the shared Redis store"
 
+# Third-party packages first, pinned and hashed from uv.lock (dev/build_dist.sh), in a layer of their own: the
+# release's build cache keeps it until uv.lock changes, so a deploy doesn't pull them again with every release.
+RUN --mount=type=bind,source=dist/requirements-providers.txt,target=/tmp/requirements.txt \
+    pip install --no-cache-dir --root-user-action=ignore --disable-pip-version-check --require-hashes \
+    -r /tmp/requirements.txt
+
 # Our packages only ever come from these wheels, never an index: anyone could publish a package there under one of
-# their names. countdown-core (and with it countdown-api) is here for its API clients and the store's models.
+# their names. --no-index also fails the build if the requirements above left a dependency out. countdown-core (and
+# with it countdown-api) is here for its API clients and the store's models.
 COPY dist/countdown_providers-*.whl dist/countdown_core-*.whl dist/countdown_api-*.whl /tmp/wheels/
-RUN pip install --no-cache-dir --root-user-action=ignore --disable-pip-version-check /tmp/wheels/*.whl \
+RUN pip install --no-cache-dir --root-user-action=ignore --disable-pip-version-check --no-index /tmp/wheels/*.whl \
     && rm -rf /tmp/wheels
 
 # Stateless: everything it keeps is in Redis, so no volume and no home of its own.

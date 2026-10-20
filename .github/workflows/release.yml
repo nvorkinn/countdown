@@ -42,16 +42,19 @@ jobs:
       - name: Build countdown wheels
         working-directory: countdown
         # Every workspace member: the render pool (countdown-server), the providers and the libraries they depend on
-        # (countdown-core, countdown-api), none of which is on an index.
+        # (countdown-core, countdown-api), none of which is on an index. And each image's third-party requirements,
+        # pinned and hashed from uv.lock.
         run: |
           uv sync --frozen
-          uv build --wheel --all-packages
+          ./dev/build_dist.sh
       # The images only install what is in dist/ (our packages never come from an index). That includes the
       # countdown_api wheel, which the build above makes from the submodule, stamped with the release's version.
       - uses: actions/upload-artifact@v4
         with:
           name: countdown-wheel
-          path: countdown/dist/*.whl
+          path: |
+            countdown/dist/*.whl
+            countdown/dist/requirements-*.txt
 
   build-image:
     # Each image for each platform on a runner of that platform, as emulating arm64 on an amd64 runner took
@@ -95,6 +98,11 @@ jobs:
           file: countdown/${{ matrix.image }}/Dockerfile
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=ghcr.io/nvorkinn/countdown-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          # The previous release's layers, so the base, apt and third-party layers come out the same (same digests)
+          # until their inputs change, and the deploy only pulls our own packages' layers. In the registry rather
+          # than the Actions cache, which a tag's run can't read from another tag's.
+          cache-from: type=registry,ref=ghcr.io/nvorkinn/countdown-${{ matrix.image }}:buildcache-${{ matrix.arch }}
+          cache-to: type=registry,ref=ghcr.io/nvorkinn/countdown-${{ matrix.image }}:buildcache-${{ matrix.arch }},mode=max,image-manifest=true,oci-mediatypes=true
       - name: Save the digest
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
