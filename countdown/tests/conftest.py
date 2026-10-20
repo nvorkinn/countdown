@@ -102,7 +102,7 @@ def pytest_configure(config):
 
 
 def pytest_collection_modifyitems(items):
-    """Mark every test that takes the `snapshot` fixture, so `-m snapshot` picks them out (and `-m 'not snapshot'` the rest)."""
+    """Mark every test that takes the `snapshot` fixture: `-m snapshot` picks them out, `-m 'not snapshot'` the rest."""
     for item in items:
         if "snapshot" in getattr(item, "fixturenames", ()):
             item.add_marker(pytest.mark.snapshot)
