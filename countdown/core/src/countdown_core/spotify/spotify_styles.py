@@ -67,41 +67,39 @@ def _length(duration: timedelta) -> str:
     return f"{hours}:{minutes:02}:{seconds:02}" if hours else f"{minutes}:{seconds:02}"
 
 
-# The progress bar between the elapsed time and the length: thin, and never narrower than this or it says nothing.
+# The progress bar along the bottom of the page, under the cover and across the whole width: this tall, with this
+# much room between the cover and it (none: it starts right under the cover's bottom edge). The cover is drawn that
+# much smaller when there's a bar.
 BAR_HEIGHT = 7
-BAR_MIN_WIDTH = 40
-BAR_MARGIN = 6  # between the bar and the times either side
+BAR_GAP = 0
+BAR_ROOM = BAR_HEIGHT + BAR_GAP
 
 
-def _playhead(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which font
+def _played(duration: timedelta, elapsed: timedelta) -> str:
+    """7:07 of 7:07, as `1:02 / 3:21`: the time played and the length, for the header."""
+    return f"{_length(elapsed)} / {_length(duration)}"
+
+
+def _progress_bar(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which colour
     d: ImageDraw.ImageDraw,
-    y: float,
     left: float,
     right: float,
+    bottom: float,
     duration: timedelta,
     elapsed: timedelta,
-    font: ImageFont.FreeTypeFont,
     ink: str = "black",
 ) -> None:
-    """Draw how far into a track it is on the row centred on `y`: the time played, a progress bar, then the length.
+    """Draw how far into a track it is as a bar from `left` to `right`, its bottom row on `bottom`.
 
-    Within `left` to `right`, with the length against `right`, as the page draws it without a position. The bar is an
-    outline with the played part filled solid, square and unsmoothed so it stays crisp in one bit, as long as is left
-    between the two times (which both get the room of the wider, so the bar doesn't move as the digits change). If
-    that is less than BAR_MIN_WIDTH only the length is drawn, as without a position.
+    The played part is solid, and the rest is only a line along the bottom, as long as the track: no box round it, so
+    it starts right under the cover and nothing in one bit is lost to an outline. Square and unsmoothed so it stays
+    crisp.
     """
-    length, played = _length(duration), _length(elapsed)
-    d.text((right, y), length, ink, font, anchor="rm")
-    times = max(font.getlength(length), font.getlength(played))
-    start, end = round(left + times + BAR_MARGIN), round(right - times - BAR_MARGIN)
-    if end - start < BAR_MIN_WIDTH:
-        return
-    d.text((left, y), played, ink, font, anchor="lm")
-    top = round(y - BAR_HEIGHT / 2)
-    bottom = top + BAR_HEIGHT - 1
-    fraction = elapsed / duration if duration else 0
-    d.rectangle((start, top, round(start + (end - start) * fraction), bottom), fill=ink)
-    d.rectangle((start, top, end, bottom), outline=ink)
+    top = round(bottom) - BAR_HEIGHT + 1
+    fraction = min(max(elapsed / duration, 0), 1) if duration else 0
+    left, last, bottom = round(left), round(right) - 1, round(bottom)
+    d.line((left, bottom, last, bottom), fill=ink)
+    d.rectangle((left, top, round(left + (last - left) * fraction), bottom), fill=ink)
 
 
 def _track_and_by(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which fonts
@@ -154,21 +152,19 @@ def airy_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
 ) -> Image.Image:
     """Draw what's playing beside its cover, under a small-caps label, with what's up next below a hairline.
 
-    With `elapsed`, how far into the track it is, the time played and a progress bar fill the label's row up to the
-    length.
+    With `elapsed`, how far into the track it is: the time played beside the length, and a progress bar along the
+    bottom, under the cover and across the whole width (which makes the cover and the up next row a little smaller).
     """
     img, d = _canvas(width, height)
     track = queue.currently_playing
-    cover = art(height)
+    cover = art(height if elapsed is None else height - BAR_ROOM)
     img.paste(cover, (0, 0), cover)
     x = cover.size[0] + 18 if cover.size[0] else 0
     room = width - x
     label = fitted_font(SANS_SEMI, 11)
-    label_end = airy_label(d, x, 12, NOTE, _(labels.now).upper())
-    if elapsed is None:
-        d.text((width, 12), _length(track.duration_ms), "black", label, anchor="rm")
-    else:
-        _playhead(d, 12, label_end + 14, width, track.duration_ms, elapsed, label)
+    airy_label(d, x, 12, NOTE, _(labels.now).upper())
+    aside = _length(track.duration_ms) if elapsed is None else _played(track.duration_ms, elapsed)
+    d.text((width, 12), aside, "black", label, anchor="rm")
     title = _shrunk(track.name, SANS, 32, room)
     d.text((x, 48), truncate_to_fit(track.name, title, room), "black", title, anchor="ls")
     subtitle = fitted_font(SANS, 17)
@@ -180,11 +176,14 @@ def airy_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
         anchor="ls",
     )
     if queue.queue:
+        next_y = 104 if elapsed is None else 101
         d.line((x, 86, width, 86), fill="black")
-        next_x = airy_label(d, x, 104, labels.next_icon, _(labels.next).upper()) + 10
+        next_x = airy_label(d, x, next_y, labels.next_icon, _(labels.next).upper()) + 10
         up_next, body = queue.queue[0], fitted_font(SANS, 15)
         text = truncate_to_fit(f"{up_next.name} · {_artists(up_next)}", body, width - next_x)
-        d.text((next_x, 104), text, "black", body, anchor="lm")
+        d.text((next_x, next_y), text, "black", body, anchor="lm")
+    if elapsed is not None:
+        _progress_bar(d, 0, width, height - 1, track.duration_ms, elapsed)
     return img
 
 
@@ -235,20 +234,17 @@ def hero_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
 ) -> Image.Image:
     """Draw what's playing beside its cover, the title big, with what's up next in a NEXT badge's row.
 
-    With `elapsed`, how far into the track it is, the time played and a progress bar fill the header up to the length.
+    With `elapsed`, how far into the track it is: the time played beside the length, and a progress bar along the
+    bottom, under the cover and across the whole width (which makes the cover and the NEXT row a little smaller).
     """
     img, d = _canvas(width, height)
     track = queue.currently_playing
-    cover = art(height)
+    cover = art(height if elapsed is None else height - BAR_ROOM)
     img.paste(cover, (0, 0), cover)
     x = cover.size[0] + 14 if cover.size[0] else 0
     room = width - x
-    if elapsed is None:
-        _hero_header(d, x, width, NOTE, _(labels.now), _length(track.duration_ms))
-    else:
-        _hero_header(d, x, width, NOTE, _(labels.now), "")
-        title_end = x + 26 + fitted_font(SANS_SEMI, 17).getlength(_(labels.now))
-        _playhead(d, 11, title_end + 16, width, track.duration_ms, elapsed, fitted_font(MEDIUM, 13))
+    aside = _length(track.duration_ms) if elapsed is None else _played(track.duration_ms, elapsed)
+    _hero_header(d, x, width, NOTE, _(labels.now), aside)
     title = _shrunk(track.name, BOLD, 26, room)
     d.text((x, 47), truncate_to_fit(track.name, title, room), "black", title, anchor="lm")
     subtitle = fitted_font(REGULAR, 14)
@@ -260,7 +256,7 @@ def hero_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
         anchor="lm",
     )
     if queue.queue:
-        y = 92
+        y = 92 if elapsed is None else 88
         badge, badge_font = _(labels.badge), fitted_font(BOLD, 12)
         # At least 46 wide (NEXT's); a longer word widens it.
         badge_width = max(46, round(badge_font.getlength(badge)) + 12)
@@ -277,6 +273,8 @@ def hero_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
             fitted_font(MEDIUM, 14),
             fitted_font(BOLD, 14),
         )
+    if elapsed is not None:
+        _progress_bar(d, 0, width, height - 1, track.duration_ms, elapsed)
     return img
 
 
@@ -333,6 +331,9 @@ def hero_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same
 # --- card: a rounded card with a black title bar, like the card arrivals ---------------------
 
 CARD_BAR = 28
+# What the progress bar takes of the card's height beyond the cover's usual: the cover is this much smaller, so the bar
+# (7 tall, its bottom row 7 above the card's) starts right under it.
+CARD_BAR_ROOM = 6
 
 
 def _card(d: ImageDraw.ImageDraw, left: int, right: int, height: int, icon: str, title: str, aside: str) -> None:  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and with which icon
@@ -354,18 +355,15 @@ def card_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
 ) -> Image.Image:
     """Draw what's playing in a card, its cover inside, with what's up next under a dotted line.
 
-    With `elapsed`, how far into the track it is, the time played and a progress bar fill the title bar up to the
-    length, in white on the black.
+    With `elapsed`, how far into the track it is: the time played beside the length, in the title bar, and a progress
+    bar along the bottom inside the card, from the cover's left edge to the card's right (which makes the cover and
+    the up next row a little smaller).
     """
     img, d = _canvas(width, height)
     track = queue.currently_playing
-    if elapsed is None:
-        _card(d, 0, width, height, NOTE, _(labels.now), _length(track.duration_ms))
-    else:
-        _card(d, 0, width, height, NOTE, _(labels.now), "")
-        title_end = 32 + fitted_font(SANS_SEMI, 15).getlength(_(labels.now))
-        _playhead(d, 14, title_end + 16, width - 11, track.duration_ms, elapsed, fitted_font(SANS_SEMI, 13), "white")
-    cover = art(height - CARD_BAR - 14)
+    aside = _length(track.duration_ms) if elapsed is None else _played(track.duration_ms, elapsed)
+    _card(d, 0, width, height, NOTE, _(labels.now), aside)
+    cover = art(height - CARD_BAR - 14 - (0 if elapsed is None else CARD_BAR_ROOM))
     img.paste(cover, (8, CARD_BAR + 7), cover)
     x = 8 + cover.size[0] + 12 if cover.size[0] else 10
     room = width - x - 10
@@ -380,12 +378,15 @@ def card_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
         anchor="lm",
     )
     if queue.queue:
+        next_y = 100 if elapsed is None else 97
         for dot in range(x, width - 10, 4):
             d.point((dot, 84), fill="black")
-        d.text((x, 100), labels.next_icon, "black", resized(google_symbols(), 18), anchor="lm")
+        d.text((x, next_y), labels.next_icon, "black", resized(google_symbols(), 18), anchor="lm")
         up_next, body = queue.queue[0], fitted_font(SANS, 14)
         text = truncate_to_fit(f"{up_next.name} · {_artists(up_next)}", body, room - 22)
-        d.text((x + 22, 100), text, "black", body, anchor="lm")
+        d.text((x + 22, next_y), text, "black", body, anchor="lm")
+    if elapsed is not None:
+        _progress_bar(d, 8, width - 8, height - 7, track.duration_ms, elapsed)
     return img
 
 

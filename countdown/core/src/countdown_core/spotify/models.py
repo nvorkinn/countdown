@@ -52,6 +52,11 @@ class Queue(BaseModel):
     queue: list[Track]
 
 
+# How old a position can be and still count as the player playing: the provider fetches one every 20 s while a track
+# plays, so this is a few missed fetches. After it the player may well have stopped, and nothing says so.
+PLAYBACK_FRESH = timedelta(seconds=90)
+
+
 class Playback(BaseModel):
     """Where Spotify's player was in a track, from its /me/player/currently-playing as of `fetched_at`.
 
@@ -65,6 +70,18 @@ class Playback(BaseModel):
     # The track the position belongs to; None for one without an id (a local file).
     track_id: str | None = None
 
+    def is_of(self, track: Track) -> bool:
+        """Whether this is the position of `track`: it has an id, and it is the one `track_id` names."""
+        return track.id is not None and self.track_id == track.id
+
+    def is_playing_now(self, track: Track, now: datetime) -> bool:
+        """Whether `track` is playing at `now`: this is its position, it was playing, and it was read recently."""
+        return self.is_of(track) and self.is_playing and timedelta(0) <= now - self.fetched_at <= PLAYBACK_FRESH
+
+    def is_paused(self, track: Track) -> bool:
+        """Whether `track` is paused: this is its position, and the player was not playing."""
+        return self.is_of(track) and not self.is_playing
+
     def elapsed(self, track: Track, now: datetime) -> timedelta | None:
         """Return how far into `track` the player is at `now`; None if this position isn't known to be the track's.
 
@@ -74,7 +91,7 @@ class Playback(BaseModel):
         queue is of another track than the position, as just after a skip), and for a track without an id: no bar is
         better than a wrong one.
         """
-        if track.id is None or self.track_id != track.id:
+        if not self.is_of(track):
             return None
         position = timedelta(milliseconds=self.progress_ms)
         if self.is_playing:

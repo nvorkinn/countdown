@@ -10,6 +10,7 @@ image (music_art.jpg).
 import asyncio
 import copy
 import json
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import responses
@@ -20,6 +21,8 @@ from countdown_api import fixtures
 from countdown_core.spotify import spotify_styles
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_client import (
+    TOP_EVERY_S,
+    TOP_WHILE_PLAYING_S,
     MusicSettings,
     NoStoredMusicError,
     SpotifyClient,
@@ -240,8 +243,12 @@ def test_a_missing_cover_draws_the_player_without_one(store, symbols):
 
 
 def _cover_strip_alpha(image):
-    """Return the alpha range of the bottom of where the hero style puts the cover, under any text drawn beside it."""
-    return image.crop((0, 113, 120, 120)).getextrema()[3]
+    """Return the alpha range of a strip of where the hero style puts the cover, with nothing else drawn there.
+
+    Between its header's rule and the title, so there is no text in it when there is no cover for it to sit beside,
+    whether or not the cover is drawn smaller for a progress bar.
+    """
+    return image.crop((0, 29, 100, 33)).getextrema()[3]
 
 
 def test_a_cover_redis_cant_hand_over_draws_the_player_without_one(store, monkeypatch):
@@ -404,3 +411,92 @@ def test_apple_music_has_no_position_even_if_the_key_has_spotifys(store, symbols
         panel.render(536, 120).tobytes()
         == SpotifyPanel(panel.queue, panel.style, panel.labels).render(536, 120).tobytes()
     )
+
+
+# --- While a track plays, the top lists are only a short visit ---------------------------
+
+# A time on a boundary of TOP_EVERY_S and an even number of them from the epoch, so the first visit is the first list's.
+BOUNDARY = datetime.fromtimestamp(TOP_EVERY_S * 7_000_000, UTC)
+
+
+def player_read_at(at, *, is_playing=True):
+    """Return the fixture's player with Spotify's position read at `at`, as the music provider's burst does."""
+    player = copy.deepcopy(PLAYER)
+    player["spotify_playback"] |= {"fetched_at": at.isoformat(), "is_playing": is_playing}
+    return player
+
+
+def shown_every_20s(store, rotation_clock, seconds, *, is_playing=True, top=TOP):
+    """Return what the area shows every 20 s for `seconds` from BOUNDARY, the position read at each one."""
+    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
+    found = []
+    for offset in range(0, seconds, 20):
+        rotation_clock.at = BOUNDARY + timedelta(seconds=offset)
+        put(store, player_read_at(rotation_clock.at, is_playing=is_playing), top)
+        found.append(asyncio.run(client.update()))
+    return found
+
+
+def test_while_playing_a_top_list_is_shown_for_20_seconds_every_4_minutes(store, rotation_clock):
+    found = shown_every_20s(store, rotation_clock, 2 * TOP_EVERY_S)
+
+    visits = [i for i, panel in enumerate(found) if isinstance(panel, SpotifyTopPanel)]
+    # The last 20 s of each 4 minutes, and the player the rest of the time.
+    assert TOP_WHILE_PLAYING_S == 20
+    assert visits == [TOP_EVERY_S // 20 - 1, 2 * TOP_EVERY_S // 20 - 1]
+    assert all(isinstance(panel, SpotifyPanel) for i, panel in enumerate(found) if i not in visits)
+
+
+def test_each_visit_shows_the_next_top_list(store, rotation_clock):
+    found = shown_every_20s(store, rotation_clock, 3 * TOP_EVERY_S)
+
+    periods = [panel.period for panel in found if isinstance(panel, SpotifyTopPanel)]
+    assert periods == ["12 months", "4 weeks", "12 months"]
+
+
+def test_a_paused_player_keeps_the_usual_rotation(store, rotation_clock):
+    """Paused, the top lists are the more interesting page again: a minute each, every other minute."""
+    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
+    found = []
+    for minute in range(4):
+        rotation_clock.at = BOUNDARY + timedelta(minutes=minute)
+        put(store, player_read_at(rotation_clock.at, is_playing=False))
+        found.append(asyncio.run(client.update()))
+
+    assert [type(panel) for panel in found] == [SpotifyPanel, SpotifyTopPanel, SpotifyPanel, SpotifyTopPanel]
+
+
+def test_a_position_read_long_ago_is_not_playing(store, rotation_clock):
+    """The provider stopped fetching (or Spotify did): nothing says it is still playing."""
+    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
+    found = []
+    for minute in range(4):
+        rotation_clock.at = BOUNDARY + timedelta(minutes=minute)
+        put(store, player_read_at(rotation_clock.at - timedelta(minutes=5)))
+        found.append(asyncio.run(client.update()))
+
+    assert [type(panel) for panel in found] == [SpotifyPanel, SpotifyTopPanel, SpotifyPanel, SpotifyTopPanel]
+
+
+def test_a_visit_with_nothing_to_show_stays_on_the_player(store, rotation_clock):
+    empty = copy.deepcopy(TOP)
+    for lists in empty["spotify"].values():
+        lists["tracks"]["items"] = []
+        lists["artists"]["items"] = []
+
+    found = shown_every_20s(store, rotation_clock, TOP_EVERY_S, top=empty)
+
+    assert all(isinstance(panel, SpotifyPanel) for panel in found)
+
+
+def test_a_player_without_a_position_keeps_the_usual_rotation(store, rotation_clock):
+    """The key the provider wrote before it read positions: no playback, so nothing says it is playing."""
+    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
+    player = {key: value for key, value in PLAYER.items() if key != "spotify_playback"}
+    found = []
+    for minute in range(4):
+        rotation_clock.at = BOUNDARY + timedelta(minutes=minute)
+        put(store, player)
+        found.append(asyncio.run(client.update()))
+
+    assert [type(panel) for panel in found] == [SpotifyPanel, SpotifyTopPanel, SpotifyPanel, SpotifyTopPanel]
