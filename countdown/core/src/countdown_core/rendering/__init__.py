@@ -21,7 +21,6 @@ from countdown_core.system_screens.message_panel import MessagePanel
 
 if TYPE_CHECKING:
     from countdown_api.models import Screen
-
     from countdown_core.core.panel import Panel
     from countdown_core.utils.clock import ClockFormat
 

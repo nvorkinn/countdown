@@ -36,7 +36,6 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from countdown_api.models import ConfigResponse
-
     from countdown_core.core.abstract_client import ClientStatus
     from countdown_core.core.panel import Panel
 
