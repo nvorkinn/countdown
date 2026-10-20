@@ -9,6 +9,7 @@ import io
 from typing import TYPE_CHECKING
 
 import pytest
+import qrcode
 from PIL import Image, ImageChops, ImageDraw
 from tfl_factory import tfl_panel
 from weather_factory import forecast_json, make_weather
@@ -341,6 +342,24 @@ def test_pairing_screen_without_a_code_draws_no_boxes():
     img = PairingCodePanel(None, "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size)
 
     assert img.convert("L").crop((0, 232, 800, 342)).getextrema() == (255, 255)
+
+
+def test_pairing_qr_code_opens_the_pairing_page_with_the_code_filled_in(monkeypatch):
+    urls = []
+    add_data = qrcode.QRCode.add_data
+    monkeypatch.setattr(
+        qrcode.QRCode, "add_data", lambda self, data, *a, **k: (urls.append(data), add_data(self, data))[1]
+    )
+
+    PairingCodePanel("C4FFEZ", "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size)
+
+    assert urls == ["https://auth.nikolaivorkinn.com/pair?t=C4FFEZ"]
+
+
+def test_pairing_screen_without_a_code_draws_no_qr_code():
+    img = PairingCodePanel(None, "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size).convert("L")
+
+    assert img.crop((420, 0, 800, 480)).getextrema() == (255, 255)
 
 
 PORTRAIT = (480, 800)
