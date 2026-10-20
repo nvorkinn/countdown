@@ -161,6 +161,18 @@ def test_a_track_without_an_id_draws_no_bar(symbols_font, style):
 
 
 @pytest.mark.parametrize("style", STYLES)
+def test_with_no_room_for_the_bar_only_the_length_is_drawn(symbols_font, style):
+    """In a layout too narrow for a bar worth drawing the position changes nothing, as without one."""
+    queue = Queue(currently_playing=playing(), queue=[playing("t2")])
+
+    def narrow(seconds: float) -> PILImage.Image:
+        panel = SpotifyPanel(queue, style, playback=position(), now=FETCHED_AT + timedelta(seconds=seconds))
+        return panel.render(200, 120)
+
+    assert same(narrow(0), narrow(90))
+
+
+@pytest.mark.parametrize("style", STYLES)
 def test_without_a_position_the_page_is_drawn_as_it_was(symbols_font, style):
     queue = Queue(currently_playing=playing(), queue=[playing("t2")])
     before = STYLES[style].now(queue, lambda size: PILImage.new("RGBA", (0, size)), 536, 120)  # no position argument
