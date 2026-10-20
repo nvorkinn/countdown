@@ -38,14 +38,14 @@ class StopSource[S](Protocol):
         """Look the stop up: None if the source doesn't know it; raises if the source can't be asked."""
 
     def panel(self, stop: S, style: Style) -> AbstractArrivalPanel:
-        """Fetch the stop's departures; raises if they can't be fetched."""
+        """Return the stop's departures panel; raises if it can't be read."""
 
 
 @dataclass(frozen=True)
 class DeparturesSettings:
     """What the departures panel is configured with.
 
-    That's the broker's `departures` section, or, from a broker that predates it, its `tfl` one. Compared by value,
+    That's the broker's `departures` section, or its `tfl` one when there is none. Compared by value,
     so a change makes AbstractClient.needs_refresh rebuild it.
     """
 
@@ -172,7 +172,7 @@ class DeparturesClient(AbstractClient):
                 # The panels group them by route, keeping the later ones for the styles that show them.
                 panels.append(resolved.source.panel(resolved.stop, self.config.style))
             except reader.NoStoredDataError as e:
-                # Expected, and not worth a traceback each cycle: the store has nothing for it (its key has expired, or
+                # Expected, and not worth a traceback each poll: the store has nothing for it (its key has expired, or
                 # the provider hasn't got to it yet). The page's other stops are drawn without it.
                 logger.warning("No departures for %s: %s", resolved.id, e)
                 expired += 1

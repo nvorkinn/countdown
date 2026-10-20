@@ -9,7 +9,7 @@ NIGHT_HOUR = 21
 
 
 def weather_pages(forecast: ForecastResponse) -> tuple[Weather, ...]:
-    """Build all four pages before accepting a forecast into the client's cache."""
+    """Build the four pages from one forecast; raises ValueError if it lacks the hours or days a page needs."""
     current, daily, hourly = forecast.current, forecast.daily, forecast.hourly
     today = current.time.date()
     today_index = daily.time.index(today)

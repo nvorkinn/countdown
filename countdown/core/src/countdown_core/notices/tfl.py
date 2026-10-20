@@ -116,7 +116,7 @@ class StoredTflRoadSource(StoredTflNoticeSource):
     def fetch(self, now: datetime) -> list[Notice]:
         stored = reader.read(reader.require_store(), keys.tfl_roads(self.postcode), StoredRoadDisruptions)
         if stored is None:
-            # Not naming the key, as _read_all does: the board logs this, and the key has the postcode in it.
+            # Not naming the key: the board logs this, and the key has the postcode in it.
             msg = "No TfL road disruptions in the store for the board's postcode"
             raise NoStoredTflNoticesError(msg)
         return road_notices(stored.disruptions)

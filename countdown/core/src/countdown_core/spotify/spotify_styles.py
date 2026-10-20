@@ -1,6 +1,6 @@
 """The looks the Spotify panel can have (the config's style).
 
-Each matches the bus/tube style of the same name. A style draws both pages: what's playing, and the top tracks and
+Each matches the departures style of the same name. A style draws both pages: what's playing, and the top tracks and
 artists. Each draws into `width` x `height`, on a transparent background.
 """
 
@@ -196,7 +196,7 @@ def hero_now(queue: Queue, art: AlbumArt, width: int, height: int, labels: Label
     if queue.queue:
         y = 92
         badge, badge_font = _(labels.badge), fitted_font(BOLD, 12)
-        # 46 wide, as NEXT has always been; a longer word widens it.
+        # At least 46 wide (NEXT's); a longer word widens it.
         badge_width = max(46, round(badge_font.getlength(badge)) + 12)
         d.rounded_rectangle((x, y, x + badge_width, y + 20), 4, outline="black", width=2)
         d.text((x + badge_width / 2, y + 10), badge, "black", badge_font, anchor="mm")

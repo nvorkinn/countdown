@@ -26,8 +26,8 @@ class NoStoredForecastError(reader.NoStoredDataError):
 def location_key(config: WeatherSection) -> str:
     """Return the key the broker subscribes the screen's weather under, e.g. "london-gb-2643743"; "" for none.
 
-    That's the config's `key`: the picked place's name, country and Open-Meteo id. A broker that predates `key` sends
-    null, and subscribes the text in `location` instead.
+    That's the config's `key`: the picked place's name, country and Open-Meteo id. If it's null, the broker subscribes
+    the text in `location` instead.
     """
     return config.key or config.location
 
@@ -75,15 +75,15 @@ class WeatherClient(AbstractClient):
     def _stored_forecast(self) -> ForecastResponse:
         """Read the place's forecast from the store; raises NoStoredForecastError if there's none.
 
-        Not there under its key, it's read under the location's text, which is what a broker subscribed before it
-        sent keys: just after one starts to, that forecast is still in the store (until its TTL) while the provider
-        hasn't yet fetched the key's.
+        Not there under its key, it's read under the location's text, which the broker subscribes when it sends no key:
+        when it starts sending one, that forecast stays in the store (until its TTL) while the provider fetches the
+        key's.
         """
         stored = reader.read(self.store, keys.weather(self.key), StoredForecast)
         if stored is None and self.location and self.location != self.key:
             stored = reader.read(self.store, keys.weather(self.location), StoredForecast)
         if stored is None:
-            # Not naming the key: this is logged (AbstractClient.update), and the key says where the screen is (a town,
+            # Not naming the key: this is logged (AbstractClient.poll), and the key says where the screen is (a town,
             # or typed text, which can be a postcode).
             msg = "No forecast in the store for the screen's place"
             raise NoStoredForecastError(msg)

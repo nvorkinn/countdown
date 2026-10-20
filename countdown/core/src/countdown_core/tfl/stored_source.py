@@ -1,6 +1,6 @@
 """TfL's departures from the store (`v1:departures:<stop id>`, written by the TfL provider) instead of from TfL.
 
-The departures client reads every TfL stop this way; TflSource itself is only the TfL provider's now.
+The departures client reads every TfL stop this way; TflSource is the TfL provider's.
 A bus stop's panel is a row per route, badged with its number, under the stop's name and the letter on its flag. A
 Tube station's is a row per line and destination, badged with the line's initial, under the roundel and the station's
 name less " Underground Station". The provider has already turned TfL's arrivals into departures (the Tube's

@@ -32,7 +32,7 @@ class DeveloperClient(AbstractClient):
     runs (its pace key, which the broker reads, and a render job for each of its screens on every cycle).
     """
 
-    # Reading the store costs nothing: whenever the screen refreshes.
+    # Reading the store costs nothing: it is read on every render.
     poll_interval = timedelta(0)
     panel_title = N_("Developer")
 
