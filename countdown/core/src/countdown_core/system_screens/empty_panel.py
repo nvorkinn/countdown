@@ -32,6 +32,7 @@ class EmptyPanel(Panel):
             (-110, _("Nothing to show yet"), TITLE),
             (-25, _("Waiting for your first bus times"), INSTRUCTION),
             (30, _("and weather to arrive"), INSTRUCTION),
+            (110, "(if it stays like this, check the Wi-Fi)", HINT),
         ]
         for offset, text, size in lines:
             font = fitted_font("Ubuntu-Medium.ttf", size, scale)

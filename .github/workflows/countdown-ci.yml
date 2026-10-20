@@ -63,6 +63,11 @@ jobs:
         # in the image their goldens are drawn in.
         run: uv run pytest -n auto -m "not snapshot" --cov --cov-report=term-missing --cov-report=xml
 
+      - name: TEMPORARY bare snapshot run
+        continue-on-error: true
+        run: |
+          if uv run pytest -n auto -m snapshot -q -p no:cacheprovider; then echo "::notice title=bare::bare ubuntu matches the container goldens exactly"; else echo "::notice title=bare::bare ubuntu DIFFERS from the container goldens"; fi
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
