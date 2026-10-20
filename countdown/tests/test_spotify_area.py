@@ -96,3 +96,5 @@ def test_a_release_above_spotify_is_a_taller_strip():
     placed = place_developer_panel(PANELS | {DEVELOPERS: developer}, BOTH)
 
     assert placed[DEVELOPERS].fitted_height(SPOTIFY_HEIGHT) == RELEASE_STRIP
+    # A run that hasn't started its jobs yet: just its name, no row of boxes.
+    assert placed[DEVELOPERS].render(536, RELEASE_STRIP).size == (536, RELEASE_STRIP)
