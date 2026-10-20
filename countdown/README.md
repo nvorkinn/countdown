@@ -99,17 +99,22 @@ a development worker at production's Redis: it would write its frames to the scr
 
 ## Visual regression tests
 
-`tests/test_display_snapshots.py` renders each scenario through the real layouts and compares it with a golden PNG in
-`tests/images/`. A mismatch writes `tests/images/_failures/<name>.actual.png` and `<name>.diff.png`.
+Every test that takes the `snapshot` fixture (`pytest -m snapshot`) renders a screen or panel and compares it, exactly,
+with a golden PNG in `tests/images/`. Text is drawn differently on macOS, on a Linux host and on another Pillow or font
+build, so the goldens are drawn and compared only in one pinned Linux image (`dev/snapshots.Dockerfile`: base image
+digest, uv, the locked packages, Material Symbols at a pinned commit). It renders byte-identically on amd64 and arm64.
+CI runs the same image in its `snapshots` job; the other tests run bare.
 
 ```bash
-uv run pytest tests/test_display_snapshots.py                      # compare
-uv run pytest tests/test_display_snapshots.py --update-snapshots   # rewrite the goldens that changed
+dev/snapshots.sh test      # compare (needs Docker)
+dev/snapshots.sh update    # redraw the goldens
 ```
 
-Review the changed PNGs (GitHub's "Files changed" shows image diffs) and commit them with the code. To add a scenario,
-add a function that builds its panels and calls `snapshot.assert_matches("some_name", image)`, then run with
-`--update-snapshots` once.
+A mismatch writes `tests/images/_failures/<name>.actual.png` and `<name>.diff.png`. Review the changed PNGs (GitHub's
+"Files changed" shows image diffs) and commit them with the code. To add a scenario, add a function that builds its
+panels and calls `snapshot.assert_matches("some_name", image)`, then run `update` once. Bump the image when the base
+image or the font should change: its digest and the font's hash are `ARG`s at the top of the Dockerfile, and the goldens
+are redrawn with it.
 
 ## Logs and metrics
 

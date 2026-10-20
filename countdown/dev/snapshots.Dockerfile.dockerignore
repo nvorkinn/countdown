@@ -1,0 +1,5 @@
+# The image only needs the dependency files; the repo is mounted at run time (its .venv and images especially).
+*
+!pyproject.toml
+!uv.lock
+!*/pyproject.toml
