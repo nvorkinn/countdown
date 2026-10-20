@@ -47,7 +47,8 @@ class ClassicLayout(Layout):
     @override
     def render(self, panels: dict[str, Panel], canvas: Canvas, *, clock_format: ClockFormat = "24h") -> Frame:
         img = Image.new("RGBA", canvas.size, (255, 255, 255, 255))
-        spotify_room = SPOTIFY_HEIGHT + GAP if self.SHOWS_SPOTIFY else 0
+        spotify_area = self._spotify_area(panels, SPOTIFY_HEIGHT) if self.SHOWS_SPOTIFY else []
+        spotify_room = sum(height + GAP for _, height in spotify_area)
         notices_room = canvas.height - self.ARRIVALS_HEIGHT - 3 * GAP - spotify_room
         notices_height, spare = self._fit_notices(panels, notices_room)
         arrivals_box = self._draw_top_row(img, panels, canvas, self.ARRIVALS_HEIGHT + spare, clock_format)
@@ -64,11 +65,10 @@ class ClassicLayout(Layout):
                 clock_format=clock_format,
             )
             bottom -= GAP
-        if self.SHOWS_SPOTIFY:
-            spotify_panel = panels[ClientClasses.SPOTIFY.api_name]
-            self._place(
-                img, spotify_panel, (GAP, bottom - SPOTIFY_HEIGHT), (width, SPOTIFY_HEIGHT), clock_format=clock_format
-            )
+        for panel, height in reversed(spotify_area):
+            bottom -= height
+            self._place(img, panel, (GAP, bottom), (width, height), clock_format=clock_format)
+            bottom -= GAP
         if self.SHOWS_ENERGY:
             x, y = GAP + width + GAP, GAP + self.ARRIVALS_HEIGHT + GAP
             energy_panel = panels[ClientClasses.GLOWMARKT.api_name]

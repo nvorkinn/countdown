@@ -4,7 +4,6 @@ A layout, picked for every frame from the screen's canvas and what the device ca
 """
 
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from PIL import Image
@@ -16,6 +15,7 @@ from countdown_core.rendering.layouts.classic import CLASSIC
 from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import Canvas, canvas_for, native_size
+from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.message_panel import MessagePanel
 
@@ -28,10 +28,6 @@ logger = logging.getLogger(__name__)
 
 LAYOUTS = LayoutRegistry(CLASSIC + CLASSIC_PORTRAIT)
 
-# With Spotify there too, the developer panel takes Spotify's area one minute in this many. Not two: Spotify turns a
-# page every minute, so every other minute would always land on the same pages.
-DEVELOPER_TURN = 3
-
 
 def layout_for(screen: Screen, available: frozenset[ClientClasses]) -> tuple[Layout, Canvas]:
     """Pick the layout to draw with, and the canvas it draws on.
@@ -40,7 +36,7 @@ def layout_for(screen: Screen, available: frozenset[ClientClasses]) -> tuple[Lay
     """
     canvas = LAYOUTS.drawable(canvas_for(screen))
     if ClientClasses.DEVELOPER in available:
-        # It's drawn in Spotify's area (see share_spotify_area), so the layouts lay that out.
+        # It's drawn in Spotify's area (see place_developer_panel), so the layouts lay that out.
         available |= {ClientClasses.SPOTIFY}
     # No layout choice in the config yet (the contract has no field for it): the canvas's first.
     return LAYOUTS.select(canvas, None, available), canvas
@@ -52,41 +48,37 @@ def render(
     available: frozenset[ClientClasses],
     *,
     clock_format: ClockFormat = "24h",
-    now: datetime | None = None,
 ) -> Frame:
-    """Draw the frame for `screen`, upright as the viewer sees it, at `now` (the time, if not given).
+    """Draw the frame for `screen`, upright as the viewer sees it.
 
     If every panel is a MessagePanel (or has nothing to draw), it's the "nothing to show yet" screen instead of a
     layout full of messages.
     """
     if all(isinstance(panel, MessagePanel) or not panel.fitted_height(1) for panel in panels.values()):
         return Frame(EmptyPanel().render(*canvas_for(screen).size))
-    panels = share_spotify_area(panels, available, now or datetime.now())  # noqa: DTZ005 -- only the minute matters
+    panels = place_developer_panel(panels, available)
     layout, canvas = layout_for(screen, available)
     logger.debug("Drawing %s on %s", type(layout).__name__, canvas)
     return layout.render(panels, canvas, clock_format=clock_format)
 
 
-def share_spotify_area(
-    panels: dict[str, Panel], available: frozenset[ClientClasses], now: datetime
-) -> dict[str, Panel]:
-    """Return `panels` with the developer panel in Spotify's area when it's the developer panel's turn.
+def place_developer_panel(panels: dict[str, Panel], available: frozenset[ClientClasses]) -> dict[str, Panel]:
+    """Return `panels` with the developer panel where the layouts draw it (see Layout._spotify_area).
 
-    That's always without Spotify, and with it one minute in DEVELOPER_TURN, every minute while it shows a release,
-    or whenever Spotify has only a message to show (nothing playing, not linked).
+    While Spotify shows a song, the developer panel keeps its own name and is drawn as a strip above it (or left out,
+    if it has only a message). Otherwise (Spotify not set up, on a top list, or with only a message) the developer
+    panel takes Spotify's place, whole.
     """
     developer = panels.get(ClientClasses.DEVELOPER.api_name)
+    others = {name: panel for name, panel in panels.items() if name != ClientClasses.DEVELOPER.api_name}
     if ClientClasses.DEVELOPER not in available or developer is None:
-        return panels
+        return others
     spotify = panels.get(ClientClasses.SPOTIFY.api_name)
-    if (
-        ClientClasses.SPOTIFY in available
-        and not isinstance(spotify, MessagePanel)
-        and not (isinstance(developer, DeveloperPanel) and developer.has_release)
-        and now.minute % DEVELOPER_TURN != DEVELOPER_TURN - 1
-    ):
-        return panels
-    return panels | {ClientClasses.SPOTIFY.api_name: developer}
+    if ClientClasses.SPOTIFY not in available or not isinstance(spotify, SpotifyPanel):
+        return others | {ClientClasses.SPOTIFY.api_name: developer}
+    if isinstance(developer, DeveloperPanel):
+        return others | {ClientClasses.DEVELOPER.api_name: developer.compacted()}
+    return others
 
 
 def to_native(frame: Frame, screen: Screen) -> Frame:

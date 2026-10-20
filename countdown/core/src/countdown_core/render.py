@@ -121,7 +121,7 @@ def render(device_id: str, now: datetime) -> Outcome:
         available = registry.available()
         registry.show_stops(layout_for(config.screen, available)[0].stops_shown)
         polled = registry.poll()
-        drawn = draw(registry.panels(polled), config.screen, available, clock_format=config.clock_format, now=now)
+        drawn = draw(registry.panels(polled), config.screen, available, clock_format=config.clock_format)
         frame = to_native(drawn, config.screen)
         data = bytes(panel_bytes(frame.image))
         return Outcome(

@@ -63,6 +63,19 @@ class Layout(ABC):
         return height, room - height if height else room + GAP
 
     @staticmethod
+    def _spotify_area(panels: dict[str, Panel], height: int) -> list[tuple[Panel, int]]:
+        """What's drawn in Spotify's `height`-tall area, top down, and how tall each is.
+
+        That's Spotify, with the developer panel as a strip above it when rendering.place_developer_panel left it under
+        its own name.
+        """
+        area = [panels[ClientClasses.SPOTIFY.api_name]]
+        developer = panels.get(ClientClasses.DEVELOPER.api_name)
+        if developer is not None:
+            area.insert(0, developer)
+        return [(panel, panel.fitted_height(height)) for panel in area]
+
+    @staticmethod
     def _place(
         img: Image.Image,
         panel: Panel,

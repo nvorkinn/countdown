@@ -1,64 +1,77 @@
-"""The developer panel's turns in Spotify's area."""
+"""Where the developer panel goes: a strip above Spotify's song, or Spotify's whole area."""
 
 import datetime as dt
-
-import pytest
 
 from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.developer.developer_panel import DeveloperPanel
+from countdown_core.developer.developer_styles import COMPACT_HEIGHT
 from countdown_core.developer.models import DeveloperSummary, GitHubSummary, Release
-from countdown_core.rendering import layout_for, share_spotify_area
-from countdown_core.rendering.layouts.classic import BaseLayout, SpotifyLayout
+from countdown_core.developer.release_styles import COMPACT_HEIGHT as RELEASE_STRIP
+from countdown_core.rendering import layout_for, place_developer_panel
+from countdown_core.rendering.layouts.classic import SPOTIFY_HEIGHT, BaseLayout, SpotifyLayout
+from countdown_core.spotify.models import Queue
 from countdown_core.spotify.spotify_client import SpotifyClient
+from countdown_core.spotify.spotify_panel import SpotifyPanel
+from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 
-SPOTIFY = object()
-DEVELOPER = object()
+SPOTIFY = SpotifyPanel(Queue(currently_playing=None, queue=[]))
+GITHUB = GitHubSummary(login="nvorkinn", repos=1, open_prs=0, review_requests=0, failing=[])
+DEVELOPER = DeveloperPanel(DeveloperSummary(github=GITHUB, plans=[]))
 PANELS = {ClientClasses.SPOTIFY.api_name: SPOTIFY, ClientClasses.DEVELOPER.api_name: DEVELOPER}
 BOTH = frozenset({ClientClasses.SPOTIFY, ClientClasses.DEVELOPER})
 LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
-
-
-def at(minute: int) -> dt.datetime:
-    return dt.datetime(2026, 10, 17, 9, minute)  # noqa: DTZ001 -- as the screen's clock is: local wall-clock time
-
-
-def in_spotifys_area(panels, available, minute) -> object:
-    return share_spotify_area(panels, available, at(minute))[ClientClasses.SPOTIFY.api_name]
+SPOTIFYS = ClientClasses.SPOTIFY.api_name
+DEVELOPERS = ClientClasses.DEVELOPER.api_name
 
 
 def test_without_the_developer_panel_spotify_keeps_its_area():
-    assert in_spotifys_area(PANELS, frozenset({ClientClasses.SPOTIFY}), 2) is SPOTIFY
+    placed = place_developer_panel(PANELS, frozenset({ClientClasses.SPOTIFY}))
+
+    assert placed == {SPOTIFYS: SPOTIFY}
 
 
-@pytest.mark.parametrize("minute", [0, 1, 2, 3, 59])
-def test_without_spotify_the_developer_panel_has_the_area_all_the_time(minute):
-    assert in_spotifys_area(PANELS, frozenset({ClientClasses.DEVELOPER}), minute) is DEVELOPER
+def test_without_spotify_the_developer_panel_has_the_whole_area():
+    placed = place_developer_panel(PANELS, frozenset({ClientClasses.DEVELOPER}))
+
+    assert placed == {SPOTIFYS: DEVELOPER}
 
 
-def test_with_both_the_developer_panel_has_one_minute_in_three():
-    shown = [in_spotifys_area(PANELS, BOTH, minute) for minute in range(6)]
+def test_with_a_song_showing_the_developer_panel_is_a_strip_above_it():
+    placed = place_developer_panel(PANELS, BOTH)
 
-    assert shown == [SPOTIFY, SPOTIFY, DEVELOPER, SPOTIFY, SPOTIFY, DEVELOPER]
-
-
-def test_the_developer_panel_stands_in_for_spotify_with_nothing_to_show():
-    panels = PANELS | {ClientClasses.SPOTIFY.api_name: SpotifyClient.message_panel("Nothing playing on:")}
-
-    assert in_spotifys_area(panels, BOTH, 0) is DEVELOPER
+    assert placed[SPOTIFYS] is SPOTIFY
+    assert placed[DEVELOPERS].compact
+    assert placed[DEVELOPERS].fitted_height(SPOTIFY_HEIGHT) == COMPACT_HEIGHT
 
 
-@pytest.mark.parametrize("minute", [0, 1, 2])
-def test_without_a_developer_panel_to_show_spotify_keeps_its_area(minute):
-    panels = {ClientClasses.SPOTIFY.api_name: SPOTIFY}
+def test_the_developer_panel_has_the_whole_area_while_spotify_has_nothing_to_show():
+    panels = PANELS | {SPOTIFYS: SpotifyClient.message_panel("Nothing playing on:")}
 
-    assert in_spotifys_area(panels, BOTH, minute) is SPOTIFY
+    assert place_developer_panel(panels, BOTH) == {SPOTIFYS: DEVELOPER}
+
+
+def test_a_developer_message_is_left_out_above_spotify():
+    panels = PANELS | {DEVELOPERS: SpotifyClient.message_panel("Not available")}
+
+    assert place_developer_panel(panels, BOTH) == {SPOTIFYS: SPOTIFY}
+
+
+def test_on_a_top_list_the_developer_panel_has_the_whole_area():
+    panels = PANELS | {SPOTIFYS: SpotifyTopPanel("4 weeks", [], [])}
+
+    assert place_developer_panel(panels, BOTH) == {SPOTIFYS: DEVELOPER}
+
+
+def test_without_a_developer_panel_to_show_spotify_keeps_its_area():
+    assert place_developer_panel({SPOTIFYS: SPOTIFY}, BOTH) == {SPOTIFYS: SPOTIFY}
 
 
 def test_the_panels_handed_in_are_left_as_they_were():
-    share_spotify_area(PANELS, BOTH, at(2))
+    place_developer_panel(PANELS, BOTH)
 
-    assert PANELS[ClientClasses.SPOTIFY.api_name] is SPOTIFY
+    assert PANELS == {SPOTIFYS: SPOTIFY, DEVELOPERS: DEVELOPER}
+    assert not DEVELOPER.compact
 
 
 def test_the_developer_panel_alone_gets_the_layout_with_spotifys_area():
@@ -69,8 +82,8 @@ def test_the_developer_panel_alone_gets_the_layout_with_spotifys_area():
     assert type(layout_for(LANDSCAPE, developer_only - {ClientClasses.DEVELOPER})[0]) is BaseLayout
 
 
-@pytest.mark.parametrize("minute", [0, 1, 2])
-def test_a_release_takes_the_area_every_minute_while_it_shows(minute):
+def test_a_release_above_spotify_is_a_taller_strip():
+    """Its jobs in a row, under its name."""
     release = Release(
         repo="auth-broker",
         title="v1.27.0",
@@ -78,10 +91,10 @@ def test_a_release_takes_the_area_every_minute_while_it_shows(minute):
         started=dt.datetime(2026, 10, 17, 9, 0, tzinfo=dt.UTC),
         jobs=[],
     )
-    github = GitHubSummary(login="nvorkinn", repos=1, open_prs=0, review_requests=0, failing=[], releases=[release])
-    developer = DeveloperPanel(DeveloperSummary(github=github, plans=[]))
-    quiet = DeveloperPanel(DeveloperSummary(github=github.model_copy(update={"releases": []}), plans=[]))
+    developer = DeveloperPanel(DeveloperSummary(github=GITHUB.model_copy(update={"releases": [release]}), plans=[]))
 
-    assert in_spotifys_area(PANELS | {ClientClasses.DEVELOPER.api_name: developer}, BOTH, minute) is developer
-    expected = quiet if minute == 2 else SPOTIFY
-    assert in_spotifys_area(PANELS | {ClientClasses.DEVELOPER.api_name: quiet}, BOTH, minute) is expected
+    placed = place_developer_panel(PANELS | {DEVELOPERS: developer}, BOTH)
+
+    assert placed[DEVELOPERS].fitted_height(SPOTIFY_HEIGHT) == RELEASE_STRIP
+    # A run that hasn't started its jobs yet: just its name, no row of boxes.
+    assert placed[DEVELOPERS].render(536, RELEASE_STRIP).size == (536, RELEASE_STRIP)

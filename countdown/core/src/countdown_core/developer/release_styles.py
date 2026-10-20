@@ -2,7 +2,8 @@
 
 The jobs go left to right in columns, each after the jobs it waits for, with a line from each job to the ones that
 wait for it. A chain of more than four jobs wraps onto a second row when it fits, so the names stay readable. Each
-style draws into `width` x `height`, on a transparent background.
+style draws into `width` x `height`, on a transparent background. Above Spotify's song it's a strip instead: the jobs
+in a row, without the lines.
 """
 
 from dataclasses import dataclass
@@ -289,6 +290,83 @@ def card(release: Release, others: int, now: datetime, width: int, height: int) 
     return img
 
 
+# --- compact: the jobs in a row, in a strip above Spotify's song -----------------------------
+#
+# The release's name over its jobs side by side, in the order they run, without the lines between them.
+
+COMPACT_HEIGHT = 52
+NARROWEST = 64  # more jobs than boxes this wide fit: the last box says how many more
+
+
+def row(d: ImageDraw.ImageDraw, release: Release, box: tuple[float, float, float], look: Look) -> None:
+    """Draw the release's jobs in a row of boxes from `box`'s left to its right, their tops at its top."""
+    jobs = [job for column in _columns(release.jobs) for job in column]
+    if not jobs:
+        return
+    left, top, right = box
+    fits = max(1, int((right - left + NODE_GAP) // (NARROWEST + NODE_GAP)))
+    shown = jobs if len(jobs) <= fits else jobs[: fits - 1]
+    boxes = len(shown) + (len(shown) < len(jobs))
+    node_w = min(WIDEST, (right - left - NODE_GAP * (boxes - 1)) / boxes)
+    for i, job in enumerate(shown):
+        # Narrow boxes keep their room for the name: only a running job says how far it's got.
+        boxed = job if job.state == "running" else job.model_copy(update={"total": None})
+        _box(d, boxed, (left + i * (node_w + NODE_GAP), top), node_w, look)
+    if len(shown) < len(jobs):
+        x = left + len(shown) * (node_w + NODE_GAP)
+        d.rounded_rectangle((x, top, x + node_w, top + NODE_HEIGHT), look.radius, fill="white", outline="black")
+        d.text((x + node_w / 2, top + NODE_HEIGHT / 2 + 1), f"+{len(jobs) - len(shown)}", "black", look.text, "mm")
+
+
+def _compact_title(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which fonts
+    d: ImageDraw.ImageDraw,
+    release: Release,
+    others: int,
+    now: datetime,
+    box: tuple[float, float, float],
+    fonts: tuple[ImageFont.FreeTypeFont, ImageFont.FreeTypeFont],
+) -> None:
+    """Draw the release's name from `box`'s left and how it's going to its right, centred on its middle."""
+    left, middle, right = box
+    title_font, aside_font = fonts
+    side = truncate_to_fit(aside(release, others, now), aside_font, (right - left) * 0.5)
+    d.text((right, middle), side, "black", aside_font, anchor="rm")
+    d.text((left + 20, middle), ROCKET, "black", resized(google_symbols(), 16), anchor="rm")
+    room = right - left - 24 - aside_font.getlength(side) - 12
+    d.text((left + 24, middle), truncate_to_fit(_title(release), title_font, room), "black", title_font, anchor="lm")
+
+
+def compact_airy(release: Release, others: int, now: datetime, width: int, height: int) -> Image.Image:
+    """Draw the release's name in small type over its jobs in hairline boxes, over a hairline."""
+    img, d = _canvas(width, height)
+    _compact_title(d, release, others, now, (0, 9, width), (fitted_font(SANS_SEMI, 12), fitted_font(SANS, 12)))
+    row(d, release, (0, 22, width - 1), _airy_look())
+    d.line((0, height - 1, width, height - 1), fill="black")
+    return img
+
+
+def compact_hero(release: Release, others: int, now: datetime, width: int, height: int) -> Image.Image:
+    """Draw the release's name over its jobs in heavy boxes, a finished job in black."""
+    img, d = _canvas(width, height)
+    _compact_title(d, release, others, now, (0, 9, width), (fitted_font(SANS_SEMI, 14), fitted_font(MEDIUM, 12)))
+    row(d, release, (0, 22, width - 1), _hero_look())
+    return img
+
+
+def compact_card(release: Release, others: int, now: datetime, width: int, height: int) -> Image.Image:
+    """Draw the release's name over its jobs in an outlined card, a finished job in black."""
+    img, d = _canvas(width, height)
+    d.rounded_rectangle((0, 0, width - 1, height - 1), 10, fill="white", outline="black", width=2)
+    _compact_title(d, release, others, now, (10, 12, width - 11), (fitted_font(SANS_SEMI, 13), fitted_font(SANS, 12)))
+    row(d, release, (10, 24, width - 11), _card_look())
+    return img
+
+
+COMPACT_STYLES: dict[str, Callable[[Release, int, datetime, int, int], Image.Image]] = {
+    "airy": compact_airy,
+    "hero": compact_hero,
+    "card": compact_card,
+}
 LOOKS: dict[str, Callable[[], Look]] = {"airy": _airy_look, "hero": _hero_look, "card": _card_look}
 STYLES: dict[str, Callable[[Release, int, datetime, int, int], Image.Image]] = {
     "airy": airy,

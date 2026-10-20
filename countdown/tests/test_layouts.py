@@ -95,7 +95,7 @@ def test_a_portrait_screen_gets_the_classic_layout_stacked(unavailable, expected
 
 
 def test_portrait_arrivals_are_the_volatile_part():
-    panels = {api.api_name: _SolidPanel() for api in ClientClasses}
+    panels = _solid_panels()
     for layout in CLASSIC_PORTRAIT:
         frame = layout.render(panels, PORTRAIT)
         top = 5 + ENERGY_ROW_HEIGHT + 15 if layout.SHOWS_ENERGY else 290
@@ -104,12 +104,20 @@ def test_portrait_arrivals_are_the_volatile_part():
 
 
 def test_portrait_energy_chart_leaves_the_notices_the_room_they_had_under_the_full_weather():
-    panels = {api.api_name: _SolidPanel() for api in ClientClasses} | {"notice_board": _notices(20)}
+    panels = _solid_panels() | {"notice_board": _notices(20)}
     for with_energy, without in [
         (SpotifyGlowPortraitLayout(), SpotifyPortraitLayout()),
         (GlowPortraitLayout(), BasePortraitLayout()),
     ]:
         assert with_energy.render(panels, PORTRAIT).volatile[3] == without.render(panels, PORTRAIT).volatile[3]
+
+
+def _solid_panels() -> dict[str, Panel]:
+    """Return a panel for every API, as rendering.place_developer_panel hands them on with no song showing.
+
+    So no developer panel under its own name: it would be the strip above Spotify (see test_developer_strip_*).
+    """
+    return {api.api_name: _SolidPanel() for api in ClientClasses if api is not ClientClasses.DEVELOPER}
 
 
 def _notices(count: int) -> NoticeBoardPanel:
@@ -122,7 +130,7 @@ def test_fewer_notices_give_the_arrivals_more_room(layout, clock_format):
     canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
 
     def arrivals_height(notices: Panel) -> int:
-        panels = {api.api_name: _SolidPanel() for api in ClientClasses} | {"notice_board": notices}
+        panels = _solid_panels() | {"notice_board": notices}
         box = layout.render(panels, canvas, clock_format=clock_format).volatile
         return box[3] - box[1]
 
@@ -137,7 +145,7 @@ def test_clock_switching_preserves_compact_notice_fitting_and_reaches_each_layou
     canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
     expiry = datetime.fromisoformat("2026-09-25T21:07:00+01:00")
     notices = NoticeBoardPanel([Notice("Met Office", Severity.INFO, "Until", expiry, display_time=expiry)])
-    panels = {api.api_name: _SolidPanel() for api in ClientClasses} | {
+    panels = _solid_panels() | {
         "notice_board": notices,
         "glowmarkt": EnergyPanel([{"start": f"2026-09-25T{hour:02d}:07:00+01:00", "kwh": 1} for hour in (0, 12)], 0),
     }
@@ -166,6 +174,16 @@ def test_clock_switching_preserves_compact_notice_fitting_and_reaches_each_layou
 class _SolidPanel(Panel):
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         return Image.new("RGBA", (image_width, image_height), "black")
+
+
+class _FittedPanel(_SolidPanel):
+    """A panel only `height` tall, as the developer strip is."""
+
+    def __init__(self, height: int) -> None:
+        self.height = height
+
+    def fitted_height(self, max_height: int) -> int:
+        return min(self.height, max_height)
 
 
 def test_a_canvas_no_layout_draws_on_falls_back_to_the_default_with_one_warning(caplog):
@@ -262,3 +280,18 @@ def test_a_portrait_frame_is_turned_into_the_panels_landscape_picture_with_its_v
 
 def test_a_portrait_frame_without_a_volatile_part_has_none_once_turned():
     assert to_native(Frame(Image.new("RGB", (480, 800))), VERTICAL).volatile is None
+
+
+@pytest.mark.parametrize("layout", [*CLASSIC[:2], *CLASSIC_PORTRAIT[:2]], ids=type)
+def test_developer_strip_above_spotify_takes_its_height_from_the_arrivals_room(layout):
+    """The strip and its gap come out of what the notices and the arrivals share, Spotify's room stays."""
+    canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
+
+    def arrivals_height(panels: dict[str, Panel]) -> int:
+        box = layout.render(panels | {"notice_board": _notices(0)}, canvas).volatile
+        return box[3] - box[1]
+
+    strip = _FittedPanel(30)
+    alone = arrivals_height(_solid_panels())
+    stacked = arrivals_height(_solid_panels() | {ClientClasses.DEVELOPER.api_name: strip})
+    assert alone - stacked == 30 + GAP

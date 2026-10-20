@@ -36,7 +36,7 @@ class ClientClasses(Enum):
     WEATHER = ("weather", WeatherClient)
     # Spotify, Apple Music or both; AppleMusicClient when it's only Apple Music (see client_class).
     SPOTIFY = ("spotify", SpotifyClient)
-    # Shares Spotify's area (see rendering.share_spotify_area).
+    # Drawn above Spotify, or in its place (see rendering.place_developer_panel).
     DEVELOPER = ("developer", DeveloperClient)
 
     @property

@@ -46,7 +46,8 @@ class ClassicPortraitLayout(Layout):
 
         top_height = self._draw_top_row(img, panels, width, clock_format)
         arrivals_y = GAP + top_height + WEATHER_GAP
-        spotify_room = SPOTIFY_HEIGHT + GAP if self.SHOWS_SPOTIFY else 0
+        spotify_area = self._spotify_area(panels, SPOTIFY_HEIGHT) if self.SHOWS_SPOTIFY else []
+        spotify_room = sum(height + GAP for _, height in spotify_area)
         notices_room = canvas.height - GAP - spotify_room - (arrivals_y + self.ARRIVALS_HEIGHT + GAP)
         notices_height, spare = self._fit_notices(panels, notices_room)
 
@@ -71,14 +72,10 @@ class ClassicPortraitLayout(Layout):
                 clock_format=clock_format,
             )
             bottom -= GAP
-        if self.SHOWS_SPOTIFY:
-            self._place(
-                img,
-                panels[ClientClasses.SPOTIFY.api_name],
-                (GAP, bottom - SPOTIFY_HEIGHT),
-                (width, SPOTIFY_HEIGHT),
-                clock_format=clock_format,
-            )
+        for panel, height in reversed(spotify_area):
+            bottom -= height
+            self._place(img, panel, (GAP, bottom), (width, height), clock_format=clock_format)
+            bottom -= GAP
         return Frame(img, arrivals_box)
 
     def _draw_top_row(self, img: Image.Image, panels: dict[str, Panel], width: int, clock_format: ClockFormat) -> int:

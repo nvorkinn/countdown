@@ -45,9 +45,9 @@ disruptions and, for a Norwegian postcode, MET Norway's warnings. Where a postco
 adds nothing, and if every source has nothing the board says "Not available" rather than "All clear".
 
 **Layout** (`rendering/`). `LAYOUTS` holds layouts by canvas (800x480 landscape or 480x800 portrait, as the screen is
-hung), each with a variant per combination of enabled APIs. The developer panel has no area of its own: it shares
-Spotify's (`share_spotify_area`), always without Spotify, and with it one minute in three, or whenever Spotify has
-nothing to show or the developer panel is showing a release.
+hung), each with a variant per combination of enabled APIs. The developer panel has no area of its own
+(`place_developer_panel`): while Spotify shows a song it's a strip above it (open PRs and builds in one row, or a
+release's jobs in a row of boxes), and otherwise it takes Spotify's whole area.
 
 **The frame.** Frames are drawn upright; a portrait frame is turned a quarter into the panel's native 800x480
 (`rendering.to_native`), then packed into its raw 1-bit buffer (`rendering.screen.panel_bytes`). If every API only has a
