@@ -102,7 +102,11 @@ jobs:
           cache-to: type=gha,scope=snapshots,mode=max
 
       - name: Run snapshot tests
-        run: SNAPSHOT_SKIP_BUILD=1 ./dev/snapshots.sh test
+        run: |
+          SNAPSHOT_SKIP_BUILD=1 ./dev/snapshots.sh test || {
+            echo "::error::snapshots differ from their goldens: $(ls tests/images/_failures | grep actual | tr '\n' ' ')"
+            exit 1
+          }
 
       - name: Upload snapshot failure artifacts
         if: failure()
