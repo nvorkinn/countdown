@@ -405,11 +405,8 @@ def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monke
         assert "Works at 18:00" in frame[3]
     assert any(text.endswith("21:00") for text in first[3])
     assert any(text.endswith("9:00 PM") for text in twelve_hour[3])
-    if orientation == "vertical":
-        assert {"07:58", "16:22"} <= first[3]
-        assert {"7:58 AM", "4:22 PM"} <= twelve_hour[3]
-    else:
-        assert any(text.endswith((" AM", " PM")) and "until" not in text for text in twelve_hour[3])
+    # The energy chart's hours, beside the weather either way.
+    assert any(text.endswith((" AM", " PM")) and "until" not in text for text in twelve_hour[3])
     # Each render reads what it draws afresh.
     assert reads.count(keys.weather("London")) == 3
     assert reads.count(keys.energy(DEVICE_ID)) == 3

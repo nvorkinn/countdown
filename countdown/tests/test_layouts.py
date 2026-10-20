@@ -14,7 +14,13 @@ from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.rendering import LAYOUTS, to_native
 from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLayout, SpotifyGlowLayout, SpotifyLayout
-from countdown_core.rendering.layouts.classic_portrait import BasePortraitLayout, SpotifyPortraitLayout
+from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT, ENERGY_ROW_HEIGHT
+from countdown_core.rendering.layouts.classic_portrait import (
+    BasePortraitLayout,
+    GlowPortraitLayout,
+    SpotifyGlowPortraitLayout,
+    SpotifyPortraitLayout,
+)
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
 from countdown_core.utils.utils import GAP
@@ -77,9 +83,9 @@ def test_the_canvas_is_the_screen_as_hung(orientation, width, height, expected):
 @pytest.mark.parametrize(
     ("unavailable", "expected"),
     [
-        (set(), SpotifyPortraitLayout),
-        ({ClientClasses.GLOWMARKT}, SpotifyPortraitLayout),  # no energy chart on portrait either way
-        ({ClientClasses.SPOTIFY}, BasePortraitLayout),
+        (set(), SpotifyGlowPortraitLayout),
+        ({ClientClasses.GLOWMARKT}, SpotifyPortraitLayout),
+        ({ClientClasses.SPOTIFY}, GlowPortraitLayout),
         ({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT}, BasePortraitLayout),
     ],
 )
@@ -90,10 +96,20 @@ def test_a_portrait_screen_gets_the_classic_layout_stacked(unavailable, expected
 
 def test_portrait_arrivals_are_the_volatile_part():
     panels = _solid_panels()
-    for layout in (SpotifyPortraitLayout(), BasePortraitLayout()):
+    for layout in CLASSIC_PORTRAIT:
         frame = layout.render(panels, PORTRAIT)
+        top = 5 + ENERGY_ROW_HEIGHT + 15 if layout.SHOWS_ENERGY else 290
         assert frame.image.size == PORTRAIT.size
-        assert frame.volatile == (5, 290, 475, 290 + layout.ARRIVALS_HEIGHT)
+        assert frame.volatile == (5, top, 475, top + layout.ARRIVALS_HEIGHT)
+
+
+def test_portrait_energy_chart_leaves_the_notices_the_room_they_had_under_the_full_weather():
+    panels = _solid_panels() | {"notice_board": _notices(20)}
+    for with_energy, without in [
+        (SpotifyGlowPortraitLayout(), SpotifyPortraitLayout()),
+        (GlowPortraitLayout(), BasePortraitLayout()),
+    ]:
+        assert with_energy.render(panels, PORTRAIT).volatile[3] == without.render(panels, PORTRAIT).volatile[3]
 
 
 def _solid_panels() -> dict[str, Panel]:
@@ -108,7 +124,7 @@ def _notices(count: int) -> NoticeBoardPanel:
     return NoticeBoardPanel([Notice("TfL", Severity.INFO, "Victoria: Minor Delays")] * count)
 
 
-@pytest.mark.parametrize("layout", [*CLASSIC, SpotifyPortraitLayout(), BasePortraitLayout()], ids=type)
+@pytest.mark.parametrize("layout", [*CLASSIC, *CLASSIC_PORTRAIT], ids=type)
 @pytest.mark.parametrize("clock_format", ["12h", "24h"])
 def test_fewer_notices_give_the_arrivals_more_room(layout, clock_format):
     canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
@@ -124,7 +140,7 @@ def test_fewer_notices_give_the_arrivals_more_room(layout, clock_format):
     assert none - two == _notices(2).fitted_height(1000) + GAP  # the board and the gap above it
 
 
-@pytest.mark.parametrize("layout", [*CLASSIC, SpotifyPortraitLayout(), BasePortraitLayout()], ids=type)
+@pytest.mark.parametrize("layout", [*CLASSIC, *CLASSIC_PORTRAIT], ids=type)
 def test_clock_switching_preserves_compact_notice_fitting_and_reaches_each_layout(layout, monkeypatch):
     canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
     expiry = datetime.fromisoformat("2026-09-25T21:07:00+01:00")
@@ -266,7 +282,7 @@ def test_a_portrait_frame_without_a_volatile_part_has_none_once_turned():
     assert to_native(Frame(Image.new("RGB", (480, 800))), VERTICAL).volatile is None
 
 
-@pytest.mark.parametrize("layout", [*CLASSIC[:2], SpotifyPortraitLayout()], ids=type)
+@pytest.mark.parametrize("layout", [*CLASSIC[:2], *CLASSIC_PORTRAIT[:2]], ids=type)
 def test_developer_strip_above_spotify_takes_its_height_from_the_arrivals_room(layout):
     """The strip and its gap come out of what the notices and the arrivals share, Spotify's room stays."""
     canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT

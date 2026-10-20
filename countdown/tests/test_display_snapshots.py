@@ -394,7 +394,8 @@ def test_empty_screen_stays_clear_of_a_vertical_screens_edges():
 VERTICAL = Screen(orientation="vertical", width=800, height=480)
 
 
-def _draw_portrait(panels: dict[str, Panel], available: frozenset[ClientClasses] = EVERYTHING) -> Image.Image:
+def _draw_portrait(panels: dict[str, Panel], available: frozenset[ClientClasses] = NO_GLOWMARKT) -> Image.Image:
+    """Draw the screen hung portrait, with the weather in full: the energy chart's tests add Glowmarkt."""
     img = draw_screen(panels, VERTICAL, available)
     assert img.size == PORTRAIT
     return img
@@ -408,7 +409,7 @@ def test_portrait_screen_playing_spotify(snapshot):
 
 def test_portrait_screen_without_spotify(snapshot):
     """Spotify's room goes to the stops (more departures each) and the notices."""
-    img = _draw_portrait(_panels(_bus_and_tube_arrivals()), EVERYTHING - {ClientClasses.SPOTIFY})
+    img = _draw_portrait(_panels(_bus_and_tube_arrivals()), NO_GLOWMARKT - {ClientClasses.SPOTIFY})
     snapshot.assert_matches("screen_portrait_no_spotify", img)
 
 
@@ -417,7 +418,7 @@ def test_portrait_screen_with_no_stops_and_no_weather_yet(snapshot):
     panels = _panels(
         DeparturesClient.message_panel("Needs configuring"), weather=WeatherClient.message_panel("Could not connect")
     )
-    img = _draw_portrait(panels, EVERYTHING - {ClientClasses.SPOTIFY})
+    img = _draw_portrait(panels, NO_GLOWMARKT - {ClientClasses.SPOTIFY})
     snapshot.assert_matches("screen_portrait_messages", img)
 
 
@@ -534,9 +535,23 @@ def test_every_panel_in_one_style_on_a_portrait_screen(snapshot, style):
 
 
 @pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_energy_chart_beside_the_weather_on_a_portrait_screen(snapshot, style):
+    """With Glowmarkt the weather is the compact one, the energy chart beside it: the stops get the height it frees."""
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, style, art=_cover_art_bytes())
+    notices = NoticeBoardPanel(FEW_NOTICES.notices, style)
+    img = _draw_portrait(_panels(_many_route_arrivals(style), spotify=spotify, notices=notices), EVERYTHING)
+    snapshot.assert_matches(f"screen_portrait_energy_{style}", img)
+
+
+def test_energy_chart_beside_the_weather_on_a_portrait_screen_without_spotify(snapshot):
+    img = _draw_portrait(_panels(_many_route_arrivals()), EVERYTHING - {ClientClasses.SPOTIFY})
+    snapshot.assert_matches("screen_portrait_energy_no_spotify", img)
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_arrival_styles_on_a_portrait_screen(snapshot, style):
     """Narrower stops, and taller ones without Spotify."""
-    img = _draw_portrait(_panels(_styled_arrivals(style)), EVERYTHING - {ClientClasses.SPOTIFY})
+    img = _draw_portrait(_panels(_styled_arrivals(style)), NO_GLOWMARKT - {ClientClasses.SPOTIFY})
     snapshot.assert_matches(f"screen_portrait_arrivals_{style}", img)
 
 
@@ -611,7 +626,7 @@ def test_a_stop_serving_several_modes_in_airy_and_hero(snapshot, style):
 
 @pytest.mark.parametrize("style", ["airy", "hero"])
 def test_a_stop_serving_several_modes_on_a_portrait_screen(snapshot, style):
-    img = _draw_portrait(_panels(_mixed_stops(style)), EVERYTHING - {ClientClasses.SPOTIFY})
+    img = _draw_portrait(_panels(_mixed_stops(style)), NO_GLOWMARKT - {ClientClasses.SPOTIFY})
     snapshot.assert_matches(f"screen_portrait_oslo_mixed_modes_{style}", img)
 
 
@@ -661,7 +676,7 @@ def test_rotating_stops_show_which_are_on_screen(snapshot):
 
 
 def test_rotating_stops_on_a_portrait_screen(snapshot):
-    img = _draw_portrait(_panels(_rotating_arrivals()), EVERYTHING - {ClientClasses.SPOTIFY})
+    img = _draw_portrait(_panels(_rotating_arrivals()), NO_GLOWMARKT - {ClientClasses.SPOTIFY})
     snapshot.assert_matches("screen_portrait_arrivals_rotating", img)
 
 
@@ -755,7 +770,7 @@ def test_portrait_screen_in_12_hour_time(snapshot, period):
     img = draw_screen(
         _panels(_bus_and_tube_arrivals(), weather=weather, notices=notices),
         Screen(orientation="vertical", width=800, height=480),
-        EVERYTHING,
+        NO_GLOWMARKT,  # the full weather, whose pages have the times
         clock_format="12h",
     )
     snapshot.assert_matches(f"screen_12h_portrait_{period.value}", img)
@@ -799,6 +814,8 @@ DEVELOPER_SUMMARY = DeveloperSummary(
 )
 # The developer panel in Spotify's area, as it is on a screen without Spotify.
 DEVELOPER_NOT_SPOTIFY = EVERYTHING - {ClientClasses.SPOTIFY} | {ClientClasses.DEVELOPER}
+# And on portrait, with the weather in full.
+DEVELOPER_PORTRAIT = DEVELOPER_NOT_SPOTIFY - {ClientClasses.GLOWMARKT}
 
 
 def _developer_panels(panel: Panel, style: str) -> dict[str, Panel]:
@@ -816,7 +833,7 @@ def test_developer_styles(snapshot, style):
 @pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_developer_styles_on_a_portrait_screen(snapshot, style):
     panels = _developer_panels(DeveloperPanel(DEVELOPER_SUMMARY, style), style)
-    snapshot.assert_matches(f"screen_portrait_developer_{style}", _draw_portrait(panels, DEVELOPER_NOT_SPOTIFY))
+    snapshot.assert_matches(f"screen_portrait_developer_{style}", _draw_portrait(panels, DEVELOPER_PORTRAIT))
 
 
 @pytest.mark.parametrize("style", ["airy", "hero", "card"])
@@ -968,7 +985,7 @@ def test_a_release_in_each_style(snapshot, style):
 
 @pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_a_release_on_a_portrait_screen(snapshot, style):
-    img = _draw_portrait(_release_panels(style), DEVELOPER_NOT_SPOTIFY)
+    img = _draw_portrait(_release_panels(style), DEVELOPER_PORTRAIT)
     snapshot.assert_matches(f"screen_portrait_developer_release_{style}", img)
 
 
