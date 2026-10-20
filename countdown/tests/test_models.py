@@ -1,5 +1,6 @@
 import pytest
 from pydantic import TypeAdapter
+from tfl_fixtures import BUS_STOP_JSON, METRO_STOP_JSON
 
 from countdown_core.glow.models import Readings
 from countdown_core.tfl.models import (
@@ -26,25 +27,6 @@ TUBE_ARRIVAL_JSON = {
     "modeName": "tube",
     "towards": "Bank",
     "destinationNaptanId": "940GZZLUEAC",
-}
-
-BUS_STOP_JSON = {
-    "naptanId": "490000123W",
-    "commonName": "Elephant & Castle",
-    "modes": ["bus"],
-    "additionalProperties": [{"key": "CompassPoint", "value": "N"}],
-    "children": [],
-    "stopType": "NaptanPublicBusCoachTram",
-    "stopLetter": "W",
-}
-
-METRO_STOP_JSON = {
-    "naptanId": "940GZZLUKNG",
-    "commonName": "Kennington Underground Station",
-    "modes": ["tube"],
-    "additionalProperties": [],
-    "children": [],
-    "stopType": "NaptanMetroStation",
 }
 
 
