@@ -33,8 +33,8 @@ SIDEWAYS_COLUMN = 360
 SIDEWAYS_TITLE, SIDEWAYS_BODY = 44, 28
 # On a tall screen the words move up this far (before scaling), so there is as much white above them as under the
 # QR code, which sits QR_TOP_TALL (before scaling) below the middle.
-TALL_SHIFT = 355
-QR_TOP_TALL = 90
+TALL_SHIFT = 238
+QR_TOP_TALL = -28
 
 
 class PairingCodePanel(Panel):
