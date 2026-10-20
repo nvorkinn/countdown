@@ -10,8 +10,9 @@ export COUNTDOWN_SERVER_VERSION="$1"
 cd "$(dirname "$0")"
 
 docker compose pull
-# Waits for the containers to be running, and fails the deploy if one isn't.
-docker compose up -d --remove-orphans --wait --wait-timeout 120
+# Waits for the containers to be running, and fails the deploy if one isn't. --pull never, as the pull above just did
+# (each service's pull_policy: always would otherwise check every image again).
+docker compose up -d --pull never --remove-orphans --wait --wait-timeout 120
 docker compose ps
 
 # Leftover per-screen renderers: every renderer-<slug> container (labelled countdown.managed=1), then its volumes,

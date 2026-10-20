@@ -121,7 +121,7 @@ and pinned to the release by the deploy. Its default command is the TfL provider
 `command`. To build it locally, from `countdown/`:
 
 ```sh
-uv build --wheel --all-packages
+./dev/build_dist.sh   # the wheels and each image's requirements, in dist/
 docker build -f providers/Dockerfile -t countdown-providers:dev .
 ```
 

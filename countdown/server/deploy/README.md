@@ -13,7 +13,7 @@ ticker overrides it with `countdown-render-ticker`. It keeps nothing: no identit
 from `countdown/`:
 
 ```sh
-uv build --wheel --all-packages
+./dev/build_dist.sh   # the wheels and each image's requirements, in dist/
 docker build -f server/Dockerfile -t countdown-server:dev .   # or providers/Dockerfile
 ```
 

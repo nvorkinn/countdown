@@ -97,8 +97,8 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Build wheels
-        run: uv build --wheel --all-packages
+      - name: Build wheels and requirements
+        run: ./dev/build_dist.sh
 
       # The image only installs what is in dist/ (its packages never come from an index). That includes the
       # countdown_api wheel, which the step above builds from the submodule like the other workspace packages.
@@ -183,8 +183,8 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Build wheels
-        run: uv build --wheel --all-packages
+      - name: Build wheels and requirements
+        run: ./dev/build_dist.sh
 
       - name: Build image
         run: docker build -f providers/Dockerfile -t countdown-providers:ci .
