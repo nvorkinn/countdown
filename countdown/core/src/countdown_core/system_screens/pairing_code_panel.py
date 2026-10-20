@@ -24,7 +24,7 @@ MAX_SIDE = 104
 GAP = 12
 
 # Scanning it opens the pairing page with the code already typed in.
-PAIRING_URL = "https://auth.nikolaivorkinn.com/pair?t={code}"
+PAIRING_URL = "https://auth.nikolaivorkinn.com/pair?code={code}"
 QR_BORDER = 2  # modules of white round it, the QR spec's quiet zone being 4 but the screen's margin adding to it
 QR_SIDE = 340
 QR_SIDE_TALL = 300
