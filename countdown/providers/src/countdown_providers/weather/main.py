@@ -1,10 +1,9 @@
 """The weather provider: Open-Meteo's forecast for every subscribed place, written to `v1:weather:<location key>`.
 
 Location keys come from the broker's place picker: `<name>-<country>-<GeoNames id>`, e.g. `london-gb-2643743`, so the
-id, last, finds the place exactly (Open-Meteo's get-by-id, once per place). A screen saved before the picker has only
-its typed text, which the broker slugs (`london`, `sw1a-1aa`) until it's backfilled; those are geocoded by name
-instead (Open-Meteo's search, once per place). Only a number after a two-letter country is an id, so a slug that ends
-in one (`oslo-0150`) is a name.
+id, last, finds the place exactly (Open-Meteo's get-by-id, once per place). Typed text, which the broker slugs
+(`london`, `sw1a-1aa`), is geocoded by name instead (Open-Meteo's search, once per place). Only a number after a
+two-letter country is an id, so a slug that ends in one (`oslo-0150`) is a name.
 
 Except a slug of a UK postcode or postcode district (`sw1a-1aa`, `se17`: store.location.weather_postcode), which this
 doesn't look up: provider-locations does, as the one process that looks postcodes up, and writes where it is to
@@ -153,8 +152,8 @@ def main() -> None:
     settings = Settings.from_env()
     # One client for the runner and the locations it reads.
     redis = settings.redis()
-    # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
+    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     asyncio.run(serve(WeatherProvider(session, LocationReader(redis)), settings, redis=redis))
 
 

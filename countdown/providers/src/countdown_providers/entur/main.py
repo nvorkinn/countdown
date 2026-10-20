@@ -1,8 +1,8 @@
 """The Entur provider: `v1:sub:entur`'s NSR stop ids (stop places and quays) to `v1:departures:<stop id>`.
 
-It wraps countdown_core's EnturSource, the same GraphQL queries (and ET-Client-Name header) the renderer's departures
-client sends. EnturSource is synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread), like
-the TfL provider. Entur needs no key; identified clients may make 1000 non-trip requests a minute
+It wraps countdown_core's EnturSource (the GraphQL queries, and the ET-Client-Name header). EnturSource is synchronous
+(requests), so each batch runs in a worker thread (asyncio.to_thread), like the TfL provider. Entur needs no key;
+identified clients may make 1000 non-trip requests a minute
 (https://developer.entur.no/docs/open-services/journey-planner/rate-limiting), and a stop costs two a minute here.
 """
 
@@ -60,7 +60,7 @@ class EnturProvider:
 
     name = keys.ENTUR
     ttl_s = 120
-    # As the TfL provider: well inside Entur's limits (see above), and as fresh as the renderers' minute-long polls.
+    # As the TfL provider: well inside Entur's limits (see above), and twice as often as the pool draws a screen.
     interval_s = 30
 
     def __init__(self, source: EnturSource, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
@@ -108,8 +108,8 @@ def main() -> None:
     """Run the `countdown-provider-entur` console script. Entur needs no key, only the client's ET-Client-Name."""
     configure_logging()
     settings = Settings.from_env()
-    # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
+    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     asyncio.run(serve(EnturProvider(EnturSource(session)), settings))
 
 

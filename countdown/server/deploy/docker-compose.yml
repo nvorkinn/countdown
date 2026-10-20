@@ -120,7 +120,7 @@ services:
         max-file: "3"
 
   # The Environment Agency's flood warnings near the notice boards' UK postcodes (v1:sub:postcode, which auth-broker
-  # writes). The renderers read them from the store, so a board shows no floods without this.
+  # writes). The render pool reads them from the store, so a board shows no floods without this.
   provider-floods:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}
     command: countdown-provider-floods
@@ -153,7 +153,7 @@ services:
         max-file: "3"
 
   # Where each of the notice boards' postcodes (v1:sub:postcode) is, from postcodes.io and Kartverket, looked up once
-  # for every screen and kept for days. The renderers, and the Met Office, floods and TfL roads providers, place a
+  # for every screen and kept for days. The render pool, and the Met Office, floods and TfL roads providers, place a
   # postcode only from the store, so a board with a postcode shows no local notices without this.
   provider-locations:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_SERVER_VERSION:?set by deploy.sh}

@@ -1,11 +1,11 @@
 """The Entur situations provider: `v1:sub:entur`'s NSR stop ids to `v1:notices:entur:<stop id>`, for the notice board.
 
-Each stop's value is Entur's own answer to countdown_core.notices.entur's situations query (the one the notice board
-once sent itself, with the same ET-Client-Name header): the situations on the stop and on the next 20 lines leaving
-it. The renderer makes the notices from it as it draws (StoredEnturSituationsSource).
+Each stop's value is Entur's own answer to countdown_core.notices.entur's situations query (with the same
+ET-Client-Name header as the departures): the situations on the stop and on the next 20 lines leaving it. The render
+pool makes the notices from it as it draws (StoredEnturSituationsSource).
 
 Its own process rather than part of the Entur departures provider, though both read `v1:sub:entur`: situations change
-far less often than departures, so this asks every five minutes (as the board did) where that asks every 30 seconds,
+far less often than departures, so this asks every five minutes where that asks every 30 seconds,
 and a slow or failing situations query can't hold up the departures.
 
 Entur needs no key. A client that names itself (ET-Client-Name) may make 1000 non-trip requests a minute, and 200 a
@@ -54,7 +54,7 @@ class EnturSituationsProvider:
     name = keys.ENTUR
     # Three cycles: a missed one or two don't empty the board, and a provider that's down shows within a quarter hour.
     ttl_s = 15 * 60
-    # As often as the notice board asked Entur itself; a disruption is rarely news to the minute.
+    # A disruption is rarely news to the minute.
     interval_s = 5 * 60
 
     def __init__(self, client: EnturClient, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
@@ -101,8 +101,8 @@ def main() -> None:
     """Run the `countdown-provider-entur-situations` console script. Entur needs no key, only its ET-Client-Name."""
     configure_logging()
     settings = Settings.from_env()
-    # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff (never a 429).
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
+    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff (never a 429).
+    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     asyncio.run(serve(EnturSituationsProvider(EnturClient(session)), settings))
 
 

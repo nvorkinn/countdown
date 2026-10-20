@@ -107,7 +107,7 @@ jobs:
         run: docker build -f server/Dockerfile -t countdown-server:ci .
 
       - name: Check the image's default entrypoint
-        # A render worker, with no per-screen renderer left to start: the compose services name theirs anyway.
+        # A render worker; the compose services name their own entrypoint anyway.
         run: test "$(docker image inspect -f '{{json .Config.Entrypoint}}' countdown-server:ci)" = '["countdown-render-worker"]'
 
       - name: Smoke-test the render pool

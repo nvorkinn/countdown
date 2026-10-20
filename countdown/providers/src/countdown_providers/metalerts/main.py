@@ -1,7 +1,7 @@
 """The MetAlerts provider: MET Norway's current weather warnings for all of Norway, written to `v1:notices:metalerts`.
 
 MetAlerts answers for the whole country at once (current.json without a place), so one answer serves every Norwegian
-notice board, whatever its postcode: the renderer picks out the warnings whose area covers its own place
+notice board, whatever its postcode: the render pool picks out the warnings whose area covers its own place
 (countdown_core.notices.norway.StoredMetAlertsSource). So it reads the broker's postcodes (`v1:sub:postcode`) only to
 know whether any screen is in Norway (a Norwegian postcode is four digits; the UK's are other providers'), asks MET
 nothing while none is, and needs no postcode's place.
@@ -148,8 +148,8 @@ class MetAlertsProvider:
 def main() -> None:
     """Run the `countdown-provider-metalerts` console script."""
     configure_logging()
-    # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
+    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     asyncio.run(serve(MetAlertsProvider(session), Settings.from_env()))
 
 

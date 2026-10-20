@@ -1,7 +1,7 @@
 """The TfL provider: `v1:sub:tfl`'s NaPTAN stop ids to `v1:departures:<stop id>`.
 
-It wraps countdown_core's TflSource, the same requests the renderer's departures client makes. TflSource is
-synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread) rather than being rewritten.
+It wraps countdown_core's TflSource, which makes the requests. TflSource is synchronous (requests), so each batch runs
+in a worker thread (asyncio.to_thread).
 
 A failed request is logged by its reason (log_format.error_reason: its type and status), never its text: that quotes
 the URL, and TfL's app key is in it (`app_key=`).
@@ -103,8 +103,8 @@ def main() -> None:
     """Run the `countdown-provider-tfl` console script. TFL_APP_KEY is optional (TfL rate-limits harder without)."""
     configure_logging()
     settings = Settings.from_env()
-    # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
+    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     provider = TflProvider(TflSource(session, os.environ.get("TFL_APP_KEY", "")))
     asyncio.run(serve(provider, settings))
 

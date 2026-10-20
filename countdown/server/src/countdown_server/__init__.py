@@ -1,1 +1,1 @@
-"""The renderer that hands its frames to the broker, for a separate screen to fetch."""
+"""The render pool: workers and a ticker that draw the screens' frames into Redis."""

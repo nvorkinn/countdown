@@ -69,7 +69,7 @@ GOOD = {Result.WRITTEN: WRITTEN, Result.UNCHANGED: UNCHANGED}
 
 # Seconds. A warm render takes about 50 ms; the deadline is 20 s.
 DURATION_BUCKETS = (0.025, 0.05, 0.075, 0.1, 0.15, 0.25, 0.5, 1, 2.5, 5, 10, 20)
-# Seconds a job waits: the frames due on the minute should land within LEAD_S (3 s) of it.
+# Seconds a job waits: the frames due on the minute should land within the broker's LEAD_S (about 3 s) of it.
 LAG_BUCKETS = (0.05, 0.1, 0.25, 0.5, 1, 2, 3, 5, 10, 30, 60)
 
 

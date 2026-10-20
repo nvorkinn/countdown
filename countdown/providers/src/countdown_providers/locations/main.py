@@ -6,10 +6,10 @@ for the weather provider (WeatherPostcodesProvider, a second runner in the same 
 The one process that looks postcodes up: a UK postcode with postcodes.io (countdown_core.notices.location's
 lookup_postcode), a Norwegian one (four digits, as the broker writes them) with Kartverket's address search
 (countdown_core.notices.norway's lookup_norwegian_postcode). Each is written as a StoredLocation (keys.location), which
-the notice board reads for what it shows about its place (the bank holidays' division, MetAlerts' area), so a renderer
-asks neither, and so do the Met Office, floods and TfL roads providers, for where to fetch their notices (reader.py), so
-each postcode is looked up once in all. A postcode neither knows is written too, as not found, so a board can say
-"Unknown postcode" rather than wait for a location that won't come.
+the notice board reads for what it shows about its place (the bank holidays' division, MetAlerts' area), so the render
+pool asks neither, and so do the Met Office, floods and TfL roads providers, for where to fetch their notices
+(reader.py), so each postcode is looked up once in all. A postcode neither knows is written too, as not found, so a
+board can say "Unknown postcode" rather than wait for a location that won't come.
 
 A postcode's place doesn't move, so each is looked up once and that answer is written again every cycle, which keeps
 its key for ttl_s (days) after the postcode leaves the set or the provider stops. It's asked about again once a day
@@ -152,8 +152,8 @@ class LocationsProvider:
 class WeatherPostcodesProvider:
     """Where the UK postcodes and postcode districts that weather location keys are slugs of are, for provider-weather.
 
-    A screen saved before the weather's place picker, with a postcode typed for its weather, is subscribed to the
-    weather as its slug (`sw1a-1aa`, `se17`: countdown_core.store.location.weather_postcode). Each is looked up by
+    A postcode typed as a screen's weather location (not picked as a place) is subscribed to as its slug (`sw1a-1aa`,
+    `se17`: countdown_core.store.location.weather_postcode). Each is looked up by
     `postcodes`, the LocationsProvider of this process, so with its cache, and written under the postcode's own key
     (`v1:location:SW1A1AA`, `v1:location:SE17`), as for a notice board's. Any other weather key (a picked place's, or
     other typed text's) is the weather provider's to look up with Open-Meteo, and is left out.
@@ -194,8 +194,8 @@ class WeatherPostcodesProvider:
 def main() -> None:
     """Run the `countdown-provider-locations` console script. postcodes.io and Kartverket are keyless."""
     configure_logging()
-    # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
+    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     postcodes = LocationsProvider(session)
     asyncio.run(serve_all([postcodes, WeatherPostcodesProvider(postcodes)], Settings.from_env()))
 
