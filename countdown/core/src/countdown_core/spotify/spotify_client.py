@@ -26,6 +26,7 @@ from countdown_core.store.music import StoredPlayer, StoredTop, TopLists, art_im
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from datetime import datetime
 
     from countdown_api.models import ConfigResponse
     from countdown_core.core.panel import Panel
@@ -97,6 +98,12 @@ class Page:
 
 PERIODS = (("long_term", N_("12 months")), ("short_term", N_("4 weeks")))
 
+# While a track is playing, the top lists are the less interesting page: they are shown for this long (the last of the
+# 20 s the burst renders come at) once every TOP_EVERY_S, one list each time in turn, instead of for a minute at a
+# time every other minute.
+TOP_WHILE_PLAYING_S = 20
+TOP_EVERY_S = 240
+
 
 def pages(services: tuple[MusicService, ...]) -> tuple[Page, ...]:
     """Return the pages in turn: the player before each top page, each period's top lists one service after another."""
@@ -145,7 +152,17 @@ class SpotifyClient(AbstractClient):
         return normalise(self.config.style)
 
     def _update(self) -> Panel:
-        """Show this minute's page (see core.rotation), or the one after if that has nothing to show."""
+        """Show this minute's page (see core.rotation), or the one after if that has nothing to show.
+
+        While Spotify is playing, the player instead, with a short visit from a top list now and then (see
+        TOP_EVERY_S).
+        """
+        if self._is_playing():
+            visit = self._top_visit(rotation.now())
+            if visit and (panel := self.update_top(visit)):
+                return panel
+            if panel := self.update_player():
+                return panel
         first = rotation.page(len(self.pages))
         for offset in range(2):
             page = self.pages[(first + offset) % len(self.pages)]
@@ -153,6 +170,32 @@ class SpotifyClient(AbstractClient):
             if panel:
                 return panel
         return self.message_panel(N_("Nothing playing on:"))
+
+    def _is_playing(self) -> bool:
+        """Whether Spotify is playing a track right now, by the position the provider last read (Playback)."""
+        if SPOTIFY not in self.config.services:
+            return False
+        try:
+            stored = self._read_store(StoredPlayer, keys.spotify)
+        except NoStoredMusicError:
+            return False
+        track = stored.spotify.currently_playing if stored.spotify else None
+        return (
+            track is not None
+            and stored.spotify_playback is not None
+            and stored.spotify_playback.is_playing_now(track, rotation.now())
+        )
+
+    def _top_visit(self, at: datetime) -> Page | None:
+        """Return the top page to visit at `at` while playing, or None to stay on the player.
+
+        The last TOP_WHILE_PLAYING_S of every TOP_EVERY_S, each time the next of the top pages.
+        """
+        seconds = at.timestamp()
+        if seconds % TOP_EVERY_S < TOP_EVERY_S - TOP_WHILE_PLAYING_S:
+            return None
+        tops = [page for page in self.pages if page.service is not None]
+        return tops[int(seconds // TOP_EVERY_S) % len(tops)]
 
     def update_player(self) -> Panel | None:
         """What's playing on Spotify, else what was last played on Apple Music; None if neither has anything.
