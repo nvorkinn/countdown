@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 import pytest
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
@@ -12,7 +12,7 @@ from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.rendering import LAYOUTS, to_native
-from countdown_core.rendering.layout import Frame, Layout
+from countdown_core.rendering.layout import Box, Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLayout, SpotifyGlowLayout, SpotifyLayout
 from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
 from countdown_core.rendering.layouts.classic_portrait import (
@@ -23,11 +23,14 @@ from countdown_core.rendering.layouts.classic_portrait import (
 )
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
+from countdown_core.utils.utils import GAP
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from countdown_core.utils.clock import ClockFormat
 
+# What only the arrivals are drawn in: not the white background, the black panels or any anti-aliased grey text.
+_ARRIVALS_COLOUR = (200, 120, 30)
 EVERYTHING = frozenset(ClientClasses)
 PORTRAIT = Canvas(480, 800)
 
@@ -99,12 +102,63 @@ def test_a_portrait_layout_draws_a_portrait_frame():
         assert layout.render(panels, PORTRAIT).image.size == PORTRAIT.size
 
 
+def _arrivals_box(layout: Layout, canvas: Canvas, panels: dict[str, Panel], **kwargs: ClockFormat) -> Box:
+    """Where the layout drew the arrivals: the bounding box of the one colour only they are painted in."""
+    image = layout.render(panels, canvas, **kwargs).image.convert("RGB")
+    off = ImageChops.difference(image, Image.new("RGB", image.size, _ARRIVALS_COLOUR))
+    off_by_most = ImageChops.lighter(ImageChops.lighter(*off.split()[:2]), off.getchannel("B"))
+    box = off_by_most.point(lambda value: 255 if value == 0 else 0).getbbox()
+    assert box is not None, "the arrivals were not drawn"
+    return box
+
+
+def _arrivals_height(layout: Layout, canvas: Canvas, panels: dict[str, Panel], **kwargs: ClockFormat) -> int:
+    box = _arrivals_box(layout, canvas, panels, **kwargs)
+    return box[3] - box[1]
+
+
+def test_portrait_energy_chart_leaves_the_notices_the_room_they_had_under_the_full_weather():
+    panels = _solid_panels() | {"notice_board": _notices(20)}
+    for with_energy, without in [
+        (SpotifyGlowPortraitLayout(), SpotifyPortraitLayout()),
+        (GlowPortraitLayout(), BasePortraitLayout()),
+    ]:
+        assert _arrivals_box(with_energy, PORTRAIT, panels)[3] == _arrivals_box(without, PORTRAIT, panels)[3]
+
+
+@pytest.mark.parametrize("layout", [*CLASSIC, *CLASSIC_PORTRAIT], ids=type)
+@pytest.mark.parametrize("clock_format", ["12h", "24h"])
+def test_fewer_notices_give_the_arrivals_more_room(layout, clock_format):
+    canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
+
+    def arrivals_height(notices: Panel) -> int:
+        return _arrivals_height(layout, canvas, _solid_panels() | {"notice_board": notices}, clock_format=clock_format)
+
+    full, two, none = arrivals_height(_notices(20)), arrivals_height(_notices(2)), arrivals_height(_notices(0))
+    assert full == layout.ARRIVALS_HEIGHT  # a full board keeps the room it always had
+    assert full < two < none
+    assert none - two == _notices(2).fitted_height(1000) + GAP  # the board and the gap above it
+
+
+@pytest.mark.parametrize("layout", [*CLASSIC[:2], *CLASSIC_PORTRAIT[:2]], ids=type)
+def test_developer_strip_above_spotify_takes_its_height_from_the_arrivals_room(layout):
+    """The strip and its gap come out of what the notices and the arrivals share, Spotify's room stays."""
+    canvas = DEFAULT_CANVAS if layout in CLASSIC else PORTRAIT
+    no_notices = _solid_panels() | {"notice_board": _notices(0)}
+
+    strip = _FittedPanel(30)
+    alone = _arrivals_height(layout, canvas, no_notices)
+    stacked = _arrivals_height(layout, canvas, no_notices | {ClientClasses.DEVELOPER.api_name: strip})
+    assert alone - stacked == 30 + GAP
+
+
 def _solid_panels() -> dict[str, Panel]:
     """Return a panel for every API, as rendering.place_developer_panel hands them on with no song showing.
 
     So no developer panel under its own name: it would be the strip above Spotify (see test_developer_strip_*).
     """
-    return {api.api_name: _SolidPanel() for api in ClientClasses if api is not ClientClasses.DEVELOPER}
+    panels = {api.api_name: _SolidPanel() for api in ClientClasses if api is not ClientClasses.DEVELOPER}
+    return panels | {ClientClasses.TFL.api_name: _SolidPanel(_ARRIVALS_COLOUR)}
 
 
 def _notices(count: int) -> NoticeBoardPanel:
@@ -140,8 +194,22 @@ def test_clock_switching_preserves_compact_notice_fitting_and_reaches_each_layou
 
 
 class _SolidPanel(Panel):
+    def __init__(self, colour: tuple[int, int, int] = (0, 0, 0)) -> None:
+        self.colour = colour
+
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
-        return Image.new("RGBA", (image_width, image_height), "black")
+        return Image.new("RGBA", (image_width, image_height), self.colour)
+
+
+class _FittedPanel(_SolidPanel):
+    """A panel only `height` tall, as the developer strip is."""
+
+    def __init__(self, height: int) -> None:
+        super().__init__()
+        self.height = height
+
+    def fitted_height(self, max_height: int) -> int:
+        return min(self.height, max_height)
 
 
 def test_a_canvas_no_layout_draws_on_falls_back_to_the_default_with_one_warning(caplog):
