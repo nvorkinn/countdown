@@ -2,32 +2,17 @@
 
 [![codecov](https://codecov.io/gh/nvorkinn/pi-dashboard/graph/badge.svg)](https://codecov.io/gh/nvorkinn/pi-dashboard)
 
-An e-paper dashboard: a render pool that composes the screens, and the thin devices that fetch and show them.
+Draws the screens of an e-paper dashboard. ESP32 screens poll [auth-broker](https://github.com/nvorkinn/auth-broker)
+for frames; this repository's render pool draws every screen from its config and panel data in Redis and writes the
+frame back to Redis, and its providers fetch the panel data.
 
-- [`countdown/`](countdown/) -- the Python code. Its render pool (`countdown-server`'s workers and ticker) and its
-  providers run as Docker containers next to the auth broker, which hands each finished frame to the screen: see
-  [`countdown/server/deploy/`](countdown/server/deploy/).
-
-There's no per-device install: the pool and the providers are deployed from CI, and a screen only fetches frames.
+- [`countdown/`](countdown/) is the Python code: how it works, and the render pool and providers in it.
+- [`countdown/server/deploy/`](countdown/server/deploy/) is how both run, as Docker containers next to the broker.
 
 ## Releasing
 
-Push a `v*` tag on a commit that's on `main`; `.github/workflows/release.yml`
-builds the wheels and the images, creates the GitHub release and deploys the render pool and the providers. The tag
-is the version of the app -- it's stamped into the wheels at build time, so the
-`version` in `countdown/pyproject.toml` is just a placeholder and doesn't need bumping.
+Push a `v*` tag on a commit that's on `main`. `.github/workflows/release.yml` builds the wheels and images, creates the
+GitHub release and deploys. The tag is the version: it's stamped into the wheels at build time, so the `version` in
+`countdown/pyproject.toml` is a placeholder.
 
-The countdown CI workflow only runs when files under its folder change
-(`.github/workflows/countdown-ci.yml`).
-
-## Device name
-
-The `DEVICE_NAME` setting names a process that doesn't name itself otherwise (the providers) as `device` on every log
-line. It's sanitized (trimmed, lowercased, anything outside `[a-z0-9_-]` becomes `-`, see
-`countdown_core/core/device_name.py`), and defaults to the hostname. It isn't a screen's `device_id` on the broker, nor
-its slug: the render pool names each screen by its slug in its metrics, and itself as `worker` in its logs.
-
-## The standalone Raspberry Pi mode
-
-The Pi that was its own screen (`countdown-standalone`, with its `install.sh`, self-updater, Fluent Bit setup
-and encrypted secrets bundle) has been removed. The last commit that has it is tagged `last-standalone`.
+`.github/workflows/countdown-ci.yml` runs only when files under `countdown/` change.
