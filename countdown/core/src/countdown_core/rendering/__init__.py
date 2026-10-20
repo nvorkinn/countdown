@@ -10,7 +10,7 @@ from PIL import Image
 
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.developer.developer_panel import DeveloperPanel
-from countdown_core.rendering.layout import Box, Frame, Layout
+from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC
 from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
 from countdown_core.rendering.registry import LayoutRegistry
@@ -84,19 +84,10 @@ def place_developer_panel(panels: dict[str, Panel], available: frozenset[ClientC
 def to_native(frame: Frame, screen: Screen) -> Frame:
     """`frame` as the panel takes it, in the panel's landscape picture.
 
-    A portrait frame is turned a quarter anticlockwise, and its volatile box with it. A landscape one is already there.
+    A portrait frame is turned a quarter anticlockwise. A landscape one is already there.
     """
     width, height = frame.image.size
     if (width, height) == native_size(screen):
         return frame
     image = frame.image.transpose(Image.Transpose.ROTATE_90)
-    return Frame(image, None if frame.volatile is None else _rotated(frame.volatile, width))
-
-
-def _rotated(box: Box, width: int) -> Box:
-    """`box` in a picture `width` wide, after the picture is turned a quarter anticlockwise.
-
-    A point (x, y) lands at (y, width - x).
-    """
-    x0, y0, x1, y1 = box
-    return y0, width - x1, y1, width - x0
+    return Frame(image)

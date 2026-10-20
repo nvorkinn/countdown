@@ -52,14 +52,13 @@ class ClassicPortraitLayout(Layout):
         notices_height, spare = self._fit_notices(panels, notices_room)
 
         arrival_panel = panels[ClientClasses.TFL.api_name]
-        arrivals = self._place(
+        self._place(
             img,
             arrival_panel,
             (GAP, arrivals_y),
             (width, self.ARRIVALS_HEIGHT + spare),
             clock_format=clock_format,
         )
-        arrivals_box = (GAP, arrivals_y, GAP + arrivals.size[0], arrivals_y + arrivals.size[1])
 
         bottom = canvas.height - GAP
         if notices_height:
@@ -76,7 +75,7 @@ class ClassicPortraitLayout(Layout):
             bottom -= height
             self._place(img, panel, (GAP, bottom), (width, height), clock_format=clock_format)
             bottom -= GAP
-        return Frame(img, arrivals_box)
+        return Frame(img)
 
     def _draw_top_row(self, img: Image.Image, panels: dict[str, Panel], width: int, clock_format: ClockFormat) -> int:
         """Draw the weather, and the energy chart beside it if this variant shows one; return the row's height."""
