@@ -144,11 +144,11 @@ def _spy_on_frames(monkeypatch, layouts: list[type] | None = None) -> list[dict]
     seen: list[dict] = []
     original = render_module.draw
 
-    def spy(panels, screen, available, *, clock_format="24h", now=None):
+    def spy(panels, screen, available, *, clock_format="24h"):
         seen.append(dict(panels))
         if layouts is not None:
             layouts.append(type(layout_for(screen, available)[0]))
-        return original(panels, screen, available, clock_format=clock_format, now=now)
+        return original(panels, screen, available, clock_format=clock_format)
 
     monkeypatch.setattr(render_module, "draw", spy)
     return seen
@@ -382,9 +382,9 @@ def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monke
         texts.append(text)
         return original_text(draw, xy, text, *args, **kwargs)
 
-    def record_frame(panels, screen, available, *, clock_format="24h", now=None):
+    def record_frame(panels, screen, available, *, clock_format="24h"):
         texts.clear()
-        frame = original_render(panels, screen, available, clock_format=clock_format, now=now)
+        frame = original_render(panels, screen, available, clock_format=clock_format)
         frames.append((dict(panels), clock_format, frame, set(texts)))
         return frame
 
@@ -544,9 +544,9 @@ def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_do
         texts.append(text)
         return original_text(draw, xy, text, *args, **kwargs)
 
-    def record_frame(panels, screen, available, *, clock_format="24h", now=None):
+    def record_frame(panels, screen, available, *, clock_format="24h"):
         texts.clear()
-        frame = original_render(panels, screen, available, clock_format=clock_format, now=now)
+        frame = original_render(panels, screen, available, clock_format=clock_format)
         frames.append((dict(panels), set(texts), frame.image.tobytes()))
         return frame
 

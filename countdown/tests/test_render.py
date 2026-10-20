@@ -4,7 +4,7 @@ fixtures/render_parity.json is the parity check. It was recorded from the per-sc
 function (DisplayLoop.run with ApiRegistry and DisplayController, pi-dashboard main at 1b3743d): for each case a config,
 the store as the providers left it and a moment, and the etag of the frame that loop PUT. From the same inputs, with the
 config in the store as the broker writes it, render(device_id, now) must draw exactly the same frames. The cases cover
-both orientations and both clock formats, every panel, the developer panel in the Spotify area, English and Norwegian,
+both orientations and both clock formats, every panel, the developer panel above Spotify, English and Norwegian,
 expired keys, a page of stops other than the first, a placed notice board, the pairing screen and a screen with nothing
 set up.
 

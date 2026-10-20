@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, override
 from countdown_core.core import moment
 from countdown_core.core.panel import Panel
 from countdown_core.developer import release_styles
-from countdown_core.developer.developer_styles import STYLES
+from countdown_core.developer.developer_styles import COMPACT_HEIGHT, COMPACT_STYLES, STYLES
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -20,21 +20,39 @@ if TYPE_CHECKING:
 class DeveloperPanel(Panel):
     """The owner's pull requests and failing builds beside their AI plans, or the latest release as it goes."""
 
-    def __init__(self, summary: DeveloperSummary, style: Style = "hero", now: datetime | None = None) -> None:
-        """`summary`: what the store holds; `style`: how to draw it; `now`: when to draw it (default: the render's)."""
+    def __init__(
+        self, summary: DeveloperSummary, style: Style = "hero", now: datetime | None = None, *, compact: bool = False
+    ) -> None:
+        """`summary`: what the store holds; `style`: how to draw it; `now`: when to draw it (default: the render's).
+
+        `compact`: whether it's the strip above Spotify (see compacted), not the whole area.
+        """
         self.summary = summary
         self.style = style
         self.now = now
+        self.compact = compact
+
+    def compacted(self) -> DeveloperPanel:
+        """Return the panel as the strip above Spotify's song: the pull requests and builds, or a release's jobs."""
+        return DeveloperPanel(self.summary, self.style, self.now, compact=True)
 
     @property
     def has_release(self) -> bool:
-        """Whether there's a release to show, running or just finished: then it wants Spotify's area every minute."""
+        """Whether there's a release to show, running or just finished, in place of GitHub and the plans."""
         return bool(self.summary.releases)
+
+    @override
+    def fitted_height(self, max_height: int) -> int:
+        if not self.compact:
+            return max_height
+        return min(release_styles.COMPACT_HEIGHT if self.has_release else COMPACT_HEIGHT, max_height)
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         releases = self.summary.releases
         if releases:
             now = self.now or moment.now()
-            return release_styles.STYLES[self.style](releases[0], len(releases) - 1, now, image_width, image_height)
-        return STYLES[self.style](self.summary, image_width, image_height)
+            styles = release_styles.COMPACT_STYLES if self.compact else release_styles.STYLES
+            return styles[self.style](releases[0], len(releases) - 1, now, image_width, image_height)
+        styles = COMPACT_STYLES if self.compact else STYLES
+        return styles[self.style](self.summary, image_width, image_height)

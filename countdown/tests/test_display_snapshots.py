@@ -55,7 +55,7 @@ def draw_screen(panels, screen, available, *, clock_format="24h") -> Image.Image
     return render(panels, screen, available, clock_format=clock_format).image
 
 
-# Every API but the developer panel, which takes Spotify's area: its own tests add it.
+# Every API but the developer panel, which goes in or above Spotify's area: its own tests add it.
 EVERYTHING = frozenset(ClientClasses) - {ClientClasses.DEVELOPER}
 NO_GLOWMARKT = EVERYTHING - {ClientClasses.GLOWMARKT}
 
@@ -835,6 +835,46 @@ def test_developer_panel_with_all_green_and_no_github_token(snapshot, style):
     snapshot.assert_matches(f"developer_{style}_green_and_no_github", img)
 
 
+# The developer panel and Spotify both set up: the developer panel is a strip above Spotify.
+DEVELOPER_AND_SPOTIFY = EVERYTHING | {ClientClasses.DEVELOPER}
+
+
+def _above_spotify(panels: dict[str, Panel], style: str) -> dict[str, Panel]:
+    return panels | {ClientClasses.SPOTIFY.api_name: SpotifyPanel(SPOTIFY_QUEUE, style, art=_album_art_bytes())}
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_developer_panel_above_spotify(snapshot, style):
+    """A strip over Spotify's song: the pull requests and the builds, no plans."""
+    panels = _above_spotify(_developer_panels(DeveloperPanel(DEVELOPER_SUMMARY, style), style), style)
+    snapshot.assert_matches(f"screen_developer_above_spotify_{style}", _draw(panels, DEVELOPER_AND_SPOTIFY))
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_developer_panel_above_spotify_on_a_portrait_screen(snapshot, style):
+    panels = _above_spotify(_developer_panels(DeveloperPanel(DEVELOPER_SUMMARY, style), style), style)
+    img = _draw_portrait(panels, DEVELOPER_AND_SPOTIFY)
+    snapshot.assert_matches(f"screen_portrait_developer_above_spotify_{style}", img)
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_compact_developer_panel_with_all_green_and_no_github_token(snapshot, style):
+    """The strip at the landscape and portrait widths: failing, all green, then no GitHub token yet."""
+    green = DEVELOPER_SUMMARY.model_copy(
+        update={
+            "github": DEVELOPER_SUMMARY.github.model_copy(update={"open_prs": 0, "review_requests": 0, "failing": []})
+        }
+    )
+    no_github = DEVELOPER_SUMMARY.model_copy(update={"github": None})
+    img = Image.new("RGBA", (536 + 20 + 470, 3 * 40 - 10), "white")
+    for i, summary in enumerate((DEVELOPER_SUMMARY, green, no_github)):
+        for x, width in ((0, 536), (556, 470)):
+            panel = DeveloperPanel(summary, style).compacted()
+            drawn = panel.render(width, panel.fitted_height(120))
+            img.paste(drawn, (x, i * 40), drawn)
+    snapshot.assert_matches(f"developer_compact_{style}", img)
+
+
 RELEASE_NOW = dt.datetime(2026, 10, 17, 15, 4, tzinfo=dt.UTC)
 
 
@@ -930,6 +970,32 @@ def test_a_release_in_each_style(snapshot, style):
 def test_a_release_on_a_portrait_screen(snapshot, style):
     img = _draw_portrait(_release_panels(style), DEVELOPER_NOT_SPOTIFY)
     snapshot.assert_matches(f"screen_portrait_developer_release_{style}", img)
+
+
+def test_a_release_above_spotify(snapshot):
+    """Its jobs in a row over Spotify's song, without the lines between them."""
+    snapshot.assert_matches(
+        "screen_developer_release_above_spotify",
+        _draw(_above_spotify(_release_panels("hero"), "hero"), DEVELOPER_AND_SPOTIFY),
+    )
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_a_release_in_the_strip_above_spotify(snapshot, style):
+    """At the landscape and portrait widths: the jobs in a row without the lines, then too many for the row."""
+    summaries = [
+        _with_releases(PI_DASHBOARD_RELEASE, AUTH_BROKER_RELEASE),
+        _with_releases(PI_DASHBOARD_FAILED),
+        _with_releases(AUTH_BROKER_RELEASED),
+        _with_releases(CROWDED_RELEASE),
+    ]
+    img = Image.new("RGBA", (536 + 20 + 470, len(summaries) * 62 - 10), "white")
+    for i, summary in enumerate(summaries):
+        for x, width in ((0, 536), (556, 470)):
+            panel = DeveloperPanel(summary, style, now=RELEASE_NOW).compacted()
+            drawn = panel.render(width, panel.fitted_height(120))
+            img.paste(drawn, (x, i * 62), drawn)
+    snapshot.assert_matches(f"developer_release_{style}_in_the_strip", img)
 
 
 @pytest.mark.parametrize("style", ["airy", "hero", "card"])

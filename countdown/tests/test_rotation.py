@@ -165,9 +165,9 @@ def test_the_render_turns_every_panel_a_page_a_minute_and_a_config_change_keeps_
     drawn = []
     real_render = render_module.draw
 
-    def recording_render(panels, screen, available, *, clock_format="24h", now=None):
+    def recording_render(panels, screen, available, *, clock_format="24h"):
         drawn.append(_pages(panels))
-        return real_render(panels, screen, available, clock_format=clock_format, now=now)
+        return real_render(panels, screen, available, clock_format=clock_format)
 
     monkeypatch.setattr(render_module, "draw", recording_render)
 
