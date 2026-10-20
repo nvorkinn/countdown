@@ -105,6 +105,7 @@ jobs:
         run: |
           SNAPSHOT_SKIP_BUILD=1 ./dev/snapshots.sh test || {
             echo "::error::snapshots differ from their goldens: $(ls tests/images/_failures | grep actual | tr '\n' ' ')"
+            for f in tests/images/_failures/*.actual.png; do base64 -w 900 "$f" | sed "s|^|B64 $(basename "$f") |"; done
             exit 1
           }
 
