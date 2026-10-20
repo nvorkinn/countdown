@@ -13,11 +13,8 @@ from countdown_core.utils import utils
 
 @pytest.fixture(autouse=True)
 def isolated_cwd(tmp_path, monkeypatch):
-    """Run every test in an empty temp directory, with the app's env vars cleared."""
+    """Run every test in an empty temp directory, with DEVICE_NAME cleared."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("BROKER_URL", raising=False)
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    monkeypatch.delenv("CREDENTIALS_DIRECTORY", raising=False)
     monkeypatch.delenv("DEVICE_NAME", raising=False)
     return tmp_path
 
