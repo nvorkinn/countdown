@@ -31,8 +31,10 @@ QR_SIDE_TALL = 300
 # On a wide screen the words and the code share the left SIDEWAYS_COLUMN pixels with the QR code on the right.
 SIDEWAYS_COLUMN = 360
 SIDEWAYS_TITLE, SIDEWAYS_BODY = 44, 28
-# On a tall screen the words move up this far (before scaling) to leave room for the QR code under them.
-TALL_SHIFT = 120
+# On a tall screen the words move up this far (before scaling), so there is as much white above them as under the
+# QR code, which sits QR_TOP_TALL (before scaling) below the middle.
+TALL_SHIFT = 355
+QR_TOP_TALL = 90
 
 
 class PairingCodePanel(Panel):
@@ -77,7 +79,7 @@ class PairingCodePanel(Panel):
                 top_left = (image_width - MARGIN - side, round((image_height - side) / 2))
             else:
                 side = QR_SIDE_TALL
-                top_left = (round((image_width - side) / 2), round(center_y + (168 + shift + 42) * scale))
+                top_left = (round((image_width - side) / 2), round(center_y + QR_TOP_TALL * scale))
             img.paste(self._qr_code(side), top_left)
 
         return img
