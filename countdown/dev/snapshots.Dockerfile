@@ -3,7 +3,7 @@
 # third-party packages and the one downloaded font; the repo is mounted at run time, never copied in.
 
 # Pinned by digest: the manifest list, so linux/amd64 and linux/arm64 both resolve from it.
-ARG PYTHON_IMAGE=python:3.14-slim
+ARG PYTHON_IMAGE=python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 FROM ${PYTHON_IMAGE}
 
 # fribidi turns on Pillow's Raqm text layout, which the snapshots are drawn with.
@@ -32,7 +32,7 @@ RUN uv sync --frozen --no-install-workspace
 # Material Symbols, the one font the renderer downloads (utils.google_symbols), from a pinned commit and checked
 # against its hash. Copied to the mounted repo's fonts/ at run time, where the renderer looks for it.
 ARG SYMBOLS_COMMIT=49d4db35df873165d6bd6ba09b063c7dafbac2f4
-ARG SYMBOLS_SHA256=
+ARG SYMBOLS_SHA256=77ff1c20896afc6f1abf7d57fc408234dfd021ab050b63e0442e71d6c9f0d6b8
 RUN python - <<'PY'
 import hashlib, os, pathlib, urllib.request
 name = "MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf"
