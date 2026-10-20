@@ -21,7 +21,6 @@ jobs:
         include:
           - {name: amd64, runner: ubuntu-24.04, platform: ""}
           - {name: arm64, runner: ubuntu-24.04-arm, platform: ""}
-          - {name: arm64-emulated, runner: ubuntu-24.04, platform: linux/arm64}
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -32,7 +31,7 @@ jobs:
       - uses: docker/setup-qemu-action@v3
         if: matrix.platform != ''
       - name: Base image digest
-        run: docker buildx imagetools inspect python:3.14-slim --format '{{json .Manifest.Digest}}' | tee -a "$GITHUB_STEP_SUMMARY"
+        run: d=$(docker buildx imagetools inspect python:3.14-slim --format '{{json .Manifest.Digest}}'); echo "::notice title=base digest::$d"
       - name: Build image
         env:
           SNAPSHOT_PLATFORM: ${{ matrix.platform }}
