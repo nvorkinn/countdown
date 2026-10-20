@@ -5,6 +5,7 @@ import asyncio
 import pytest
 from requests.adapters import HTTPAdapter
 from test_utils import TEST_DEVICE_ID, put_departures
+from tfl_fixtures import BUS_STOP_JSON, METRO_STOP_JSON
 
 from countdown_api.models import DepartureStop
 from countdown_core.core.abstract_client import ClientStatus
@@ -20,25 +21,6 @@ from countdown_core.tfl.stored_source import (
     StoredTubePanel,
 )
 from countdown_core.tfl.tfl_client import _find_stop_child
-
-BUS_STOP_JSON = {
-    "naptanId": "490000123W",
-    "commonName": "Elephant & Castle",
-    "modes": ["bus"],
-    "additionalProperties": [],
-    "children": [],
-    "stopType": "NaptanPublicBusCoachTram",
-    "stopLetter": "W",
-}
-
-METRO_STOP_JSON = {
-    "naptanId": "940GZZLUKNG",
-    "commonName": "Kennington Underground Station",
-    "modes": ["tube"],
-    "additionalProperties": [],
-    "children": [],
-    "stopType": "NaptanMetroStation",
-}
 
 
 def make_bus_stop(naptan_id="490000123W"):
