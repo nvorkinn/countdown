@@ -1,9 +1,9 @@
 """Spotify's API responses, as far as the dashboard reads them."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator
+from pydantic import AwareDatetime, BaseModel, BeforeValidator, Field
 
 MillisecondTimedelta = Annotated[
     timedelta, BeforeValidator(lambda v: timedelta(milliseconds=v) if isinstance(v, (int, float)) else v)
@@ -40,6 +40,9 @@ class Track(BaseModel):
     artists: list[Artist]
     name: str
     duration_ms: MillisecondTimedelta
+    # Spotify's track id: what a Playback names the track its position belongs to. Missing for a local file, and for
+    # Apple Music's tracks, which have none.
+    id: str | None = None
 
 
 class Queue(BaseModel):
@@ -47,6 +50,36 @@ class Queue(BaseModel):
 
     currently_playing: Track | None
     queue: list[Track]
+
+
+class Playback(BaseModel):
+    """Where Spotify's player was in a track, from its /me/player/currently-playing as of `fetched_at`.
+
+    The music provider fetches this far more often than the queue while something plays, so it has a time of its own,
+    which may be newer than the queue's (`StoredPlayer.fetched_at`). Apple Music has no position.
+    """
+
+    fetched_at: AwareDatetime
+    is_playing: bool
+    progress_ms: Annotated[int, Field(ge=0)]
+    # The track the position belongs to; None for one without an id (a local file).
+    track_id: str | None = None
+
+    def elapsed(self, track: Track, now: datetime) -> timedelta | None:
+        """Return how far into `track` the player is at `now`; None if this position isn't known to be the track's.
+
+        While playing, the position the provider read plus the time since it read it, so the bar moves between
+        fetches; paused, just the position it read. Never before the start or past the track's end, as the clock may
+        run behind the provider's, and the track may have ended since. None when `track_id` isn't the track's id (the
+        queue is of another track than the position, as just after a skip), and for a track without an id: no bar is
+        better than a wrong one.
+        """
+        if track.id is None or self.track_id != track.id:
+            return None
+        position = timedelta(milliseconds=self.progress_ms)
+        if self.is_playing:
+            position += now - self.fetched_at
+        return min(max(position, timedelta(0)), track.duration_ms)
 
 
 class TopResponse[T: (Track, Artist)](BaseModel):

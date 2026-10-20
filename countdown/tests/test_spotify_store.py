@@ -78,6 +78,21 @@ def test_the_fixtures_are_stored_values():
     assert [a.name for a in top.apple_music["long_term"].artists.items] == ["Bad Bunny"]
 
 
+def test_the_fixture_has_where_spotify_was_in_the_playing_track():
+    playback = StoredPlayer.model_validate(PLAYER).spotify_playback
+
+    assert (playback.is_playing, playback.progress_ms, playback.track_id) == (True, 61234, "tab01")
+    assert playback.track_id == PLAYER["spotify"]["currently_playing"]["id"]
+
+
+def test_a_key_without_a_position_still_reads():
+    """Keys written before the field, and ones with nothing playing, have none."""
+    without = {k: v for k, v in PLAYER.items() if k != "spotify_playback"}
+
+    assert StoredPlayer.model_validate(without).spotify_playback is None
+    assert StoredPlayer.model_validate({**PLAYER, "spotify_playback": None}).spotify_playback is None
+
+
 @pytest.mark.parametrize("service", ["spotify", "apple_music"])
 def test_each_stored_part_is_in_spotifys_shapes(service):
     """Read as Spotify's own answers (/me/player/queue, /me/top/tracks, /me/top/artists), so the panels are the same."""
@@ -351,3 +366,41 @@ def test_reads_only_its_own_devices_keys(store):
 
     with pytest.raises(NoStoredMusicError):
         SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))._update()
+
+
+# --- The progress bar's position --------------------------------------------------------------
+
+
+@responses.activate
+def test_spotifys_panel_gets_the_stored_position(store):
+    put(store)
+
+    panel = asyncio.run(SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True)).update())
+
+    assert panel.playback.track_id == "tab01"
+    assert panel.playback.progress_ms == 61234
+
+
+@responses.activate
+def test_a_key_without_a_position_gives_a_panel_without_one(store):
+    put(store, {k: v for k, v in PLAYER.items() if k != "spotify_playback"})
+
+    panel = asyncio.run(SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True)).update())
+
+    assert panel.playback is None
+
+
+@responses.activate
+def test_apple_music_has_no_position_even_if_the_key_has_spotifys(store, symbols):
+    """Apple Music's last played track is no position of Spotify's, and its panel draws exactly what it did."""
+    put(store)
+    apple = MusicSettings(spotify=False, apple_music=True)
+
+    panel = asyncio.run(SpotifyClient(TEST_DEVICE_ID, apple).update())
+
+    assert panel.labels is APPLE_MUSIC_LABELS
+    assert panel.playback is None
+    assert (
+        panel.render(536, 120).tobytes()
+        == SpotifyPanel(panel.queue, panel.style, panel.labels).render(536, 120).tobytes()
+    )

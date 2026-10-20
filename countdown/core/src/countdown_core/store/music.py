@@ -17,7 +17,7 @@ music_player.json (each holding music_art.jpg's bytes in the tests).
 
 from pydantic import BaseModel
 
-from countdown_core.spotify.models import Album, Artist, Image, Queue, TopResponse, Track
+from countdown_core.spotify.models import Album, Artist, Image, Playback, Queue, TopResponse, Track
 from countdown_core.store.models import Stored
 
 # The tallest a cover is drawn: the Spotify area is 120 px high in every layout (rendering/layouts). The renderer
@@ -43,11 +43,14 @@ def art_image(album: Album) -> Image | None:
 class StoredPlayer(Stored):
     """What each service is playing, and what's up next: the value of `v1:spotify:<device id>` (TTL ~3 min).
 
-    Spotify's part is its /me/player/queue; Apple Music's, the last played track and the ones before it.
+    Spotify's part is its /me/player/queue; Apple Music's, the last played track and the ones before it. Spotify's
+    `spotify_playback` is how far into the track it was (/me/player/currently-playing): fetched more often than the
+    queue, so with a time of its own, and absent from a key written before it existed or when nothing plays.
     """
 
     spotify: Queue | None = None
     apple_music: Queue | None = None
+    spotify_playback: Playback | None = None
 
 
 class TopLists(BaseModel):
