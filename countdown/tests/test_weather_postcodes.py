@@ -1,10 +1,9 @@
 """A typed postcode's weather: provider-locations places it (`v1:location:<place>`), provider-weather reads it there.
 
-A screen saved before the weather's place picker, with a postcode (or a postcode district) typed for its weather, is
-subscribed as its slug (`sw1a-1aa`, `se17`). The weather provider used to look those up with postcodes.io itself; now
-provider-locations, the one process that looks postcodes up, writes where they are, and the weather provider reads it
-from the store, so it makes no request but Open-Meteo's forecast. postcodes.io and Open-Meteo are mocked (responses),
-Redis is fakeredis.
+A postcode (or a postcode district) typed as a screen's weather location, not picked as a place, is subscribed as its
+slug (`sw1a-1aa`, `se17`). provider-locations, the one process that looks postcodes up, writes where they are, and
+the weather provider reads it from the store, so it makes no request but Open-Meteo's forecast. postcodes.io and
+Open-Meteo are mocked (responses), Redis is fakeredis.
 """
 
 import asyncio
@@ -106,12 +105,12 @@ WEATHER_KEYS = fixtures.load("weather_keys.json")["keys"]
         ("e1-6an", "E1 6AN"),
         ("se17", "SE17"),  # a district
         ("n1", "N1"),
-        # Not postcodes: Open-Meteo's to find, as before.
+        # Not postcodes: Open-Meteo's to find.
         ("london", None),
         ("london-sw1a-1aa", None),
         ("sw1a-1", None),
         ("oslo-0150", None),
-        ("0150", None),  # a Norwegian postcode was always Open-Meteo's search, never Kartverket's
+        ("0150", None),  # a Norwegian postcode is Open-Meteo's search, never Kartverket's
         (LONDON, None),
         ("gb-2643743", None),
         ("", None),
@@ -288,7 +287,7 @@ def test_the_weather_provider_forecasts_where_provider_locations_placed_a_typed_
     before, placed, after, values = asyncio.run(cycles())
 
     assert (before, placed, after) == (1, 3, 3)
-    assert values["zz1-1zz"] is None  # not a postcode that exists: no weather, as when postcodes.io said so
+    assert values["zz1-1zz"] is None  # not a postcode that exists: no weather
     for key in (LONDON, "se17", "sw1a-1aa"):
         assert StoredForecast.model_validate_json(values[key]).location == key
     assert forecast_points(postcodes_io.calls) == [

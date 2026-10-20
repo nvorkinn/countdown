@@ -1,7 +1,7 @@
 """gov.uk's bank holidays through the store: the provider writing `v1:notices:bank-holidays` and the board reading it.
 
 gov.uk is mocked (responses) with tests/fixtures/bank_holidays.json, an answer in its own shape, and the provider and
-the renderer share one fake Redis (fakeredis), as they share the host's.
+the board share one fake Redis (fakeredis), as they share the host's.
 """
 
 import asyncio
@@ -118,14 +118,14 @@ def test_an_answer_missing_a_division_is_not_stored(server):
     assert fakeredis.FakeRedis(server=server).get(keys.bank_holidays()) == before
 
 
-# --- The board's source: the same notices as when it asked gov.uk itself ---------------------------------------------
+# --- The board's source ---------------------------------------------
 
 
 def ending(year: int, month: int, day: int, hour: int = 0) -> datetime:
     return datetime(year, month, day, hour, tzinfo=UTC)
 
 
-# What the board said when it asked gov.uk itself (BankHolidaySource, now gone), from the fixture: (now, postcodes.io's
+# The notices expected, recorded from the board's own gov.uk source (hence OLD_ANSWERS): (now, postcodes.io's
 # country) -> (text, valid_until), or None for no notice. A holiday ends at midnight after it, UK time.
 OLD_ANSWERS = [
     (datetime(2026, 11, 24, 12, tzinfo=UTC), None, None),  # Christmas is over a month away

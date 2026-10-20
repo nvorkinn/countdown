@@ -10,7 +10,7 @@ SECTIONS = ["interval", "tfl", "spotify", "weather", "glowmarkt", "notice_board"
 
 
 def test_an_empty_config_cannot_be_conjured():
-    """A config only ever comes from a broker response (or, later, a cache of one).
+    """A config only ever comes from the broker.
 
     "No stops" must mean the broker said so, not that we never heard from it.
     """

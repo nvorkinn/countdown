@@ -84,7 +84,7 @@ def test_update_reads_the_forecast_under_the_places_key(store, reads):
 
 
 def test_until_the_places_key_is_in_the_store_it_reads_the_one_under_the_location(store, reads):
-    """Just after the broker starts sending keys: the provider hasn't fetched the key's, the old one hasn't expired."""
+    """Just after the broker starts sending keys: nothing is under the key yet, and the location's forecast is live."""
     put_forecast(store, location="London")
 
     assert asyncio.run(make_client(key=LONDON).update()).weather.temperature == 14.2

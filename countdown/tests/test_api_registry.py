@@ -179,7 +179,7 @@ def test_the_developer_panel_is_off_unless_the_broker_switches_it_on():
 
 
 def test_a_broker_without_the_shared_style_leaves_each_panel_on_its_own():
-    """Their old names are drawn as the shared look nearest them: grouped was airy's, boxed goes to card."""
+    """Their legacy names draw as the shared look nearest them: grouped as airy, boxed as card."""
     config = make_config(
         tfl={"style": "grouped"},
         spotify={"enabled": True, "style": "classic"},

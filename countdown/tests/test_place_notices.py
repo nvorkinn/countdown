@@ -1,13 +1,12 @@
 """The providers of notices about a place read where each postcode is from the store, as provider-locations placed it.
 
-provider-met-office, provider-floods and provider-tfl-notices' roads used to look each postcode up on postcodes.io
-themselves; now they read `v1:location:<place>` (locations.reader.LocationReader), so a postcode is looked up once in
-all, by provider-locations.
+provider-met-office, provider-floods and provider-tfl-notices' roads read `v1:location:<place>`
+(locations.reader.LocationReader), so a postcode is looked up once in all, by provider-locations.
 
 fixtures/place_notices.json is the parity check. `upstream` is what every API answered: postcodes.io and Kartverket
 for each postcode, the Met Office's regional feeds, the EA's warnings in force and flood areas near each place, and
-TfL's road disruptions. `before` was recorded from the old providers, before they changed, running against those
-answers (each asking postcodes.io for itself, provider-locations writing the locations the board reads): every
+TfL's road disruptions. `before` was recorded from the providers running against those
+answers when each asked postcodes.io for itself (provider-locations writing the locations the board reads): every
 `v1:notices:` key they wrote, every request they made (bar postcodes.io), and what the notice board showed for each
 postcode at `now`. From the same answers, the providers reading the store must write exactly the same keys, make the
 same requests (and none to postcodes.io), and the board must show exactly the same notices. The postcodes cover each
@@ -169,7 +168,7 @@ def test_from_the_same_answers_the_providers_store_and_the_board_shows_what_they
     assert stored == BEFORE["stored"]
     assert asked == BEFORE["requests"]  # the same requests to the Met Office, the EA and TfL, and nothing else
     assert board_shows(renderer, monkeypatch) == BEFORE["board"]
-    # Each postcode looked up once in all, by provider-locations; the three asked postcodes.io 24 times before.
+    # Each postcode looked up once in all, by provider-locations; the three asking for themselves made 24 lookups.
     assert sorted(url.split("?")[0] for url in looked_up if url.startswith(POSTCODES_URL)) == sorted(
         f"{POSTCODES_URL}/{postcode.replace(' ', '%20')}" for postcode in UPSTREAM["postcodes_io"]
     )

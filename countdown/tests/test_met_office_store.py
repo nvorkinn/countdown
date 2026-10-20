@@ -4,10 +4,10 @@ provider-met-office runs against mocked Met Office feeds (responses), with where
 provider-locations writes it (fakeredis), and the notice board's source reads what it wrote back.
 
 fixtures/met_office_warnings.xml is a region's feed, and fixtures/met_office_warnings.json the stored value the
-provider makes of it. The notices the board makes from the stored value must be the ones it made from the feed when it
-fetched the feed itself: fixtures/met_office_notices.json is what it made then, from that feed at the fixture's `now`,
-in English and in Norwegian. One change since: an amber warning now reads "Oransje farevarsel" in Norwegian, not
-"Gult", since amber is the Met Office's middle level, as orange is MetAlerts'.
+provider makes of it. The notices the board makes from the stored value must be those in
+fixtures/met_office_notices.json: from that feed at the fixture's `now`, in English and in Norwegian. An amber warning
+reads "Oransje farevarsel" in Norwegian, not "Gult", since amber is the Met Office's middle level, as orange is
+MetAlerts'.
 """
 
 import asyncio
@@ -36,7 +36,7 @@ from countdown_providers.runner import ProviderRunner
 FIXTURES = Path(__file__).parent / "fixtures"
 FEED = (FIXTURES / "met_office_warnings.xml").read_bytes()
 STORED = json.loads((FIXTURES / "met_office_warnings.json").read_text())
-# The notices the board made from FEED when it fetched the Met Office's feed itself.
+# The notices the board makes from FEED.
 FEED_NOTICES = json.loads((FIXTURES / "met_office_notices.json").read_text())
 NOW = datetime.fromisoformat(FEED_NOTICES["now"])
 FETCHED_AT = datetime.fromisoformat(STORED["fetched_at"])

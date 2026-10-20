@@ -108,7 +108,7 @@ def test_update_raises_on_a_malformed_queue(store, client):
 
 @pytest.mark.parametrize(("style", "drawn"), [("hero", "hero"), ("classic", "hero")], ids=["hero", "retired classic"])
 def test_the_configs_style_reaches_both_pages(store, style, drawn, rotation_clock):
-    """A broker that hasn't migrated its stored styles yet still sends classic, drawn as hero."""
+    """The broker may still send classic, which draws as hero."""
     client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True, style=style))
     put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
 
@@ -222,7 +222,7 @@ def test_without_a_store_it_cant_be_built_and_says_why(monkeypatch):
 
 
 def test_it_never_calls_the_broker(store, client, monkeypatch, rotation_clock):
-    """The provider calls the services with the broker's tokens; the renderer only reads what it stored."""
+    """The provider calls the services with the broker's tokens; the client only reads what it stored."""
     monkeypatch.setattr(client.session, "request", lambda *args, **kwargs: pytest.fail("called the broker"))
     put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
 

@@ -71,9 +71,9 @@ def test_the_shared_fixture_reads_back(client, store):
 
 
 def test_parity_the_stored_panel_is_the_one_the_brokers_answer_drew(client, store):
-    """The broker's old answer was the fixture without `fetched_at`: the same summary and panel from it."""
+    """The fixture without `fetched_at` is the broker's /api/developer answer: the stored panel must match it."""
     answer = {k: v for k, v in FIXTURE.items() if k != "fetched_at"}
-    # What the removed path made of the broker's /api/developer answer.
+    # The summary and panel drawn from the broker's /api/developer answer, which the stored copy must match.
     old = DeveloperPanel(DeveloperSummary.model_validate_json(json.dumps(answer)), "card")
     store.set(KEY, json.dumps(FIXTURE))
 
@@ -165,7 +165,7 @@ def test_notices_for_failing_builds_renewals_and_a_plan_nearly_used_up(client, s
 
 
 def test_the_notice_source_reads_the_store_itself_not_the_panels_last_poll(client, store):
-    """It used to read the client's last answer, so the board drew the previous cycle's notices: now, the store's."""
+    """It reads the store, not the client's last answer: the board draws this cycle's notices, not the last one's."""
     _put(store, ANSWER)
     asyncio.run(client.update())  # the panel's poll, before the board's
     (source,) = client.notice_sources()

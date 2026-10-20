@@ -96,7 +96,7 @@ def make_provider() -> EnturProvider:
 
 
 def fetched(stop_id: str) -> tuple[EnturStop, list[EnturDeparture]]:
-    """Ask (mocked) Entur for a stop and its departures as of NOW, as the renderer's EnturSource does."""
+    """Ask (mocked) Entur for a stop and its departures as of NOW, as the provider's EnturSource does."""
     source = EnturSource(requests.Session())
     stop = source.resolve(stop_id)
     assert stop is not None
@@ -173,7 +173,7 @@ def test_a_stop_listing_no_modes_is_unknown_and_nothing_due_still_maps():
 
 
 def test_a_value_stored_before_the_mode_fields_still_reads():
-    # A TfL provider on the previous version wrote no `modes` or departure `mode`: read as none.
+    # Stored without `modes` or a departure `mode`: read as none.
     old = {
         "fetched_at": "2026-10-17T12:00:00Z",
         "stop_id": "490000123W",
@@ -271,6 +271,6 @@ def test_runner_writes_the_stops_departures_under_its_key_with_the_ttl():
     assert written == 1
     assert not failing_exists
     assert 0 < ttl <= provider.ttl_s
-    # What the renderer reads back is what was fetched.
+    # What's read back is what was fetched.
     stored = StopDepartures.model_validate_json(value)
     assert stored == to_stop_departures(*fetched(MAJORSTUEN_ID), NOW)

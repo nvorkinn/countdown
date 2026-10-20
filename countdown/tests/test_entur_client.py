@@ -140,7 +140,7 @@ def test_settings_prefer_departures_with_each_stops_source():
     ids=["tfl", "departures"],
 )
 def test_the_retired_classic_style_is_drawn_as_hero(sections):
-    """A broker that hasn't migrated its stored styles yet still sends classic."""
+    """The broker may still send classic, which draws as hero."""
     assert DeparturesSettings.from_config(make_broker_config(**sections)).style == "hero"
 
 
