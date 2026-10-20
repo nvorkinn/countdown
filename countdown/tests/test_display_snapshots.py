@@ -527,7 +527,6 @@ def test_every_panel_in_one_style(snapshot, style):
 
 @pytest.mark.parametrize("style", list(NOTICE_STYLES))
 def test_every_panel_in_one_style_on_a_portrait_screen(snapshot, style):
-    """As the config page shows each style."""
     spotify = SpotifyPanel(SPOTIFY_QUEUE, style, art=_album_art_bytes())
     notices = NoticeBoardPanel(FEW_NOTICES.notices, style)
     img = _draw_portrait(_panels(_many_route_arrivals(style), spotify=spotify, notices=notices))

@@ -2,9 +2,9 @@
 
 provider-locations runs against mocked postcodes.io and Kartverket (responses), and the notice board reads what it
 wrote (fakeredis). fixtures/locations.json is one cycle of the provider: their answers for each postcode, and the value
-it stores. fixtures/locations_board.json is what the board built, and showed, from the same answers when it looked the
-postcode up itself, recorded from that code before it was removed: from the stored location it must build and show
-exactly the same, for a UK postcode (in England, and in Scotland), a Norwegian one, and one of each that doesn't exist.
+it stores. fixtures/locations_board.json is what the board built and showed from the same answers (recorded when it
+looked the postcode up itself): from the stored location it must build and show exactly the same, for a UK postcode
+(in England, and in Scotland), a Norwegian one, and one of each that doesn't exist.
 """
 
 import asyncio
@@ -46,7 +46,7 @@ FIXTURE = json.loads((FIXTURES / "locations.json").read_text(encoding="utf-8"))
 PLACES = FIXTURE["postcodes"]
 POSTCODES = list(PLACES)
 FETCHED_AT = datetime.fromisoformat(FIXTURE["fetched_at"])
-# What the board built and showed when it looked the postcode up itself.
+# What the board builds and shows for each postcode.
 BOARD = json.loads((FIXTURES / "locations_board.json").read_text(encoding="utf-8"))["cases"]
 
 
@@ -365,7 +365,7 @@ def provider_logging(monkeypatch):
 def test_urllib3s_retry_warnings_which_quote_the_postcodes_url_are_kept_out(
     provider_logging, clock, caplog, monkeypatch
 ):
-    """A real connection failure, retried by the renderer's own retrying session: urllib3 warns with each URL."""
+    """A real connection failure, retried by countdown_core's retrying session: urllib3 warns with each URL."""
     with socket.socket() as s:  # a port nothing listens on
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
@@ -383,7 +383,7 @@ def test_urllib3s_retry_warnings_which_quote_the_postcodes_url_are_kept_out(
     assert_no_postcode_in(caplog.text, ["SE17 3LL"])
 
 
-# --- The notice board reading it: what it built when it looked the postcode up itself ----------------------------
+# --- The notice board reading it ----------------------------
 
 
 def fill_notices(store, postcode: str, now: datetime) -> None:

@@ -3,8 +3,8 @@
 provider-entur-situations writes Entur's own answer for each stop to `v1:notices:entur:<stop id>`, and the notice
 board makes the notices from it as it draws (StoredEnturSituationsSource). fixtures/entur_situations.json holds
 Entur's answers for a stop place, a quay and a stop Entur doesn't know, and the notices (in English and Norwegian)
-that the board made from those same answers, as of the fixture's `now`, when it still asked Entur itself (the
-EnturSituationsSource it had before the provider): the stored path must make the same.
+the board should make from those same answers, as of the fixture's `now` (recorded from the EnturSituationsSource
+that asked Entur itself): the stored path must make the same.
 """
 
 import asyncio
@@ -365,4 +365,4 @@ def test_the_departures_client_hands_the_board_its_entur_stops_from_the_store(st
 
     [entur_source] = [s for s in sources if isinstance(s, StoredEnturSituationsSource)]
     assert (entur_source.store, entur_source.stop_ids) == (store, [QUAY_ID])
-    assert entur_source.needs_network  # the store counts as reaching something, as Entur did
+    assert entur_source.needs_network  # the store counts as reaching something

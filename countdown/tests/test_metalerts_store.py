@@ -2,8 +2,8 @@
 
 fixtures/metalerts_current.json is the stored value: MetAlerts' current.json for all of Norway, in Norwegian and in
 English, as the provider writes it (test_metalerts_provider.py checks that side). The board picks out the warnings
-covering its place, which must be exactly the Notices it made when it asked MET for the place itself: those are
-fixtures/metalerts_notices.json, recorded from that code before it was removed.
+covering its place, which must be exactly the Notices in fixtures/metalerts_notices.json
+(recorded when it asked MET for the place itself).
 """
 
 import asyncio
@@ -57,7 +57,7 @@ COVERING = {
 
 
 def stored_path(store, place: Postcode, now: datetime):
-    """Make the board's notices as it does now: from the warnings the provider stored, for all of Norway."""
+    """Make the board's notices from the warnings the provider stored, for all of Norway."""
     store.set(keys.metalerts(), StoredMetAlerts.model_validate(FIXTURE).model_dump_json())
     return StoredMetAlertsSource(requests.Session(), place).fetch(now)
 

@@ -333,7 +333,7 @@ def provider_logging(monkeypatch):
 def test_urllib3s_retry_warnings_which_quote_the_coordinates_are_kept_out(
     provider_logging, located, clock, caplog, monkeypatch
 ):
-    """A real connection failure, retried by the renderer's own retrying session: urllib3 warns with each URL."""
+    """A real connection failure, retried by countdown_core's retrying session: urllib3 warns with each URL."""
     with socket.socket() as s:  # a port nothing listens on
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]

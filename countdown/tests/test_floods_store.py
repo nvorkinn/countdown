@@ -1,8 +1,8 @@
 """The notice board's flood warnings from the store (`v1:notices:floods:<place>`, written by the floods provider).
 
 fixtures/floods.json is one cycle of the provider: the EA's and postcodes.io's answers, and the value it stores for
-each postcode. The notices the board makes from a stored value must be the ones it made when it asked the EA itself:
-fixtures/floods_notices.json is what it made then, from the same warnings, in each language.
+each postcode. The notices the board makes from a stored value must be those in fixtures/floods_notices.json, in
+each language (recorded from the board when it asked the EA itself, from the same warnings).
 """
 
 import asyncio
@@ -24,7 +24,7 @@ from countdown_core.store.floods import StoredFloods
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "floods.json").read_text())
-# What the board showed for each postcode, in each language, when it asked the EA itself.
+# What the board shows for each postcode, in each language.
 EA_NOTICES = json.loads((FIXTURES / "floods_notices.json").read_text())
 POSTCODES = list(FIXTURE["places"])
 NOW = datetime.fromisoformat(FIXTURE["fetched_at"])

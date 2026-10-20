@@ -13,13 +13,9 @@ from countdown_core.utils import utils
 
 @pytest.fixture(autouse=True)
 def isolated_cwd(tmp_path, monkeypatch):
-    """Run every test in an empty temp directory, with the app's env vars cleared.
-
-    Device-local files like .auth_broker_device land there.
-    """
+    """Run every test in an empty temp directory, with the app's env vars cleared."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("BROKER_URL", raising=False)
-    # Where a key is made when the device wasn't given one.
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("CREDENTIALS_DIRECTORY", raising=False)
     monkeypatch.delenv("DEVICE_NAME", raising=False)

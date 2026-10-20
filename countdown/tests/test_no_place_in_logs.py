@@ -117,7 +117,7 @@ def nowhere(monkeypatch) -> str:
 
 
 def retrying_session() -> requests.Session:
-    """Return the renderer's own retrying session (the providers' too), retrying at once rather than backing off."""
+    """Return countdown_core's retrying session (the providers' too), retrying at once rather than backing off."""
     session = AbstractClient._build_retrying_session(backoff_factor=0)
     session.trust_env = False  # straight to the closed port, not through a proxy
     return session

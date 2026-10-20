@@ -1,12 +1,12 @@
 """The render function (render.render): one screen's frame from the store, run to completion.
 
-fixtures/render_parity.json is the parity check. It was recorded from the per-screen loop as it was before the render
-function (DisplayLoop.run with ApiRegistry and DisplayController, pi-dashboard main at 1b3743d), before that code
-changed: for each case a config, the store as the providers left it and a moment, and the etag of the frame that loop
-PUT. From the same inputs, with the config in the store as the broker writes it, render(device_id, now) must draw
-exactly the same frames. The cases cover both orientations and both clock formats, every panel, the developer panel in
-the Spotify area, English and Norwegian, expired keys, a page of stops other than the first, a placed notice board, the
-pairing screen and a screen with nothing set up.
+fixtures/render_parity.json is the parity check. It was recorded from the per-screen loop that preceded the render
+function (DisplayLoop.run with ApiRegistry and DisplayController, pi-dashboard main at 1b3743d): for each case a config,
+the store as the providers left it and a moment, and the etag of the frame that loop PUT. From the same inputs, with the
+config in the store as the broker writes it, render(device_id, now) must draw exactly the same frames. The cases cover
+both orientations and both clock formats, every panel, the developer panel in the Spotify area, English and Norwegian,
+expired keys, a page of stops other than the first, a placed notice board, the pairing screen and a screen with nothing
+set up.
 
 The rest: what an Outcome says, that a render sleeps, loops and threads not at all, and that a store that can't be read
 fails the render and writes nothing.
@@ -76,7 +76,7 @@ def _now(case: dict) -> datetime:
     return datetime.fromisoformat(case["now"])
 
 
-# --- parity: the same frames as the loop before it ----------------------------------------------------------------
+# --- parity: the same frames as the recorded loop ----------------------------------------------------------------
 
 
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])

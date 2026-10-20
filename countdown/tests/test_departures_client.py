@@ -311,7 +311,7 @@ def test_update_says_so_when_no_stops_are_configured():
 
 
 def test_session_has_retry_adapter_mounted():
-    """Every client keeps a retrying session, even though the departures and their notices now come from the store."""
+    """Every client keeps a retrying session, even though the departures and their notices come from the store."""
     client = DeparturesClient(TEST_DEVICE_ID, make_config())
     adapter = client.session.get_adapter("https://api.tfl.gov.uk")
     assert isinstance(adapter, HTTPAdapter)

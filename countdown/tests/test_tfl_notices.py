@@ -1,9 +1,9 @@
 """TfL's disruptions on the notice board, through the store: the TfL notices provider and the sources reading it.
 
 fixtures/tfl_notices.json is a set of TfL's answers (and postcodes.io's, which provider-locations stores as where the
-fixture's postcode is: the roads provider reads it there), and fixtures/tfl_notices_expected.json the notices the
-renderer made from them when it asked TfL itself, at the fixture's `now`. The provider stores those answers, and the
-renderer's sources must make the same notices from what it stored.
+fixture's postcode is: the roads provider reads it there), and fixtures/tfl_notices_expected.json the notices made
+from them at the fixture's `now` (recorded when the board asked TfL itself). The provider stores those answers, and
+the board's sources must make the same notices from what it stored.
 """
 
 import asyncio
@@ -48,7 +48,7 @@ from countdown_providers.tfl_notices.main import (
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "tfl_notices.json").read_text())
-# The notices the renderer made from FIXTURE's answers when it asked TfL itself.
+# The notices made from FIXTURE's answers.
 EXPECTED = json.loads((FIXTURES / "tfl_notices_expected.json").read_text())
 NOW = datetime.fromisoformat(FIXTURE["now"])
 STOPS = FIXTURE["stops"]

@@ -1,7 +1,7 @@
 """The MetAlerts provider against mocked MET (responses) and fakeredis: what it asks, when, and what it stores.
 
-fixtures/metalerts_current.json is what it stores: MET's answers for all of Norway, as they came. The renderer's tests
-(test_metalerts_store.py) read the same file.
+fixtures/metalerts_current.json is what it stores: MET's answers for all of Norway, as they came.
+test_metalerts_store.py reads the same file.
 """
 
 import asyncio
@@ -83,7 +83,7 @@ def test_met_is_asked_for_all_of_norway_in_both_languages_and_its_answers_stored
     results = fetch(MetAlertsProvider(requests.Session(), now=Clock()), ["0150", "9008", "SW1A 1AA"])
     # Under one postcode: the runner writes a result per id, and they'd all be the same key.
     assert list(results) == ["0150"]
-    # MET's answers as they came, every field kept: the fixture, which the renderer's tests read.
+    # MET's answers as they came, every field kept: the fixture, which test_metalerts_store.py reads.
     stored = json.loads(results["0150"].model_dump_json())
     assert datetime.fromisoformat(stored.pop("fetched_at")) == NOW
     assert stored == {key: value for key, value in FIXTURE.items() if key != "fetched_at"}
