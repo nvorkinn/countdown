@@ -1,6 +1,6 @@
 """The render pool's job queue: which screens to draw next, one render per screen at a time.
 
-docs/stateless-renderers.md ("The pool, the queue and the render function") is the design. Anything that wants a screen
+countdown/docs/stateless-renderers.md describes the design. Anything that wants a screen
 drawn (the ticker every minute, the broker on a config save or a pairing code) calls enqueue(device id). A worker
 pops a job (next_job), claims it, renders the screen, and releases it. Three small Lua scripts make enqueue, claim and
 release each atomic in Redis, over these keys (keys.py):

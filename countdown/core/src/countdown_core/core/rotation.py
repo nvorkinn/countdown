@@ -6,7 +6,7 @@ pages together, on the minute; two draws in the same minute show the same page; 
 between them: a client rebuilt by a config change carries on where the clock is, rather than from its first page.
 
 The minute is counted from the epoch rather than within the hour, so a count that doesn't divide 60 (seven pages of
-stops, say) doesn't jump back to its first page on the hour. See docs/stateless-renderers.md, "Rotation from the clock".
+stops, say) doesn't jump back to its first page on the hour.
 """
 
 from typing import TYPE_CHECKING

@@ -147,9 +147,8 @@ def weather(location: str) -> str:
     return f"{PREFIX}:weather:{location}"
 
 
-# The render pool's queue (store.render_queue; docs/stateless-renderers.md, "The pool, the queue and the render
-# function"): RENDER_JOBS, RENDER_SCREENS and render_queued are the contract's, as auth-broker queues jobs and lists the
-# screens too; the lease and the follow-up flag are the pool's own.
+# The render pool's queue (store.render_queue): RENDER_JOBS, RENDER_SCREENS and render_queued are the contract's, as
+# auth-broker queues jobs and lists the screens too; the lease and the follow-up flag are the pool's own.
 
 
 def render_lease(device_id: str) -> str:
