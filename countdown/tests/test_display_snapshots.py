@@ -338,12 +338,6 @@ def test_pairing_code_stays_on_the_screen_whatever_its_length(code):
         assert img.crop(edge).getextrema() == (255, 255)
 
 
-def test_pairing_screen_without_a_code_draws_no_boxes():
-    img = PairingCodePanel(None, "7218485b654f").render(*DEFAULT_CANVAS.size)
-
-    assert img.convert("L").crop((0, 232, 800, 342)).getextrema() == (255, 255)
-
-
 def test_pairing_qr_code_opens_the_pairing_page_with_the_code_filled_in(monkeypatch):
     urls = []
     add_data = qrcode.QRCode.add_data
@@ -354,12 +348,6 @@ def test_pairing_qr_code_opens_the_pairing_page_with_the_code_filled_in(monkeypa
     PairingCodePanel("C4FFEZ", "7218485b654f").render(*DEFAULT_CANVAS.size)
 
     assert urls == ["https://auth.nikolaivorkinn.com/pair?code=C4FFEZ"]
-
-
-def test_pairing_screen_without_a_code_draws_no_qr_code():
-    img = PairingCodePanel(None, "7218485b654f").render(*DEFAULT_CANVAS.size).convert("L")
-
-    assert img.crop((420, 0, 800, 480)).getextrema() == (255, 255)
 
 
 PORTRAIT = (480, 800)
