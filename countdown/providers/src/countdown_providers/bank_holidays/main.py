@@ -78,8 +78,8 @@ class BankHolidaysProvider:
 def main() -> None:
     """Run the `countdown-provider-bank-holidays` console script. gov.uk needs no key."""
     configure_logging()
-    # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
+    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     asyncio.run(serve(BankHolidaysProvider(session), Settings.from_env()))
 
 

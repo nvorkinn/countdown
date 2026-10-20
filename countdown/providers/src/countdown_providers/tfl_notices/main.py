@@ -13,7 +13,7 @@ Three providers in one process (runner.serve_all), one for each kind of TfL disr
   (`v1:location:<place>`, read each cycle by locations.reader.LocationReader, on the process's one Redis client); one
   it hasn't placed, or that doesn't exist, is left out until it has.
 
-What's stored is TfL's own answers (store/tfl_notices.py); the renderer makes the notices from them as it draws. The
+What's stored is TfL's own answers (store/tfl_notices.py); the render pool makes the notices from them as it draws. The
 requests are countdown-core's (TflSource), which are synchronous (requests), so each batch runs in a worker thread
 (asyncio.to_thread), with a session of its own.
 """
@@ -215,8 +215,8 @@ def providers(
 
     The road provider reads where the postcodes are through `locations`.
     """
-    # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session  # noqa: SLF001 -- shared with the renderer's clients on purpose
+    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    session = AbstractClient._build_retrying_session  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     return [
         TflLineStatusProvider(TflSource(session(), app_key)),
         TflStationProvider(TflSource(session(), app_key)),

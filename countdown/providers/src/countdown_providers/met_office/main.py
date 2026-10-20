@@ -5,11 +5,10 @@ by locations.reader.LocationReader; one it hasn't placed, or that doesn't exist,
 the Met Office warning region it's in (countdown_core.notices.met_office.region_for). The Met Office publishes a
 warnings RSS feed per region, so each region's feed is fetched once a cycle however many postcodes are in it, and
 written under each of them, `v1:notices:met-office:<place>`, as a StoredMetOfficeWarnings: the feed's items, which the
-renderer makes its notices from when it draws. A Norwegian postcode (four digits) is MET Norway's to warn about, not
+render pool makes its notices from when it draws. A Norwegian postcode (four digits) is MET Norway's to warn about, not
 the Met Office's, so it's left alone.
 
-Where the screens are stays out of the logs, as it does in the renderer's: nothing logged here names a postcode, or
-the region one is in.
+Where the screens are stays out of the logs: nothing logged here names a postcode, or the region one is in.
 
 Its HTTP calls are synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread), like the weather
 provider's.
@@ -71,8 +70,7 @@ class MetOfficeProvider:
     name = keys.POSTCODE
     # Six cycles: a provider that's down shows as missing warnings within half an hour, not as old ones.
     ttl_s = 30 * 60
-    # Warnings are issued hours ahead and change rarely; with the board reading the store every 5 minutes too, a new
-    # one shows no later than when each board fetched the feed itself every 10.
+    # Warnings are issued hours ahead and change rarely.
     interval_s = 5 * 60
     # A cycle as soon as provider-locations places a new postcode (or moves one), not at the next tick.
     wakes_on = (keys.LOCATION_CHANGED,)
@@ -163,8 +161,8 @@ def main() -> None:
     settings = Settings.from_env()
     # One client for the runner and the locations it reads.
     redis = settings.redis()
-    # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
+    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     asyncio.run(serve(MetOfficeProvider(session, LocationReader(redis)), settings, redis=redis))
 
 

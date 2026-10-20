@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      # CRUCIAL: Wait for CI checks to complete first
+      # Wait for the other checks first.
       - name: Wait for CI checks to complete
         uses: lewagon/wait-on-check-action@369769072fe522a3a8a85c03c96af1e5242a1994 # v1.9.1
         with:
@@ -29,7 +29,6 @@ jobs:
           allowed-conclusions: success,skipped,neutral
           running-workflow-name: 'auto-approve'
 
-      # Only approve if CI passes
       - name: Approve PR
         if: success()
         run: gh pr review --approve ${{ github.event.pull_request.number }}

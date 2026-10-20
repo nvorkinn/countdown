@@ -6,7 +6,7 @@ FROM python:3.14-slim
 LABEL org.opencontainers.image.source="https://github.com/nvorkinn/pi-dashboard"
 LABEL org.opencontainers.image.description="countdown render pool: the workers and the ticker"
 
-# fribidi turns on Pillow's Raqm text layout, which the Pis and the snapshot tests render with.
+# fribidi turns on Pillow's Raqm text layout, which the snapshot tests render with.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libfribidi0 \
     && rm -rf /var/lib/apt/lists/*
@@ -19,10 +19,10 @@ RUN pip install --no-cache-dir --root-user-action=ignore --disable-pip-version-c
 
 # Downloaded on first use otherwise, again every time a container is recreated.
 RUN python -c "from countdown_core.utils.utils import google_symbols; google_symbols()"
-# Fail the build rather than render text differently from the Pis.
+# Fail the build rather than render text differently from the snapshot tests.
 RUN python -c "from PIL import features; assert features.check('raqm'), 'Pillow has no Raqm text layout'"
 
-# It keeps nothing: no identity, no key, no volumes.
+# It keeps nothing, so needs no volume.
 RUN useradd --system --create-home countdown
 USER countdown
 

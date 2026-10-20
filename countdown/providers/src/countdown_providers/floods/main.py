@@ -7,7 +7,7 @@ digits) are in the set for Norway's notices, and are skipped.
 One fetch serves every postcode. The EA's /id/floods lists every warning in force in England, and its documentation
 asks callers to keep to such common requests, which it caches, rather than filter each its own way. So a cycle asks
 for that list once, and each postcode gets the warnings for the flood areas within RADIUS_KM of it, as the EA lists
-them (/id/floodAreas?lat&long&dist): the areas /id/floods?lat&long&dist would have picked for it. Where a postcode is
+them (/id/floodAreas?lat&long&dist): the areas /id/floods?lat&long&dist would pick for it. Where a postcode is
 comes from the store, as provider-locations placed it (`v1:location:<place>`, read each cycle by
 locations.reader.LocationReader; one it hasn't placed, or that doesn't exist, is left out until it has), and its flood
 areas are asked for again once a day, as the EA redraws them now and then, or at once if it's moved.
@@ -170,8 +170,8 @@ def main() -> None:
     settings = Settings.from_env()
     # One client for the runner and the locations it reads.
     redis = settings.redis()
-    # The renderer's own retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with the renderer's clients on purpose
+    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     asyncio.run(serve(FloodsProvider(session, LocationReader(redis)), settings, redis=redis))
 
 

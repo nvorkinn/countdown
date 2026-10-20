@@ -163,7 +163,7 @@ weather_cache.pkl
 # Material Symbols, downloaded on first use -- see google_symbols() in core/src/countdown_core/utils/utils.py
 core/src/countdown_core/fonts/MaterialSymbols*.ttf
 
-# What the retired per-screen renderer left in a development checkout: its identity and its key.
+# A device's identity and key, left in a development checkout.
 .auth_broker_device
 dev/*/.config/
 
@@ -227,9 +227,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Legacy local config file from the retired config.json/Flask config page (see
-# auth-broker) -- no longer read by the app, but still ignored so a leftover
-# copy from before this change doesn't show up as untracked noise.
+# A local config.json (the app doesn't read one).
 config.json
 
 # Visual regression snapshot failures (actual render + diff, written on a mismatch;
