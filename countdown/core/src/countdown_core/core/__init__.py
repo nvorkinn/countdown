@@ -1,1 +1,1 @@
-"""The app itself: its loop, the API clients' base and registry, and the display."""
+"""The API clients' base and registry, and the bases of panels and their style."""

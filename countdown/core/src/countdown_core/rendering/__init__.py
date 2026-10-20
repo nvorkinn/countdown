@@ -92,8 +92,7 @@ def share_spotify_area(
 def to_native(frame: Frame, screen: Screen) -> Frame:
     """`frame` as the panel takes it, in the panel's landscape picture.
 
-    A portrait frame is turned a quarter (anticlockwise, as the e-paper driver does for a portrait picture), and its
-    volatile box with it. A landscape frame is already there.
+    A portrait frame is turned a quarter anticlockwise, and its volatile box with it. A landscape one is already there.
     """
     width, height = frame.image.size
     if (width, height) == native_size(screen):

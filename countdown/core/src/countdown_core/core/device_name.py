@@ -1,7 +1,7 @@
 """The process's name: the DEVICE_NAME setting (else the hostname), as a slug.
 
 It's the `device` field on every log line of a process that doesn't name itself otherwise (core.log_format: the
-providers; the render pool's workers name themselves `worker`). Not the broker's device id, nor a screen's slug.
+providers; the render pool names its processes with a `worker` field). Not the broker's device id, nor a screen's slug.
 """
 
 import os
@@ -14,7 +14,7 @@ _DEVICE_NAME_CHARS = frozenset(string.ascii_lowercase + string.digits + "_-")
 def _sanitize(raw: str) -> str:
     """Lowercase `raw` and replace anything outside [a-z0-9_-] with '-'.
 
-    So the name is safe as a metric label and a header value.
+    So the name is safe as a metric label.
     """
     chars = (c.lower() if c.isascii() else c for c in raw.strip())
     return "".join(c if c in _DEVICE_NAME_CHARS else "-" for c in chars)

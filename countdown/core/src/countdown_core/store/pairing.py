@@ -1,9 +1,9 @@
 """A screen's live pairing code in the store, which auth-broker writes, for the render to draw.
 
 The broker's copy of a screen's config (`v1:config:<device id>`, store.config) never carries a pairing code, and
-there's none at all while the device has a code to show. The render reads only the store (docs/stateless-renderers.md,
-"The pairing screen"), so while a code is live the broker writes `v1:pairing:<device id>` (keys.pairing): the device's
-config as the contract's ConfigResponse, with its `pairing_code` set, and queues a render of the screen. So the pairing
+there's none at all while the device has a code to show. The render reads only the store, so while a code is live
+the broker writes `v1:pairing:<device id>` (keys.pairing): the device's config as the contract's ConfigResponse, with
+its `pairing_code` set, and queues a render of the screen. So the pairing
 screen is drawn in the screen's own size and language even with no config in the store. Its TTL is the code's own
 expiry (ten minutes), and the broker deletes it sooner when the code is used, or the device paired, unpaired or
 forgotten.

@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # A client call slower than this is logged, so a slow API shows up in the journal by name
-# instead of just making the whole cycle late.
+# instead of just making the whole render late.
 SLOW_CALL_S = 5
 
 DEFAULT_TIMEOUT = 10
@@ -33,7 +33,7 @@ NOT_AVAILABLE = N_("Not available")
 
 
 class ClientStatus(StrEnum):
-    """Where a client stands, as the publisher reports it for each API."""
+    """Where a client stands, as the metrics report it for each API."""
 
     DISABLED = auto()
     UNINITIALISED = auto()
@@ -45,8 +45,6 @@ class ClientStatus(StrEnum):
 
 class AbstractClient(ABC):
     """Base for the API clients: a shared retrying session and a per-endpoint cache for change detection.
-
-    See https://github.com/nvorkinn/pi-dashboard/issues/8 for wider use of the cache.
 
     _initialise() and _update() are blocking, and run in whatever thread the render runs in (initialise() and update()
     run them in a worker thread): build the panel's data there, and leave drawing it to the layout.

@@ -31,7 +31,7 @@ class Canvas:
         return f"{self.width}x{self.height}"
 
 
-# The panel every screen has so far, hung landscape.
+# The default: an 800x480 panel hung landscape.
 DEFAULT_CANVAS = Canvas(800, 480)
 
 
