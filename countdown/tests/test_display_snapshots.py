@@ -300,7 +300,6 @@ def test_screen_with_no_panels_at_all_says_there_is_nothing_to_show(snapshot):
     """
     img = _draw({})
     assert img.size == DEFAULT_CANVAS.size
-    # Text-only and large: CI renders it ~1% differently from macOS.
     snapshot.assert_matches("screen_nothing_to_show", img)
 
 
@@ -316,12 +315,11 @@ def test_screen_with_spotify_playing_the_last_queued_track(snapshot):
 
 
 def test_weather_panel_rainy_night(snapshot):
-    """A different code and the night variant, at the shorter height the panel gets while Spotify plays."""
+    """A different code and the night variant, at the size it's drawn beside two stops with the energy chart below."""
     panel = WeatherPanel(
         make_weather(temperature=8.6, weather_code=63, is_day=False, high=11, low=6, precipitation_probability=85)
     )
-    # Small and mostly text, so macOS/Linux anti-aliasing differences weigh more (CI: 0.0059).
-    snapshot.assert_matches("weather_rainy_night", panel.render(528, 170))
+    snapshot.assert_matches("weather_rainy_night", panel.render(232, 185))
 
 
 def test_pairing_code_screen(snapshot):
@@ -399,6 +397,14 @@ def test_portrait_screen_without_spotify(snapshot):
     """Spotify's room goes to the stops (more departures each) and the notices."""
     img = _draw_portrait(_panels(_bus_and_tube_arrivals()), NO_GLOWMARKT - {ClientClasses.SPOTIFY})
     snapshot.assert_matches("screen_portrait_no_spotify", img)
+
+
+def test_portrait_screen_with_no_notices(snapshot):
+    """All clear: the notices are left out, and the stops take their room."""
+    img = _draw_portrait(
+        _panels(_bus_and_tube_arrivals(), notices=NoticeBoardPanel([])), NO_GLOWMARKT - {ClientClasses.SPOTIFY}
+    )
+    snapshot.assert_matches("screen_portrait_no_notices", img)
 
 
 def test_portrait_screen_with_no_stops_and_no_weather_yet(snapshot):
@@ -738,6 +744,12 @@ def test_apple_music_now(snapshot, style):
     snapshot.assert_matches(f"screen_portrait_apple_music_{style}_now", img)
 
 
+def test_apple_music_now_on_a_landscape_screen(snapshot):
+    """Its labels in the narrower area beside the energy chart."""
+    panel = SpotifyPanel(SPOTIFY_QUEUE, "hero", APPLE_MUSIC_LABELS, _cover_art_bytes())
+    snapshot.assert_matches("screen_apple_music_hero_now", _draw(_panels(_bus_and_tube_arrivals(), spotify=panel)))
+
+
 @pytest.mark.parametrize("style", SPOTIFY_STYLES)
 def test_apple_music_top_beside_spotify(snapshot, style):
     """With both services on, a top page says whose lists they are."""
@@ -824,6 +836,13 @@ def test_developer_styles_on_a_portrait_screen(snapshot, style):
     snapshot.assert_matches(f"screen_portrait_developer_{style}", _draw_portrait(panels, DEVELOPER_PORTRAIT))
 
 
+def test_developer_panel_without_the_energy_chart(snapshot):
+    """Glowmarkt not set up: the developer panel in Spotify's area at the full width."""
+    panels = _developer_panels(DeveloperPanel(DEVELOPER_SUMMARY), "hero")
+    img = _draw(panels, DEVELOPER_NOT_SPOTIFY - {ClientClasses.GLOWMARKT})
+    snapshot.assert_matches("screen_developer_no_energy", img)
+
+
 @pytest.mark.parametrize("style", ["airy", "hero", "card"])
 def test_developer_panel_with_all_green_and_no_github_token(snapshot, style):
     """Every build passing on the full-width area, then no GitHub token yet: the plans still show."""
@@ -860,6 +879,21 @@ def test_developer_panel_above_spotify_on_a_portrait_screen(snapshot, style):
     panels = _above_spotify(_developer_panels(DeveloperPanel(DEVELOPER_SUMMARY, style), style), style)
     img = _draw_portrait(panels, DEVELOPER_AND_SPOTIFY)
     snapshot.assert_matches(f"screen_portrait_developer_above_spotify_{style}", img)
+
+
+def test_developer_panel_above_spotify_without_the_energy_chart(snapshot):
+    """Glowmarkt not set up: the strip and Spotify both at the full width."""
+    panels = _above_spotify(_developer_panels(DeveloperPanel(DEVELOPER_SUMMARY), "hero"), "hero")
+    img = _draw(panels, DEVELOPER_AND_SPOTIFY - {ClientClasses.GLOWMARKT})
+    snapshot.assert_matches("screen_developer_above_spotify_no_energy", img)
+
+
+def test_developer_panel_above_spotify_beside_the_energy_chart_on_a_portrait_screen(snapshot):
+    """Everything on portrait: the energy chart beside the compact weather, the strip over Spotify's song."""
+    panels = _above_spotify(_developer_panels(DeveloperPanel(DEVELOPER_SUMMARY), "hero"), "hero")
+    snapshot.assert_matches(
+        "screen_portrait_energy_developer_above_spotify", _draw_portrait(panels, DEVELOPER_AND_SPOTIFY)
+    )
 
 
 @pytest.mark.parametrize("style", ["airy", "hero", "card"])

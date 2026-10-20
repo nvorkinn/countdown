@@ -135,8 +135,11 @@ class Snapshot:
             return
 
         if not golden_path.exists():
+            # Saved like a mismatch's, so CI's failure artifact holds the new render too.
+            FAILURE_DIR.mkdir(parents=True, exist_ok=True)
+            actual.save(failure_actual)
             pytest.fail(
-                f"No snapshot for '{name}' yet at {golden_path}. Run "
+                f"No snapshot for '{name}' yet at {golden_path}; the render is at {failure_actual}. Run "
                 "`dev/snapshots.sh update`, review the generated image, then commit it."
             )
 

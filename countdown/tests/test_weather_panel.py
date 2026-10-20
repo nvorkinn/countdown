@@ -357,7 +357,6 @@ def test_an_incomplete_weekend_is_an_explicit_error(forecast_weather):
 @pytest.mark.parametrize(
     ("name", "panel_type", "size", "overrides"),
     [
-        ("weather_inline", WeatherPanel, (528, 76), {}),
         ("weather_compact", WeatherPanel, (241, 185), {}),
         ("weather_tall", WeatherPanel, (241, 370), {}),
         ("weather_no_rain", WeatherPanel, (528, 185), {"precipitation_probability": None}),
@@ -392,7 +391,6 @@ def test_weather_layout_snapshots(snapshot, name, panel_type, size, overrides):
     [
         ("portrait", WeatherTrmnlPanel, (470, HEIGHT)),
         ("compact", WeatherPanel, (242, 185)),
-        ("inline", WeatherPanel, (528, 76)),
     ],
 )
 def test_forecast_layout_snapshots(snapshot, period, layout, panel_type, size, forecast_weather):  # noqa: PLR0913, PLR0917 -- pytest passes each parameter and fixture
