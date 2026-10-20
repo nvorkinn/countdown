@@ -38,17 +38,13 @@ QR_TOP_TALL = -28
 
 
 class PairingCodePanel(Panel):
-    """Shown full-screen while a device isn't paired yet.
+    """Shown full-screen while a device isn't paired yet."""
 
-    `has_changed` is kept on the panel, and plays no part in drawing it.
-    """
-
-    def __init__(self, pairing_code: str | None, device_id: str, *, has_changed: bool) -> None:
-        """`pairing_code` is the broker's code to show (None for no code yet); `device_id` names the device."""
+    def __init__(self, pairing_code: str, device_id: str) -> None:
+        """`pairing_code` is the broker's code to show; `device_id` names the device."""
         super().__init__()
         self.pairing_code = pairing_code
         self.device_id = device_id
-        self.has_changed = has_changed
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
@@ -73,21 +69,20 @@ class PairingCodePanel(Panel):
         self._draw_code(draw, column_x, column_width, center_y + (-4 + shift) * scale)
         text(168, _("Device: {device}").format(device=self.device_id), small)
 
-        if self.pairing_code:
-            if sideways:
-                side = round(QR_SIDE * min(1.0, image_height / 480))
-                top_left = (image_width - MARGIN - side, round((image_height - side) / 2))
-            else:
-                side = QR_SIDE_TALL
-                top_left = (round((image_width - side) / 2), round(center_y + QR_TOP_TALL * scale))
-            img.paste(self._qr_code(side), top_left)
+        if sideways:
+            side = round(QR_SIDE * min(1.0, image_height / 480))
+            top_left = (image_width - MARGIN - side, round((image_height - side) / 2))
+        else:
+            side = QR_SIDE_TALL
+            top_left = (round((image_width - side) / 2), round(center_y + QR_TOP_TALL * scale))
+        img.paste(self._qr_code(side), top_left)
 
         return img
 
     def _qr_code(self, side: int) -> Image.Image:
         """Draw the QR code to the pairing page, code filled in, at most `side` pixels square, centred on white."""
         qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=QR_BORDER, box_size=1)
-        qr.add_data(PAIRING_URL.format(code=urllib.parse.quote(self.pairing_code or "")))
+        qr.add_data(PAIRING_URL.format(code=urllib.parse.quote(self.pairing_code)))
         qr.make(fit=True)
         modules = qr.modules_count + 2 * QR_BORDER
         # Whole pixels per module keep the squares crisp.
@@ -99,9 +94,7 @@ class PairingCodePanel(Panel):
         return canvas
 
     def _draw_code(self, draw: ImageDraw.ImageDraw, left: float, width: float, top: float) -> None:
-        code = self.pairing_code or ""
-        if not code:
-            return
+        code = self.pairing_code
         # Shrinks the squares for a code too long to fit at full size.
         margin = 0 if left else MARGIN
         side = min(MAX_SIDE, round((width - 2 * margin - GAP * (len(code) - 1)) // len(code)))

@@ -65,7 +65,7 @@ def test_messages_and_an_empty_notice_board_are_still_nothing_to_show():
 
 
 def test_a_vertical_screen_gets_its_pairing_screen_upright_and_the_panel_its_own_landscape_picture():
-    upright = PairingCodePanel("ABC123", "device-1", has_changed=True).render(*canvas_for(VERTICAL).size)
+    upright = PairingCodePanel("ABC123", "device-1").render(*canvas_for(VERTICAL).size)
 
     native = to_native(Frame(upright), VERTICAL).image
 

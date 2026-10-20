@@ -325,23 +325,17 @@ def test_weather_panel_rainy_night(snapshot):
 
 
 def test_pairing_code_screen(snapshot):
-    img = PairingCodePanel("C4FFEZ", "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size)
+    img = PairingCodePanel("C4FFEZ", "7218485b654f").render(*DEFAULT_CANVAS.size)
     snapshot.assert_matches("screen_pairing_code", img, threshold=0.02)
 
 
 @pytest.mark.parametrize("code", ["C4FFEZ", "ABCDEFGH", "ABCDEFGHJKLM"])
 def test_pairing_code_stays_on_the_screen_whatever_its_length(code):
-    img = PairingCodePanel(code, "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size).convert("L")
+    img = PairingCodePanel(code, "7218485b654f").render(*DEFAULT_CANVAS.size).convert("L")
     width, height = img.size
 
     for edge in [(0, 0, 30, height), (width - 30, 0, width, height)]:
         assert img.crop(edge).getextrema() == (255, 255)
-
-
-def test_pairing_screen_without_a_code_draws_no_boxes():
-    img = PairingCodePanel(None, "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size)
-
-    assert img.convert("L").crop((0, 232, 800, 342)).getextrema() == (255, 255)
 
 
 def test_pairing_qr_code_opens_the_pairing_page_with_the_code_filled_in(monkeypatch):
@@ -351,28 +345,22 @@ def test_pairing_qr_code_opens_the_pairing_page_with_the_code_filled_in(monkeypa
         qrcode.QRCode, "add_data", lambda self, data, *a, **k: (urls.append(data), add_data(self, data))[1]
     )
 
-    PairingCodePanel("C4FFEZ", "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size)
+    PairingCodePanel("C4FFEZ", "7218485b654f").render(*DEFAULT_CANVAS.size)
 
     assert urls == ["https://auth.nikolaivorkinn.com/pair?code=C4FFEZ"]
-
-
-def test_pairing_screen_without_a_code_draws_no_qr_code():
-    img = PairingCodePanel(None, "7218485b654f", has_changed=True).render(*DEFAULT_CANVAS.size).convert("L")
-
-    assert img.crop((420, 0, 800, 480)).getextrema() == (255, 255)
 
 
 PORTRAIT = (480, 800)
 
 
 def test_pairing_code_screen_on_a_vertical_screen(snapshot):
-    img = PairingCodePanel("C4FFEZ", "7218485b654f", has_changed=True).render(*PORTRAIT)
+    img = PairingCodePanel("C4FFEZ", "7218485b654f").render(*PORTRAIT)
     snapshot.assert_matches("screen_pairing_code_portrait", img, threshold=0.02)
 
 
 @pytest.mark.parametrize("code", ["C4FFEZ", "ABCDEFGH", "ABCDEFGHJKLM"])
 def test_pairing_code_stays_on_a_vertical_screen_whatever_its_length(code):
-    img = PairingCodePanel(code, "7218485b654f", has_changed=True).render(*PORTRAIT).convert("L")
+    img = PairingCodePanel(code, "7218485b654f").render(*PORTRAIT).convert("L")
 
     for edge in [(0, 0, 20, 800), (460, 0, 480, 800)]:
         assert img.crop(edge).getextrema() == (255, 255)
