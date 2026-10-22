@@ -147,7 +147,7 @@ class ApiRegistry:
                 source for client in self.clients.values() if client is not board for source in client.notice_sources()
             )
 
-    def poll(self) -> dict[str, Panel]:
+    def poll(self) -> dict[str, Panel | None]:
         """Read every client's data, one after another, and return the panel each gave, by API.
 
         A client that can't ask Redis (a RedisError) raises it, unlogged, and the rest aren't read: the render then
@@ -155,7 +155,7 @@ class ApiRegistry:
         client gives no panel: its area says it could not connect (see panels()). A key that has expired is no failure:
         the client gives a "Not available" panel (AbstractClient.poll).
         """
-        polled: dict[str, Panel] = {}
+        polled: dict[str, Panel | None] = {}
         for name, client in self.clients.items():
             try:
                 polled[name] = client.poll()
@@ -166,7 +166,7 @@ class ApiRegistry:
                     logger.exception("Error updating %s", name)
         return polled
 
-    def panels(self, polled: Mapping[str, Panel]) -> dict[str, Panel]:
+    def panels(self, polled: Mapping[str, Panel | None]) -> dict[str, Panel]:
         """Return a panel for every API: the one it gave (`polled`, from poll()), or a MessagePanel saying why not."""
         return {member.api_name: self._panel_for(member, polled) for member in ClientClasses}
 
@@ -195,7 +195,7 @@ class ApiRegistry:
         if isinstance(departures, DeparturesClient):
             departures.stops_per_update = count
 
-    def _panel_for(self, member: ClientClasses, polled: Mapping[str, Panel]) -> Panel:
+    def _panel_for(self, member: ClientClasses, polled: Mapping[str, Panel | None]) -> Panel:
         """Return the API's panel, or a MessagePanel saying why there isn't one."""
         name, clazz = member.value
         client = self.clients.get(name)

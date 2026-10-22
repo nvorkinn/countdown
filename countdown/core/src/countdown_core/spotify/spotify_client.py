@@ -10,7 +10,7 @@ the provider stores the image (keys.album_art), so the renderer never calls the 
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from redis.exceptions import RedisError
 
@@ -122,7 +122,7 @@ class NoStoredMusicError(reader.NoStoredDataError):
     """
 
 
-class SpotifyClient(AbstractClient):
+class SpotifyClient(AbstractClient[MusicSettings]):
     """Now playing and top tracks/artists, from Spotify, Apple Music or both, read from the store.
 
     auth-broker's music provider calls the services server-side, so this renderer never holds a token; it reads the
@@ -235,15 +235,19 @@ class SpotifyClient(AbstractClient):
             return None
         if art is None:
             logger.info("No cover in the store under %s; drawing the player without it", key)
-        return art
+        # A binary store (decode_responses=False), so bytes.
+        return cast("bytes | None", art)
 
     def update_top(self, page: Page) -> Panel | None:
         """Read the page's service's top five tracks and artists over its period; None if both are empty.
 
         Apple Music's are, until the broker has seen some plays. With both services on, the page names its own.
         """
+        if page.service is None:
+            msg = "The player's page has no top lists"
+            raise ValueError(msg)
         stored = self._read_store(StoredTop, keys.spotify_top)
-        lists = _stored_top(stored, page)
+        lists = _stored_top(stored, page.service, page.time_range)
         tracks, artists = lists.tracks.items, lists.artists.items
         if not tracks and not artists:
             return None
@@ -271,11 +275,11 @@ def _stored_queue(stored: StoredPlayer, service: MusicService) -> Queue:
     return queue
 
 
-def _stored_top(stored: StoredTop, page: Page) -> TopLists:
-    """Return the page's stored top lists; raises NoStoredMusicError if there are none."""
-    lists = (getattr(stored, page.service.stored_as) or {}).get(page.time_range)
+def _stored_top(stored: StoredTop, service: MusicService, time_range: str) -> TopLists:
+    """Return `service`'s stored top lists over `time_range`; raises NoStoredMusicError if there are none."""
+    lists = (getattr(stored, service.stored_as) or {}).get(time_range)
     if lists is None:
-        msg = f"No {page.time_range} top lists for {page.service.name} in the store"
+        msg = f"No {time_range} top lists for {service.name} in the store"
         raise NoStoredMusicError(msg)
     return lists
 

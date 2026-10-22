@@ -39,7 +39,7 @@ class FakeClient(AbstractClient):
     """Scriptable stand-in: each update() returns/raises the next item in `results`."""
 
     def __init__(self, *results):
-        super().__init__(TEST_DEVICE_ID)
+        super().__init__(TEST_DEVICE_ID, None)
         self.results = list(results)
         self.initialised = False
         self.updates = 0

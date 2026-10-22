@@ -3,6 +3,7 @@
 import logging
 from typing import TYPE_CHECKING, override
 
+from countdown_api.models import Weather as WeatherSection
 from countdown_core.core import rotation
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.i18n import N_
@@ -12,7 +13,6 @@ from countdown_core.weather.weather_forecast import weather_pages
 from countdown_core.weather.weather_panel import WeatherPanel
 
 if TYPE_CHECKING:
-    from countdown_api.models import Weather as WeatherSection
     from countdown_core.core.panel import Panel
     from countdown_core.weather.models import ForecastResponse
 
@@ -32,7 +32,7 @@ def location_key(config: WeatherSection) -> str:
     return config.key or config.location
 
 
-class WeatherClient(AbstractClient):
+class WeatherClient(AbstractClient[WeatherSection]):
     """A forecast carousel, read from the store under the location key the broker subscribes to.
 
     That's `v1:weather:<key>` (see location_key), written by the weather provider from Open-Meteo

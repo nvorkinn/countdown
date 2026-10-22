@@ -6,7 +6,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -43,8 +43,10 @@ class ClientStatus(StrEnum):
     FATAL = auto()
 
 
-class AbstractClient(ABC):
+class AbstractClient[C = Any](ABC):
     """Base for the API clients: a shared retrying session and a per-endpoint cache for change detection.
+
+    `C` is the type of the client's config: its section of the broker's config.
 
     _initialise() and _update() are blocking, and run in whatever thread the render runs in (initialise() and update()
     run them in a worker thread): build the panel's data there, and leave drawing it to the layout.
@@ -55,11 +57,11 @@ class AbstractClient(ABC):
     panel_title: str = ""
     panel_logo: str | None = None
 
-    def __init__(self, device_id: str, config: object | None = None) -> None:
+    def __init__(self, device_id: str, config: C) -> None:
         """`device_id` is the screen, as the broker knows it; `config`, this API's section of the broker's config."""
         # The screen whose keys in the store the client reads (the ones by device: energy, music, developer).
         self.device_id = device_id
-        self.config = config
+        self.config: C = config
         self.session = self._build_retrying_session()
         self.cache: dict[str, object] = {}
         self.status: ClientStatus = ClientStatus.UNINITIALISED
@@ -117,7 +119,7 @@ class AbstractClient(ABC):
         if elapsed >= SLOW_CALL_S:
             logger.warning("%s: %s took %.1fs", type(self).__name__, what, elapsed)
 
-    def needs_refresh(self, new_config: object) -> bool:
+    def needs_refresh(self, new_config: C) -> bool:
         """Whether `new_config` means this client must be rebuilt.
 
         Defaults to any change; override to keep state (tokens, caches) across changes that don't affect it.

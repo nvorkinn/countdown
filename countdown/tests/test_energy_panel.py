@@ -46,7 +46,7 @@ def test_hourly_chart_labels_fit_and_never_overlap_or_drop_the_period(clock_form
     def record(draw, xy, text, *args, font=None, anchor=None, **kwargs):
         if anchor == "ma":
             labels.append((text, draw.textbbox(xy, text, font=font, anchor=anchor), font.size))
-        return original(draw, xy, text, *args, font=font, anchor=anchor, **kwargs)
+        return original(draw, xy, text, *args, font=font, anchor=anchor, **kwargs)  # ty: ignore[parameter-already-assigned] -- *args never holds the font
 
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
     EnergyPanel(readings, 0).render(width, 200, clock_format=clock_format)

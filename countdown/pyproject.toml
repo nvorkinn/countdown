@@ -35,6 +35,7 @@ dev = [
     "pyyaml>=6.0.2",
     "responses>=0.26.3",
     "ruff>=0.16.8",
+    "ty==0.0.91",
 ]
 
 [tool.uv.workspace]
@@ -109,3 +110,21 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 ]
 
 [tool.pyproject-runner.tasks]
+
+[tool.ty.src]
+# api/ is the countdown-api submodule: type checked by its own repository (its package still resolves, from .venv).
+exclude = ["api"]
+
+[[tool.ty.overrides]]
+# The tests read Optional results without narrowing them first (a None fails the test anyway), build models from
+# loose dicts and literals that pydantic coerces, and monkeypatch methods. Those are what these rules flag there;
+# the packages are checked with every rule.
+include = ["tests/**"]
+
+[tool.ty.overrides.rules]
+unresolved-attribute = "ignore"
+invalid-argument-type = "ignore"
+not-subscriptable = "ignore"
+not-iterable = "ignore"
+unsupported-operator = "ignore"
+invalid-assignment = "ignore"

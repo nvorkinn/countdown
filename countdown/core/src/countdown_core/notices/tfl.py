@@ -63,7 +63,7 @@ class StoredTflNoticeSource(NoticeSource):
         if missing := [key for key, value in zip(item_keys, values, strict=True) if value is None]:
             msg = f"Nothing in the store at {', '.join(missing)}"
             raise NoStoredTflNoticesError(msg)
-        return [model.model_validate_json(value) for value in values]
+        return [model.model_validate_json(value) for value in values if value is not None]
 
 
 class StoredTflLineStatusSource(StoredTflNoticeSource):
@@ -146,7 +146,10 @@ def line_status_notices(lines: Iterable[Line], now: datetime) -> list[Notice]:
             if key in notices:
                 seen = notices[key]
                 severity = min(severity, seen.severity)
-                valid_until = None if None in (valid_until, seen.valid_until) else max(valid_until, seen.valid_until)
+                if valid_until is not None and seen.valid_until is not None:
+                    valid_until = max(valid_until, seen.valid_until)
+                else:
+                    valid_until = None
                 if seen.source != tag:
                     tag = _("Buses") if line.mode_name == "bus" else "TfL"
             notices[key] = Notice(tag, severity, text, valid_until)

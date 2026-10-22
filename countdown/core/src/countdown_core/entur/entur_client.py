@@ -157,7 +157,7 @@ class EnturClient:
         if stop is None:
             return None
         if _is_quay(normalized):
-            parent = stop.get("stopPlace") if isinstance(stop.get("stopPlace"), dict) else {}
+            parent = place if isinstance(place := stop.get("stopPlace"), dict) else {}
             return EnturStop(
                 id=str(stop.get("id") or normalized),
                 name=stop.get("name") or parent.get("name") or normalized,

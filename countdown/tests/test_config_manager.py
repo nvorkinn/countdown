@@ -15,7 +15,7 @@ def test_an_empty_config_cannot_be_conjured():
     "No stops" must mean the broker said so, not that we never heard from it.
     """
     with pytest.raises(ValidationError) as error:
-        ConfigResponse()
+        ConfigResponse()  # ty: ignore[missing-argument] -- what the test is about
 
     missing = {e["loc"][0] for e in error.value.errors() if e["type"] == "missing"}
     assert set(SECTIONS) <= missing

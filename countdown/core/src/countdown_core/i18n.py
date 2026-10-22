@@ -56,7 +56,8 @@ def _catalogue(language: Language) -> dict[str | tuple[str, str], str | tuple[st
         return {}
     with path.open("rb") as f:
         catalogue = read_po(f, locale=language)
-    return {message.id: message.string for message in catalogue if message.id and message.string and not message.fuzzy}
+    # Babel types ids and strings loosely (a list too); a .po file's are text, or tuples for a plural.
+    return {message.id: message.string for message in catalogue if message.id and message.string and not message.fuzzy}  # ty: ignore[invalid-return-type]
 
 
 def _(text: str) -> str:

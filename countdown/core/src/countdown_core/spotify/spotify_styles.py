@@ -6,7 +6,7 @@ artists. Each draws into `width` x `height`, on a transparent background.
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -54,6 +54,14 @@ def _aside(column: int, period: str, service: str | None) -> str:
     The period; but when the area shows both services, the tracks' side says whose lists they are instead.
     """
     return _(service) if service and column == 0 else _(period)
+
+
+def _playing(queue: Queue) -> Track:
+    """Return the track `queue` is playing: a now page is only drawn for one that is."""
+    if queue.currently_playing is None:
+        msg = "A now page needs a track playing"
+        raise ValueError(msg)
+    return queue.currently_playing
 
 
 def _artists(track: Track) -> str:
@@ -156,7 +164,7 @@ def airy_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
     bottom, under the cover and across the whole width (which makes the cover and the up next row a little smaller).
     """
     img, d = _canvas(width, height)
-    track = queue.currently_playing
+    track = _playing(queue)
     cover = art(height if elapsed is None else height - BAR_ROOM)
     img.paste(cover, (0, 0), cover)
     x = cover.size[0] + 18 if cover.size[0] else 0
@@ -238,7 +246,7 @@ def hero_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
     bottom, under the cover and across the whole width (which makes the cover and the NEXT row a little smaller).
     """
     img, d = _canvas(width, height)
-    track = queue.currently_playing
+    track = _playing(queue)
     cover = art(height if elapsed is None else height - BAR_ROOM)
     img.paste(cover, (0, 0), cover)
     x = cover.size[0] + 14 if cover.size[0] else 0
@@ -360,7 +368,7 @@ def card_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
     the up next row a little smaller).
     """
     img, d = _canvas(width, height)
-    track = queue.currently_playing
+    track = _playing(queue)
     aside = _length(track.duration_ms) if elapsed is None else _played(track.duration_ms, elapsed)
     _card(d, 0, width, height, NOTE, _(labels.now), aside)
     cover = art(height - CARD_BAR - 14 - (0 if elapsed is None else CARD_BAR_ROOM))
@@ -412,15 +420,46 @@ def card_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same
     return img
 
 
+class NowPage(Protocol):
+    """Draws what's playing; its last argument is how far into the track the player is, None for no progress bar."""
+
+    def __call__(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same arguments
+        self,
+        queue: Queue,
+        art: AlbumArt,
+        width: int,
+        height: int,
+        labels: Labels = ...,
+        elapsed: timedelta | None = ...,
+        /,
+    ) -> Image.Image:
+        """Draw the page."""
+        ...
+
+
+class TopPage(Protocol):
+    """Draws the top tracks and artists over `period`, naming the service if it's given."""
+
+    def __call__(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same arguments
+        self,
+        period: str,
+        tracks: list[Track],
+        artists: list[Artist],
+        width: int,
+        height: int,
+        service: str | None = ...,
+        /,
+    ) -> Image.Image:
+        """Draw the page."""
+        ...
+
+
 @dataclass(frozen=True)
 class Style:
-    """A Spotify style's two pages: `now` draws what's playing, `top` the top tracks and artists.
+    """A Spotify style's two pages: `now` draws what's playing, `top` the top tracks and artists."""
 
-    `now` takes how far into the track the player is as its last argument, None for no progress bar.
-    """
-
-    now: Callable[[Queue, AlbumArt, int, int, Labels, timedelta | None], Image.Image]
-    top: Callable[[str, list[Track], list[Artist], int, int, str | None], Image.Image]
+    now: NowPage
+    top: TopPage
 
 
 STYLES: dict[str, Style] = {

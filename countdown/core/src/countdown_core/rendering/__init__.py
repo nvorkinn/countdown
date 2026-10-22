@@ -20,6 +20,8 @@ from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.message_panel import MessagePanel
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from countdown_api.models import Screen
     from countdown_core.core.panel import Panel
     from countdown_core.utils.clock import ClockFormat
@@ -62,7 +64,7 @@ def render(
     return layout.render(panels, canvas, clock_format=clock_format)
 
 
-def place_developer_panel(panels: dict[str, Panel], available: frozenset[ClientClasses]) -> dict[str, Panel]:
+def place_developer_panel(panels: Mapping[str, Panel], available: frozenset[ClientClasses]) -> dict[str, Panel]:
     """Return `panels` with the developer panel where the layouts draw it (see Layout._spotify_area).
 
     While Spotify shows a song, the developer panel keeps its own name and is drawn as a strip above it (or left out,

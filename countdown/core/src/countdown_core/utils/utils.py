@@ -76,7 +76,7 @@ def google_symbols() -> ImageFont.FreeTypeFont:
     )
 
 
-def truncate_to_fit(text: str, font: ImageFont.BaseImageFont, max_width: int) -> str:
+def truncate_to_fit(text: str, font: ImageFont.BaseImageFont, max_width: float) -> str:
     """Truncate text with an ellipsis if it exceeds max_width pixels."""
     if font.getlength(text) <= max_width:
         return text

@@ -570,7 +570,7 @@ def test_notice_board_has_no_postcode_unless_the_broker_sends_one():
 def test_a_change_to_the_postcode_but_not_the_stops_changes_the_notice_boards_settings():
     """AbstractClient.needs_refresh compares them; the stops' disruptions come from the departures client instead."""
 
-    def settings_for(stop_id: str, postcode: str) -> NoticeBoardSettings:
+    def settings_for(stop_id: str, postcode: str) -> object:
         return section_for(
             "notice_board", make_config(tfl={"stop_ids": [stop_id]}, notice_board={"postcode": postcode})
         )

@@ -50,7 +50,7 @@ class NoticeBoardSettings:
     style: Style = "hero"
 
 
-class NoticeBoardClient(AbstractClient):
+class NoticeBoardClient(AbstractClient[NoticeBoardSettings]):
     """Reads every notice source on every poll, and shows what they report, most severe first.
 
     Its own sources are about the postcode's place (holidays, weather warnings, floods, roads); the other clients

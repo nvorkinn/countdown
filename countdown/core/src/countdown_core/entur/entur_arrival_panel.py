@@ -16,7 +16,7 @@ ICON_BY_MODE: dict[TransportMode, Icon] = {
 }
 
 
-class EnturArrivalPanel(AbstractArrivalPanel):
+class EnturArrivalPanel(AbstractArrivalPanel[EnturDeparture]):
     """A Norwegian stop's departures, drawn like a London bus stop's.
 
     A row per line and destination, and the platform's code where a London stop has its letter.
@@ -54,20 +54,20 @@ class EnturArrivalPanel(AbstractArrivalPanel):
 
     @staticmethod
     @override
-    def _icon(departure: EnturDeparture) -> Icon:
-        return ICON_BY_MODE.get(departure.mode, "bus")
+    def _icon(arrival: EnturDeparture) -> Icon:
+        return ICON_BY_MODE.get(arrival.mode, "bus")
 
     @staticmethod
     @override
-    def _route_key(departure: EnturDeparture) -> tuple[str, str]:
-        return departure.line, departure.destination
+    def _route_key(arrival: EnturDeparture) -> tuple[str, str]:
+        return arrival.line, arrival.destination
 
     @staticmethod
     @override
-    def _badge(departure: EnturDeparture) -> str:
-        return departure.line
+    def _badge(arrival: EnturDeparture) -> str:
+        return arrival.line
 
     @staticmethod
     @override
-    def _destination(departure: EnturDeparture) -> str:
-        return departure.destination
+    def _destination(arrival: EnturDeparture) -> str:
+        return arrival.destination

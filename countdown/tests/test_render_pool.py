@@ -107,7 +107,7 @@ def pool_messages(caplog) -> list[str]:
     return [record.getMessage() for record in caplog.records if record.name == render_pool.__name__]
 
 
-def job(store, device=DEVICE) -> str:
+def job(store, device=DEVICE) -> str | None:
     render_queue.enqueue(store, device)
     return render_queue.next_job(store, 1)
 
