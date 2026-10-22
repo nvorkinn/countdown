@@ -24,8 +24,9 @@ from countdown_core.core.api_registry import ApiRegistry
 from countdown_core.i18n import set_locale
 from countdown_core.rendering import layout_for, to_native
 from countdown_core.rendering import render as draw
+from countdown_core.rendering.encoding import encode
 from countdown_core.rendering.layout import Frame
-from countdown_core.rendering.screen import canvas_for, panel_bytes
+from countdown_core.rendering.screen import canvas_for
 from countdown_core.store import config as stored_config
 from countdown_core.store import frame_record, reader
 from countdown_core.store import pairing as stored_pairing
@@ -113,7 +114,7 @@ def render(device_id: str, now: datetime) -> Outcome:
         if config.pairing_code:
             pairing = PairingCodePanel(config.pairing_code, device_id)
             frame = to_native(Frame(pairing.render(*canvas_for(config.screen).size)), config.screen)
-            data = bytes(panel_bytes(frame.image))
+            data = encode(frame.image, config.screen)
             return Outcome(_record(device_id, data), Stage.PAIRING, frame, data)
 
         # The clients only read the store, by the device's id: none of them calls the broker.
@@ -123,7 +124,7 @@ def render(device_id: str, now: datetime) -> Outcome:
         polled = registry.poll()
         drawn = draw(registry.panels(polled), config.screen, available, clock_format=config.clock_format)
         frame = to_native(drawn, config.screen)
-        data = bytes(panel_bytes(frame.image))
+        data = encode(frame.image, config.screen)
         return Outcome(
             _record(device_id, data),
             Stage.RUNNING,
