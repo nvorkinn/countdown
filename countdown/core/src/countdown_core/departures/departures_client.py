@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 class StopSource[S](Protocol):
     """Where one kind of stop's details and departures come from, such as TfL's stops in the store; `S` is a stop."""
 
-    def resolve(self, stop_id: str) -> S | None:
+    def resolve(self, stop_id: str, /) -> S | None:
         """Look the stop up: None if the source doesn't know it; raises if the source can't be asked."""
 
-    def panel(self, stop: S, style: Style) -> AbstractArrivalPanel:
+    def panel(self, stop: S, style: Style, /) -> AbstractArrivalPanel:
         """Return the stop's departures panel; raises if it can't be read."""
 
 
@@ -74,7 +74,7 @@ class ResolvedStop:
     stop: Any
 
 
-class DeparturesClient(AbstractClient):
+class DeparturesClient(AbstractClient[DeparturesSettings]):
     """The departures for the configured stops, each from its own source, a page of stops at a time."""
 
     panel_title = N_("Arrivals")
@@ -85,7 +85,7 @@ class DeparturesClient(AbstractClient):
         # Departures come from the store (the TfL and Entur providers fetch them once for every screen); raises
         # without one. So do TfL's and Entur's disruption notices.
         store = reader.require_store()
-        self.sources: dict[str, StopSource] = {"tfl": StoredTflSource(store), "entur": StoredEnturSource(store)}
+        self.sources: dict[str, StopSource[Any]] = {"tfl": StoredTflSource(store), "entur": StoredEnturSource(store)}
         self._notice_sources = self._build_notice_sources(config)
         self.stops: list[ResolvedStop] = []
         # Set by the layout (ApiRegistry.show_stops).

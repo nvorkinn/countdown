@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, override
 
+from countdown_api.models import Glowmarkt
 from countdown_core.core import moment, rotation
 from countdown_core.core.abstract_client import AbstractClient
 from countdown_core.glow.energy_panel import PAGES, EnergyPanel
@@ -12,8 +13,6 @@ from countdown_core.store.energy import StoredEnergy
 
 if TYPE_CHECKING:
     from datetime import tzinfo
-
-    from countdown_api.models import Glowmarkt
 
 
 def _bucket_starts(
@@ -37,7 +36,7 @@ class NoStoredEnergyError(reader.NoStoredDataError):
     """The store has no readings for the device: the broker's glow-provider is down, or hasn't fetched them yet."""
 
 
-class GlowClient(AbstractClient):
+class GlowClient(AbstractClient[Glowmarkt]):
     """The energy panel's pages in turn, one a minute (see core.rotation): the last 24 hours, 31 days, and this year.
 
     The readings come from the store, under the device's id (`v1:energy:<device id>`, written by auth-broker's

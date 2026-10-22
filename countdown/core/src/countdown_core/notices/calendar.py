@@ -141,10 +141,13 @@ class ClockChangeSource(NoticeSource):
             return []
         before = (change - timedelta(microseconds=1)).astimezone(zone)
         after = change.astimezone(zone)
-        direction = "forward" if after.utcoffset() > before.utcoffset() else "back"
+        # Both aware (in `zone`), so neither offset is None.
+        before_offset = before.utcoffset() or timedelta()
+        after_offset = after.utcoffset() or timedelta()
+        direction = "forward" if after_offset > before_offset else "back"
         # Said in the time it is just before the change: 01:00 in March, 02:00 in October in London. The board adds
         # the time, in the screen's clock format.
-        at = change.astimezone(zone) - (after.utcoffset() - before.utcoffset())
+        at = change.astimezone(zone) - (after_offset - before_offset)
         today = now.astimezone(zone).date()
         day = before.date()
         on = _("tonight") if day in (today, today + timedelta(days=1)) else _("on {day}").format(day=when(day, today))

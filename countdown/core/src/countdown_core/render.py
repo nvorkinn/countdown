@@ -77,7 +77,7 @@ class Outcome:
     data: bytes | None = None
     # The panel each API's client gave; none for an API whose client gave nothing (its area says it could not
     # connect).
-    panels: Mapping[str, Panel] = field(default_factory=dict)
+    panels: Mapping[str, Panel | None] = field(default_factory=dict)
     # Where each client stood after it read (an API with no client isn't there), for the metrics.
     statuses: Mapping[str, ClientStatus] = field(default_factory=dict)
     # The APIs drawn "Not available" because their keys had expired.

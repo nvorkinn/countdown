@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from math import ceil, floor, log10
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, TypedDict, override
 
 from PIL import Image, ImageDraw
 
@@ -30,7 +30,15 @@ TICK_LABEL_GAP = 3  # between a y-axis tick label and its tick mark
 TARGET_Y_TICKS = 4  # roughly how many y-axis intervals to aim for
 GRID_DOT_SPACING = 4  # gridlines are dotted - there's no grey on the e-paper
 
-PAGES = [
+
+class Page(TypedDict):
+    """One page of the chart: its title, and how to label a reading's start (None: as a clock time)."""
+
+    title: str
+    label_fn: Callable[[str], str] | None
+
+
+PAGES: list[Page] = [
     {
         "title": N_("Last 24 hours (kWh)"),
         "label_fn": None,
@@ -86,12 +94,13 @@ class EnergyPanel(Panel):
         ticks = [i * step for i in range(round(axis_max / step) + 1)]
         tick_labels = [f"{tick:g}" for tick in ticks]
 
-        label_height = LABEL_FONT.getbbox("0123456789:")[3]
+        # FreeType bounding boxes are whole pixels (typed as floats), so the chart's edges stay whole too.
+        label_height = int(LABEL_FONT.getbbox("0123456789:")[3])
         widest_tick_label = max(LABEL_FONT.getlength(label) for label in tick_labels)
         axis_x = PADDING + ceil(widest_tick_label) + TICK_LABEL_GAP + TICK_LENGTH
         chart_left = axis_x + AXIS_WIDTH
         chart_right = image_width - PADDING
-        chart_top = PADDING + TITLE_FONT.getbbox(page["title"])[3] + TITLE_GAP
+        chart_top = PADDING + int(TITLE_FONT.getbbox(page["title"])[3]) + TITLE_GAP
         baseline = image_height - PADDING - label_height - LABEL_GAP - BASELINE_WIDTH
         slot_width = (chart_right - chart_left) / len(values)
 

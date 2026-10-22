@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Protocol, override
+from typing import TYPE_CHECKING, Any, Literal, Protocol, override
 
 from countdown_core.core.panel import Panel
 from countdown_core.tfl.arrival_styles import STYLES
@@ -20,7 +20,15 @@ Icon = Literal["bus", "subway", "tram", "train", "ferry"]
 class Arrival(Protocol):
     """What the panels need of a departure, whichever source it came from."""
 
-    time_to_station: int  # seconds
+    @property
+    def time_to_station(self) -> int:
+        """Seconds until it leaves."""
+        ...
+
+    @property
+    def line(self) -> str:
+        """The route's name, as its row says it."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -34,13 +42,13 @@ class Departures:
     icon: Icon | None = None  # how this route travels, where the source says (a stop can serve several modes)
 
 
-class AbstractArrivalPanel(Panel, ABC):
+class AbstractArrivalPanel[A: Arrival = Any](Panel, ABC):
     """One stop's departures, one Departures per route (and, on the tube, per destination), the soonest route first.
 
-    Subclasses adapt a source's stops and arrivals (TfL's, Entur's) to it.
+    Subclasses adapt a source's stops and arrivals (TfL's, Entur's) to it; `A` is the source's arrival.
     """
 
-    def __init__(self, arrivals: list[Arrival], style: Style = "hero") -> None:
+    def __init__(self, arrivals: list[A], style: Style = "hero") -> None:
         """Group `arrivals` (the stop's, in any order) into Departures, drawn in `style`."""
         super().__init__()
         self.style = style
@@ -87,22 +95,22 @@ class AbstractArrivalPanel(Panel, ABC):
         return len({departure.icon for departure in self.departures if departure.icon}) > 1
 
     @staticmethod
-    def _icon(arrival: Arrival) -> Icon | None:  # noqa: ARG004 -- a source that mixes modes overrides it
+    def _icon(arrival: A) -> Icon | None:  # noqa: ARG004 -- a source that mixes modes overrides it
         """Return the kind of transport `arrival` is, or None where the stop serves only one."""
         return None
 
     @staticmethod
     @abstractmethod
-    def _route_key(arrival: Arrival) -> tuple[str, str]:
+    def _route_key(arrival: A) -> tuple[str, str]:
         """Arrivals sharing a key are one row: later buses on a route, later trains to a destination."""
 
     @staticmethod
     @abstractmethod
-    def _badge(arrival: Arrival) -> str: ...
+    def _badge(arrival: A) -> str: ...
 
     @staticmethod
     @abstractmethod
-    def _destination(arrival: Arrival) -> str: ...
+    def _destination(arrival: A) -> str: ...
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:

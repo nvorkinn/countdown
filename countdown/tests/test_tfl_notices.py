@@ -11,6 +11,7 @@ import json
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import fakeredis
 import pytest
@@ -45,6 +46,9 @@ from countdown_providers.tfl_notices.main import (
     TflRoadProvider,
     TflStationProvider,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "tfl_notices.json").read_text())
@@ -551,7 +555,7 @@ def test_the_road_source_reads_its_postcodes_place_however_its_written(store):
 
 
 def _status(
-    severity: int, description: str, periods: list[tuple[datetime, datetime]] = (), reason: str | None = None
+    severity: int, description: str, periods: Sequence[tuple[datetime, datetime]] = (), reason: str | None = None
 ) -> dict:
     return {
         "statusSeverity": severity,

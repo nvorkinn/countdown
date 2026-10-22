@@ -11,14 +11,30 @@ if TYPE_CHECKING:
 class Provider(Protocol):
     """Fetches one API's data for a list of ids. The runner decides which ids, when, and writes the results."""
 
-    # The subscription source this provider serves: the runner reads the ids from `v1:sub:<name>`.
-    name: str
-    # How long a written value lives. Longer than interval_s, so one failed cycle doesn't hide a panel, but short
-    # enough that a provider that's down shows up as missing data rather than as stale data.
-    ttl_s: int
-    # How often a cycle runs, in seconds. Cycles are aligned to the epoch (every provider with the same interval
-    # ticks together), and a subscription change runs one early.
-    interval_s: float
+    # Read-only properties, so a plain class attribute satisfies them (an `int` interval_s among them).
+
+    @property
+    def name(self) -> str:
+        """The subscription source this provider serves: the runner reads the ids from `v1:sub:<name>`."""
+        ...
+
+    @property
+    def ttl_s(self) -> int:
+        """How long a written value lives, in seconds.
+
+        Longer than interval_s, so one failed cycle doesn't hide a panel, but short enough that a provider that's
+        down shows up as missing data rather than as stale data.
+        """
+        ...
+
+    @property
+    def interval_s(self) -> float:
+        """How often a cycle runs, in seconds.
+
+        Cycles are aligned to the epoch (every provider with the same interval ticks together), and a subscription
+        change runs one early.
+        """
+        ...
 
     def output_key(self, item_id: str) -> str:
         """Return the Redis key to write `item_id`'s data to, from countdown_core.store.keys."""

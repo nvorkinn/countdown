@@ -43,7 +43,7 @@ class StoredArrival:
         return cls(departure.line, departure.destination, departure.time_to_station(now))
 
 
-class StoredArrivalPanel(AbstractArrivalPanel):
+class StoredArrivalPanel(AbstractArrivalPanel[StoredArrival]):
     """A TfL stop's departures from the store, drawn as a bus stop's or a Tube station's, by its stored mode."""
 
     def __init__(self, stored: StopDepartures, style: Style = "hero", now: datetime | None = None) -> None:

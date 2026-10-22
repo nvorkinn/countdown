@@ -24,7 +24,7 @@ class DeveloperSettings:
     style: Style
 
 
-class DeveloperClient(AbstractClient):
+class DeveloperClient(AbstractClient[DeveloperSettings]):
     """GitHub and the AI plans, from the store (`v1:developer:<device id>`).
 
     auth-broker's developer provider writes it there: it holds the GitHub token and makes the calls, so this renderer

@@ -238,7 +238,7 @@ def _draw_shrunk_to_fit(  # noqa: PLR0913 -- the text, where it goes, and how mu
 ) -> None:
     font = resized(font, max(1, optimal_size))
     while font.getlength(text) > space and font.size > 1:
-        font = resized(font, font.size - 1)
+        font = resized(font, int(font.size) - 1)
     draw.text(coord, text, "black", font=font, anchor=anchor)
 
 

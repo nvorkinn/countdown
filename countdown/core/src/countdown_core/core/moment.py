@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
 _drawing_at: ContextVar[datetime | None] = ContextVar("drawing_at", default=None)
 
@@ -27,7 +27,7 @@ def now() -> datetime:
 
 
 @contextmanager
-def drawing_at(moment: datetime) -> Iterator[None]:
+def drawing_at(moment: datetime) -> Generator[None]:
     """Make `moment` (aware) what now() gives until the block ends."""
     if moment.tzinfo is None:
         msg = "The moment to draw at must be aware"

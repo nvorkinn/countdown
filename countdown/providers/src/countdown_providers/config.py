@@ -36,6 +36,7 @@ class Settings:
     def redis(self) -> Redis:
         """Make a Redis client. It connects on first use, so this never fails for an unreachable Redis."""
         # Only pass the password if there is one: password=None would override one in the URL.
-        extra = {"password": self.redis_password} if self.redis_password else {}
         # decode_responses: ids and keys come back as str, not bytes.
-        return Redis.from_url(self.redis_url, decode_responses=True, **extra)
+        if self.redis_password:
+            return Redis.from_url(self.redis_url, decode_responses=True, password=self.redis_password)
+        return Redis.from_url(self.redis_url, decode_responses=True)

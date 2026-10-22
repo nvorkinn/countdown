@@ -40,7 +40,7 @@ from countdown_core.utils import utils
 from countdown_core.weather.weather_panel import WeatherPanel
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
 # Material Symbols stood in for (conftest), so every frame draws offline too: these are about what's drawn when.
 pytestmark = pytest.mark.usefixtures("symbols_font")
@@ -432,7 +432,7 @@ def test_the_layout_follows_what_the_config_lets_the_device_show(isolated_cwd, m
 
 
 @pytest.fixture
-def no_network(monkeypatch) -> list[tuple]:
+def no_network(monkeypatch) -> Iterator[list[tuple]]:
     """Record, and refuse, every attempt to reach the network at all, below `responses` (which mocks only requests).
 
     A client that swallows the error can't hide it: the test checks the list. The one download the renderer makes,

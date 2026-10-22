@@ -37,6 +37,27 @@ jobs:
       - name: Check Ruff formatting
         run: uv run --frozen --only-group dev ruff format --check --diff .
 
+  # Type checking, with the ty countdown/uv.lock pins. ty resolves imports from the installed dependencies, so this
+  # installs what the test job does (from the same uv cache), but none of its system packages.
+  ty:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run ty
+        run: uv run --frozen ty check --output-format=github
+
   test:
     runs-on: ubuntu-latest
 

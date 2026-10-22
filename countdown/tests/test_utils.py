@@ -1,10 +1,14 @@
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import numpy as np
 from PIL import Image, ImageChops
 
 from countdown_core.store import keys
 from countdown_core.store.models import Departure, StopDepartures
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # The screen a client is built for, whose keys by device it reads.
 TEST_DEVICE_ID = "device-123"
@@ -13,7 +17,7 @@ TEST_DEVICE_ID = "device-123"
 def put_departures(  # noqa: PLR0913 -- a stop as a provider stores it, every field optional
     store,
     stop_id: str,
-    departures: list[tuple[str, str, int]] = (),
+    departures: Sequence[tuple[str, str, int]] = (),
     *,
     name: str = "Elephant & Castle",
     mode: str = "bus",

@@ -21,7 +21,7 @@ import signal
 import time
 from contextlib import suppress
 from itertools import batched
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from redis.exceptions import RedisError
 
@@ -159,7 +159,8 @@ class ProviderRunner:
         fixed = getattr(self.provider, "fixed_ids", None)
         if fixed is not None:
             return set(fixed)
-        return await self.redis.smembers(keys.subscription(self.provider.name))
+        # Made with decode_responses=True (see the class), so members come back as str.
+        return cast("set[str]", await self.redis.smembers(keys.subscription(self.provider.name)))
 
     async def _announce(self, written: Mapping[str, BaseModel]) -> None:
         """Publish on the provider's `announces` channel if any of what it just wrote is news (see provider.Provider).
@@ -167,10 +168,11 @@ class ProviderRunner:
         After the batch is written, so a provider woken by it reads the new values.
         """
         channel = getattr(self.provider, "announces", None)
-        if channel is None:
+        is_news = getattr(self.provider, "is_news", None)
+        if channel is None or is_news is None:
             return
         # Every value asked about (not any(), which stops at the first): is_news remembers what it has said.
-        news = [self.provider.is_news(item_id, model) for item_id, model in written.items()]
+        news = [is_news(item_id, model) for item_id, model in written.items()]
         if any(news):
             await self.redis.publish(channel, "")
             logger.debug("%s: announced %d new of %d on %s", self.provider.name, sum(news), len(news), channel)
