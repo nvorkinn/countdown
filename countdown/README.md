@@ -50,7 +50,7 @@ hung), each with a variant per combination of enabled APIs. The developer panel 
 release's jobs in a row of boxes), and otherwise it takes Spotify's whole area.
 
 **The frame.** Frames are drawn upright; a portrait frame is turned a quarter into the panel's native 800x480
-(`rendering.to_native`), then packed into its raw 1-bit buffer (`rendering.screen.panel_bytes`). If every API only has a
+(`rendering.to_native`), then encoded in the screen's `format` (`rendering.encoding`): `mono-1bpp-packed` is its raw 1-bit buffer, `png` a PNG image. If every API only has a
 message to show, a "Nothing to show yet" screen replaces the dashboard. Partial refresh is the firmware's business: the
 server always sends the whole frame.
 
