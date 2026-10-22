@@ -420,7 +420,7 @@ def test_the_layout_follows_what_the_config_lets_the_device_show(isolated_cwd, m
     neither). The screen is hung landscape: those are its layouts.
     """
     _put_energy(store)
-    landscape = {"orientation": "horizontal", "width": 800, "height": 480}
+    landscape = {"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"}
     config = _make_config()
     config.screen = Screen.model_validate(landscape)
     layouts: list[type] = []

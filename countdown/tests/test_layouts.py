@@ -79,7 +79,9 @@ def test_only_the_variant_without_spotify_or_glowmarkt_shows_four_stops():
     ],
 )
 def test_the_canvas_is_the_screen_as_hung(orientation, width, height, expected):
-    assert canvas_for(Screen(orientation=orientation, width=width, height=height)) == expected
+    assert (
+        canvas_for(Screen(orientation=orientation, width=width, height=height, format="mono-1bpp-packed")) == expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -280,8 +282,8 @@ def test_a_registry_with_nothing_for_the_default_canvas_is_refused():
         LayoutRegistry([_Portrait()])
 
 
-VERTICAL = Screen(orientation="vertical", width=800, height=480)
-HORIZONTAL = Screen(orientation="horizontal", width=800, height=480)
+VERTICAL = Screen(orientation="vertical", width=800, height=480, format="mono-1bpp-packed")
+HORIZONTAL = Screen(orientation="horizontal", width=800, height=480, format="mono-1bpp-packed")
 
 
 def test_a_landscape_frame_goes_to_the_panel_as_it_is():

@@ -10,7 +10,7 @@ def broker_payload(**overrides) -> dict:
     typical = wire.ConfigResponse(
         device_id="device-123",
         interval=15,
-        screen=wire.Screen(orientation="vertical", width=480, height=800),
+        screen=wire.Screen(orientation="vertical", width=480, height=800, format="mono-1bpp-packed"),
         weather=wire.Weather(location=""),
         notice_board=wire.NoticeBoard(postcode=None),
         tfl=wire.Tfl(stop_ids=[]),

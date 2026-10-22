@@ -75,7 +75,7 @@ def test_a_full_config_reads_back_as_written(store):
     sent = ConfigResponse.model_validate(
         broker_payload(
             interval=20,
-            screen={"orientation": "horizontal", "width": 800, "height": 480},
+            screen={"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"},
             weather={"location": "London", "key": "london-gb-2643743"},
             notice_board={"postcode": "SW1A 1AA"},
             tfl={"stop_ids": ["940GZZLUKNG", "490000077E"]},

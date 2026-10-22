@@ -20,7 +20,7 @@ GITHUB = GitHubSummary(login="nvorkinn", repos=1, open_prs=0, review_requests=0,
 DEVELOPER = DeveloperPanel(DeveloperSummary(github=GITHUB, plans=[]))
 PANELS = {ClientClasses.SPOTIFY.api_name: SPOTIFY, ClientClasses.DEVELOPER.api_name: DEVELOPER}
 BOTH = frozenset({ClientClasses.SPOTIFY, ClientClasses.DEVELOPER})
-LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
+LANDSCAPE = Screen(orientation="horizontal", width=800, height=480, format="mono-1bpp-packed")
 SPOTIFYS = ClientClasses.SPOTIFY.api_name
 DEVELOPERS = ClientClasses.DEVELOPER.api_name
 

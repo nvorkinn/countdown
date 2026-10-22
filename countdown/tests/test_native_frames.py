@@ -20,8 +20,8 @@ from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 
 pytestmark = pytest.mark.usefixtures("symbols_font")
 
-LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
-VERTICAL = Screen(orientation="vertical", width=800, height=480)
+LANDSCAPE = Screen(orientation="horizontal", width=800, height=480, format="mono-1bpp-packed")
+VERTICAL = Screen(orientation="vertical", width=800, height=480, format="mono-1bpp-packed")
 
 
 class Solid(Panel):
