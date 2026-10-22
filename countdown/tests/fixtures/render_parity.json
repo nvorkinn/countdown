@@ -15,7 +15,8 @@
         "screen": {
           "orientation": "horizontal",
           "width": 800,
-          "height": 480
+          "height": 480,
+          "format": "mono-1bpp-packed"
         },
         "weather": {
           "location": "London",
@@ -75,7 +76,8 @@
         "screen": {
           "orientation": "vertical",
           "width": 480,
-          "height": 800
+          "height": 800,
+          "format": "mono-1bpp-packed"
         },
         "weather": {
           "location": "",
@@ -135,7 +137,8 @@
         "screen": {
           "orientation": "vertical",
           "width": 480,
-          "height": 800
+          "height": 800,
+          "format": "mono-1bpp-packed"
         },
         "weather": {
           "location": "",
@@ -195,7 +198,8 @@
         "screen": {
           "orientation": "horizontal",
           "width": 800,
-          "height": 480
+          "height": 480,
+          "format": "mono-1bpp-packed"
         },
         "weather": {
           "location": "",
@@ -258,7 +262,8 @@
         "screen": {
           "orientation": "horizontal",
           "width": 800,
-          "height": 480
+          "height": 480,
+          "format": "mono-1bpp-packed"
         },
         "weather": {
           "location": "London",
@@ -314,7 +319,8 @@
         "screen": {
           "orientation": "vertical",
           "width": 480,
-          "height": 800
+          "height": 800,
+          "format": "mono-1bpp-packed"
         },
         "weather": {
           "location": "",
@@ -375,7 +381,8 @@
         "screen": {
           "orientation": "horizontal",
           "width": 800,
-          "height": 480
+          "height": 480,
+          "format": "mono-1bpp-packed"
         },
         "weather": {
           "location": "London",
@@ -441,7 +448,8 @@
         "screen": {
           "orientation": "vertical",
           "width": 480,
-          "height": 800
+          "height": 800,
+          "format": "mono-1bpp-packed"
         },
         "weather": {
           "location": "",
@@ -485,7 +493,8 @@
         "screen": {
           "orientation": "vertical",
           "width": 480,
-          "height": 800
+          "height": 800,
+          "format": "mono-1bpp-packed"
         },
         "weather": {
           "location": "",

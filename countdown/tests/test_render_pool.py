@@ -40,7 +40,7 @@ NOW = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
 EVERY_PANEL = fixtures.load("config_store.json")["value"]
 STOP_CONFIG = {
     **EVERY_PANEL,
-    "screen": {"orientation": "horizontal", "width": 800, "height": 480},
+    "screen": {"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"},
     "tfl": {"stop_ids": ["490000123W"]},
 }
 

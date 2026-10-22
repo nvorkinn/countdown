@@ -118,7 +118,7 @@ def _fill(store) -> None:
 
 def _config(stops: list[str] = STOPS):
     return make_config(
-        screen={"orientation": "horizontal", "width": 800, "height": 480},
+        screen={"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"},
         tfl={"stop_ids": stops},
         weather={"location": "London"},
         glowmarkt={"enabled": True},

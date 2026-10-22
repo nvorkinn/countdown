@@ -211,7 +211,7 @@ def test_the_departures_get_as_many_stops_as_the_layout_has_room_for(store):
     stops = [f"49000000{i}" for i in range(6)]
     for stop in stops:
         put_departures(store, stop, [("N1", "Somewhere", 300)], now=_now(RICH))
-    landscape = {"orientation": "horizontal", "width": 800, "height": 480}
+    landscape = {"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"}
     _put_config(store, make_config(screen=landscape, tfl={"stop_ids": stops}))
 
     outcome = render(DEVICE_ID, _now(RICH))
@@ -221,7 +221,7 @@ def test_the_departures_get_as_many_stops_as_the_layout_has_room_for(store):
 
 
 def _stop_config(stops=("490000123W",), **overrides) -> ConfigResponse:
-    landscape = {"orientation": "horizontal", "width": 800, "height": 480}
+    landscape = {"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"}
     return make_config(screen=landscape, tfl={"stop_ids": list(stops)}, **overrides)
 
 

@@ -60,7 +60,7 @@ EVERYTHING = frozenset(ClientClasses) - {ClientClasses.DEVELOPER}
 NO_GLOWMARKT = EVERYTHING - {ClientClasses.GLOWMARKT}
 
 
-LANDSCAPE = Screen(orientation="horizontal", width=800, height=480)
+LANDSCAPE = Screen(orientation="horizontal", width=800, height=480, format="mono-1bpp-packed")
 
 
 def _draw(panels: dict[str, Panel], available: frozenset[ClientClasses] = EVERYTHING) -> Image.Image:
@@ -365,7 +365,7 @@ def test_pairing_code_stays_on_a_vertical_screen_whatever_its_length(code):
 
 
 def test_screen_with_no_panels_at_all_on_a_vertical_screen(snapshot):
-    img = draw_screen({}, Screen(orientation="vertical", width=800, height=480), EVERYTHING)
+    img = draw_screen({}, Screen(orientation="vertical", width=800, height=480, format="mono-1bpp-packed"), EVERYTHING)
     assert img.size == PORTRAIT
     snapshot.assert_matches("screen_nothing_to_show_portrait", img)
 
@@ -377,7 +377,7 @@ def test_empty_screen_stays_clear_of_a_vertical_screens_edges():
         assert img.crop(edge).getextrema() == (255, 255)
 
 
-VERTICAL = Screen(orientation="vertical", width=800, height=480)
+VERTICAL = Screen(orientation="vertical", width=800, height=480, format="mono-1bpp-packed")
 
 
 def _draw_portrait(panels: dict[str, Panel], available: frozenset[ClientClasses] = NO_GLOWMARKT) -> Image.Image:
@@ -769,7 +769,7 @@ def test_portrait_screen_in_12_hour_time(snapshot, period):
     )
     img = draw_screen(
         _panels(_bus_and_tube_arrivals(), weather=weather, notices=notices),
-        Screen(orientation="vertical", width=800, height=480),
+        Screen(orientation="vertical", width=800, height=480, format="mono-1bpp-packed"),
         NO_GLOWMARKT,  # the full weather, whose pages have the times
         clock_format="12h",
     )
@@ -795,7 +795,7 @@ def test_arrival_countdown_durations_do_not_use_the_clock_preference(style):
 @pytest.mark.parametrize("orientation", ["horizontal", "vertical"])
 def test_clock_preference_does_not_leak_between_controllers_sharing_layouts_and_panels(orientation):
     panels = _panels(_bus_and_tube_arrivals())
-    screen = Screen(orientation=orientation, width=800, height=480)
+    screen = Screen(orientation=orientation, width=800, height=480, format="mono-1bpp-packed")
     twelve_hour = draw_screen(panels, screen, EVERYTHING, clock_format="12h")
     default = draw_screen(panels, screen, EVERYTHING)
     explicit = draw_screen(panels, screen, EVERYTHING, clock_format="24h")
