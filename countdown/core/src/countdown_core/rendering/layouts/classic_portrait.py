@@ -26,6 +26,8 @@ SPOTIFY_HEIGHT = 120
 ENERGY_ROW_HEIGHT = 185
 # What that shorter row frees, which goes to the arrivals so the notices may have what they always had.
 ENERGY_ROW_SAVING = WEATHER_HEIGHT - ENERGY_ROW_HEIGHT
+# Without Spotify (not set up, or nothing playing), a second row of stops, if the notices leave the stops this tall.
+SECOND_ROW_FROM = 280
 
 
 class ClassicPortraitLayout(Layout):
@@ -46,17 +48,14 @@ class ClassicPortraitLayout(Layout):
 
         top_height = self._draw_top_row(img, panels, width, clock_format)
         arrivals_y = GAP + top_height + WEATHER_GAP
-        spotify_area = self._spotify_area(panels, SPOTIFY_HEIGHT) if self.SHOWS_SPOTIFY else []
-        spotify_room = sum(height + GAP for _, height in spotify_area)
-        notices_room = canvas.height - GAP - spotify_room - (arrivals_y + self.ARRIVALS_HEIGHT + GAP)
-        notices_height, spare = self._fit_notices(panels, notices_room)
+        spotify_area, notices_height, arrivals_height = self._heights(panels, canvas)
 
         arrival_panel = panels[ClientClasses.TFL.api_name]
         self._place(
             img,
             arrival_panel,
             (GAP, arrivals_y),
-            (width, self.ARRIVALS_HEIGHT + spare),
+            (width, arrivals_height),
             clock_format=clock_format,
         )
 
@@ -76,6 +75,19 @@ class ClassicPortraitLayout(Layout):
             self._place(img, panel, (GAP, bottom), (width, height), clock_format=clock_format)
             bottom -= GAP
         return Frame(img)
+
+    def _heights(self, panels: dict[str, Panel], canvas: Canvas) -> tuple[list[tuple[Panel, int]], int, int]:
+        """Return what's drawn in Spotify's area with each one's height, the notices' height, and the arrivals'."""
+        arrivals_y = GAP + (ENERGY_ROW_HEIGHT if self.SHOWS_ENERGY else WEATHER_HEIGHT) + WEATHER_GAP
+        spotify_area = self._spotify_area(panels, SPOTIFY_HEIGHT) if self.SHOWS_SPOTIFY else []
+        spotify_room = sum(height + GAP for _, height in spotify_area)
+        notices_room = canvas.height - GAP - spotify_room - (arrivals_y + self.ARRIVALS_HEIGHT + GAP)
+        notices_height, spare = self._fit_notices(panels, notices_room)
+        return spotify_area, notices_height, self.ARRIVALS_HEIGHT + spare
+
+    @override
+    def _arrivals_height(self, panels: dict[str, Panel], canvas: Canvas) -> int:
+        return self._heights(panels, canvas)[2]
 
     def _draw_top_row(self, img: Image.Image, panels: dict[str, Panel], width: int, clock_format: ClockFormat) -> int:
         """Draw the weather, and the energy chart beside it if this variant shows one; return the row's height."""
@@ -122,6 +134,8 @@ class GlowPortraitLayout(ClassicPortraitLayout):
     SHOWS_SPOTIFY = False
     SHOWS_ENERGY = True
     ARRIVALS_HEIGHT = 185 + 60 + ENERGY_ROW_SAVING
+    stops_shown = 4
+    TWO_ROWS_HEIGHT = SECOND_ROW_FROM
 
 
 class BasePortraitLayout(ClassicPortraitLayout):
@@ -130,6 +144,8 @@ class BasePortraitLayout(ClassicPortraitLayout):
     excludes = frozenset({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT})
     SHOWS_SPOTIFY = False
     ARRIVALS_HEIGHT = 185 + 60
+    stops_shown = 4
+    TWO_ROWS_HEIGHT = SECOND_ROW_FROM
 
 
 # The first is what's drawn if no variant fits (never, while the four cover every combination).

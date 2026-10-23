@@ -8,6 +8,10 @@ both orientations and both clock formats, every panel, the developer panel above
 expired keys, a page of stops other than the first, a placed notice board, the pairing screen and a screen with nothing
 set up.
 
+Four cases were re-recorded from render() when the music area began folding away while nothing plays (and a message in
+the notices' place stopped taking all their room): the player's two cases now have Spotify's position, so the track is
+playing (with its progress bar); the top lists' case is on a minute they visit; the expired case has no music area.
+
 The rest: what an Outcome says, that a render sleeps, loops and threads not at all, and that a store that can't be read
 fails the render and writes nothing.
 """
@@ -27,6 +31,7 @@ from test_utils import put_departures
 from countdown_api import fixtures
 from countdown_api.models import ConfigResponse
 from countdown_core import i18n
+from countdown_core import render as render_module
 from countdown_core.core import moment, rotation
 from countdown_core.core.abstract_client import ClientStatus
 from countdown_core.render import Outcome, Result, Stage, render
@@ -218,6 +223,21 @@ def test_the_departures_get_as_many_stops_as_the_layout_has_room_for(store):
 
     # The landscape layout without energy or Spotify has room for four (BaseLayout).
     assert len(outcome.panels["tfl"].arrival_panels) == 4
+
+
+def test_with_the_room_taken_by_the_notices_the_departures_are_one_row_of_stops(store, monkeypatch):
+    """The layout has room for four, but the notices took the second row's (Layout.stops_fitting): a page of two."""
+    stops = [f"49000000{i}" for i in range(6)]
+    for stop in stops:
+        put_departures(store, stop, [("N1", "Somewhere", 300)], now=_now(RICH))
+    landscape = {"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"}
+    _put_config(store, make_config(screen=landscape, tfl={"stop_ids": stops}))
+    monkeypatch.setattr(render_module, "stops_fitting", lambda panels, screen, available: 2)
+
+    outcome = render(DEVICE_ID, _now(RICH))
+
+    assert len(outcome.panels["tfl"].arrival_panels) == 2
+    assert outcome.panels["tfl"].rotation.pages == 3
 
 
 def _stop_config(stops=("490000123W",), **overrides) -> ConfigResponse:

@@ -22,6 +22,7 @@ from weather_factory import forecast_json
 from countdown_api.models import ConfigResponse, Screen
 from countdown_core import i18n
 from countdown_core import render as render_module
+from countdown_core.core import rotation
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient
@@ -53,6 +54,7 @@ TUBE_STATION = "940GZZLUKNG"
 
 
 TRACK_JSON = {
+    "id": "test-song",
     "name": "Test Song",
     "artists": [{"name": "Test Artist"}],
     "album": {"name": "Test Album", "images": [{"width": 64, "height": 64, "url": "https://example.com/album.jpg"}]},
@@ -97,9 +99,21 @@ def _put_stops_and_energy(store, *stop_ids: str) -> None:
 
 
 def _put_music(store, queue: dict, top: dict | None = None) -> None:
-    """Store Spotify's player (and top lists, the same for both periods) as auth-broker's music provider would."""
+    """Store Spotify's player (and top lists, the same for both periods) as auth-broker's music provider would.
+
+    A track in the queue is playing, as of the pages' clock (rotation.now).
+    """
     fetched_at = datetime.datetime.now(datetime.UTC).isoformat()
-    store.set(keys.spotify(DEVICE_ID), json.dumps({"fetched_at": fetched_at, "spotify": queue}))
+    player = {"fetched_at": fetched_at, "spotify": queue}
+    if track := queue["currently_playing"]:
+        read_at = rotation.now().isoformat()
+        player["spotify_playback"] = {
+            "fetched_at": read_at,
+            "is_playing": True,
+            "progress_ms": 0,
+            "track_id": track["id"],
+        }
+    store.set(keys.spotify(DEVICE_ID), json.dumps(player))
     lists = {"long_term": top, "short_term": top} if top is not None else None
     store.set(keys.spotify_top(DEVICE_ID), json.dumps({"fetched_at": fetched_at, "spotify": lists}))
 

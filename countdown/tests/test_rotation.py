@@ -106,10 +106,16 @@ def _fill(store) -> None:
     empty = {"data": []}
     energy = {"fetched_at": now.isoformat(), "device_id": DEVICE_ID, "offset": "0", "resource_id": "elec"}
     store.set(keys.energy(DEVICE_ID), json.dumps(energy | {"hourly": hourly, "daily": empty, "monthly": empty}))
-    track = {"name": "A Song", "artists": [{"name": "Artist"}], "album": {"name": "Album", "images": []}}
+    track = {
+        "id": "a-song",
+        "name": "A Song",
+        "artists": [{"name": "Artist"}],
+        "album": {"name": "Album", "images": []},
+    }
     queue = {"currently_playing": track | {"duration_ms": 200_000}, "queue": []}
     lists = {"tracks": {"items": [track | {"duration_ms": 200_000}]}, "artists": {"items": [{"name": "Artist"}]}}
     store.set(keys.spotify(DEVICE_ID), json.dumps({"fetched_at": now.isoformat(), "spotify": queue}))
+    _play(store)
     store.set(
         keys.spotify_top(DEVICE_ID),
         json.dumps({"fetched_at": now.isoformat(), "spotify": {"long_term": lists, "short_term": lists}}),
@@ -124,6 +130,14 @@ def _config(stops: list[str] = STOPS):
         glowmarkt={"enabled": True},
         spotify={"enabled": True},
     )
+
+
+def _play(store) -> None:
+    """Have the stored track playing as of the pages' clock (rotation.now), as the music provider reads it."""
+    player = json.loads(store.get(keys.spotify(DEVICE_ID)))
+    at = rotation.now().isoformat()
+    player["spotify_playback"] = {"fetched_at": at, "is_playing": True, "progress_ms": 0, "track_id": "a-song"}
+    store.set(keys.spotify(DEVICE_ID), json.dumps(player))
 
 
 def _pages(panels: dict) -> tuple:
@@ -175,15 +189,16 @@ def test_the_render_turns_every_panel_a_page_a_minute_and_a_config_change_keeps_
     for minute in range(4):
         if minute == 2:
             store.set(keys.config(DEVICE_ID), _config([*STOPS, "490000009"]).model_dump_json())
+        _play(store)  # a track plays throughout, so the music keeps its area (and the stops two a page)
         outcomes.append(render_module.render(DEVICE_ID, dt.datetime.now(dt.UTC)))
         rotation_clock.advance()
 
     assert drawn == [
         (Rotation(0, 3), TABS[0], 0, "SpotifyPanel"),
-        (Rotation(1, 3), TABS[1], 1, "SpotifyTopPanel"),
+        (Rotation(1, 3), TABS[1], 1, "SpotifyPanel"),
         # A new departures client now, with six stops (still three pages): on the clock's page, not the first.
         (Rotation(2, 3), TABS[2], 2, "SpotifyPanel"),
-        (Rotation(0, 3), TABS[3], 0, "SpotifyTopPanel"),
+        (Rotation(0, 3), TABS[3], 0, "SpotifyPanel"),
     ]
     # The last page of five stops has one; of six, the new stop is the second.
     assert len(outcomes[2].panels["tfl"].arrival_panels) == 2

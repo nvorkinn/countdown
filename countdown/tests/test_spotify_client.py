@@ -2,13 +2,20 @@
 
 import asyncio
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 from pydantic import ValidationError
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.spotify.spotify_client import AppleMusicClient, MusicSettings, SpotifyClient, music_client_class
+from countdown_core.core import rotation
+from countdown_core.spotify.spotify_client import (
+    TOP_WHEN_IDLE_EVERY_S,
+    AppleMusicClient,
+    MusicSettings,
+    SpotifyClient,
+    music_client_class,
+)
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
@@ -19,6 +26,7 @@ DEVICE_ID = TEST_DEVICE_ID
 
 def track(name: str) -> dict:
     return {
+        "id": name,
         "name": name,
         "artists": [{"name": "An Artist"}, {"name": "Another Artist"}],
         "album": {"name": "An Album", "images": [{"width": 640, "height": 640, "url": "https://example.com/a.jpg"}]},
@@ -44,10 +52,18 @@ SPOTIFY_TOP = top("Top Song")
 APPLE_TOP = top("Apple Top Song", artist="Apple Artist")
 
 
-def put(store, *, spotify=None, spotify_top=None, apple_music=None, apple_music_top=None) -> None:
-    """Store the device's player and top lists as the music provider does; a service left out is None."""
-    fetched_at = datetime.now(UTC).isoformat()
+def put(  # noqa: PLR0913 -- a service's player and top lists each, and whether Spotify plays
+    store, *, spotify=None, spotify_top=None, apple_music=None, apple_music_top=None, playing=True
+) -> None:
+    """Store the device's player and top lists as the music provider does; a service left out is None.
+
+    Spotify's track, if it has one, is `playing` as of now (rotation.now, which a test may have frozen).
+    """
+    fetched_at = rotation.now().isoformat()
     player = {"fetched_at": fetched_at, "spotify": spotify, "apple_music": apple_music}
+    if spotify and spotify["currently_playing"]:
+        playback = {"fetched_at": fetched_at, "is_playing": playing, "progress_ms": 0}
+        player["spotify_playback"] = playback | {"track_id": spotify["currently_playing"].get("id")}
     top_lists = {"fetched_at": fetched_at, "spotify": spotify_top, "apple_music": apple_music_top}
     store.set(keys.spotify(DEVICE_ID), json.dumps(player))
     store.set(keys.spotify_top(DEVICE_ID), json.dumps(top_lists))
@@ -78,18 +94,45 @@ def turn(client: SpotifyClient, rotation_clock, times: int) -> list:
     return panels
 
 
-def test_updates_rotate_between_the_player_and_the_top_tracks_and_artists(store, client, rotation_clock):
+def visits(client: SpotifyClient, rotation_clock, times: int) -> list:
+    """Update at the start of `times` visits in a row while nothing plays (TOP_WHEN_IDLE_EVERY_S apart)."""
+    panels = []
+    for visit in range(times):
+        rotation_clock.at_minute(visit * TOP_WHEN_IDLE_EVERY_S // 60)
+        panels.append(asyncio.run(client.update()))
+    return panels
+
+
+def test_while_playing_the_player_stays_on_minute_after_minute(store, client, rotation_clock):
+    panels = []
+    for minute in range(4):
+        rotation_clock.at_minute(minute)
+        put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)  # the provider reads the position again and again
+        panels.append(asyncio.run(client.update()))
+
+    assert [type(panel) for panel in panels] == [SpotifyPanel] * 4
+
+
+def test_while_nothing_plays_the_top_lists_visit_in_turn(store, client, rotation_clock):
     long_term = top("Long Song")["long_term"]
-    put(store, spotify=QUEUE, spotify_top={"long_term": long_term, "short_term": SPOTIFY_TOP["short_term"]})
+    put(store, spotify=NOTHING_PLAYING, spotify_top={"long_term": long_term, "short_term": SPOTIFY_TOP["short_term"]})
 
-    panels = turn(client, rotation_clock, 5)
+    panels = visits(client, rotation_clock, 3)
 
-    assert [type(panel) for panel in panels] == [SpotifyPanel, SpotifyTopPanel] * 2 + [SpotifyPanel]
-    assert [panels[1].period, panels[3].period] == ["12 months", "4 weeks"]
-    assert [panels[1].tracks[0].name, panels[3].tracks[0].name] == ["Long Song", "Top Song"]
+    assert [panel.period for panel in panels] == ["12 months", "4 weeks", "12 months"]
+    assert [panel.tracks[0].name for panel in panels] == ["Long Song", "Top Song", "Long Song"]
 
 
-def test_nothing_playing_skips_straight_to_the_top_tracks_and_artists(store, client):
+def test_a_paused_track_is_nothing_playing(store, client, rotation_clock):
+    put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP, playing=False)
+
+    assert isinstance(asyncio.run(client.update()), SpotifyTopPanel)
+    assert client.is_idle() is False  # a visit's minute
+    rotation_clock.advance()
+    assert client.is_idle() is True
+
+
+def test_nothing_playing_skips_straight_to_the_top_tracks_and_artists(store, client, rotation_clock):
     """Even with tracks still queued up: the player is about what's playing."""
     put(store, spotify=NOTHING_PLAYING, spotify_top=SPOTIFY_TOP)
 
@@ -111,8 +154,9 @@ def test_the_configs_style_reaches_both_pages(store, style, drawn, rotation_cloc
     """The broker may still send classic, which draws as hero."""
     client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True, style=style))
     put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
-
-    now_playing, top_page = turn(client, rotation_clock, 2)
+    now_playing = asyncio.run(client.update())
+    put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP, playing=False)
+    top_page = asyncio.run(client.update())
 
     assert isinstance(top_page, SpotifyTopPanel)
     assert (now_playing.style, top_page.style) == (drawn, drawn)
@@ -133,14 +177,14 @@ def test_apple_music_alone_reads_its_part_of_the_store_and_labels_the_last_playe
     put(store, apple_music=QUEUE, apple_music_top=APPLE_TOP)
     client = music_client(spotify=False)
 
-    now, top_page = turn(client, rotation_clock, 2)
+    now, top_page = visits(client, rotation_clock, 2)
 
     assert now.labels is APPLE_MUSIC_LABELS
     assert [t.name for t in top_page.tracks] == ["Apple Top Song"]
     assert top_page.service is None  # only one service: no need to say whose
 
 
-def test_with_both_spotify_shows_while_it_is_playing(store):
+def test_with_both_spotify_shows_while_it_is_playing(store, rotation_clock):
     put(store, spotify=QUEUE, apple_music={"currently_playing": track("Apple Song"), "queue": []})
 
     panel = asyncio.run(music_client().update())
@@ -149,7 +193,7 @@ def test_with_both_spotify_shows_while_it_is_playing(store):
     assert panel.queue.currently_playing.name == "A Song"
 
 
-def test_with_both_and_spotify_idle_apple_musics_last_played_shows(store):
+def test_with_both_and_spotify_idle_apple_musics_last_played_visits(store, rotation_clock):
     put(store, spotify=NOTHING_PLAYING, apple_music={"currently_playing": track("Apple Song"), "queue": []})
 
     panel = asyncio.run(music_client().update())
@@ -159,10 +203,10 @@ def test_with_both_and_spotify_idle_apple_musics_last_played_shows(store):
 
 
 def test_with_both_the_top_lists_take_turns_and_say_whose_they_are(store, rotation_clock):
-    put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP, apple_music=QUEUE, apple_music_top=APPLE_TOP)
+    put(store, spotify=NOTHING_PLAYING, spotify_top=SPOTIFY_TOP, apple_music=QUEUE, apple_music_top=APPLE_TOP)
     client = music_client()
 
-    panels = turn(client, rotation_clock, 8)
+    panels = visits(client, rotation_clock, 8)
 
     tops = [(p.service, p.period, p.tracks[0].name) for p in panels if isinstance(p, SpotifyTopPanel)]
     assert tops == [
@@ -190,22 +234,35 @@ def test_apple_music_alone_with_nothing_played_says_so_under_its_name(store):
     assert panel.logo is None
 
 
-def test_spotify_labels_its_player_as_now_playing(store, client):
+def test_spotify_labels_its_player_as_now_playing(store, client, rotation_clock):
     put(store, spotify=QUEUE)
 
     assert asyncio.run(client.update()).labels is SPOTIFY_LABELS
 
 
-def test_empty_top_lists_give_way_to_the_player(store, client, rotation_clock):
-    put(store, spotify=QUEUE, spotify_top=top())
-    rotation_clock.at_minute(1)  # the 12 months' top lists' minute
+def test_the_area_is_folded_away_only_while_nothing_plays_and_nothing_visits(store, client, rotation_clock):
+    put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
+    assert client.is_idle() is False
+    put(store, spotify=NOTHING_PLAYING, spotify_top=SPOTIFY_TOP)
+    assert client.is_idle() is False  # a visit's minute
+    rotation_clock.at_minute(1)
+    assert client.is_idle() is True
+    rotation_clock.at_minute(TOP_WHEN_IDLE_EVERY_S // 60)
+    assert client.is_idle() is False
 
-    assert isinstance(asyncio.run(client.update()), SpotifyPanel)
+
+def test_a_visit_with_nothing_to_show_stays_folded_away(store, client, rotation_clock):
+    put(store, spotify=NOTHING_PLAYING, spotify_top=top())
+
+    assert client.is_idle() is True
+
+
+def test_with_nothing_in_the_store_the_area_is_folded_away(store, client, rotation_clock):
+    assert client.is_idle() is True
 
 
 def test_the_same_minute_shows_the_same_page(store, client, rotation_clock):
-    put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
-    rotation_clock.at_minute(1)
+    put(store, spotify=NOTHING_PLAYING, spotify_top=SPOTIFY_TOP)
 
     first, again = asyncio.run(client.update()), asyncio.run(client.update())
 
@@ -225,5 +282,7 @@ def test_it_never_calls_the_broker(store, client, monkeypatch, rotation_clock):
     """The provider calls the services with the broker's tokens; the client only reads what it stored."""
     monkeypatch.setattr(client.session, "request", lambda *args, **kwargs: pytest.fail("called the broker"))
     put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
+    playing = asyncio.run(client.update())
+    put(store, spotify=NOTHING_PLAYING, spotify_top=SPOTIFY_TOP)
 
-    assert [type(panel) for panel in turn(client, rotation_clock, 2)] == [SpotifyPanel, SpotifyTopPanel]
+    assert [type(playing), type(asyncio.run(client.update()))] == [SpotifyPanel, SpotifyTopPanel]

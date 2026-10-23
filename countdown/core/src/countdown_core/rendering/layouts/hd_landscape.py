@@ -38,6 +38,12 @@ SPOTIFY_HEIGHT = 120
 WIDE_SPOTIFY_HEIGHT = 150
 ENERGY_HEIGHT = 150
 NOTICES_ROOM = 120
+# Spotify's heights beside the energy chart and on its own, and the chart's on its own (see _draw_bottom_row).
+BOTTOM_ROW = (SPOTIFY_HEIGHT, WIDE_SPOTIFY_HEIGHT, ENERGY_HEIGHT)
+# Without Spotify (not set up, or nothing playing), the notices may take more, and the stops have a second row if
+# the notices leave them this tall (in their own pixels, at ARRIVALS_SCALE).
+NO_SPOTIFY_NOTICES_ROOM = 340
+SECOND_ROW_FROM = 250
 
 
 class HdLandscapeLayout(HdVariantLayout):
@@ -59,15 +65,14 @@ class HdLandscapeLayout(HdVariantLayout):
         x = SIDEBAR_WIDTH + MARGIN
         width = canvas.width - x - MARGIN
         bottom = canvas.height - EDGE
-        notices_height, _ = self._fit_notices(panels, NOTICES_ROOM)
+        notices_height = self._notices_height(panels)
         if notices_height:
             bottom -= SCALE * notices_height
             notices = panels[ClientClasses.NOTICE_BOARD.api_name]
             self._place_scaled(img, notices, (x, bottom), (width // SCALE, notices_height), clock_format)
             bottom -= SECTION_GAP
         if self.SHOWS_SPOTIFY or self.SHOWS_ENERGY:
-            heights = (SPOTIFY_HEIGHT, WIDE_SPOTIFY_HEIGHT, ENERGY_HEIGHT)
-            bottom = self._draw_bottom_row(img, panels, (x, width), bottom, clock_format, heights) - SECTION_GAP
+            bottom = self._draw_bottom_row(img, panels, (x, width), bottom, clock_format, BOTTOM_ROW) - SECTION_GAP
         hours = HdHoursPanel(coming_hours(weather))
         if hours.fitted_height(HOURS_HEIGHT):
             bottom -= SCALE * HOURS_HEIGHT
@@ -78,6 +83,23 @@ class HdLandscapeLayout(HdVariantLayout):
         arrivals = panels[ClientClasses.TFL.api_name]
         self._place_scaled(img, arrivals, (x, EDGE), arrivals_size, clock_format, ARRIVALS_SCALE)
         return Frame(img)
+
+    def _notices_height(self, panels: dict[str, Panel]) -> int:
+        """How tall the notices are drawn, in their own pixels: 0 leaves them out."""
+        notices_height, _ = self._fit_notices(panels, NOTICES_ROOM if self.SHOWS_SPOTIFY else NO_SPOTIFY_NOTICES_ROOM)
+        return notices_height
+
+    @override
+    def _arrivals_height(self, panels: dict[str, Panel], canvas: Canvas) -> int:
+        panels = self._hd_panels(panels, wide_spotify=not self.SHOWS_ENERGY)
+        bottom = canvas.height - EDGE
+        if notices_height := self._notices_height(panels):
+            bottom -= SCALE * notices_height + SECTION_GAP
+        if self.SHOWS_SPOTIFY or self.SHOWS_ENERGY:
+            bottom -= SCALE * self._bottom_row(panels, BOTTOM_ROW)[1] + SECTION_GAP
+        if HdHoursPanel(coming_hours(panels[ClientClasses.WEATHER.api_name])).fitted_height(HOURS_HEIGHT):
+            bottom -= SCALE * HOURS_HEIGHT + SECTION_GAP
+        return int((bottom - EDGE) / ARRIVALS_SCALE)
 
 
 def _sidebar(weather: Panel) -> HdSidebarPanel:
@@ -105,6 +127,8 @@ class GlowHdLandscapeLayout(HdLandscapeLayout):
     requires = frozenset({ClientClasses.GLOWMARKT})
     excludes = frozenset({ClientClasses.SPOTIFY})
     SHOWS_SPOTIFY = False
+    stops_shown = 4
+    TWO_ROWS_HEIGHT = SECOND_ROW_FROM
 
 
 class BaseHdLandscapeLayout(HdLandscapeLayout):
@@ -113,6 +137,8 @@ class BaseHdLandscapeLayout(HdLandscapeLayout):
     excludes = frozenset({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT})
     SHOWS_SPOTIFY = False
     SHOWS_ENERGY = False
+    stops_shown = 4
+    TWO_ROWS_HEIGHT = SECOND_ROW_FROM
 
 
 # The first is what's drawn if no variant fits (never, while the four cover every combination).

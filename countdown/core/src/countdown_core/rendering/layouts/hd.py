@@ -98,9 +98,7 @@ class HdVariantLayout(HdLayout):
             return bottom
         x, width = column
         logical_width = width // SCALE
-        beside, alone, energy_alone = heights
-        area = self._spotify_area(panels, beside if self.SHOWS_ENERGY else alone) if self.SHOWS_SPOTIFY else []
-        height = sum(panel_height for _, panel_height in area) + GAP * (len(area) - 1) if area else energy_alone
+        area, height = self._bottom_row(panels, heights)
         top = bottom - SCALE * height
 
         spotify_x, spotify_width = x, logical_width
@@ -115,6 +113,20 @@ class HdVariantLayout(HdLayout):
             self._place_scaled(img, panel, (spotify_x, y), (spotify_width, panel_height), clock_format)
             y += SCALE * (panel_height + GAP)
         return top
+
+    def _bottom_row(
+        self, panels: dict[str, Panel], heights: tuple[int, int, int]
+    ) -> tuple[list[tuple[Panel, int]], int]:
+        """Return what's drawn in Spotify's area with each one's height, and the row's height (0 if nothing shows).
+
+        As _draw_bottom_row draws them, all in the panels' own pixels.
+        """
+        if not (self.SHOWS_SPOTIFY or self.SHOWS_ENERGY):
+            return [], 0
+        beside, alone, energy_alone = heights
+        area = self._spotify_area(panels, beside if self.SHOWS_ENERGY else alone) if self.SHOWS_SPOTIFY else []
+        height = sum(panel_height for _, panel_height in area) + GAP * (len(area) - 1) if area else energy_alone
+        return area, height
 
 
 def variants(base: type[HdVariantLayout]) -> list[Layout]:

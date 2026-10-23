@@ -41,6 +41,10 @@ ENERGY_ROW_HEIGHT = 230
 SPOTIFY_HEIGHT = 150
 # The most the notices may take (at SCALE), as on portrait; the stops get the rest.
 NOTICES_ROOM = 190
+# Without Spotify (not set up, or nothing playing), the notices may take more, and the stops have a second row if
+# the notices leave them this tall (in their own pixels, at ARRIVALS_SCALE).
+NO_SPOTIFY_NOTICES_ROOM = 300
+SECOND_ROW_FROM = 250
 # Between Spotify and the notices (at SCALE): more than the usual gap, so the board's header is set apart.
 NOTICES_GAP = 3 * GAP
 
@@ -58,28 +62,46 @@ class HdPortraitLayout(HdLayout, ClassicPortraitLayout):
         panels = self._hd_panels(panels)
 
         arrivals_y = gap + self._draw_hd_top_row(img, panels, width, clock_format) + SCALE * WEATHER_GAP
-        bottom = canvas.height - gap
-        notices_height, _ = self._fit_notices(panels, NOTICES_ROOM)
-        if notices_height:
-            bottom -= SCALE * notices_height
-            self._place_scaled(
-                img,
-                panels[ClientClasses.NOTICE_BOARD.api_name],
-                (gap, bottom),
-                (width // SCALE, notices_height),
-                clock_format,
-            )
-            bottom -= SCALE * NOTICES_GAP
-        for panel, height in reversed(self._spotify_area(panels, SPOTIFY_HEIGHT) if self.SHOWS_SPOTIFY else []):
-            bottom -= SCALE * height
-            self._place_scaled(img, panel, (gap, bottom), (width // SCALE, height), clock_format)
-            bottom -= gap
+        below, arrivals_bottom = self._below_stops(panels, canvas)
+        for panel, y, height in below:
+            self._place_scaled(img, panel, (gap, y), (width // SCALE, height), clock_format)
 
-        arrivals_size = (int(width / ARRIVALS_SCALE), int((bottom - arrivals_y) / ARRIVALS_SCALE))
+        arrivals_size = (int(width / ARRIVALS_SCALE), int((arrivals_bottom - arrivals_y) / ARRIVALS_SCALE))
         self._place_scaled(
             img, panels[ClientClasses.TFL.api_name], (gap, arrivals_y), arrivals_size, clock_format, ARRIVALS_SCALE
         )
         return Frame(img)
+
+    def _below_stops(self, panels: dict[str, Panel], canvas: Canvas) -> tuple[list[tuple[Panel, int, int]], int]:
+        """Return what goes below the stops, bottom up, and where the stops end, in screen pixels.
+
+        Each panel below comes with its top (in screen pixels) and height (in its own). `panels` as _hd_panels returns
+        them.
+        """
+        gap = SCALE * GAP
+        bottom = canvas.height - gap
+        below = []
+        notices_room = NOTICES_ROOM if self.SHOWS_SPOTIFY else NO_SPOTIFY_NOTICES_ROOM
+        notices_height, _ = self._fit_notices(panels, notices_room)
+        if notices_height:
+            bottom -= SCALE * notices_height
+            below.append((panels[ClientClasses.NOTICE_BOARD.api_name], bottom, notices_height))
+            bottom -= SCALE * NOTICES_GAP
+        for panel, height in reversed(self._spotify_area(panels, SPOTIFY_HEIGHT) if self.SHOWS_SPOTIFY else []):
+            bottom -= SCALE * height
+            below.append((panel, bottom, height))
+            bottom -= gap
+        return below, bottom
+
+    @override
+    def _arrivals_height(self, panels: dict[str, Panel], canvas: Canvas) -> int:
+        arrivals_y = SCALE * GAP + self._hd_top_row_height() + SCALE * WEATHER_GAP
+        _, bottom = self._below_stops(self._hd_panels(panels), canvas)
+        return int((bottom - arrivals_y) / ARRIVALS_SCALE)
+
+    def _hd_top_row_height(self) -> int:
+        """Return the weather's row's height in screen pixels, as _draw_hd_top_row draws it."""
+        return SCALE * ENERGY_ROW_HEIGHT if self.SHOWS_ENERGY else WEATHER_HEIGHT
 
     def _draw_hd_top_row(
         self, img: Image.Image, panels: dict[str, Panel], width: int, clock_format: ClockFormat
@@ -120,11 +142,15 @@ class SpotifyHdPortraitLayout(HdPortraitLayout, SpotifyPortraitLayout):
 
 
 class GlowHdPortraitLayout(HdPortraitLayout, GlowPortraitLayout):
-    """No Spotify: the energy chart beside the compact weather, and Spotify's room goes to the stops."""
+    """No Spotify: the energy chart beside the compact weather, and Spotify's room goes to the notices and the stops."""
+
+    TWO_ROWS_HEIGHT = SECOND_ROW_FROM
 
 
 class BaseHdPortraitLayout(HdPortraitLayout, BasePortraitLayout):
-    """Neither: the full weather, and Spotify's room goes to the stops."""
+    """Neither: the full weather, and Spotify's room goes to the notices and the stops."""
+
+    TWO_ROWS_HEIGHT = SECOND_ROW_FROM
 
 
 # The first is what's drawn if no variant fits (never, while the four cover every combination).

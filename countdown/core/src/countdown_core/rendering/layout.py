@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from countdown_core.core.api_registry import ClientClasses
+from countdown_core.system_screens.message_panel import MessagePanel
 from countdown_core.utils.utils import GAP
 
 if TYPE_CHECKING:
@@ -15,6 +16,11 @@ if TYPE_CHECKING:
     from countdown_core.utils.clock import ClockFormat
 
 Box = tuple[int, int, int, int]
+
+# The stops side by side in one row.
+ONE_ROW = 2
+# A message in the notices' place (MessagePanel: its title over a line) takes no more than this.
+NOTICES_MESSAGE_HEIGHT = 70
 
 
 @dataclass(frozen=True)
@@ -40,6 +46,9 @@ class Layout(ABC):
     excludes: ClassVar[frozenset[ClientClasses]] = frozenset()
     # The departures client reads this many stops per poll and pages through the rest (ApiRegistry.show_stops).
     stops_shown: ClassVar[int] = 2
+    # With stops_shown 4 (two rows of two), the stops' height in their own pixels a second row needs. The notices
+    # come first: with less left for the stops, it's one row (stops_fitting).
+    TWO_ROWS_HEIGHT: ClassVar[int | None] = None
 
     def fits(self, available: frozenset[ClientClasses]) -> bool:
         """Whether this variant suits a device that can show the `available` APIs."""
@@ -49,15 +58,32 @@ class Layout(ABC):
     def render(self, panels: dict[str, Panel], canvas: Canvas, *, clock_format: ClockFormat = "24h") -> Frame:
         """Draw the whole screen, from a panel for every API (a MessagePanel where one has nothing)."""
 
+    def stops_fitting(self, panels: dict[str, Panel], canvas: Canvas) -> int:
+        """Say how many stops there's room for once the other panels are known.
+
+        That's stops_shown, or one row of two if the notices took the room a second row needs. `panels` as render()
+        takes them.
+        """
+        if self.TWO_ROWS_HEIGHT is None or self._arrivals_height(panels, canvas) >= self.TWO_ROWS_HEIGHT:
+            return self.stops_shown
+        return ONE_ROW
+
+    def _arrivals_height(self, panels: dict[str, Panel], canvas: Canvas) -> int:
+        """Return the stops' height in their own pixels, as render() draws them; a layout with TWO_ROWS_HEIGHT says."""
+        msg = f"{type(self).__name__} has TWO_ROWS_HEIGHT but doesn't say how tall its stops are"
+        raise NotImplementedError(msg)
+
     @staticmethod
     def _fit_notices(panels: dict[str, Panel], room: int) -> tuple[int, int]:
         """How tall to draw the notices, and how much of `room` that leaves spare for the arrivals.
 
         The notices are only as tall as their rows, up to `room` (0 leaves them out: none to show, or no notice
-        board). The spare room includes the gap above them.
+        board); a message in their place (say they're not available) as tall as it needs. The spare room includes the
+        gap above them.
         """
         panel = panels.get(ClientClasses.NOTICE_BOARD.api_name)
-        height = 0 if panel is None else panel.fitted_height(room)
+        most = min(room, NOTICES_MESSAGE_HEIGHT) if isinstance(panel, MessagePanel) else room
+        height = 0 if panel is None else panel.fitted_height(most)
         return height, room - height if height else room + GAP
 
     @staticmethod

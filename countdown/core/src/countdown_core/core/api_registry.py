@@ -147,8 +147,8 @@ class ApiRegistry:
                 source for client in self.clients.values() if client is not board for source in client.notice_sources()
             )
 
-    def poll(self) -> dict[str, Panel | None]:
-        """Read every client's data, one after another, and return the panel each gave, by API.
+    def poll(self, only: ClientClasses | None = None) -> dict[str, Panel | None]:
+        """Read every client's data (or `only` that API's), one after another, and return the panel each gave, by API.
 
         A client that can't ask Redis (a RedisError) raises it, unlogged, and the rest aren't read: the render then
         fails and writes nothing, so the screen keeps the frame it has. Any other failure (a bug) is logged, and that
@@ -157,6 +157,8 @@ class ApiRegistry:
         """
         polled: dict[str, Panel | None] = {}
         for name, client in self.clients.items():
+            if only is not None and name != only.api_name:
+                continue
             try:
                 polled[name] = client.poll()
             except RedisError:
@@ -183,11 +185,21 @@ class ApiRegistry:
 
         A failing client still counts, so its area says "Could not connect" rather than vanishing.
         """
-        return frozenset(
+        available = frozenset(
             member
             for member in ClientClasses
             if (client := self.clients.get(member.api_name)) is not None and not client.is_disabled()
         )
+        if ClientClasses.DEVELOPER not in available and self._music_is_idle():
+            # Nothing playing: the music's room goes to the stops and the notices, as if it weren't set up. (With the
+            # developer panel on, that takes the music's place instead: see rendering.place_developer_panel.)
+            available -= {ClientClasses.SPOTIFY}
+        return available
+
+    def _music_is_idle(self) -> bool:
+        """Whether the music area is folded away now (SpotifyClient.is_idle); False without a working music client."""
+        music = self.clients.get(ClientClasses.SPOTIFY.api_name)
+        return isinstance(music, SpotifyClient) and not music.is_disabled() and music.is_idle()
 
     def show_stops(self, count: int) -> None:
         """Tell the departures client how many stops the layout has room for. Call before poll()."""
