@@ -19,9 +19,9 @@ SOURCE_FONT = GOOGLE_SEMI
 TEXT_FONT = GOOGLE_REGULAR
 
 ROW_HEIGHT = 22
-ICON_SIZE = 14  # the square "!" icon a severe (black) or warning (outlined) notice has before its source
-ICON_GAP = 6  # between the icon and the source
 SOURCE_GAP = 6  # between the source and the text
+ICON_SIZE = 14  # the square "!" icon a severe (black) or warning (outlined) notice has at the start of its text
+ICON_GAP = 5  # between the icon and the text
 ICONED = frozenset({Severity.SEVERE, Severity.WARNING})  # the rest have no icon
 
 
@@ -53,11 +53,10 @@ class NoticeBoardPanel(Panel):
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
-        """Draw the style's chrome, then one notice per row: an icon if severe or warning, the source, then text.
+        """Draw the style's chrome, then a row per notice: its source, then its text (after any severity icon).
 
-        The rows are a table: when any row has an icon, every row keeps its place (blank on the rows without one), so
-        every source starts at one indent, and every text where the widest source shown ends. If there are more
-        current notices than rows, the last row says how many didn't fit.
+        The rows are a table: every source starts at the edge, and every text where the widest source shown ends. If
+        there are more current notices than rows, the last row says how many didn't fit.
         """
         style = STYLES[self.style]
         img, draw = scaled_canvas(image_width, image_height, (255, 255, 255, 255))
@@ -72,9 +71,8 @@ class NoticeBoardPanel(Panel):
         else:
             # Planned works only fill the rows left over, and don't count as "more".
             shown, more = current + planned[: rows - len(current)], 0
-        source_x = left + ICON_SIZE + ICON_GAP if any(notice.severity in ICONED for notice in shown) else left
         widest = max((round(self.source_font.getlength(notice.source)) for notice in shown), default=0)
-        columns = (source_x, source_x + widest + SOURCE_GAP, right)
+        columns = (left, left + widest + SOURCE_GAP, right)
         for i, notice in enumerate(shown):
             self._draw_row(draw, notice, style.top + i * self.row_height, columns, clock_format)
         if more:
@@ -87,21 +85,21 @@ class NoticeBoardPanel(Panel):
     ) -> None:
         """Draw `notice`'s row with its top at `y`: its source from the first x in `columns`, its text from the second.
 
-        The text is cut to end by the third. A severe or warning notice's icon ends just before its source.
+        The text is cut to end by the third. A severe or warning notice's text starts with its icon.
         """
         source_x, x, right = columns
         middle = y + self.row_height // 2
+        draw.text((source_x, middle), notice.source, "black", font=self.source_font, anchor="lm")
         if notice.severity in ICONED:
-            icon_x = source_x - ICON_GAP - ICON_SIZE
-            box = (icon_x, middle - ICON_SIZE // 2, icon_x + ICON_SIZE - 1, middle + ICON_SIZE // 2 - 1)
-            centre = ((box[0] + box[2] + 1) / 2, middle)
+            box = (x, middle - ICON_SIZE // 2, x + ICON_SIZE - 1, middle + ICON_SIZE // 2 - 1)
+            centre = (x + ICON_SIZE / 2, middle)
             if notice.severity == Severity.SEVERE:
                 draw.rectangle(box, fill="black")
                 draw.text(centre, "!", "white", font=self.source_font, anchor="mm")
             else:
                 draw.rectangle(box, outline="black", width=2)
                 draw.text(centre, "!", "black", font=self.source_font, anchor="mm")
-        draw.text((source_x, middle), notice.source, "black", font=self.source_font, anchor="lm")
+            x += ICON_SIZE + ICON_GAP
         available = right - x
         suffix = ""
         if notice.display_time is not None:
@@ -160,11 +158,11 @@ class NoticeBannerPanel(Panel):
         middle = image_height / 2
         font, source_font, icon_font = resized(TEXT_FONT, 14), resized(SOURCE_FONT, 14), resized(SOURCE_FONT, 15)
         x = 10
-        if notice.severity in ICONED:
-            draw.text((x + 3, middle), "!", "white", font=icon_font, anchor="mm")
-            x += 16
         draw.text((x, middle), notice.source, "white", font=source_font, anchor="lm")
         x += round(source_font.getlength(notice.source)) + 12
+        if notice.severity in ICONED:  # the icon starts the text, as on the board
+            draw.text((x + 3, middle), "!", "white", font=icon_font, anchor="mm")
+            x += 14
         right = image_width - 10
         if more:
             label = _("+{count} more").format(count=more)
