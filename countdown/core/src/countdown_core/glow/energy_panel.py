@@ -4,15 +4,18 @@ from datetime import datetime
 from math import ceil, floor, log10
 from typing import TYPE_CHECKING, TypedDict, override
 
-from PIL import Image, ImageDraw
-
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_, _, format_date
 from countdown_core.utils.clock import ClockFormat, format_clock
+from countdown_core.utils.scaled_draw import scaled_canvas
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, resized
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from PIL import Image
+
+    from countdown_core.utils.scaled_draw import ScaledDraw
 
 TITLE_FONT = resized(GOOGLE_SEMI, 16)
 LABEL_FONT = resized(GOOGLE_REGULAR, 12)
@@ -57,6 +60,8 @@ PAGES: list[Page] = [
 class EnergyPanel(Panel):
     """One page of Glow readings, as a bar chart with labelled axes."""
 
+    scales = True
+
     def __init__(self, readings: list[dict], page_index: int) -> None:
         """Take one page's readings, {"start": iso-string, "kwh": float} dicts; `page_index` picks the page in PAGES."""
         super().__init__()
@@ -69,9 +74,7 @@ class EnergyPanel(Panel):
 
         Bars on whole-pixel edges and 1-bit text, so there's nothing grey to dither.
         """
-        img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
-        draw = ImageDraw.Draw(img)
-        draw.fontmode = "1"
+        img, draw = scaled_canvas(image_width, image_height)
         page = PAGES[self.page_index]
 
         title = page["title"]
@@ -145,7 +148,7 @@ class EnergyPanel(Panel):
 
     @staticmethod
     def _draw_y_axis(  # noqa: PLR0913 -- a drawing helper given the chart's edges, by name
-        draw: ImageDraw.ImageDraw,
+        draw: ScaledDraw,
         ticks: list[float],
         tick_labels: list[str],
         y_of: Callable[[float], int],
@@ -166,7 +169,7 @@ class EnergyPanel(Panel):
 
     @staticmethod
     def _draw_bars(  # noqa: PLR0913 -- a drawing helper given the chart's edges, by name
-        draw: ImageDraw.ImageDraw,
+        draw: ScaledDraw,
         values: list[float],
         y_of: Callable[[float], int],
         *,
@@ -187,7 +190,7 @@ class EnergyPanel(Panel):
 
     @staticmethod
     def _draw_labels(  # noqa: PLR0913 -- a drawing helper given the chart's edges, by name
-        draw: ImageDraw.ImageDraw,
+        draw: ScaledDraw,
         labels: list[str],
         *,
         chart_left: int,

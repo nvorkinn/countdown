@@ -90,7 +90,7 @@ class ScaledDraw:
         if font is None:
             msg = "ScaledDraw.text needs a font: the default one can't be resized"
             raise ValueError(msg)
-        self._draw.text((xy[0] * self.scale, xy[1] * self.scale), text, fill, self.font(font), anchor=anchor)
+        self._draw.text((xy[0] * self.scale, xy[1] * self.scale), text, fill, font=self.font(font), anchor=anchor)
 
     def rectangle(self, box: Sequence[float], fill: Fill = None, outline: Fill = None, width: int = 1) -> None:
         """Draw a rectangle, its outline `width` pixels wide."""

@@ -1,9 +1,10 @@
 """The classic portrait dashboard on a 1872x1404 HD screen hung portrait (1404x1872).
 
-The panels draw in pixels sized for the 7.5" screens, so at this screen's density (about 227 dpi) they'd be a third
-as big. So each is drawn smaller and its pixels multiplied: the weather, Spotify and the notices twice, the stops three
-times, so the departures read from across the room and fill their room. The weather gets more height than on portrait,
-and draws itself bigger in it.
+The panels are laid out in pixels sized for the 7.5" screens, so at this screen's density (about 227 dpi) they'd be a
+third as big. So each is drawn bigger, at the screen's own resolution (see utils.scaled_draw): the stops three times
+as big, so the departures read from across the room and fill their room, and the rest twice. The full weather gets
+more height than on portrait and sizes itself to it. A panel that can't draw itself bigger (a message) has its pixels
+repeated instead.
 """
 
 from typing import TYPE_CHECKING, override

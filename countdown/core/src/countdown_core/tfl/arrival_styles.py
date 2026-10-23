@@ -137,7 +137,7 @@ def _hero_rows(panel: AbstractArrivalPanel, width: int, height: int) -> tuple[Im
     y += 50
     time_font, destination_font = fitted_font(BOLD, 14), fitted_font(MEDIUM, 14)
     for departure in rest:
-        if y + 20 > height:
+        if y + 21 > height:  # the badge's box takes the pixel row at y + 20 too
             break
         d.rounded_rectangle((0, y, 38, y + 20), 4, outline="black", width=2)
         d.text((19, y + 10), departure.badge, "black", _shrunk(departure.badge, BOLD, 13, 32), anchor="mm")
