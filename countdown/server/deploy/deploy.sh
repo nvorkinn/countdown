@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Run by release.yml's deploy-renderers job, on the runner, against the host's Docker daemon (DOCKER_HOST=ssh://...),
 # so nothing is installed on the host. Pins the providers' and the render pool's images to the release, brings them
-# up, and removes any per-screen renderer containers and volumes left on the host. Run by hand it does the same to
-# whatever daemon your docker talks to.
+# up, removes any per-screen renderer containers and volumes left on the host, and drops older image tags. Run by
+# hand it does the same to whatever daemon your docker talks to.
 # Usage: deploy.sh <tag>
 set -euo pipefail
 
@@ -48,3 +48,18 @@ if [ -n "$declared" ]; then
 else
   echo "No named volumes declared; skipping volume cleanup to preserve data" >&2
 fi
+
+# Every release pulls new tags, so drop the older ones of what was just deployed: keep the running tag and the
+# newest other one (to roll back to), remove the rest. `docker image rm` refuses an image a container still uses,
+# and only these repositories are touched, so a deploy running at once (this or auth-broker's, on the same host)
+# never loses an image it just pulled. The same cleanup as auth-broker's scripts/deploy.sh.
+IMAGES_KEPT=2
+for image in $(docker compose config --images | sort -u); do
+  repo="${image%:*}"
+  docker images "$repo" --format '{{.Repository}}:{{.Tag}}' | { grep -vxF "$image" || true; } | tail -n +"$IMAGES_KEPT" |
+    while read -r old; do
+      docker image rm "$old" >/dev/null 2>&1 && echo "Removed old image $old" || true
+    done
+done
+# Layers left untagged by the above or by re-pulled tags.
+docker image prune -f >/dev/null
