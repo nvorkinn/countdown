@@ -21,6 +21,7 @@ from countdown_core.rendering.layouts.classic_portrait import (
     SpotifyPortraitLayout,
 )
 from countdown_core.rendering.screen import Canvas
+from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.utils.utils import GAP, WEATHER_GAP
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_core.weather.weather_trmnl_panel import WeatherTrmnlPanel
@@ -70,10 +71,19 @@ class HdPortraitLayout(ClassicPortraitLayout):
             self._place_scaled(img, panel, (gap, bottom), (width // SCALE, height), clock_format)
             bottom -= gap
 
-        arrivals_size = (width // ARRIVALS_SCALE, (bottom - arrivals_y) // ARRIVALS_SCALE)
-        self._place_scaled(
-            img, panels[ClientClasses.TFL.api_name], (gap, arrivals_y), arrivals_size, clock_format, ARRIVALS_SCALE
-        )
+        arrivals = panels[ClientClasses.TFL.api_name]
+        if isinstance(arrivals, CombinedArrivalPanel):
+            # The stops draw themselves at the bigger size: crisp, not their pixels repeated.
+            self._place(
+                img,
+                arrivals.scaled(ARRIVALS_SCALE),
+                (gap, arrivals_y),
+                (width, bottom - arrivals_y),
+                clock_format=clock_format,
+            )
+        else:
+            arrivals_size = (width // ARRIVALS_SCALE, (bottom - arrivals_y) // ARRIVALS_SCALE)
+            self._place_scaled(img, arrivals, (gap, arrivals_y), arrivals_size, clock_format, ARRIVALS_SCALE)
         return Frame(img)
 
     def _draw_hd_top_row(
