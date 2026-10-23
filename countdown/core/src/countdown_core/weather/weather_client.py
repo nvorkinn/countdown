@@ -49,6 +49,7 @@ class WeatherClient(AbstractClient[WeatherSection]):
         self.store = reader.require_store()
         self.location = config.location
         self.key = location_key(config)
+        self.design = config.design
 
     @override
     def _initialise(self) -> None:
@@ -57,8 +58,12 @@ class WeatherClient(AbstractClient[WeatherSection]):
     @override
     def needs_refresh(self, new_config: WeatherSection) -> bool:
         # The key changes with the place, and when a broker starts sending it; location too, as the forecast falls
-        # back to it (see _stored_forecast).
-        return (self.key, self.location) != (location_key(new_config), new_config.location)
+        # back to it (see _stored_forecast). The design is the HD screen's weather panel's.
+        return (self.key, self.location, self.design) != (
+            location_key(new_config),
+            new_config.location,
+            new_config.design,
+        )
 
     @override
     def _update(self) -> Panel:
@@ -70,7 +75,7 @@ class WeatherClient(AbstractClient[WeatherSection]):
         if not self.key:
             return self.message_panel(N_("Needs configuring"))
         pages = weather_pages(self._stored_forecast())
-        return WeatherPanel(pages[rotation.page(len(pages))])
+        return WeatherPanel(pages[rotation.page(len(pages))], self.design, pages)
 
     def _stored_forecast(self) -> ForecastResponse:
         """Read the place's forecast from the store; raises NoStoredForecastError if there's none.

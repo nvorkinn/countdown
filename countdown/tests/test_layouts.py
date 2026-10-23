@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 from PIL import Image, ImageChops, ImageDraw, ImageOps
+from weather_factory import forecast_json, make_weather
 
 from countdown_api.models import Screen
 from countdown_core.core.api_registry import ClientClasses
@@ -25,6 +26,8 @@ from countdown_core.rendering.layouts.hd_portrait import (
     ARRIVALS_SCALE,
     HD_PORTRAIT,
     HD_PORTRAIT_LAYOUTS,
+    SCALE,
+    WEATHER_HEIGHT,
     HdPortraitLayout,
     BaseHdPortraitLayout,
     GlowHdPortraitLayout,
@@ -36,6 +39,10 @@ from countdown_core.tfl.combined_arrival_panel import COLUMN_GAP, STOP_WIDTH, Co
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
 from countdown_core.utils.scaled_draw import drawing_scale
 from countdown_core.utils.utils import GAP
+from countdown_core.weather.hd_weather_panel import HdWeatherPanel
+from countdown_core.weather.models import ForecastResponse
+from countdown_core.weather.weather_forecast import weather_pages
+from countdown_core.weather.weather_panel import WeatherPanel
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -386,3 +393,47 @@ def test_the_stops_on_an_hd_portrait_screen_are_drawn_two_and_a_half_times_as_bi
     stop_width = min(STOP_WIDTH, (int((HD_PORTRAIT.width - 4 * GAP) / ARRIVALS_SCALE) - COLUMN_GAP) // 2)
     second_stop_x = round((stop_width + COLUMN_GAP) * ARRIVALS_SCALE)
     assert (box[0], box[2]) == (2 * GAP, 2 * GAP + second_stop_x + round(stop_width * ARRIVALS_SCALE))
+
+
+def _placed(monkeypatch) -> list[tuple[Panel, tuple[int, int], float]]:
+    """Record every panel the HD layout places, how big (in its own pixels) and at which scale."""
+    placed: list[tuple[Panel, tuple[int, int], float]] = []
+    place = HdPortraitLayout._place_scaled
+
+    def record(img, panel, at, size, clock_format, scale=SCALE):  # noqa: PLR0913, PLR0917 -- _place_scaled's signature
+        placed.append((panel, size, scale))
+        place(img, panel, at, size, clock_format, scale)
+
+    monkeypatch.setattr(HdPortraitLayout, "_place_scaled", staticmethod(record))
+    return placed
+
+
+def test_the_hd_weather_spans_the_screen_in_the_configs_design_at_the_stops_scale(monkeypatch):
+    placed = _placed(monkeypatch)
+    pages = weather_pages(ForecastResponse.model_validate(forecast_json()))
+    panels = _solid_panels() | {ClientClasses.WEATHER.api_name: WeatherPanel(pages[1], "poster", pages)}
+
+    BaseHdPortraitLayout().render(panels, HD_PORTRAIT)
+
+    [(panel, size, scale)] = [entry for entry in placed if isinstance(entry[0], HdWeatherPanel)]
+    assert (panel.weather, panel.design, panel.pages) == (pages[1], "poster", tuple(pages))
+    assert scale == ARRIVALS_SCALE
+    assert size == (int((HD_PORTRAIT.width - 4 * GAP) / ARRIVALS_SCALE), int(WEATHER_HEIGHT / ARRIVALS_SCALE))
+
+
+@pytest.mark.parametrize(
+    ("layout", "weather"),
+    [
+        (BaseHdPortraitLayout(), _SolidPanel()),  # a message, not a forecast
+        (GlowHdPortraitLayout(), WeatherPanel(make_weather(), "poster")),  # half the row, beside the energy chart
+    ],
+    ids=["message", "beside the energy chart"],
+)
+def test_otherwise_the_hd_weather_is_the_portrait_panel_twice_as_big(monkeypatch, layout, weather):
+    placed = _placed(monkeypatch)
+
+    layout.render(_solid_panels() | {ClientClasses.WEATHER.api_name: weather}, HD_PORTRAIT)
+
+    assert not any(isinstance(panel, HdWeatherPanel) for panel, _size, _scale in placed)
+    [(_panel, _size, scale)] = [entry for entry in placed if entry[0] is weather]
+    assert scale == SCALE

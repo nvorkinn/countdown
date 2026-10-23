@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from weather_factory import forecast_json
 
 from countdown_core.weather.models import ForecastResponse, WeatherPeriod
-from countdown_core.weather.weather_forecast import weather_pages
+from countdown_core.weather.weather_forecast import _coming_hours, weather_pages
 
 
 def local_time(*fields: int) -> dt.datetime:
@@ -140,3 +140,25 @@ def test_an_incomplete_forecast_is_not_accepted_just_because_now_is_available():
 
     with pytest.raises(ValueError):  # noqa: PT011 -- the point is only that it fails, not how
         weather_pages(ForecastResponse.model_validate(payload))
+
+
+def test_now_carries_the_coming_hours_two_apart_for_the_hd_timeline():
+    pages = weather_pages(ForecastResponse.model_validate(forecast_json()))
+    now = pages[0]
+
+    assert now.forecast_date == dt.date(2026, 1, 15)
+    assert [hour.time for hour in now.hours] == [local_time(2026, 1, 15, hour) for hour in (13, 15, 17, 19, 21, 23)]
+    assert [hour.temperature for hour in now.hours] == [14, 14, 14, 9, 9, 9]
+    assert [hour.weather_code for hour in now.hours] == [0, 3, 0, 0, 61, 0]
+    assert [hour.is_day for hour in now.hours] == [True, True, False, False, False, False]  # sunset is 16:22
+    assert all(hour.precipitation_probability == 65 for hour in now.hours)
+    assert all(page.hours == now.hours for page in pages[1:])  # the strip is the same under every page
+
+
+def test_the_coming_hours_stop_where_the_forecast_ends():
+    payload = forecast_json()
+    payload["hourly"] = {column: values[:16] for column, values in payload["hourly"].items()}  # up to 15:00 today
+
+    hours = _coming_hours(ForecastResponse.model_validate(payload))
+
+    assert [hour.time for hour in hours] == [local_time(2026, 1, 15, 13), local_time(2026, 1, 15, 15)]

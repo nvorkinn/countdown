@@ -8,10 +8,13 @@ from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_, _, format_date
 from countdown_core.utils.scaled_draw import drawing_scale
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS, resized, truncate_to_fit
-from countdown_core.weather.models import Weather, WeatherPeriod
+from countdown_core.weather.models import Weather, WeatherDesign, WeatherPeriod
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from countdown_core.utils.clock import ClockFormat
+    from countdown_core.utils.scaled_draw import ScaledDraw
 
 FALLBACK_ICON = ")"  # "N/A"
 # A panel shorter than this, and at least INLINE_ASPECT times as wide, is drawn on one row.
@@ -21,12 +24,17 @@ WEEKEND_DAYS = 2  # Saturday and Sunday
 
 
 class WeatherPanel(Panel):
-    """One page of the weather carousel, for the classic layouts."""
+    """One page of the weather carousel, for the classic layouts.
 
-    def __init__(self, weather: Weather) -> None:
-        """`weather` is the page's readings."""
+    It carries what the other weather panels a layout may draw instead need: the HD screen's design and every page.
+    """
+
+    def __init__(self, weather: Weather, design: WeatherDesign = "columns", pages: Sequence[Weather] = ()) -> None:
+        """`weather` is the page's readings; `design` how the HD screen draws it, `pages` the whole carousel's."""
         super().__init__()
         self.weather = weather
+        self.design = design
+        self.pages = tuple(pages)
 
     scales = True
 
@@ -140,7 +148,7 @@ class WeatherPanel(Panel):
 
 
 def _draw_tabs(
-    draw: ImageDraw.ImageDraw,
+    draw: ImageDraw.ImageDraw | ScaledDraw,
     selected: WeatherPeriod,
     coord: tuple[float, float],
     width: float,
@@ -172,17 +180,7 @@ def _draw_tabs(
 
 def _caption(weather: Weather) -> str:
     if weather.period is WeatherPeriod.WEEKEND:
-        if len(weather.days) != WEEKEND_DAYS:
-            msg = "The weekend page needs Saturday and Sunday readings"
-            raise ValueError(msg)
-        first, last = weather.days
-        # Translators: a CLDR date pattern, e.g. "17 Oct". Norwegian: "d. MMM".
-        dates = (
-            f"{first.date.day}-{format_date(last.date, _('d MMM'))}"
-            if first.date.month == last.date.month
-            else f"{format_date(first.date, _('d MMM'))} - {format_date(last.date, _('d MMM'))}"
-        )
-        return _("DAYTIME HIGHS / {dates}").format(dates=dates.upper())
+        return _("DAYTIME HIGHS / {dates}").format(dates=_weekend_dates(weather).upper())
     return _(
         {
             WeatherPeriod.NOW: N_("CURRENT CONDITIONS"),
@@ -190,6 +188,18 @@ def _caption(weather: Weather) -> str:
             WeatherPeriod.TOMORROW: N_("DAYTIME HIGH"),
         }[weather.period]
     )
+
+
+def _weekend_dates(weather: Weather) -> str:
+    """Return the weekend's dates, "17-18 Oct", or "31 Oct - 1 Nov" across a month; raises without its two days."""
+    if len(weather.days) != WEEKEND_DAYS:
+        msg = "The weekend page needs Saturday and Sunday readings"
+        raise ValueError(msg)
+    first, last = weather.days
+    # Translators: a CLDR date pattern, e.g. "17 Oct". Norwegian: "d. MMM".
+    if first.date.month == last.date.month:
+        return f"{first.date.day}-{format_date(last.date, _('d MMM'))}"
+    return f"{format_date(first.date, _('d MMM'))} - {format_date(last.date, _('d MMM'))}"
 
 
 def _temperature_text(weather: Weather, decimals: int = 0) -> str:

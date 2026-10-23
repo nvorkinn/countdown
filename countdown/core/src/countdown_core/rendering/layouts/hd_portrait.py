@@ -3,8 +3,9 @@
 The panels are laid out in pixels sized for the 7.5" screens, so at this screen's density (about 227 dpi) they'd be a
 third as big. So each is drawn bigger, at the screen's own resolution (see utils.scaled_draw): the stops two and a
 half times as big, so the departures read from across the room and fill their room, and the rest twice. The full
-weather gets more height than on portrait and sizes itself to it. A panel that can't draw itself bigger (a message) has
-its pixels repeated instead.
+weather is the HD screen's own (weather.hd_weather_panel), taller than on portrait, in the config's design, at the
+stops' scale so its text is their size. A panel that can't draw itself bigger (a message) has its pixels repeated
+instead.
 """
 
 from typing import TYPE_CHECKING, override
@@ -24,8 +25,8 @@ from countdown_core.rendering.layouts.classic_portrait import (
 from countdown_core.rendering.screen import Canvas
 from countdown_core.utils.scaled_draw import drawing_at
 from countdown_core.utils.utils import GAP, WEATHER_GAP
+from countdown_core.weather.hd_weather_panel import HdWeatherPanel
 from countdown_core.weather.weather_panel import WeatherPanel
-from countdown_core.weather.weather_trmnl_panel import WeatherTrmnlPanel
 
 if TYPE_CHECKING:
     from countdown_core.core.panel import Panel
@@ -35,9 +36,9 @@ HD_PORTRAIT = Canvas(1404, 1872)
 # How many screen pixels each of a panel's takes, either way: most panels, and the stops.
 SCALE = 2
 ARRIVALS_SCALE = 2.5
-# In the panels' own pixels (at SCALE): the full weather, taller than portrait's 270, and the compact weather with the
-# energy chart beside it, taller than portrait's 185.
-WEATHER_HEIGHT = 330
+# The full weather's height, in screen pixels: taller than portrait's 270 doubled.
+WEATHER_HEIGHT = 660
+# The compact weather with the energy chart beside it, in their own pixels (at SCALE): taller than portrait's 185.
 ENERGY_ROW_HEIGHT = 230
 # The most the notices may take (at SCALE), as on portrait; the stops get the rest.
 NOTICES_ROOM = 190
@@ -86,11 +87,14 @@ class HdPortraitLayout(ClassicPortraitLayout):
         weather_panel = panels[ClientClasses.WEATHER.api_name]
         logical_width = width // SCALE
         if not self.SHOWS_ENERGY:
+            # The HD screen's own weather, at the stops' scale; a message (no weather) has its pixels doubled.
+            scale = SCALE
             if isinstance(weather_panel, WeatherPanel):
-                weather_panel = WeatherTrmnlPanel(weather_panel.weather)
-            # It sizes its own fonts from its room, so it's drawn at the screen's own pixels: crisp, not doubled.
-            self._place(img, weather_panel, (gap, gap), (width, SCALE * WEATHER_HEIGHT), clock_format=clock_format)
-            return SCALE * WEATHER_HEIGHT
+                weather_panel = HdWeatherPanel(weather_panel.weather, weather_panel.design, weather_panel.pages)
+                scale = ARRIVALS_SCALE
+            size = (int(width / scale), int(WEATHER_HEIGHT / scale))
+            self._place_scaled(img, weather_panel, (gap, gap), size, clock_format, scale)
+            return WEATHER_HEIGHT
 
         weather_width = (logical_width - WEATHER_GAP) // 2
         self._place_scaled(img, weather_panel, (gap, gap), (weather_width, ENERGY_ROW_HEIGHT), clock_format)

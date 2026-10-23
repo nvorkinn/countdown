@@ -92,29 +92,7 @@ class WeatherTrmnlPanel(Panel):
         return img
 
     def _readings(self, clock_format: ClockFormat = "24h") -> list[tuple[str, str]]:
-        w = self.weather
-        wind = (_("Wind"), f"{round(w.wind_speed)} {w.wind_speed_units} {_compass(w.wind_direction)}")
-        if w.period is WeatherPeriod.NOW:
-            return [
-                (_("Sunrise"), format_clock(w.sunrise, clock_format)),
-                (_("Sunset"), format_clock(w.sunset, clock_format)),
-                (_("Humidity"), f"{w.humidity}{w.humidity_units}"),
-                wind,
-            ]
-        readings = []
-        if w.period is WeatherPeriod.TONIGHT:
-            if w.feels_like is not None:
-                readings.append((_("Feels like"), f"{round(w.feels_like)}°"))
-        else:
-            readings.append((_("Lowest") if w.period is WeatherPeriod.WEEKEND else _("Low"), f"{round(w.low)}°"))
-        if w.precipitation_probability is not None:
-            readings.append((_("Rain"), f"{w.precipitation_probability}%"))
-        readings.append(wind)
-        if w.period is WeatherPeriod.TONIGHT:
-            readings.append((_("Humidity"), f"{w.humidity}{w.humidity_units}"))
-        elif w.period is WeatherPeriod.TOMORROW:
-            readings.append((_("Sunset"), format_clock(w.sunset, clock_format)))
-        return readings
+        return page_readings(self.weather, clock_format)
 
     def _draw_footer(
         self,
@@ -149,30 +127,7 @@ class WeatherTrmnlPanel(Panel):
                     resized(METEOCONS, max(1, round(35 * scale))),
                 )
             return
-        if w.period is WeatherPeriod.NOW:
-            upcoming, code = w.upcoming_weather_code
-            title = _(upcoming).upper()
-            detail = _(WEATHER_CODE_DESC.get(code, N_("Unknown conditions")))
-            is_day = upcoming is not Upcoming.TONIGHT
-        else:
-            if w.forecast_date is None:
-                msg = "Forecast pages require a forecast date"
-                raise ValueError(msg)
-            date = w.forecast_date
-            # Translators: a CLDR date pattern, e.g. "Friday 16 October". Norwegian: "EEEE d. MMMM".
-            title = format_date(date, _("EEEE d MMMM")).upper()
-            if w.period is WeatherPeriod.TONIGHT:
-                if w.starts_at is None or w.ends_at is None:
-                    msg = "Tonight requires an overnight time window"
-                    raise ValueError(msg)
-                title += " - " + _("OVERNIGHT")
-                detail = f"{format_clock(w.starts_at, clock_format)} - {format_clock(w.ends_at, clock_format)}"
-                code, is_day = 0, False
-            else:
-                detail = _("Sunrise {sunrise} / Sunset {sunset}").format(
-                    sunrise=format_clock(w.sunrise, clock_format), sunset=format_clock(w.sunset, clock_format)
-                )
-                code, is_day = 0, True
+        title, detail, code, is_day = page_outlook(w, clock_format)
         _draw_shrunk_to_fit(
             draw, (x, y + 228 * scale), title, GOOGLE_SEMI, space=width - 65 * scale, optimal_size=round(10 * scale)
         )
@@ -191,6 +146,62 @@ class WeatherTrmnlPanel(Panel):
             (x + width - 22 * scale, y + 244 * scale),
             resized(METEOCONS, max(1, round(36 * scale))),
         )
+
+
+def page_readings(w: Weather, clock_format: ClockFormat = "24h") -> list[tuple[str, str]]:
+    """Return the page's readings row, (label, value) each: sunrise, sunset, humidity and wind for now, and so on."""
+    wind = (_("Wind"), f"{round(w.wind_speed)} {w.wind_speed_units} {_compass(w.wind_direction)}")
+    if w.period is WeatherPeriod.NOW:
+        return [
+            (_("Sunrise"), format_clock(w.sunrise, clock_format)),
+            (_("Sunset"), format_clock(w.sunset, clock_format)),
+            (_("Humidity"), f"{w.humidity}{w.humidity_units}"),
+            wind,
+        ]
+    readings = []
+    if w.period is WeatherPeriod.TONIGHT:
+        if w.feels_like is not None:
+            readings.append((_("Feels like"), f"{round(w.feels_like)}°"))
+    else:
+        readings.append((_("Lowest") if w.period is WeatherPeriod.WEEKEND else _("Low"), f"{round(w.low)}°"))
+    if w.precipitation_probability is not None:
+        readings.append((_("Rain"), f"{w.precipitation_probability}%"))
+    readings.append(wind)
+    if w.period is WeatherPeriod.TONIGHT:
+        readings.append((_("Humidity"), f"{w.humidity}{w.humidity_units}"))
+    elif w.period is WeatherPeriod.TOMORROW:
+        readings.append((_("Sunset"), format_clock(w.sunset, clock_format)))
+    return readings
+
+
+def page_outlook(w: Weather, clock_format: ClockFormat = "24h") -> tuple[str, str, int, bool]:
+    """Return the page's footer: its title, a detail line, and the icon's weather code and whether by day.
+
+    Now: the next part of the day and its weather. Tonight: the date, overnight, and the hours. Tomorrow: the date,
+    and its sunrise and sunset. Not the weekend, whose footer is its two days (WeatherTrmnlPanel._draw_footer).
+    """
+    if w.period is WeatherPeriod.NOW:
+        upcoming, code = w.upcoming_weather_code
+        title = _(upcoming).upper()
+        detail = _(WEATHER_CODE_DESC.get(code, N_("Unknown conditions")))
+        return title, detail, code, upcoming is not Upcoming.TONIGHT
+    if w.forecast_date is None:
+        msg = "Forecast pages require a forecast date"
+        raise ValueError(msg)
+    date = w.forecast_date
+    # Translators: a CLDR date pattern, e.g. "Friday 16 October". Norwegian: "EEEE d. MMMM".
+    title = format_date(date, _("EEEE d MMMM")).upper()
+    if w.period is WeatherPeriod.TONIGHT:
+        if w.starts_at is None or w.ends_at is None:
+            msg = "Tonight requires an overnight time window"
+            raise ValueError(msg)
+        title += " - " + _("OVERNIGHT")
+        detail = f"{format_clock(w.starts_at, clock_format)} - {format_clock(w.ends_at, clock_format)}"
+        return title, detail, 0, False
+    detail = _("Sunrise {sunrise} / Sunset {sunset}").format(
+        sunrise=format_clock(w.sunrise, clock_format), sunset=format_clock(w.sunset, clock_format)
+    )
+    return title, detail, 0, True
 
 
 # Translators: compass points, for the wind direction (Norwegian: Ø for east, V for west).

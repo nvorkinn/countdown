@@ -11,19 +11,6 @@ from countdown_core.weather.weather_panel import FALLBACK_ICON, ICON_MAP, WEATHE
 from countdown_core.weather.weather_trmnl_panel import HEIGHT, WeatherTrmnlPanel, _compass
 
 
-@pytest.fixture
-def drawn_text(monkeypatch):
-    calls = []
-    original = ImageDraw.ImageDraw.text
-
-    def record(draw, xy, text, fill=None, font=None, anchor=None, **kwargs):  # noqa: PLR0913, PLR0917 -- ImageDraw.text's signature
-        calls.append((text, draw.textbbox(xy, text, font=font, anchor=anchor), font.size))
-        return original(draw, xy, text, fill=fill, font=font, anchor=anchor, **kwargs)
-
-    monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
-    return calls
-
-
 def _assert_clear_text(calls, size):
     width, height = size
     for text, (left, top, right, bottom), _ in calls:
