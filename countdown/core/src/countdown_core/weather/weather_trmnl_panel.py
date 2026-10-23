@@ -38,10 +38,11 @@ class WeatherTrmnlPanel(Panel):
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"
         w = self.weather
+        # Sized by whichever side is shorter for the 470x270 design; a wider panel spreads the rows across its width.
         scale = min(image_width / 470, image_height / HEIGHT)
-        x = (image_width - 470 * scale) / 2 + 20 * scale
+        x = 20 * scale
         y = (image_height - HEIGHT * scale) / 2
-        width = 430 * scale
+        width = image_width - 2 * x
         _draw_tabs(draw, w.period, (x, y + 11 * scale), width, scale)
         _draw_shrunk_to_fit(
             draw, (x, y + 46 * scale), _caption(w), GOOGLE_SEMI, space=width, optimal_size=round(10 * scale)
