@@ -53,8 +53,8 @@ class TwoColumnNoticeBoardPanel(HdNoticeBoardPanel):
         text_xs = [self._text_x(shown[i::COLUMNS], spans[i][0]) for i in range(COLUMNS)]
         for i, notice in enumerate(shown):
             y = style.top + (i // COLUMNS) * self.row_height
-            (start, end), text_x = spans[i % COLUMNS], text_xs[i % COLUMNS]
-            self._draw_row(draw, notice, y, (start, text_x, end), clock_format)
+            column_left, column_right = spans[i % COLUMNS]
+            self._draw_row(draw, notice, y, (column_left, text_xs[i % COLUMNS], column_right), clock_format)
         if more:
             i = len(shown)
             y = style.top + (i // COLUMNS) * self.row_height + self.row_height // 2
