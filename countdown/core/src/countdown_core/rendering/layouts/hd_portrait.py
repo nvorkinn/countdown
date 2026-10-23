@@ -86,7 +86,8 @@ class HdPortraitLayout(ClassicPortraitLayout):
         if not self.SHOWS_ENERGY:
             if isinstance(weather_panel, WeatherPanel):
                 weather_panel = WeatherTrmnlPanel(weather_panel.weather)
-            self._place_scaled(img, weather_panel, (gap, gap), (logical_width, WEATHER_HEIGHT), clock_format)
+            # It sizes its own fonts from its room, so it's drawn at the screen's own pixels: crisp, not doubled.
+            self._place(img, weather_panel, (gap, gap), (width, SCALE * WEATHER_HEIGHT), clock_format=clock_format)
             return SCALE * WEATHER_HEIGHT
 
         weather_width = (logical_width - WEATHER_GAP) // 2
