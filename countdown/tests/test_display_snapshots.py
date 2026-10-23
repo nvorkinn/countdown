@@ -1094,3 +1094,16 @@ def test_developer_panel_above_spotify_on_an_hd_portrait_screen(snapshot):
 def test_spotify_top_tracks_on_an_hd_portrait_screen(snapshot):
     img = _draw_hd_portrait(_panels(_many_route_arrivals(), spotify=_spotify_page("top", "hero")))
     snapshot.assert_matches("screen_hd_portrait_spotify_top", img)
+
+
+@pytest.mark.parametrize("design", ["timeline", "overview", "poster"])
+def test_each_other_weather_design_on_an_hd_portrait_screen(snapshot, design):
+    """The config's weather.design (columns, the default, is in every other HD test), from a whole forecast.
+
+    The overview draws every page, and the timeline the coming hours, which only a forecast has.
+    """
+    pages = weather_pages(ForecastResponse.model_validate(forecast_json()))
+    weather = WeatherPanel(pages[0], design, pages)
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes())
+    img = _draw_hd_portrait(_panels(_many_route_arrivals(), weather=weather, spotify=spotify, notices=FEW_NOTICES))
+    snapshot.assert_matches(f"screen_hd_portrait_weather_{design}", img)

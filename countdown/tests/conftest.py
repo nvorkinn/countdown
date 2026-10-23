@@ -3,7 +3,7 @@ from pathlib import Path
 
 import fakeredis
 import pytest
-from PIL import Image, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 from test_utils import highlight_diff, images_equal
 
 from countdown_core.core import rotation
@@ -68,6 +68,20 @@ def rotation_clock(monkeypatch) -> RotationClock:
     clock = RotationClock()
     monkeypatch.setattr(rotation, "now", clock.now)
     return clock
+
+
+@pytest.fixture
+def drawn_text(monkeypatch):
+    """Record every text drawn: what, its box (textbbox) in the image's pixels, and its font's size."""
+    calls = []
+    original = ImageDraw.ImageDraw.text
+
+    def record(draw, xy, text, fill=None, font=None, anchor=None, **kwargs):  # noqa: PLR0913, PLR0917 -- ImageDraw.text's signature
+        calls.append((text, draw.textbbox(xy, text, font=font, anchor=anchor), font.size))
+        return original(draw, xy, text, fill=fill, font=font, anchor=anchor, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", record)
+    return calls
 
 
 @pytest.fixture

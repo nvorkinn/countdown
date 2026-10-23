@@ -2,7 +2,7 @@
 
 import datetime as dt
 from enum import StrEnum
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -153,6 +153,21 @@ class WeatherDay(BaseModel):
     weather_code: int
 
 
+class WeatherHour(BaseModel):
+    """One of the coming hours, for the HD screen's timeline design."""
+
+    time: dt.datetime  # the location's local time, on the hour
+    temperature: float
+    weather_code: int
+    is_day: bool  # between that day's sunrise and sunset
+    precipitation_probability: int | None = None
+
+
+# How the weather is drawn on the HD screen, where it spans the whole width (the config's weather.design).
+WeatherDesign = Literal["columns", "timeline", "overview", "poster"]
+WEATHER_DESIGNS: tuple[WeatherDesign, ...] = ("columns", "timeline", "overview", "poster")
+
+
 class Weather(BaseModel):
     """The readings for one carousel page; current conditions retain their next outlook."""
 
@@ -178,3 +193,5 @@ class Weather(BaseModel):
     sunset: dt.time
     # The weather (a WMO code) expected in the next part of the day.
     upcoming_weather_code: tuple[Upcoming, int]
+    # The coming hours, two apart, as the HD screen's timeline design shows them under every page; () without them.
+    hours: tuple[WeatherHour, ...] = ()

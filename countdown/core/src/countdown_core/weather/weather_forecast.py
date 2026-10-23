@@ -2,10 +2,13 @@
 
 import datetime as dt
 
-from countdown_core.weather.models import ForecastResponse, Upcoming, Weather, WeatherDay, WeatherPeriod
+from countdown_core.weather.models import ForecastResponse, Upcoming, Weather, WeatherDay, WeatherHour, WeatherPeriod
 
 # The hour whose weather stands for the whole night, when the forecast has it.
 NIGHT_HOUR = 21
+# The coming hours the HD screen's timeline shows: this many, this many hours apart, from the next whole hour.
+TIMELINE_HOURS = 6
+TIMELINE_STEP = 2
 
 
 def weather_pages(forecast: ForecastResponse) -> tuple[Weather, ...]:
@@ -16,6 +19,7 @@ def weather_pages(forecast: ForecastResponse) -> tuple[Weather, ...]:
     tomorrow = today + dt.timedelta(days=1)
     tomorrow_index = daily.time.index(tomorrow)
     now = Weather(
+        forecast_date=today,
         temperature=current.temperature,
         weather_code=current.weather_code,
         is_day=current.is_day,
@@ -31,6 +35,7 @@ def weather_pages(forecast: ForecastResponse) -> tuple[Weather, ...]:
         sunrise=daily.sunrise[today_index].time(),
         sunset=daily.sunset[today_index].time(),
         upcoming_weather_code=_upcoming(forecast),
+        hours=_coming_hours(forecast),
     )
 
     start = max(current.time, dt.datetime.combine(today, dt.time(18)))
@@ -121,6 +126,28 @@ def weather_pages(forecast: ForecastResponse) -> tuple[Weather, ...]:
         }
     )
     return now, tonight, tomorrow_weather, weekend
+
+
+def _coming_hours(forecast: ForecastResponse) -> tuple[WeatherHour, ...]:
+    """Return the next TIMELINE_HOURS whole hours, TIMELINE_STEP apart: as many as the forecast has, in order."""
+    current, hourly, daily = forecast.current, forecast.hourly, forecast.daily
+    first = current.time.replace(minute=0, second=0, microsecond=0) + dt.timedelta(hours=1)
+    hours = []
+    for n in range(TIMELINE_HOURS):
+        at = first + dt.timedelta(hours=n * TIMELINE_STEP)
+        if at not in hourly.time or at.date() not in daily.time:
+            break
+        index, day = hourly.time.index(at), daily.time.index(at.date())
+        hours.append(
+            WeatherHour(
+                time=at,
+                temperature=hourly.temperature[index],
+                weather_code=hourly.weather_code[index],
+                is_day=daily.sunrise[day] <= at < daily.sunset[day],
+                precipitation_probability=hourly.precipitation_probability[index],
+            )
+        )
+    return tuple(hours)
 
 
 def _rain_probability(values: list[int | None]) -> int | None:

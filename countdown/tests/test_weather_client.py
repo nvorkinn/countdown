@@ -55,7 +55,8 @@ def test_update_reads_the_locations_forecast_from_the_store(store, reads):
 
     panel = asyncio.run(make_client().update())
 
-    assert panel.weather == Weather(
+    assert panel.weather.model_copy(update={"hours": ()}) == Weather(
+        forecast_date=dt.date(2026, 1, 15),
         temperature=14.2,
         weather_code=2,
         is_day=True,
@@ -72,6 +73,7 @@ def test_update_reads_the_locations_forecast_from_the_store(store, reads):
         sunset=dt.time(16, 22),
         upcoming_weather_code=(Upcoming.TONIGHT, 61),
     )
+    assert [hour.time.hour for hour in panel.weather.hours] == [13, 15, 17, 19, 21, 23]  # see test_weather_forecast
     assert reads == [keys.weather("London")]
 
 
@@ -285,3 +287,22 @@ def test_needs_refresh_when_the_key_changes_or_the_broker_starts_sending_one():
     assert client.needs_refresh(weather_section("London", "london-ca-6058560"))  # London, Ontario
     assert client.needs_refresh(weather_section("London"))
     assert make_client().needs_refresh(weather_section("London", LONDON))
+
+
+def test_needs_refresh_when_the_hd_screens_weather_design_changes():
+    client = WeatherClient(TEST_DEVICE_ID, WeatherSection(location="London", key=LONDON, design="columns"))
+
+    assert not client.needs_refresh(WeatherSection(location="London", key=LONDON, design="columns"))
+    assert client.needs_refresh(WeatherSection(location="London", key=LONDON, design="timeline"))
+
+
+def test_the_panel_carries_the_configs_design_and_every_page(store):
+    put_forecast(store)
+    client = WeatherClient(TEST_DEVICE_ID, WeatherSection(location="London", key=LONDON, design="overview"))
+
+    panel = asyncio.run(client.update())
+
+    assert panel.design == "overview"
+    assert [page.period for page in panel.pages] == list(WeatherPeriod)
+    assert panel.weather in panel.pages
+    assert make_client().design == "columns"

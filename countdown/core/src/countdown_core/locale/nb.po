@@ -29,6 +29,10 @@ msgstr "+{n} til"
 msgid "12 months"
 msgstr "12 måneder"
 
+#, python-brace-format
+msgid "{percent}% rain"
+msgstr "{percent} % regn"
+
 msgid "4 weeks"
 msgstr "4 uker"
 
@@ -176,6 +180,9 @@ msgstr "Langfredag"
 
 msgid "HIGH"
 msgstr "HØY"
+
+msgid "High"
+msgstr "Høy"
 
 msgid "Heavy freezing rain"
 msgstr "Kraftig underkjølt regn"
