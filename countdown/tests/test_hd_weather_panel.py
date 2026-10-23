@@ -1,6 +1,5 @@
-from itertools import combinations
-
 import pytest
+from test_utils import assert_text_inside_and_apart
 from weather_factory import forecast_json, make_weather
 
 from countdown_core.rendering.layouts.hd_portrait import ARRIVALS_SCALE, HD_PORTRAIT, SCALE, WEATHER_HEIGHT
@@ -23,17 +22,6 @@ def _render(panel: HdWeatherPanel, clock_format="24h"):
         return panel.render(*SIZE, clock_format=clock_format)
 
 
-def _assert_text_inside_and_apart(calls, size):
-    width, height = size
-    for text, (left, top, right, bottom), _ in calls:
-        assert 0 <= left < right <= width, text
-        assert 0 <= top < bottom <= height, text
-    for first, second in combinations(calls, 2):
-        _, (left_a, top_a, right_a, bottom_a), _ = first
-        _, (left_b, top_b, right_b, bottom_b), _ = second
-        assert right_a <= left_b or right_b <= left_a or bottom_a <= top_b or bottom_b <= top_a, (first, second)
-
-
 def test_every_design_in_the_contract_is_drawn():
     assert set(DESIGNS) == set(WEATHER_DESIGNS)
 
@@ -54,7 +42,7 @@ def test_each_design_fills_the_hd_weathers_room_with_no_text_cut_off_or_on_top_o
 
     assert img.size == DRAWN_SIZE
     assert drawn_text, "nothing was drawn"
-    _assert_text_inside_and_apart(drawn_text, img.size)
+    assert_text_inside_and_apart(drawn_text, img.size)
 
 
 def test_the_overview_draws_every_page_at_once(drawn_text):

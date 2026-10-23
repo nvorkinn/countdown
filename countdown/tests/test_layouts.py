@@ -11,7 +11,7 @@ from countdown_core.core.api_registry import ClientClasses
 from countdown_core.core.panel import Panel
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_panel import NoticeBoardPanel
+from countdown_core.notices.notice_board_panel import HdNoticeBoardPanel, NoticeBoardPanel
 from countdown_core.rendering import LAYOUTS, to_native
 from countdown_core.rendering.layout import Box, Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLayout, SpotifyGlowLayout, SpotifyLayout
@@ -22,10 +22,12 @@ from countdown_core.rendering.layouts.classic_portrait import (
     SpotifyGlowPortraitLayout,
     SpotifyPortraitLayout,
 )
+from countdown_core.rendering.layouts.hd_portrait import SPOTIFY_HEIGHT as HD_SPOTIFY_HEIGHT
 from countdown_core.rendering.layouts.hd_portrait import (
     ARRIVALS_SCALE,
     HD_PORTRAIT,
     HD_PORTRAIT_LAYOUTS,
+    NOTICES_GAP,
     SCALE,
     WEATHER_HEIGHT,
     HdPortraitLayout,
@@ -39,6 +41,8 @@ from countdown_core.tfl.combined_arrival_panel import COLUMN_GAP, STOP_WIDTH, Co
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
 from countdown_core.utils.scaled_draw import drawing_scale
 from countdown_core.utils.utils import GAP
+from countdown_core.spotify.models import Queue
+from countdown_core.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel
 from countdown_core.weather.hd_weather_panel import HdWeatherPanel
 from countdown_core.weather.models import ForecastResponse
 from countdown_core.weather.weather_forecast import weather_pages
@@ -395,13 +399,16 @@ def test_the_stops_on_an_hd_portrait_screen_are_drawn_two_and_a_half_times_as_bi
     assert (box[0], box[2]) == (2 * GAP, 2 * GAP + second_stop_x + round(stop_width * ARRIVALS_SCALE))
 
 
-def _placed(monkeypatch) -> list[tuple[Panel, tuple[int, int], float]]:
-    """Record every panel the HD layout places, how big (in its own pixels) and at which scale."""
-    placed: list[tuple[Panel, tuple[int, int], float]] = []
+Placed = tuple[Panel, tuple[int, int], tuple[int, int], float]
+
+
+def _placed(monkeypatch) -> list[Placed]:
+    """Record every panel the HD layout places: where (in screen pixels), how big (in its own) and at which scale."""
+    placed: list[Placed] = []
     place = HdPortraitLayout._place_scaled
 
     def record(img, panel, at, size, clock_format, scale=SCALE):  # noqa: PLR0913, PLR0917 -- _place_scaled's signature
-        placed.append((panel, size, scale))
+        placed.append((panel, at, size, scale))
         place(img, panel, at, size, clock_format, scale)
 
     monkeypatch.setattr(HdPortraitLayout, "_place_scaled", staticmethod(record))
@@ -415,7 +422,7 @@ def test_the_hd_weather_spans_the_screen_in_the_configs_design_at_the_stops_scal
 
     BaseHdPortraitLayout().render(panels, HD_PORTRAIT)
 
-    [(panel, size, scale)] = [entry for entry in placed if isinstance(entry[0], HdWeatherPanel)]
+    [(panel, _at, size, scale)] = [entry for entry in placed if isinstance(entry[0], HdWeatherPanel)]
     assert (panel.weather, panel.design, panel.pages) == (pages[1], "poster", tuple(pages))
     assert scale == ARRIVALS_SCALE
     assert size == (int((HD_PORTRAIT.width - 4 * GAP) / ARRIVALS_SCALE), int(WEATHER_HEIGHT / ARRIVALS_SCALE))
@@ -434,6 +441,39 @@ def test_otherwise_the_hd_weather_is_the_portrait_panel_twice_as_big(monkeypatch
 
     layout.render(_solid_panels() | {ClientClasses.WEATHER.api_name: weather}, HD_PORTRAIT)
 
-    assert not any(isinstance(panel, HdWeatherPanel) for panel, _size, _scale in placed)
-    [(_panel, _size, scale)] = [entry for entry in placed if entry[0] is weather]
+    assert not any(isinstance(panel, HdWeatherPanel) for panel, _at, _size, _scale in placed)
+    [(_panel, _at, _size, scale)] = [entry for entry in placed if entry[0] is weather]
     assert scale == SCALE
+
+
+def _queue() -> Queue:
+    track = {"name": "A Song", "artists": [{"name": "An Artist"}], "album": {"name": "An Album", "images": []}}
+    return Queue.model_validate({"currently_playing": {**track, "duration_ms": 1}, "queue": []})
+
+
+def test_the_hd_screen_draws_spotifys_now_page_wide_and_the_notice_board_as_a_table(monkeypatch):
+    placed = _placed(monkeypatch)
+    spotify, notices = SpotifyPanel(_queue(), "card"), _notices(2)
+    panels = _solid_panels() | {ClientClasses.SPOTIFY.api_name: spotify, ClientClasses.NOTICE_BOARD.api_name: notices}
+
+    SpotifyHdPortraitLayout().render(panels, HD_PORTRAIT)
+
+    [(hd_spotify, spotify_at, spotify_size, _)] = [entry for entry in placed if isinstance(entry[0], HdSpotifyPanel)]
+    [(hd_notices, notices_at, _, _)] = [entry for entry in placed if isinstance(entry[0], HdNoticeBoardPanel)]
+    assert (hd_spotify.queue, hd_spotify.style) == (spotify.queue, "card")
+    assert spotify_size[1] == HD_SPOTIFY_HEIGHT
+    assert (hd_notices.notices, hd_notices.style) == (notices.notices, notices.style)
+    assert notices_at[1] == spotify_at[1] + SCALE * (HD_SPOTIFY_HEIGHT + NOTICES_GAP)  # set apart by a bigger gap
+    assert panels[ClientClasses.SPOTIFY.api_name] is spotify  # the panels handed in are left as they were
+
+
+def test_anything_else_in_spotifys_and_the_notices_areas_is_drawn_as_it_is(monkeypatch):
+    placed = _placed(monkeypatch)
+    panels = _solid_panels() | {ClientClasses.NOTICE_BOARD.api_name: _FittedPanel(40)}
+
+    SpotifyHdPortraitLayout().render(panels, HD_PORTRAIT)
+
+    assert not any(isinstance(panel, HdSpotifyPanel | HdNoticeBoardPanel) for panel, *_ in placed)
+    assert {panels[ClientClasses.SPOTIFY.api_name], panels[ClientClasses.NOTICE_BOARD.api_name]} <= {
+        panel for panel, *_ in placed
+    }
