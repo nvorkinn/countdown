@@ -14,6 +14,11 @@ from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC
 from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
 from countdown_core.rendering.layouts.hd_landscape import HD_LANDSCAPE_LAYOUTS
+from countdown_core.rendering.layouts.hd_landscape_board import HD_LANDSCAPE_BOARD_LAYOUTS
+from countdown_core.rendering.layouts.hd_landscape_column import HD_LANDSCAPE_COLUMN_LAYOUTS
+from countdown_core.rendering.layouts.hd_landscape_focus import HD_LANDSCAPE_FOCUS_LAYOUTS
+from countdown_core.rendering.layouts.hd_landscape_newspaper import HD_LANDSCAPE_NEWSPAPER_LAYOUTS
+from countdown_core.rendering.layouts.hd_landscape_pages import HD_LANDSCAPE_PAGES_LAYOUTS
 from countdown_core.rendering.layouts.hd_portrait import HD_PORTRAIT_LAYOUTS
 from countdown_core.rendering.layouts.hd_portrait_designs import HD_PORTRAIT_DESIGNS
 from countdown_core.rendering.registry import LayoutRegistry
@@ -31,8 +36,20 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Each canvas's first is its default: on the HD screen hung portrait, the classic layout, before its other designs.
-LAYOUTS = LayoutRegistry(CLASSIC + CLASSIC_PORTRAIT + HD_PORTRAIT_LAYOUTS + HD_PORTRAIT_DESIGNS + HD_LANDSCAPE_LAYOUTS)
+# Each canvas's first is its default: on the HD screen, the classic layout hung portrait and the sidebar hung
+# landscape, each before its other designs (in the order the config page offers them).
+LAYOUTS = LayoutRegistry(
+    CLASSIC
+    + CLASSIC_PORTRAIT
+    + HD_PORTRAIT_LAYOUTS
+    + HD_PORTRAIT_DESIGNS
+    + HD_LANDSCAPE_LAYOUTS
+    + HD_LANDSCAPE_BOARD_LAYOUTS
+    + HD_LANDSCAPE_COLUMN_LAYOUTS
+    + HD_LANDSCAPE_FOCUS_LAYOUTS
+    + HD_LANDSCAPE_NEWSPAPER_LAYOUTS
+    + HD_LANDSCAPE_PAGES_LAYOUTS
+)
 
 
 def layout_for(screen: Screen, available: frozenset[ClientClasses]) -> tuple[Layout, Canvas]:

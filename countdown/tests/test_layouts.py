@@ -12,7 +12,7 @@ from countdown_core.core.panel import Panel
 from countdown_core.glow.energy_panel import EnergyPanel
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_panel import HdNoticeBoardPanel, NoticeBoardPanel
-from countdown_core.rendering import LAYOUTS, to_native
+from countdown_core.rendering import LAYOUTS, layout_for, to_native
 from countdown_core.rendering.layout import Box, Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLayout, SpotifyGlowLayout, SpotifyLayout
 from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
@@ -585,6 +585,23 @@ def test_an_hd_landscape_screen_gets_the_sidebar_layout(unavailable, expected):
     layout = LAYOUTS.select(HD_LANDSCAPE, None, EVERYTHING - unavailable)
     assert type(layout) is expected
     assert layout.layout_id == "sidebar"
+
+
+def test_an_hd_landscape_screen_offers_the_sidebar_first_then_its_other_designs():
+    assert LAYOUTS.layout_ids(HD_LANDSCAPE) == ["sidebar", "board", "column", "focus", "newspaper", "pages"]
+
+
+@pytest.mark.parametrize("layout_id", ["board", "column", "focus", "newspaper", "pages"])
+def test_the_config_picks_each_hd_landscape_design(layout_id):
+    screen = Screen(orientation="horizontal", width=1872, height=1404, format="png", layout=layout_id)
+    layout, canvas = layout_for(screen, EVERYTHING)
+    assert (layout.layout_id, canvas) == (layout_id, HD_LANDSCAPE)
+
+
+@pytest.mark.parametrize("layout_id", ["masthead", "lockscreen", "timeline", "classic"])
+def test_a_portrait_only_layout_on_an_hd_landscape_screen_gets_the_sidebar(layout_id):
+    screen = Screen(orientation="horizontal", width=1872, height=1404, format="png", layout=layout_id)
+    assert layout_for(screen, EVERYTHING)[0].layout_id == "sidebar"
 
 
 def test_an_hd_landscape_layout_draws_an_hd_frame_as_the_panel_takes_it():
