@@ -59,3 +59,29 @@ def test_the_hd_boards_rows_that_dont_fit_are_counted_on_the_last_one(drawn_text
     texts = [text for text, _box, _size in drawn_text]
     assert [text for text in texts if text.startswith("Notice ")] == ["Notice 0", "Notice 1"]
     assert "+4 more" in texts
+
+
+@pytest.mark.parametrize("board", [NoticeBoardPanel, HdNoticeBoardPanel])
+def test_a_row_starts_with_its_source_and_no_marker(board, drawn_text):
+    img = board(NOTICES).render(692, board(NOTICES).fitted_height(190))
+
+    texts = [text for text, _box, _size in drawn_text]
+    assert "!" not in texts
+    sources = {text: box for text, box, _size in drawn_text if text in {"Met Office", "Circle", "TfL"}}
+    # An untagged source starts at the edge; a severe or warning one just inside its tag.
+    assert sources["Circle"][0] < sources["TfL"][0] == sources["Met Office"][0] < 15
+    assert_text_inside_and_apart(drawn_text, img.size)
+
+
+def test_severe_and_warning_sources_are_tagged_black_and_outlined():
+    board = NoticeBoardPanel(NOTICES)
+    img = board.render(470, board.fitted_height(190)).convert("L")
+    top = STYLES["hero"].top
+
+    def black_share(row: int) -> float:
+        y = top + row * ROW_HEIGHT
+        tile = img.crop((0, y + 4, 30, y + ROW_HEIGHT - 4))
+        return sum(tile.histogram()[:128]) / (tile.width * tile.height)
+
+    severe, info, warning = (black_share(row) for row in range(3))
+    assert severe > warning > info
