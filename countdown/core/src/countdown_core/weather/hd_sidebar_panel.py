@@ -65,8 +65,7 @@ class HdSidebarPanel(Panel):
         _fitted(d, (left, 110), format_date(now.date(), _("EEEE d MMMM")), GOOGLE_REGULAR, 18, space, "ls", "white")
         d.line((left, 132, right, 132), fill="white", width=1)
 
-        pages = {page.period: page for page in self.pages}
-        current = pages.get(WeatherPeriod.NOW, self.pages[0] if self.pages else None)
+        current = current_page(self.pages)
         if current is None:
             if self.message is not None:
                 title, text = self.message
@@ -79,11 +78,7 @@ class HdSidebarPanel(Panel):
         _fitted(d, (left, 394), _condition(current), GOOGLE_REGULAR, 22, space, "ls", "white")
         _draw_readings(d, current, (left, right), clock_format)
 
-        rows = [_row(page) for period in LATER if (page := pages.get(period)) is not None]
-        if not rows and current.period is WeatherPeriod.NOW:
-            # A lone page (no forecast's other pages): what it says comes next.
-            title, detail, code, is_day = page_outlook(current, clock_format)
-            rows = [(title, detail, code, is_day)]
+        rows = later_rows(self.pages, clock_format)
         if rows:
             d.line((left, PAGES_TOP - 14, right, PAGES_TOP - 14), fill="white", width=1)
         y = PAGES_TOP
@@ -98,15 +93,40 @@ class HdSidebarPanel(Panel):
 def _draw_readings(d: ScaledDraw, w: Weather, span: tuple[float, float], clock_format: ClockFormat) -> None:
     """Draw the page's readings a row each, the label on the left and the value against the right edge."""
     left, right = span
-    # The day's high and low on one row, then the chance of rain; of the page's own readings, the sunset and the wind.
-    readings = [(_("High / Low"), f"{w.high:.0f}° / {w.low:.0f}°")]
-    if w.precipitation_probability is not None:
-        readings.append((_("Rain"), f"{w.precipitation_probability}%"))
-    readings += [reading for i, reading in enumerate(page_readings(w, clock_format)) if i in {1, 3}]
-    for i, (label, value) in enumerate(readings):
+    for i, (label, value) in enumerate(readings(w, clock_format)):
         y = READINGS_TOP + i * READING_STEP
         _text(d, (left, y), label.upper(), GOOGLE_SEMI, 12, "ls", "white")
         _fitted(d, (right, y), value, GOOGLE_REGULAR, 17, (right - left) / 2, "rs", "white")
+
+
+def current_page(pages: Sequence[Weather]) -> Weather | None:
+    """Return the page with the weather now (else the first), or None without a forecast."""
+    return next((page for page in pages if page.period is WeatherPeriod.NOW), pages[0] if pages else None)
+
+
+def readings(w: Weather, clock_format: ClockFormat) -> list[tuple[str, str]]:
+    """Return the readings the HD screen's weather shows beside the current conditions, (label, value) each.
+
+    The day's high and low on one row, then the chance of rain; of the page's own readings, the sunset and the wind.
+    """
+    found = [(_("High / Low"), f"{w.high:.0f}° / {w.low:.0f}°")]
+    if w.precipitation_probability is not None:
+        found.append((_("Rain"), f"{w.precipitation_probability}%"))
+    return found + [reading for i, reading in enumerate(page_readings(w, clock_format)) if i in {1, 3}]
+
+
+def later_rows(pages: Sequence[Weather], clock_format: ClockFormat) -> list[Row]:
+    """Return a row for each of the forecast's pages after now, in the carousel's order.
+
+    A lone page (no forecast's other pages) has what it says comes next instead.
+    """
+    by_period = {page.period: page for page in pages}
+    rows = [_row(page) for period in LATER if (page := by_period.get(period)) is not None]
+    current = current_page(pages)
+    if not rows and current is not None and current.period is WeatherPeriod.NOW:
+        title, detail, code, is_day = page_outlook(current, clock_format)
+        rows = [(title, detail, code, is_day)]
+    return rows
 
 
 def _row(page: Weather) -> Row:

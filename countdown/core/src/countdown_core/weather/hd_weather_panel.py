@@ -303,10 +303,12 @@ def _temperature(  # noqa: PLR0913, PLR0917 -- a drawing helper: whose temperatu
     space: float | None = None,
     base: ImageFont.FreeTypeFont = GOOGLE_REGULAR,
     fill: Fill = "black",
+    *,
+    right: bool = False,
 ) -> float:
     """Draw the page's temperature on its baseline at `xy`, the unit small beside it, both shrunk to fit `space`.
 
-    Returns how wide the pair is.
+    `xy` is where the pair starts, or with `right` where it ends. Returns how wide the pair is.
     """
     number, units = _temperature_text(w), w.temperature_units
     while True:
@@ -317,8 +319,9 @@ def _temperature(  # noqa: PLR0913, PLR0917 -- a drawing helper: whose temperatu
         if space is None or width <= space or size <= 1:
             break
         size -= 1
-    d.text(xy, number, fill, number_font, "ls")
-    d.text((xy[0] + number_width + gap, xy[1]), units, fill, unit_font, "ls")
+    x = xy[0] - width if right else xy[0]
+    d.text((x, xy[1]), number, fill, number_font, "ls")
+    d.text((x + number_width + gap, xy[1]), units, fill, unit_font, "ls")
     return width
 
 

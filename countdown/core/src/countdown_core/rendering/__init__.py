@@ -15,6 +15,7 @@ from countdown_core.rendering.layouts.classic import CLASSIC
 from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
 from countdown_core.rendering.layouts.hd_landscape import HD_LANDSCAPE_LAYOUTS
 from countdown_core.rendering.layouts.hd_portrait import HD_PORTRAIT_LAYOUTS
+from countdown_core.rendering.layouts.hd_portrait_designs import HD_PORTRAIT_DESIGNS
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import Canvas, canvas_for, native_size
 from countdown_core.spotify.spotify_panel import SpotifyPanel
@@ -30,7 +31,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-LAYOUTS = LayoutRegistry(CLASSIC + CLASSIC_PORTRAIT + HD_PORTRAIT_LAYOUTS + HD_LANDSCAPE_LAYOUTS)
+# Each canvas's first is its default: on the HD screen hung portrait, the classic layout, before its other designs.
+LAYOUTS = LayoutRegistry(CLASSIC + CLASSIC_PORTRAIT + HD_PORTRAIT_LAYOUTS + HD_PORTRAIT_DESIGNS + HD_LANDSCAPE_LAYOUTS)
 
 
 def layout_for(screen: Screen, available: frozenset[ClientClasses]) -> tuple[Layout, Canvas]:
@@ -42,8 +44,8 @@ def layout_for(screen: Screen, available: frozenset[ClientClasses]) -> tuple[Lay
     if ClientClasses.DEVELOPER in available:
         # It's drawn in Spotify's area (see place_developer_panel), so the layouts lay that out.
         available |= {ClientClasses.SPOTIFY}
-    # No layout choice in the config yet (the contract has no field for it): the canvas's first.
-    return LAYOUTS.select(canvas, None, available), canvas
+    # The config's choice (screen.layout), else the canvas's first; one the canvas doesn't have gets its first too.
+    return LAYOUTS.select(canvas, screen.layout, available), canvas
 
 
 def render(
