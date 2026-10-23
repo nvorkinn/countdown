@@ -37,7 +37,7 @@ class MessagePanel(Panel):
         if self.logo:
             draw.text((image_width / 2, 5), _(self.message), "black", font=UBUNTU_BOLD, anchor="ma")
             logo = Image.open(IMAGES_DIR / self.logo)
-            logo.thumbnail((image_width - 10, image_height - 30))
+            logo.thumbnail((image_width - 10, image_height - 30), reducing_gap=None)  # one pass, as spotify_panel
             img.paste(logo, (floor((image_width - logo.size[0]) / 2), 25), logo)
         else:
             center_x, center_y = image_width / 2, image_height / 2

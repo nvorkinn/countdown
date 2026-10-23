@@ -120,7 +120,9 @@ def _album_art(art: bytes | None, height: int) -> Image.Image:
         except (OSError, ValueError, Image.DecompressionBombError) as e:
             logger.warning("Couldn't open the album's cover (%s); drawing the page without it", e)
         else:
-            cover.thumbnail((height, height))
+            # One bicubic pass, as before Pillow 13 began reducing RGBA in steps first (a softer cover, whose
+            # white areas then dither to speckle).
+            cover.thumbnail((height, height), reducing_gap=None)
             return cover
     return Image.new("RGBA", (0, height))
 
