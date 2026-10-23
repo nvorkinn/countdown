@@ -1052,3 +1052,40 @@ def test_a_release_as_it_goes(snapshot, style):
             panel = DeveloperPanel(summary, style, now=RELEASE_NOW).render(width, 120)
             img.paste(panel, (x, i * 130), panel)
     snapshot.assert_matches(f"developer_release_{style}_as_it_goes", img)
+
+
+# A 1872x1404 HD screen hung portrait: the portrait layout drawn at half the size and doubled, the stops taller.
+HD_VERTICAL = Screen(orientation="vertical", width=1872, height=1404, format="png")
+
+
+def _draw_hd_portrait(panels: dict[str, Panel], available: frozenset[ClientClasses] = NO_GLOWMARKT) -> Image.Image:
+    img = draw_screen(panels, HD_VERTICAL, available)
+    assert img.size == (1404, 1872)
+    return img
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_every_panel_in_one_style_on_an_hd_portrait_screen(snapshot, style):
+    """Top to bottom: the weather and two stops across the whole width, Spotify, the notices."""
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, style, art=_album_art_bytes())
+    notices = NoticeBoardPanel(FEW_NOTICES.notices, style)
+    img = _draw_hd_portrait(_panels(_many_route_arrivals(style), spotify=spotify, notices=notices))
+    snapshot.assert_matches(f"screen_hd_portrait_style_{style}", img)
+
+
+def test_energy_chart_beside_the_weather_on_an_hd_portrait_screen(snapshot):
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, art=_cover_art_bytes())
+    img = _draw_hd_portrait(_panels(_many_route_arrivals(), spotify=spotify, notices=FEW_NOTICES), EVERYTHING)
+    snapshot.assert_matches("screen_hd_portrait_energy", img)
+
+
+def test_hd_portrait_screen_without_spotify(snapshot):
+    """Spotify's room goes to the stops and the notices."""
+    img = _draw_hd_portrait(_panels(_many_route_arrivals()), NO_GLOWMARKT - {ClientClasses.SPOTIFY})
+    snapshot.assert_matches("screen_hd_portrait_no_spotify", img)
+
+
+def test_developer_panel_above_spotify_on_an_hd_portrait_screen(snapshot):
+    panels = _above_spotify(_developer_panels(DeveloperPanel(DEVELOPER_SUMMARY), "hero"), "hero")
+    img = _draw_hd_portrait(panels, DEVELOPER_AND_SPOTIFY - {ClientClasses.GLOWMARKT})
+    snapshot.assert_matches("screen_hd_portrait_developer_above_spotify", img)

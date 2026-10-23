@@ -13,6 +13,7 @@ from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.rendering.layout import Frame, Layout
 from countdown_core.rendering.layouts.classic import CLASSIC
 from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
+from countdown_core.rendering.layouts.hd_portrait import HD_PORTRAIT_LAYOUTS
 from countdown_core.rendering.registry import LayoutRegistry
 from countdown_core.rendering.screen import Canvas, canvas_for, native_size
 from countdown_core.spotify.spotify_panel import SpotifyPanel
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-LAYOUTS = LayoutRegistry(CLASSIC + CLASSIC_PORTRAIT)
+LAYOUTS = LayoutRegistry(CLASSIC + CLASSIC_PORTRAIT + HD_PORTRAIT_LAYOUTS)
 
 
 def layout_for(screen: Screen, available: frozenset[ClientClasses]) -> tuple[Layout, Canvas]:

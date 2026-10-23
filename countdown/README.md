@@ -45,11 +45,13 @@ disruptions and, for a Norwegian postcode, MET Norway's warnings. Where a postco
 adds nothing, and if every source has nothing the board says "Not available" rather than "All clear".
 
 **Layout** (`rendering/`). `LAYOUTS` holds layouts by canvas (800x480 landscape or 480x800 portrait, as the screen is
-hung), each with a variant per combination of enabled APIs. The developer panel has no area of its own
+hung, or 1404x1872 for a 1872x1404 HD screen hung portrait), each with a variant per combination of enabled APIs. The
+HD layout is the portrait one drawn at half the size with taller stops, each pixel then doubled, so text is as big as
+on the 7.5" screens. The developer panel has no area of its own
 (`place_developer_panel`): while Spotify shows a song it's a strip above it (open PRs and builds in one row, or a
 release's jobs in a row of boxes), and otherwise it takes Spotify's whole area.
 
-**The frame.** Frames are drawn upright; a portrait frame is turned a quarter into the panel's native 800x480
+**The frame.** Frames are drawn upright; a portrait frame is turned a quarter into the panel's native landscape picture
 (`rendering.to_native`), then encoded in the screen's `format` (`rendering.encoding`): `mono-1bpp-packed` is its raw 1-bit buffer, `png` a PNG image. If every API only has a
 message to show, a "Nothing to show yet" screen replaces the dashboard. Partial refresh is the firmware's business: the
 server always sends the whole frame.

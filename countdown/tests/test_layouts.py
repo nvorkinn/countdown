@@ -21,7 +21,17 @@ from countdown_core.rendering.layouts.classic_portrait import (
     SpotifyGlowPortraitLayout,
     SpotifyPortraitLayout,
 )
+from countdown_core.rendering.layouts.hd_portrait import (
+    HD_PORTRAIT,
+    HD_PORTRAIT_LAYOUTS,
+    BaseHdPortraitLayout,
+    GlowHdPortraitLayout,
+    SpotifyGlowHdPortraitLayout,
+    SpotifyHdPortraitLayout,
+)
 from countdown_core.rendering.registry import LayoutRegistry
+from countdown_core.rendering.layouts.hd_portrait import STOP_WIDTH as HD_STOP_WIDTH
+from countdown_core.tfl.combined_arrival_panel import COLUMN_GAP, STOP_WIDTH, CombinedArrivalPanel
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
 from countdown_core.utils.utils import GAP
 from typing import TYPE_CHECKING
@@ -76,6 +86,7 @@ def test_only_the_variant_without_spotify_or_glowmarkt_shows_four_stops():
         # that is doesn't matter: the orientation decides which side is long.
         ("horizontal", 480, 800, Canvas(800, 480)),
         ("vertical", 480, 800, Canvas(480, 800)),
+        ("vertical", 1872, 1404, Canvas(1404, 1872)),
     ],
 )
 def test_the_canvas_is_the_screen_as_hung(orientation, width, height, expected):
@@ -102,6 +113,52 @@ def test_a_portrait_layout_draws_a_portrait_frame():
     panels = _solid_panels()
     for layout in CLASSIC_PORTRAIT:
         assert layout.render(panels, PORTRAIT).image.size == PORTRAIT.size
+
+
+@pytest.mark.parametrize(
+    ("unavailable", "expected"),
+    [
+        (set(), SpotifyGlowHdPortraitLayout),
+        ({ClientClasses.GLOWMARKT}, SpotifyHdPortraitLayout),
+        ({ClientClasses.SPOTIFY}, GlowHdPortraitLayout),
+        ({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT}, BaseHdPortraitLayout),
+    ],
+)
+def test_an_hd_portrait_screen_gets_the_classic_layout_stacked(unavailable, expected):
+    assert LAYOUTS.drawable(HD_PORTRAIT) == HD_PORTRAIT
+    layout = LAYOUTS.select(HD_PORTRAIT, None, EVERYTHING - unavailable)
+    assert type(layout) is expected
+    assert layout.stops_shown == 2
+
+
+def test_an_hd_portrait_layout_draws_an_hd_frame_of_doubled_pixels():
+    """The portrait layout at half the size, each pixel a 2x2 block: so the panels' text is as big as on 7.5"."""
+    panels = _solid_panels()
+    for layout in HD_PORTRAIT_LAYOUTS:
+        image = layout.render(panels, HD_PORTRAIT).image
+        assert image.size == HD_PORTRAIT.size
+        half = image.resize((HD_PORTRAIT.width // 2, HD_PORTRAIT.height // 2), Image.Resampling.NEAREST)
+        assert half.resize(image.size, Image.Resampling.NEAREST).tobytes() == image.tobytes()
+
+
+def test_the_stops_on_an_hd_portrait_screen_share_its_whole_width():
+    """Wider than the 7.5" screens' stops, so there's no room to spare beside them."""
+    stops = CombinedArrivalPanel([_SolidPanel(_ARRIVALS_COLOUR), _SolidPanel(_ARRIVALS_COLOUR)])
+    panels = _solid_panels() | {ClientClasses.TFL.api_name: stops}
+
+    box = _arrivals_box(BaseHdPortraitLayout(), HD_PORTRAIT, panels)
+
+    # Two widened stops and the gap between them, from the left gap, at twice the size.
+    assert (box[0], box[2]) == (2 * GAP, 2 * (GAP + 2 * HD_STOP_WIDTH + COLUMN_GAP))
+    assert stops.stop_width == STOP_WIDTH  # the layout drew a widened copy
+
+
+def test_an_hd_portrait_frame_is_turned_into_the_panels_landscape_picture():
+    screen = Screen(orientation="vertical", width=1872, height=1404, format="png")
+
+    native = to_native(Frame(Image.new("RGB", HD_PORTRAIT.size)), screen)
+
+    assert native.image.size == (1872, 1404)
 
 
 def _arrivals_box(layout: Layout, canvas: Canvas, panels: dict[str, Panel], **kwargs: ClockFormat) -> Box:
