@@ -508,6 +508,31 @@ def test_available_leaves_out_glowmarkt_and_spotify_when_off():
     assert registry.available() == frozenset({ClientClasses.TFL, ClientClasses.WEATHER, ClientClasses.NOTICE_BOARD})
 
 
+@pytest.mark.parametrize(
+    ("idle", "developer", "music_shown"), [(False, False, True), (True, False, False), (True, True, True)]
+)
+def test_the_music_has_its_area_only_while_something_plays(monkeypatch, idle, developer, music_shown):
+    """Nothing playing, the music area folds away, its room going to the notices and the stops.
+
+    Unless the developer panel is on: that takes the music's place instead (rendering.place_developer_panel).
+    """
+    config = make_config(spotify={"enabled": True}, developer={"enabled": developer})
+    monkeypatch.setattr(SpotifyClient, "is_idle", lambda client: idle)
+
+    available = ApiRegistry(TEST_DEVICE_ID, config).available()
+
+    assert (ClientClasses.SPOTIFY in available) is music_shown
+    assert (ClientClasses.DEVELOPER in available) is developer
+
+
+def test_poll_only_reads_the_one_api(store):
+    registry = registry_with(tfl=FakeClient("arrivals"), weather=FakeClient("sunny"))
+
+    polled = registry.poll(only=ClientClasses.TFL)
+
+    assert list(polled) == ["tfl"]
+
+
 def test_glowmarkt_switched_on_builds_its_client():
     assert isinstance(
         ApiRegistry(TEST_DEVICE_ID, make_config(glowmarkt={"enabled": True})).clients["glowmarkt"], GlowClient

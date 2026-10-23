@@ -25,6 +25,8 @@ ARRIVALS_MESSAGE_WIDTH = 262
 
 SPOTIFY_WIDTH = 536
 SPOTIFY_HEIGHT = 120
+# Without Spotify (not set up, or nothing playing), a second row of stops, if the notices leave the stops this tall.
+SECOND_ROW_FROM = 300
 
 
 class ClassicLayout(Layout):
@@ -47,11 +49,8 @@ class ClassicLayout(Layout):
     @override
     def render(self, panels: dict[str, Panel], canvas: Canvas, *, clock_format: ClockFormat = "24h") -> Frame:
         img = Image.new("RGBA", canvas.size, (255, 255, 255, 255))
-        spotify_area = self._spotify_area(panels, SPOTIFY_HEIGHT) if self.SHOWS_SPOTIFY else []
-        spotify_room = sum(height + GAP for _, height in spotify_area)
-        notices_room = canvas.height - self.ARRIVALS_HEIGHT - 3 * GAP - spotify_room
-        notices_height, spare = self._fit_notices(panels, notices_room)
-        arrivals_box = self._draw_top_row(img, panels, canvas, self.ARRIVALS_HEIGHT + spare, clock_format)
+        spotify_area, notices_height, arrivals_height = self._heights(panels, canvas)
+        arrivals_box = self._draw_top_row(img, panels, canvas, arrivals_height, clock_format)
 
         width = self._column_width(canvas, arrivals_box)
         bottom = canvas.height - GAP
@@ -80,6 +79,18 @@ class ClassicLayout(Layout):
                 clock_format=clock_format,
             )
         return Frame(img)
+
+    def _heights(self, panels: dict[str, Panel], canvas: Canvas) -> tuple[list[tuple[Panel, int]], int, int]:
+        """Return what's drawn in Spotify's area with each one's height, the notices' height, and the arrivals'."""
+        spotify_area = self._spotify_area(panels, SPOTIFY_HEIGHT) if self.SHOWS_SPOTIFY else []
+        spotify_room = sum(height + GAP for _, height in spotify_area)
+        notices_room = canvas.height - self.ARRIVALS_HEIGHT - 3 * GAP - spotify_room
+        notices_height, spare = self._fit_notices(panels, notices_room)
+        return spotify_area, notices_height, self.ARRIVALS_HEIGHT + spare
+
+    @override
+    def _arrivals_height(self, panels: dict[str, Panel], canvas: Canvas) -> int:
+        return self._heights(panels, canvas)[2]
 
     def _column_width(self, canvas: Canvas, arrivals_box: Box) -> int:  # noqa: ARG002 -- variants size it by the arrivals
         """How wide Spotify and the notices are drawn."""
@@ -143,6 +154,8 @@ class GlowLayout(ClassicLayout):
     requires = frozenset({ClientClasses.GLOWMARKT})
     excludes = frozenset({ClientClasses.SPOTIFY})
     SHOWS_ENERGY = True
+    stops_shown = 4
+    TWO_ROWS_HEIGHT = SECOND_ROW_FROM
 
     @override
     def _column_width(self, canvas: Canvas, arrivals_box: Box) -> int:
@@ -152,12 +165,12 @@ class GlowLayout(ClassicLayout):
 class BaseLayout(ClassicLayout):
     """Neither Spotify nor Glowmarkt.
 
-    Four stops, a 2x2 grid beside the weather, and the notices full width below.
+    Four stops, a 2x2 grid beside the weather, if the notices leave room for it, and the notices full width below.
     """
 
     excludes = frozenset({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT})
     stops_shown = 4
-    ARRIVALS_HEIGHT = 185 * 2
+    TWO_ROWS_HEIGHT = SECOND_ROW_FROM
 
 
 # The first is what's drawn if no variant fits (never, while the four cover every combination).

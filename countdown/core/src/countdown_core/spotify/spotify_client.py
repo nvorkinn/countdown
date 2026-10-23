@@ -103,6 +103,10 @@ PERIODS = (("long_term", N_("12 months")), ("short_term", N_("4 weeks")))
 # time every other minute.
 TOP_WHILE_PLAYING_S = 20
 TOP_EVERY_S = 240
+# While nothing is playing the area is folded away (see SpotifyClient.is_idle), and the top lists only visit: for this
+# long once every TOP_WHEN_IDLE_EVERY_S, one page each time in turn. Each visit changes the screen's layout, and back.
+TOP_WHEN_IDLE_S = 60
+TOP_WHEN_IDLE_EVERY_S = 1800
 
 
 def pages(services: tuple[MusicService, ...]) -> tuple[Page, ...]:
@@ -152,10 +156,10 @@ class SpotifyClient(AbstractClient[MusicSettings]):
         return normalise(self.config.style)
 
     def _update(self) -> Panel:
-        """Show this minute's page (see core.rotation), or the one after if that has nothing to show.
+        """While Spotify is playing, the player, with a short visit from a top list now and then (see TOP_EVERY_S).
 
-        While Spotify is playing, the player instead, with a short visit from a top list now and then (see
-        TOP_EVERY_S).
+        Otherwise the area is folded away (is_idle), but for a visit now and then (TOP_WHEN_IDLE_EVERY_S): this
+        visit's page, or the one after if it has nothing to show.
         """
         if self._is_playing():
             visit = self._top_visit(rotation.now())
@@ -163,13 +167,37 @@ class SpotifyClient(AbstractClient[MusicSettings]):
                 return panel
             if panel := self.update_player():
                 return panel
-        first = rotation.page(len(self.pages))
+        return self._idle_visit() or self.message_panel(N_("Nothing playing on:"))
+
+    def is_idle(self) -> bool:
+        """Whether the area is folded away now: nothing is playing, and no page is visiting with something to show.
+
+        So the layout gives its room to the notices and the stops (ApiRegistry.available). With nothing in the store
+        (the provider is down) it's folded too, rather than saying so.
+        """
+        if self._is_playing():
+            return False
+        if rotation.now().timestamp() % TOP_WHEN_IDLE_EVERY_S >= TOP_WHEN_IDLE_S:
+            return True
+        try:
+            return self._idle_visit() is None
+        except NoStoredMusicError:
+            return True
+
+    def _idle_visit(self) -> Panel | None:
+        """Return the page visiting while nothing plays, else the one after if it has nothing; None if neither has.
+
+        The pages visit in turn, a new one each TOP_WHEN_IDLE_EVERY_S: the top lists, and with Apple Music on, the
+        player too, as Apple Music has no now playing and its last played would otherwise never show.
+        """
+        visits = self.pages if APPLE_MUSIC in self.config.services else [p for p in self.pages if p.service]
+        first = int(rotation.now().timestamp() // TOP_WHEN_IDLE_EVERY_S) % len(visits)
         for offset in range(2):
-            page = self.pages[(first + offset) % len(self.pages)]
+            page = visits[(first + offset) % len(visits)]
             panel = self.update_player() if page.service is None else self.update_top(page)
             if panel:
                 return panel
-        return self.message_panel(N_("Nothing playing on:"))
+        return None
 
     def _is_playing(self) -> bool:
         """Whether Spotify is playing a track right now, by the position the provider last read (Playback)."""

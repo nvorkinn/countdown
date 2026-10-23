@@ -22,6 +22,7 @@ from countdown_core.rendering.layouts.classic_portrait import (
     SpotifyGlowPortraitLayout,
     SpotifyPortraitLayout,
 )
+from countdown_core.rendering.layouts.hd_landscape import ARRIVALS_SCALE as HD_ARRIVALS_SCALE
 from countdown_core.rendering.layouts.hd_landscape import (
     HD_LANDSCAPE,
     HD_LANDSCAPE_LAYOUTS,
@@ -97,11 +98,11 @@ def test_every_combination_of_spotify_and_glowmarkt_has_exactly_one_classic_vari
             assert len(fitting) == 1, (spotify, glowmarkt, fitting)
 
 
-def test_only_the_variant_without_spotify_or_glowmarkt_shows_four_stops():
+def test_only_the_variants_without_spotify_show_four_stops():
     assert {type(layout): layout.stops_shown for layout in CLASSIC} == {
         SpotifyGlowLayout: 2,
         SpotifyLayout: 2,
-        GlowLayout: 2,
+        GlowLayout: 4,
         BaseLayout: 4,
     }
 
@@ -158,7 +159,8 @@ def test_an_hd_portrait_screen_gets_the_classic_layout_stacked(unavailable, expe
     assert LAYOUTS.drawable(HD_PORTRAIT) == HD_PORTRAIT
     layout = LAYOUTS.select(HD_PORTRAIT, None, EVERYTHING - unavailable)
     assert type(layout) is expected
-    assert layout.stops_shown == 2
+    # Without Spotify (not set up, or nothing playing), a second row of stops if the notices leave room for it.
+    assert layout.stops_shown == (4 if ClientClasses.SPOTIFY in unavailable else 2)
 
 
 def test_an_hd_portrait_layout_draws_an_hd_frame():
@@ -211,6 +213,79 @@ def test_fewer_notices_give_the_arrivals_more_room(layout, clock_format):
     assert full == layout.ARRIVALS_HEIGHT  # a full board keeps the room it always had
     assert full < two < none
     assert none - two == _notices(2).fitted_height(1000) + GAP  # the board and the gap above it
+
+
+# Each canvas's variants without Spotify: the music isn't set up, or nothing is playing (ApiRegistry.available).
+WITHOUT_SPOTIFY = [
+    (GlowLayout(), DEFAULT_CANVAS),
+    (BaseLayout(), DEFAULT_CANVAS),
+    (GlowPortraitLayout(), PORTRAIT),
+    (BasePortraitLayout(), PORTRAIT),
+    (GlowHdPortraitLayout(), HD_PORTRAIT),
+    (BaseHdPortraitLayout(), HD_PORTRAIT),
+    (GlowHdLandscapeLayout(), HD_LANDSCAPE),
+    (BaseHdLandscapeLayout(), HD_LANDSCAPE),
+]
+
+
+def _drawn_arrivals_height(layout: Layout, canvas: Canvas, panels: dict[str, Panel]) -> float:
+    """How tall the layout drew the arrivals, in their own pixels (an HD layout draws them bigger)."""
+    scale = (
+        1 if canvas in {DEFAULT_CANVAS, PORTRAIT} else ARRIVALS_SCALE if canvas == HD_PORTRAIT else HD_ARRIVALS_SCALE
+    )
+    return _arrivals_height(layout, canvas, panels) / scale
+
+
+@pytest.mark.parametrize(("layout", "canvas"), WITHOUT_SPOTIFY, ids=lambda value: type(value).__name__)
+def test_without_spotify_a_second_row_of_stops_fits_when_the_notices_leave_room(layout, canvas):
+    panels = _solid_panels() | {"notice_board": _notices(2)}
+
+    assert layout.stops_fitting(panels, canvas) == 4
+    assert _drawn_arrivals_height(layout, canvas, panels) >= layout.TWO_ROWS_HEIGHT
+
+
+@pytest.mark.parametrize(
+    ("layout", "canvas"), [WITHOUT_SPOTIFY[i] for i in (0, 1, 3, 5, 6)], ids=lambda value: type(value).__name__
+)
+def test_the_notices_come_before_the_second_row_of_stops(layout, canvas):
+    """A full board takes all the room it may have, and the stops are one row.
+
+    (The rest leave room for two rows even then: the compact weather beside the energy chart is shorter, and the HD
+    landscape screen without the chart has its row.)
+    """
+    panels = _solid_panels() | {"notice_board": _notices(20)}
+
+    assert layout.stops_fitting(panels, canvas) == 2
+
+
+@pytest.mark.parametrize(("layout", "canvas"), WITHOUT_SPOTIFY, ids=lambda value: type(value).__name__)
+@pytest.mark.parametrize("notices", [0, 4, 6, 8, 10, 20])
+def test_a_second_row_of_stops_whenever_they_are_drawn_tall_enough(layout, canvas, notices):
+    panels = _solid_panels() | {"notice_board": _notices(notices)}
+
+    two_rows = _drawn_arrivals_height(layout, canvas, panels) >= layout.TWO_ROWS_HEIGHT
+    assert layout.stops_fitting(panels, canvas) == (4 if two_rows else 2)
+
+
+@pytest.mark.parametrize(("layout", "canvas"), WITHOUT_SPOTIFY, ids=lambda value: type(value).__name__)
+@pytest.mark.parametrize("notices", [0, 4, 6, 8, 10, 20])
+def test_the_stops_are_as_tall_as_stops_fitting_reckons(layout, canvas, notices):
+    """stops_fitting works the stops' height out without drawing: it's the height render() draws them."""
+    panels = _solid_panels() | {"notice_board": _notices(notices)}
+
+    assert abs(_drawn_arrivals_height(layout, canvas, panels) - layout._arrivals_height(panels, canvas)) <= 1
+
+
+@pytest.mark.parametrize(
+    ("layout", "canvas"),
+    [(layout, DEFAULT_CANVAS) for layout in CLASSIC[:2]]
+    + [(layout, PORTRAIT) for layout in CLASSIC_PORTRAIT[:2]]
+    + [(layout, HD_PORTRAIT) for layout in HD_PORTRAIT_LAYOUTS[:2]]
+    + [(layout, HD_LANDSCAPE) for layout in HD_LANDSCAPE_LAYOUTS[:2]],
+    ids=lambda value: type(value).__name__,
+)
+def test_beside_spotify_the_stops_are_one_row_however_few_the_notices(layout, canvas):
+    assert layout.stops_fitting(_solid_panels() | {"notice_board": _notices(0)}, canvas) == 2
 
 
 @pytest.mark.parametrize("layout", [*CLASSIC[:2], *CLASSIC_PORTRAIT[:2]], ids=type)

@@ -31,7 +31,7 @@ from countdown_core.i18n import set_locale
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.notice_styles import STYLES as NOTICE_STYLES
-from countdown_core.rendering import render
+from countdown_core.rendering import render, stops_fitting
 from countdown_core.rendering.screen import DEFAULT_CANVAS
 from countdown_core.spotify.models import Artist, Playback, Queue, Track
 from countdown_core.spotify.spotify_client import SpotifyClient
@@ -1206,3 +1206,38 @@ def test_each_other_layout_on_an_hd_portrait_screen(snapshot, rotation_clock, la
     assert img.size == (1404, 1872)
     name = f"{layout}_{'home' if minute else 'out'}" if layout == "pages" else layout
     snapshot.assert_matches(f"screen_hd_portrait_layout_{name}", img)
+
+
+# --- Nothing playing: the music area folds away (ApiRegistry.available), and the stops may have a second row ------
+
+
+def test_a_second_row_of_stops_beside_the_energy_chart_while_nothing_plays(snapshot):
+    """The notices first, then the stops, two rows of them if there's room (Layout.stops_fitting)."""
+    panels = _panels(_four_stop_arrivals(), notices=FEW_NOTICES)
+    assert stops_fitting(panels, LANDSCAPE, EVERYTHING - {ClientClasses.SPOTIFY}) == 4
+
+    snapshot.assert_matches("screen_second_row", _draw(panels, EVERYTHING - {ClientClasses.SPOTIFY}))
+
+
+def test_a_second_row_of_stops_on_a_portrait_screen_while_nothing_plays(snapshot):
+    panels = _panels(_four_stop_arrivals(), notices=FEW_NOTICES)
+    available = NO_GLOWMARKT - {ClientClasses.SPOTIFY}
+    assert stops_fitting(panels, VERTICAL, available) == 4
+
+    snapshot.assert_matches("screen_portrait_second_row", _draw_portrait(panels, available))
+
+
+def test_a_second_row_of_stops_on_an_hd_portrait_screen_while_nothing_plays(snapshot):
+    panels = _panels(_four_stop_arrivals(), notices=FEW_NOTICES)
+    available = NO_GLOWMARKT - {ClientClasses.SPOTIFY}
+    assert stops_fitting(panels, HD_VERTICAL, available) == 4
+
+    snapshot.assert_matches("screen_hd_portrait_second_row", _draw_hd_portrait(panels, available))
+
+
+def test_a_second_row_of_stops_on_an_hd_landscape_screen_while_nothing_plays(snapshot):
+    panels = _panels(_four_stop_arrivals(), weather=_forecast_weather(), notices=FEW_NOTICES)
+    available = EVERYTHING - {ClientClasses.SPOTIFY}
+    assert stops_fitting(panels, HD_HORIZONTAL, available) == 4
+
+    snapshot.assert_matches("screen_hd_landscape_second_row", _draw_hd_landscape(panels, available))

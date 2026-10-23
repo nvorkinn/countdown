@@ -18,10 +18,12 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import TEST_DEVICE_ID
 
 from countdown_api import fixtures
+from countdown_core.core import rotation
 from countdown_core.spotify import spotify_styles
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
 from countdown_core.spotify.spotify_client import (
     TOP_EVERY_S,
+    TOP_WHEN_IDLE_EVERY_S,
     TOP_WHILE_PLAYING_S,
     MusicSettings,
     NoStoredMusicError,
@@ -44,8 +46,13 @@ NOTHING_PLAYING = {"currently_playing": None, "queue": []}
 BOTH = MusicSettings(spotify=True, apple_music=True)
 
 
-def put(store, player=PLAYER, top=TOP):
-    """Store `player` and `top` for the device, as the provider does (None leaves a key out)."""
+def put(store, player=PLAYER, top=TOP, *, fresh=True):
+    """Store `player` and `top` for the device, as the provider does (None leaves a key out).
+
+    If `fresh`, Spotify's position (if it has one) is as read now (rotation.now), so a playing track is playing.
+    """
+    if player is not None and fresh and player.get("spotify_playback"):
+        player = {**player, "spotify_playback": player["spotify_playback"] | {"fetched_at": rotation.now().isoformat()}}
     if player is not None:
         store.set(keys.spotify(DEVICE_ID), json.dumps(player), ex=180)
     if top is not None:
@@ -58,11 +65,11 @@ def put_art(store, *services):
         store.set(COVERS[service]["key"], ART, ex=300)
 
 
-def panels(client, count, rotation_clock):
-    """Update `count` times, a minute apart, as the registry polls: a page a minute (core.rotation)."""
+def visits(client, count, rotation_clock):
+    """Update at the start of `count` visits in a row while nothing plays (TOP_WHEN_IDLE_EVERY_S apart)."""
     found = []
-    for minute in range(count):
-        rotation_clock.at_minute(minute)
+    for visit in range(count):
+        rotation_clock.at_minute(visit * TOP_WHEN_IDLE_EVERY_S // 60)
         found.append(asyncio.run(client.update()))
     return found
 
@@ -146,7 +153,9 @@ def test_every_page_is_drawn_from_the_store_without_a_call(store, settings, styl
 
     with responses.RequestsMock() as nothing:  # nothing registered: any request would fail
         client = music_client_class(settings)(TEST_DEVICE_ID, settings)
-        found = panels(client, 2 * len(pages_of(settings)) + 1, rotation_clock)
+        found = [asyncio.run(client.update())]  # playing, if Spotify's on
+        put(store, fresh=False)  # then nothing is: every page visits in turn
+        found += visits(client, len(pages_of(settings)), rotation_clock)
         assert len(nothing.calls) == 0
 
     assert {type(p) for p in found} == {SpotifyPanel, SpotifyTopPanel}
@@ -158,10 +167,10 @@ def pages_of(settings):
 
 @responses.activate
 def test_both_on_rotates_through_both_services_top_lists(store, rotation_clock):
-    put(store)
+    put(store, fresh=False)  # nothing playing
     client = SpotifyClient(TEST_DEVICE_ID, BOTH)
 
-    found = panels(client, 8, rotation_clock)
+    found = visits(client, 8, rotation_clock)
 
     tops = [(p.service, p.period) for p in found if isinstance(p, SpotifyTopPanel)]
     assert tops == [
@@ -219,7 +228,7 @@ def test_each_service_shows_its_own_cover(store):
 def test_two_screens_playing_the_same_album_read_the_same_cover(store):
     other = "another-device"
     put(store)
-    store.set(keys.spotify("another-device"), json.dumps(PLAYER), ex=180)
+    store.set(keys.spotify("another-device"), store.get(keys.spotify(DEVICE_ID)), ex=180)
     put_art(store, "spotify")
     settings = MusicSettings(spotify=True)
 
@@ -272,7 +281,7 @@ def test_a_track_with_no_cover_reads_none(store, monkeypatch):
     client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
     monkeypatch.setattr(client.art_store, "get", lambda key: pytest.fail(f"read {key}"))
 
-    assert asyncio.run(client.update()).art is None
+    assert client.update_player().art is None
 
 
 # --- Nothing playing, and no data ---------------------------------------------------
@@ -314,14 +323,23 @@ def test_nothing_playing_and_no_top_lists_says_so(store):
 
 
 @responses.activate
-@pytest.mark.parametrize("missing", ["player", "top"])
-def test_a_missing_key_says_the_music_is_not_available(store, missing, rotation_clock):
-    """The key has expired (the music provider is down): nothing older than its TTL is drawn."""
-    put(store, player=None if missing == "player" else PLAYER, top=None if missing == "top" else TOP)
+def test_a_missing_player_key_is_nothing_playing(store, rotation_clock):
+    """The key has expired (the music provider is down): nothing older than its TTL is drawn, and nothing plays."""
+    put(store, player=None)
     client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
-    if missing == "top":
-        asyncio.run(client.update())  # the player
-        rotation_clock.advance()  # the top lists' minute
+
+    with pytest.raises(NoStoredMusicError):
+        client.update_player()
+    assert isinstance(asyncio.run(client.update()), SpotifyTopPanel)  # a visit's minute
+    rotation_clock.advance()
+    assert client.is_idle()
+
+
+@responses.activate
+def test_a_missing_key_says_the_music_is_not_available(store, rotation_clock):
+    """The top lists' key has expired while they visit: nothing older than its TTL is drawn."""
+    put(store, top=None, fresh=False)
+    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
 
     with pytest.raises(NoStoredMusicError):
         client._update()
@@ -357,10 +375,8 @@ def test_spotify_playing_needs_no_apple_music_part(store):
 def test_a_missing_time_range_raises(store, rotation_clock):
     top = copy.deepcopy(TOP)
     del top["spotify"]["long_term"]
-    put(store, top=top)
+    put(store, top=top, fresh=False)  # nothing playing: the 12 months' top lists visit
     client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
-    asyncio.run(client.update())
-    rotation_clock.advance()  # the 12 months' top lists' minute
 
     with pytest.raises(NoStoredMusicError):
         client._update()
@@ -392,7 +408,7 @@ def test_spotifys_panel_gets_the_stored_position(store):
 def test_a_key_without_a_position_gives_a_panel_without_one(store):
     put(store, {k: v for k, v in PLAYER.items() if k != "spotify_playback"})
 
-    panel = asyncio.run(SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True)).update())
+    panel = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True)).update_player()
 
     assert panel.playback is None
 
@@ -432,7 +448,7 @@ def shown_every_20s(store, rotation_clock, seconds, *, is_playing=True, top=TOP)
     found = []
     for offset in range(0, seconds, 20):
         rotation_clock.at = BOUNDARY + timedelta(seconds=offset)
-        put(store, player_read_at(rotation_clock.at, is_playing=is_playing), top)
+        put(store, player_read_at(rotation_clock.at, is_playing=is_playing), top, fresh=False)
         found.append(asyncio.run(client.update()))
     return found
 
@@ -454,28 +470,28 @@ def test_each_visit_shows_the_next_top_list(store, rotation_clock):
     assert periods == ["12 months", "4 weeks", "12 months"]
 
 
-def test_a_paused_player_keeps_the_usual_rotation(store, rotation_clock):
-    """Paused, the top lists are the more interesting page again: a minute each, every other minute."""
-    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
-    found = []
-    for minute in range(4):
-        rotation_clock.at = BOUNDARY + timedelta(minutes=minute)
-        put(store, player_read_at(rotation_clock.at, is_playing=False))
-        found.append(asyncio.run(client.update()))
+# Ten minutes into a TOP_WHEN_IDLE_EVERY_S: no page visiting while nothing plays.
+BETWEEN_VISITS = datetime.fromtimestamp(TOP_WHEN_IDLE_EVERY_S * 1_000_000 + 600, UTC)
 
-    assert [type(panel) for panel in found] == [SpotifyPanel, SpotifyTopPanel, SpotifyPanel, SpotifyTopPanel]
+
+def is_idle_with(store, rotation_clock, player) -> bool:
+    rotation_clock.at = BETWEEN_VISITS
+    put(store, player, fresh=False)
+    return SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True)).is_idle()
+
+
+def test_a_track_playing_keeps_the_area(store, rotation_clock):
+    assert not is_idle_with(store, rotation_clock, player_read_at(BETWEEN_VISITS))
+
+
+def test_a_paused_player_is_nothing_playing(store, rotation_clock):
+    """Paused, the area folds away: the stops and notices get its room."""
+    assert is_idle_with(store, rotation_clock, player_read_at(BETWEEN_VISITS, is_playing=False))
 
 
 def test_a_position_read_long_ago_is_not_playing(store, rotation_clock):
     """The provider stopped fetching (or Spotify did): nothing says it is still playing."""
-    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
-    found = []
-    for minute in range(4):
-        rotation_clock.at = BOUNDARY + timedelta(minutes=minute)
-        put(store, player_read_at(rotation_clock.at - timedelta(minutes=5)))
-        found.append(asyncio.run(client.update()))
-
-    assert [type(panel) for panel in found] == [SpotifyPanel, SpotifyTopPanel, SpotifyPanel, SpotifyTopPanel]
+    assert is_idle_with(store, rotation_clock, player_read_at(BETWEEN_VISITS - timedelta(minutes=5)))
 
 
 def test_a_visit_with_nothing_to_show_stays_on_the_player(store, rotation_clock):
@@ -489,14 +505,8 @@ def test_a_visit_with_nothing_to_show_stays_on_the_player(store, rotation_clock)
     assert all(isinstance(panel, SpotifyPanel) for panel in found)
 
 
-def test_a_player_without_a_position_keeps_the_usual_rotation(store, rotation_clock):
+def test_a_player_without_a_position_is_nothing_playing(store, rotation_clock):
     """The key the provider wrote before it read positions: no playback, so nothing says it is playing."""
-    client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True))
     player = {key: value for key, value in PLAYER.items() if key != "spotify_playback"}
-    found = []
-    for minute in range(4):
-        rotation_clock.at = BOUNDARY + timedelta(minutes=minute)
-        put(store, player)
-        found.append(asyncio.run(client.update()))
 
-    assert [type(panel) for panel in found] == [SpotifyPanel, SpotifyTopPanel, SpotifyPanel, SpotifyTopPanel]
+    assert is_idle_with(store, rotation_clock, player)

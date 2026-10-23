@@ -20,9 +20,9 @@ from zoneinfo import ZoneInfoNotFoundError
 from redis.exceptions import RedisError
 
 from countdown_core.core import moment
-from countdown_core.core.api_registry import ApiRegistry
+from countdown_core.core.api_registry import ApiRegistry, ClientClasses
 from countdown_core.i18n import set_locale
-from countdown_core.rendering import layout_for, to_native
+from countdown_core.rendering import layout_for, stops_fitting, to_native
 from countdown_core.rendering import render as draw
 from countdown_core.rendering.encoding import encode
 from countdown_core.rendering.layout import Frame
@@ -120,8 +120,14 @@ def render(device_id: str, now: datetime) -> Outcome:
         # The clients only read the store, by the device's id: none of them calls the broker.
         registry = ApiRegistry(device_id, config)
         available = registry.available()
-        registry.show_stops(layout_for(config.screen, available)[0].stops_shown)
+        stops_shown = layout_for(config.screen, available)[0].stops_shown
+        registry.show_stops(stops_shown)
         polled = registry.poll()
+        fitting = stops_fitting(registry.panels(polled), config.screen, available)
+        if fitting < stops_shown:
+            # The notices took the second row's room: read this minute's page of stops again, a row of them.
+            registry.show_stops(fitting)
+            polled |= registry.poll(only=ClientClasses.TFL)
         drawn = draw(registry.panels(polled), config.screen, available, clock_format=config.clock_format)
         frame = to_native(drawn, config.screen)
         data = encode(frame.image, config.screen)

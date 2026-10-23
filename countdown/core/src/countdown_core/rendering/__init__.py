@@ -68,6 +68,16 @@ def render(
     return layout.render(panels, canvas, clock_format=clock_format)
 
 
+def stops_fitting(panels: Mapping[str, Panel], screen: Screen, available: frozenset[ClientClasses]) -> int:
+    """Say how many stops the frame has room for with these panels.
+
+    That's the layout's stops_shown, or one row of them if the notices took the room a second row needs
+    (Layout.stops_fitting).
+    """
+    layout, canvas = layout_for(screen, available)
+    return layout.stops_fitting(place_developer_panel(panels, available), canvas)
+
+
 def place_developer_panel(panels: Mapping[str, Panel], available: frozenset[ClientClasses]) -> dict[str, Panel]:
     """Return `panels` with the developer panel where the layouts draw it (see Layout._spotify_area).
 
