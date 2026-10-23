@@ -5,9 +5,10 @@ Each draws the whole stop, header included, into `width` x `height`, on a transp
 
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageFont
 
 from countdown_core.i18n import _
+from countdown_core.utils.scaled_draw import ScaledDraw, scaled_canvas
 from countdown_core.utils.utils import ROUNDEL, fitted_font, google_symbols, resized, truncate_to_fit
 
 if TYPE_CHECKING:
@@ -33,11 +34,9 @@ ICONS = {
 }
 
 
-def _canvas(width: int, height: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
-    img = Image.new("RGBA", (width, height), (255, 255, 255, 0))
-    draw = ImageDraw.Draw(img)
-    draw.fontmode = "1"
-    return img, draw
+def _canvas(width: int, height: int) -> tuple[Image.Image, ScaledDraw]:
+    """Make a transparent canvas `width` x `height` in the panel's own pixels, at the drawing scale."""
+    return scaled_canvas(width, height)
 
 
 def _shrunk(text: str, filename: str, size: int, width: float) -> ImageFont.FreeTypeFont:
@@ -55,7 +54,7 @@ MAX_HEADER_ICONS = 3
 ROW_ICON_ROOM = 22
 
 
-def _header_icons(d: ImageDraw.ImageDraw, panel: AbstractArrivalPanel, y: float, size: int, step: int) -> int:
+def _header_icons(d: ScaledDraw, panel: AbstractArrivalPanel, y: float, size: int, step: int) -> int:
     """Draw the modes the stop serves, side by side from the left and centred on `y`; return the width they took."""
     icons = panel.icons[:MAX_HEADER_ICONS]
     for i, icon in enumerate(icons):
@@ -63,7 +62,7 @@ def _header_icons(d: ImageDraw.ImageDraw, panel: AbstractArrivalPanel, y: float,
     return len(icons) * step
 
 
-def _row_icons(d: ImageDraw.ImageDraw, panel: AbstractArrivalPanel, centres: list[float]) -> None:
+def _row_icons(d: ScaledDraw, panel: AbstractArrivalPanel, centres: list[float]) -> None:
     """Draw each row's mode before it, when the stop serves several; `centres` are the rows' middles, top down."""
     if not panel.mixed_modes:
         return
@@ -104,7 +103,7 @@ def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     # A stop serving several modes gives each row its own icon, and the rows a little less room.
     indent = ROW_ICON_ROOM if panel.mixed_modes else 0
     rows, centres = _hero_rows(panel, width - indent, height)
-    img.paste(rows, (indent, 0), rows)
+    d.paste(rows, (indent, 0))
     _row_icons(d, panel, centres)
     return img
 
@@ -138,7 +137,7 @@ def _hero_rows(panel: AbstractArrivalPanel, width: int, height: int) -> tuple[Im
     y += 50
     time_font, destination_font = fitted_font(BOLD, 14), fitted_font(MEDIUM, 14)
     for departure in rest:
-        if y + 20 > height:
+        if y + 21 > height:  # the badge's box takes the pixel row at y + 20 too
             break
         d.rounded_rectangle((0, y, 38, y + 20), 4, outline="black", width=2)
         d.text((19, y + 10), departure.badge, "black", _shrunk(departure.badge, BOLD, 13, 32), anchor="mm")
@@ -177,7 +176,7 @@ def airy(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     # A stop serving several modes gives each row its own icon, and the rows a little less room.
     indent = ROW_ICON_ROOM if panel.mixed_modes else 0
     rows, centres = _airy_rows(panel, width - indent, height)
-    img.paste(rows, (indent, 0), rows)
+    d.paste(rows, (indent, 0))
     _row_icons(d, panel, centres)
     return img
 
@@ -229,7 +228,8 @@ def card(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     d.rectangle((0, 20, width - 1, 30), fill="black")  # square off the bar's bottom corners
     x = 10
     if panel.is_tube:
-        img.paste(ROUNDEL, (x, 7), ROUNDEL)
+        roundel = ROUNDEL.resize((d.px(ROUNDEL.width), d.px(ROUNDEL.height)), Image.Resampling.LANCZOS)
+        d.paste(roundel, (x, 7))
         x += ROUNDEL.size[0] + 6
     letter_room = 34 if panel.stop_letter else 10
     title_font = fitted_font(SANS_SEMI, 16)

@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageFont
 
 from countdown_core.i18n import N_, _
 from countdown_core.tfl.arrival_styles import BOLD, MEDIUM, REGULAR, SANS, SANS_SEMI, _canvas, _shrunk
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from datetime import timedelta
 
     from countdown_core.spotify.models import Artist, Queue, Track
+    from countdown_core.utils.scaled_draw import ScaledDraw
 
 # Material Symbols glyphs
 NOTE = chr(0xE405)
@@ -64,6 +65,16 @@ def _playing(queue: Queue) -> Track:
     return queue.currently_playing
 
 
+def _paste_cover(d: ScaledDraw, art: AlbumArt, size: int, at: tuple[int, int]) -> int:
+    """Paste the cover, `size` tall in the page's pixels, at `at`; return how wide it is (0 with none)."""
+    cover = art(d.px(size))
+    if d.scale > 1 and 0 < cover.height < d.px(size):
+        # The store keeps covers big enough for the 7.5" screens, not always for a screen with more pixels.
+        cover = cover.resize((d.px(size), d.px(size)), Image.Resampling.LANCZOS)
+    d.paste(cover, at)
+    return round(cover.width / d.scale)
+
+
 def _artists(track: Track) -> str:
     return ", ".join(artist.name for artist in track.artists)
 
@@ -89,7 +100,7 @@ def _played(duration: timedelta, elapsed: timedelta) -> str:
 
 
 def _progress_bar(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which colour
-    d: ImageDraw.ImageDraw,
+    d: ScaledDraw,
     left: float,
     right: float,
     bottom: float,
@@ -111,7 +122,7 @@ def _progress_bar(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw,
 
 
 def _track_and_by(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which fonts
-    d: ImageDraw.ImageDraw,
+    d: ScaledDraw,
     y: float,
     left: float,
     right: float,
@@ -142,7 +153,7 @@ def _columns(tracks: list[Track], artists: list[Artist]) -> list[tuple[str, list
 # --- airy: small-caps labels and a hairline, like the weather -------------------------------
 
 
-def airy_label(d: ImageDraw.ImageDraw, x: float, y: float, icon: str, text: str) -> float:
+def airy_label(d: ScaledDraw, x: float, y: float, icon: str, text: str) -> float:
     """Draw a small icon and a small-caps label after it, centred on `y`; return where the label ends."""
     d.text((x, y), icon, "black", resized(google_symbols(), 15), anchor="lm")
     label = fitted_font(SANS_SEMI, 11)
@@ -165,9 +176,8 @@ def airy_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
     """
     img, d = _canvas(width, height)
     track = _playing(queue)
-    cover = art(height if elapsed is None else height - BAR_ROOM)
-    img.paste(cover, (0, 0), cover)
-    x = cover.size[0] + 18 if cover.size[0] else 0
+    cover_width = _paste_cover(d, art, height if elapsed is None else height - BAR_ROOM, (0, 0))
+    x = cover_width + 18 if cover_width else 0
     room = width - x
     label = fitted_font(SANS_SEMI, 11)
     airy_label(d, x, 12, NOTE, _(labels.now).upper())
@@ -225,7 +235,7 @@ def airy_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same
 # --- hero: an icon header over a heavy rule, and number one big, like the next bus ----------
 
 
-def _hero_header(d: ImageDraw.ImageDraw, left: float, right: float, icon: str, title: str, aside: str) -> None:  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and with which icon
+def _hero_header(d: ScaledDraw, left: float, right: float, icon: str, title: str, aside: str) -> None:  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and with which icon
     d.text((left, 11), icon, "black", resized(google_symbols(), 22), anchor="lm")
     d.text((left + 26, 11), title, "black", fitted_font(SANS_SEMI, 17), anchor="lm")
     d.text((right, 11), aside, "black", fitted_font(MEDIUM, 13), anchor="rm")
@@ -247,9 +257,8 @@ def hero_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
     """
     img, d = _canvas(width, height)
     track = _playing(queue)
-    cover = art(height if elapsed is None else height - BAR_ROOM)
-    img.paste(cover, (0, 0), cover)
-    x = cover.size[0] + 14 if cover.size[0] else 0
+    cover_width = _paste_cover(d, art, height if elapsed is None else height - BAR_ROOM, (0, 0))
+    x = cover_width + 14 if cover_width else 0
     room = width - x
     aside = _length(track.duration_ms) if elapsed is None else _played(track.duration_ms, elapsed)
     _hero_header(d, x, width, NOTE, _(labels.now), aside)
@@ -344,7 +353,7 @@ CARD_BAR = 28
 CARD_BAR_ROOM = 6
 
 
-def _card(d: ImageDraw.ImageDraw, left: int, right: int, height: int, icon: str, title: str, aside: str) -> None:  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and with which icon
+def _card(d: ScaledDraw, left: int, right: int, height: int, icon: str, title: str, aside: str) -> None:  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and with which icon
     d.rounded_rectangle((left, 0, right - 1, height - 1), 10, fill="white", outline="black", width=2)
     d.rounded_rectangle((left, 0, right - 1, CARD_BAR), 10, fill="black")
     d.rectangle((left, CARD_BAR - 10, right - 1, CARD_BAR), fill="black")  # square off the bar's bottom corners
@@ -371,9 +380,10 @@ def card_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
     track = _playing(queue)
     aside = _length(track.duration_ms) if elapsed is None else _played(track.duration_ms, elapsed)
     _card(d, 0, width, height, NOTE, _(labels.now), aside)
-    cover = art(height - CARD_BAR - 14 - (0 if elapsed is None else CARD_BAR_ROOM))
-    img.paste(cover, (8, CARD_BAR + 7), cover)
-    x = 8 + cover.size[0] + 12 if cover.size[0] else 10
+    cover_width = _paste_cover(
+        d, art, height - CARD_BAR - 14 - (0 if elapsed is None else CARD_BAR_ROOM), (8, CARD_BAR + 7)
+    )
+    x = 8 + cover_width + 12 if cover_width else 10
     room = width - x - 10
     title = _shrunk(track.name, BOLD, 20, room)
     d.text((x, 47), truncate_to_fit(track.name, title, room), "black", title, anchor="lm")

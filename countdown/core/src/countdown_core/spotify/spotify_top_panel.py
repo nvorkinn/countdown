@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 class SpotifyTopPanel(Panel):
     """The top tracks and artists side by side, under a heading naming the period."""
 
+    scales = True
+
     def __init__(
         self, period: str, tracks: list[Track], artists: list[Artist], style: Style = "hero", service: str | None = None
     ) -> None:

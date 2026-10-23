@@ -14,9 +14,10 @@ from countdown_core.utils.utils import fitted_font, google_symbols, resized, tru
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageFont
 
     from countdown_core.developer.models import AiPlan, DeveloperSummary, GitHubSummary
+    from countdown_core.utils.scaled_draw import ScaledDraw
 
 # Material Symbols glyphs
 CODE = chr(0xE86F)
@@ -43,7 +44,7 @@ def _builds(github: GitHubSummary) -> str:
     return _("{n} failing: {repos}").format(n=len(failing), repos=", ".join(failing))
 
 
-def _no_github(d: ImageDraw.ImageDraw, x: float, y: float, width: float, font: ImageFont.FreeTypeFont) -> None:
+def _no_github(d: ScaledDraw, x: float, y: float, width: float, font: ImageFont.FreeTypeFont) -> None:
     d.text((x, y), truncate_to_fit(_("Add a GitHub token on the config page"), font, width), "black", font, anchor="lm")
 
 
@@ -54,7 +55,7 @@ def _halves(width: int, gap: int) -> tuple[int, int, int, int]:
 
 
 def _plans(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which fonts
-    d: ImageDraw.ImageDraw,
+    d: ScaledDraw,
     plans: list[AiPlan],
     left: float,
     right: float,
@@ -62,7 +63,7 @@ def _plans(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, 
     step: float,
     name_font: ImageFont.FreeTypeFont,
     small: ImageFont.FreeTypeFont,
-    bar: Callable[[ImageDraw.ImageDraw, float, float, float, float], None],
+    bar: Callable[[ScaledDraw, float, float, float, float], None],
 ) -> None:
     """Draw a row per plan: its name, then a bar of how much is used (or the plan's name), then when it renews."""
     if not plans:
@@ -91,13 +92,13 @@ def _plans(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, 
             bar(d, left + NAME_WIDTH, y, end - 40, min(share, 1))
 
 
-def _hairline_bar(d: ImageDraw.ImageDraw, left: float, y: float, right: float, share: float) -> None:
+def _hairline_bar(d: ScaledDraw, left: float, y: float, right: float, share: float) -> None:
     d.line((left, y, right, y), fill="black")
     d.rectangle((left, y - 2, left + (right - left) * share, y + 2), fill="black")
 
 
-def _outlined_bar(width: int) -> Callable[[ImageDraw.ImageDraw, float, float, float, float], None]:
-    def bar(d: ImageDraw.ImageDraw, left: float, y: float, right: float, share: float) -> None:
+def _outlined_bar(width: int) -> Callable[[ScaledDraw, float, float, float, float], None]:
+    def bar(d: ScaledDraw, left: float, y: float, right: float, share: float) -> None:
         d.rounded_rectangle((left, y - 5, right, y + 5), 3, outline="black", width=width)
         if share:
             d.rounded_rectangle((left, y - 5, left + (right - left) * share, y + 5), 3, fill="black")
@@ -106,7 +107,7 @@ def _outlined_bar(width: int) -> Callable[[ImageDraw.ImageDraw, float, float, fl
 
 
 def _counts(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which fonts
-    d: ImageDraw.ImageDraw,
+    d: ScaledDraw,
     github: GitHubSummary,
     x: float,
     y: float,
@@ -274,7 +275,7 @@ COMPACT_HEIGHT = 30
 
 
 def _compact_builds(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which font
-    d: ImageDraw.ImageDraw,
+    d: ScaledDraw,
     github: GitHubSummary,
     right: float,
     y: float,

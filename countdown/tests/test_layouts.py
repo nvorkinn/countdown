@@ -22,17 +22,19 @@ from countdown_core.rendering.layouts.classic_portrait import (
     SpotifyPortraitLayout,
 )
 from countdown_core.rendering.layouts.hd_portrait import (
+    ARRIVALS_SCALE,
     HD_PORTRAIT,
     HD_PORTRAIT_LAYOUTS,
+    HdPortraitLayout,
     BaseHdPortraitLayout,
     GlowHdPortraitLayout,
     SpotifyGlowHdPortraitLayout,
     SpotifyHdPortraitLayout,
 )
 from countdown_core.rendering.registry import LayoutRegistry
-from countdown_core.rendering.layouts.hd_portrait import STOP_WIDTH as HD_STOP_WIDTH
 from countdown_core.tfl.combined_arrival_panel import COLUMN_GAP, STOP_WIDTH, CombinedArrivalPanel
 from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
+from countdown_core.utils.scaled_draw import drawing_scale
 from countdown_core.utils.utils import GAP
 from typing import TYPE_CHECKING
 
@@ -131,26 +133,10 @@ def test_an_hd_portrait_screen_gets_the_classic_layout_stacked(unavailable, expe
     assert layout.stops_shown == 2
 
 
-def test_an_hd_portrait_layout_draws_an_hd_frame_of_doubled_pixels():
-    """The portrait layout at half the size, each pixel a 2x2 block: so the panels' text is as big as on 7.5"."""
+def test_an_hd_portrait_layout_draws_an_hd_frame():
     panels = _solid_panels()
     for layout in HD_PORTRAIT_LAYOUTS:
-        image = layout.render(panels, HD_PORTRAIT).image
-        assert image.size == HD_PORTRAIT.size
-        half = image.resize((HD_PORTRAIT.width // 2, HD_PORTRAIT.height // 2), Image.Resampling.NEAREST)
-        assert half.resize(image.size, Image.Resampling.NEAREST).tobytes() == image.tobytes()
-
-
-def test_the_stops_on_an_hd_portrait_screen_share_its_whole_width():
-    """Wider than the 7.5" screens' stops, so there's no room to spare beside them."""
-    stops = CombinedArrivalPanel([_SolidPanel(_ARRIVALS_COLOUR), _SolidPanel(_ARRIVALS_COLOUR)])
-    panels = _solid_panels() | {ClientClasses.TFL.api_name: stops}
-
-    box = _arrivals_box(BaseHdPortraitLayout(), HD_PORTRAIT, panels)
-
-    # Two widened stops and the gap between them, from the left gap, at twice the size.
-    assert (box[0], box[2]) == (2 * GAP, 2 * (GAP + 2 * HD_STOP_WIDTH + COLUMN_GAP))
-    assert stops.stop_width == STOP_WIDTH  # the layout drew a widened copy
+        assert layout.render(panels, HD_PORTRAIT).image.size == HD_PORTRAIT.size
 
 
 def test_an_hd_portrait_frame_is_turned_into_the_panels_landscape_picture():
@@ -358,3 +344,45 @@ def test_a_portrait_frame_is_turned_into_the_panels_landscape_picture():
     assert native.image.size == (800, 480)
     # The block moved with the picture: now 50 wide and 100 tall, at the bottom left.
     assert ImageOps.invert(native.image).getbbox() == (20, 370, 70, 470)
+
+
+class _ScalingPanel(_SolidPanel):
+    """A solid panel that draws itself bigger at the drawing scale, as the converted panels do."""
+
+    scales = True
+
+    def __init__(self, colour: tuple[int, int, int] = (0, 0, 0)) -> None:
+        super().__init__(colour)
+        self.scales_seen: list[float] = []
+
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
+        self.scales_seen.append(drawing_scale())
+        return super().render(round(image_width * drawing_scale()), round(image_height * drawing_scale()))
+
+
+def test_a_panel_that_scales_draws_itself_bigger_and_any_other_has_its_pixels_repeated():
+    img = Image.new("RGBA", (40, 20), "white")
+    scaling, solid = _ScalingPanel(), _SolidPanel((10, 20, 30))
+
+    HdPortraitLayout._place_scaled(img, scaling, (0, 0), (5, 5), "24h", 3)
+    HdPortraitLayout._place_scaled(img, solid, (20, 0), (5, 5), "24h", 2)
+
+    assert scaling.scales_seen == [3]
+    assert drawing_scale() == 1  # back to the 7.5" screens' once it's drawn
+    assert img.getpixel((14, 14)) == (0, 0, 0, 255)
+    assert img.getpixel((15, 15)) == (255, 255, 255, 255)
+    assert img.getpixel((29, 9)) == (10, 20, 30, 255)
+    assert img.getpixel((30, 10)) == (255, 255, 255, 255)
+
+
+def test_the_stops_on_an_hd_portrait_screen_are_drawn_two_and_a_half_times_as_big_across_its_width():
+    stops = CombinedArrivalPanel([_ScalingPanel(_ARRIVALS_COLOUR), _ScalingPanel(_ARRIVALS_COLOUR)])
+    panels = _solid_panels() | {ClientClasses.TFL.api_name: stops}
+
+    box = _arrivals_box(BaseHdPortraitLayout(), HD_PORTRAIT, panels)
+
+    # Two stops and the gap between them, from the left gap, two and a half times as big: each starts and ends on the
+    # screen pixel nearest where its own would.
+    stop_width = min(STOP_WIDTH, (int((HD_PORTRAIT.width - 4 * GAP) / ARRIVALS_SCALE) - COLUMN_GAP) // 2)
+    second_stop_x = round((stop_width + COLUMN_GAP) * ARRIVALS_SCALE)
+    assert (box[0], box[2]) == (2 * GAP, 2 * GAP + second_stop_x + round(stop_width * ARRIVALS_SCALE))

@@ -48,6 +48,8 @@ class AbstractArrivalPanel[A: Arrival = Any](Panel, ABC):
     Subclasses adapt a source's stops and arrivals (TfL's, Entur's) to it; `A` is the source's arrival.
     """
 
+    scales = True
+
     def __init__(self, arrivals: list[A], style: Style = "hero") -> None:
         """Group `arrivals` (the stop's, in any order) into Departures, drawn in `style`."""
         super().__init__()

@@ -1,7 +1,7 @@
 """The base class of everything drawn in an area of the screen."""
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -11,6 +11,10 @@ if TYPE_CHECKING:
 
 class Panel(ABC):
     """One API's area of the screen, drawn at whatever size the layout gives it."""
+
+    # Whether it draws itself bigger inside scaled_draw.drawing_at(), for a screen with more pixels: a panel that
+    # doesn't has its pixels repeated instead.
+    scales: ClassVar[bool] = False
 
     @abstractmethod
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:

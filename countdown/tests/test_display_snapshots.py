@@ -1089,3 +1089,8 @@ def test_developer_panel_above_spotify_on_an_hd_portrait_screen(snapshot):
     panels = _above_spotify(_developer_panels(DeveloperPanel(DEVELOPER_SUMMARY), "hero"), "hero")
     img = _draw_hd_portrait(panels, DEVELOPER_AND_SPOTIFY - {ClientClasses.GLOWMARKT})
     snapshot.assert_matches("screen_hd_portrait_developer_above_spotify", img)
+
+
+def test_spotify_top_tracks_on_an_hd_portrait_screen(snapshot):
+    img = _draw_hd_portrait(_panels(_many_route_arrivals(), spotify=_spotify_page("top", "hero")))
+    snapshot.assert_matches("screen_hd_portrait_spotify_top", img)

@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import N_, _, format_date
+from countdown_core.utils.scaled_draw import drawing_scale
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS, resized, truncate_to_fit
 from countdown_core.weather.models import Weather, WeatherPeriod
 
@@ -27,18 +28,24 @@ class WeatherPanel(Panel):
         super().__init__()
         self.weather = weather
 
+    scales = True
+
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
+        # It sizes everything from its room, so a bigger drawing scale is just more room, and a higher cap.
+        drawn_at = drawing_scale()
+        inline = image_height < INLINE_MAX_HEIGHT and image_width >= image_height * INLINE_ASPECT
+        image_width, image_height = round(image_width * drawn_at), round(image_height * drawn_at)
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"
         weather = self.weather
 
-        if image_height < INLINE_MAX_HEIGHT and image_width >= image_height * INLINE_ASPECT:
+        if inline:
             self._render_inline(draw, image_width, image_height)
             return img
 
-        scale = min(image_width / 241, image_height / 185, 1.25)
+        scale = min(image_width / 241, image_height / 185, 1.25 * drawn_at)
         width = min(image_width - 32 * scale, 310 * scale)
         x = (image_width - width) / 2
         y = (image_height - 185 * scale) / 2
@@ -77,7 +84,7 @@ class WeatherPanel(Panel):
 
     def _render_inline(self, draw: ImageDraw.ImageDraw, image_width: int, image_height: int) -> None:
         # A single stop crops the top row down to a short, wide strip.
-        scale = min(image_width / 528, image_height / 76, 1.25)
+        scale = min(image_width / 528, image_height / 76, 1.25 * drawing_scale())
         x = 12 * scale
         y = (image_height - 76 * scale) / 2
         width = image_width - 2 * x
