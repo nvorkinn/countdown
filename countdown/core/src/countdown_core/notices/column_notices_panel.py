@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, override
 
 from countdown_core.i18n import _
 from countdown_core.notices.notice import Severity
-from countdown_core.notices.notice_board_panel import MARKER_GAP, MARKER_SIZE, SOURCE_GAP, HdNoticeBoardPanel
+from countdown_core.notices.notice_board_panel import SOURCE_GAP, HdNoticeBoardPanel
 from countdown_core.notices.notice_styles import STYLES
 from countdown_core.utils.scaled_draw import scaled_canvas
 
@@ -53,7 +53,8 @@ class TwoColumnNoticeBoardPanel(HdNoticeBoardPanel):
         text_xs = [self._text_x(shown[i::COLUMNS], spans[i][0]) for i in range(COLUMNS)]
         for i, notice in enumerate(shown):
             y = style.top + (i // COLUMNS) * self.row_height
-            self._draw_row(draw, notice, y, spans[i % COLUMNS], clock_format, text_xs[i % COLUMNS])
+            (start, end), text_x = spans[i % COLUMNS], text_xs[i % COLUMNS]
+            self._draw_row(draw, notice, y, (start, text_x, end), clock_format)
         if more:
             i = len(shown)
             y = style.top + (i // COLUMNS) * self.row_height + self.row_height // 2
@@ -61,12 +62,10 @@ class TwoColumnNoticeBoardPanel(HdNoticeBoardPanel):
             draw.text((x, y), _("+{count} more").format(count=more), "black", font=self.text_font, anchor="lm")
         return img
 
-    def _text_x(self, notices: list[Notice], left: int) -> int | None:
+    def _text_x(self, notices: list[Notice], left: int) -> int:
         """Where the text of a column's `notices` starts: past the widest source among them."""
-        if not notices:
-            return None
-        widest = max(round(self.source_font.getlength(notice.source)) for notice in notices)
-        return left + MARKER_SIZE + MARKER_GAP + widest + SOURCE_GAP
+        widest = max((round(self.source_font.getlength(notice.source)) for notice in notices), default=0)
+        return left + widest + SOURCE_GAP
 
 
 def _shown(notices: list[Notice], places: int) -> tuple[list[Notice], int]:
