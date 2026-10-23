@@ -9,8 +9,8 @@ from PIL import Image as PILImage
 from countdown_api import fixtures
 from countdown_core.spotify import spotify_panel
 from countdown_core.spotify.models import Album, Image, Playback, Queue, Track
-from countdown_core.spotify.spotify_panel import SpotifyPanel, _album_art, _paused
-from countdown_core.spotify.spotify_styles import STYLES
+from countdown_core.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel, _album_art, _paused
+from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS, STYLES
 from countdown_core.store.music import ART_SIZE, art_image
 
 ART = fixtures.read_bytes("music_art.jpg")
@@ -328,3 +328,28 @@ def test_a_position_of_another_track_leaves_the_cover_as_it_was(symbols_font, st
     other = position(is_playing=False, track_id="other")
 
     assert same(with_cover(style, other), with_cover(style, None))
+
+
+def test_the_hd_panel_is_made_from_the_pages_parts():
+    queue = Queue(currently_playing=playing(), queue=[playing("t2")])
+    panel = SpotifyPanel(queue, "card", APPLE_MUSIC_LABELS, b"art", position(), FETCHED_AT)
+
+    hd = HdSpotifyPanel.of(panel)
+
+    assert (hd.queue, hd.style, hd.labels, hd.art, hd.playback, hd.now) == (
+        queue,
+        "card",
+        APPLE_MUSIC_LABELS,
+        b"art",
+        panel.playback,
+        FETCHED_AT,
+    )
+
+
+@pytest.mark.parametrize("style", STYLES)
+def test_the_hd_panel_draws_its_styles_wide_page(symbols_font, style):
+    queue = Queue(currently_playing=playing(), queue=[playing("t2")])
+    hd = HdSpotifyPanel(queue, style, playback=position(), now=FETCHED_AT + timedelta(seconds=30))
+
+    assert same(hd.render(692, 150), STYLES[style].wide(queue, hd._cover, 692, 150, hd.labels, timedelta(seconds=90)))
+    assert not same(hd.render(692, 150), SpotifyPanel(queue, style).render(692, 150))

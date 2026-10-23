@@ -4,8 +4,9 @@ The panels are laid out in pixels sized for the 7.5" screens, so at this screen'
 third as big. So each is drawn bigger, at the screen's own resolution (see utils.scaled_draw): the stops two and a
 half times as big, so the departures read from across the room and fill their room, and the rest twice. The full
 weather is the HD screen's own (weather.hd_weather_panel), taller than on portrait, in the config's design, at the
-stops' scale so its text is their size. A panel that can't draw itself bigger (a message) has its pixels repeated
-instead.
+stops' scale so its text is their size. Spotify's now page is wide (its style's `wide` page), what's up next in a cell
+of its own, and the notice board a table (notices.HdNoticeBoardPanel). A panel that can't draw itself bigger (a
+message) has its pixels repeated instead.
 """
 
 from typing import TYPE_CHECKING, override
@@ -13,9 +14,9 @@ from typing import TYPE_CHECKING, override
 from PIL import Image
 
 from countdown_core.core.api_registry import ClientClasses
+from countdown_core.notices.notice_board_panel import HdNoticeBoardPanel, NoticeBoardPanel
 from countdown_core.rendering.layout import Frame
 from countdown_core.rendering.layouts.classic_portrait import (
-    SPOTIFY_HEIGHT,
     BasePortraitLayout,
     ClassicPortraitLayout,
     GlowPortraitLayout,
@@ -23,6 +24,7 @@ from countdown_core.rendering.layouts.classic_portrait import (
     SpotifyPortraitLayout,
 )
 from countdown_core.rendering.screen import Canvas
+from countdown_core.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel
 from countdown_core.utils.scaled_draw import drawing_at
 from countdown_core.utils.utils import GAP, WEATHER_GAP
 from countdown_core.weather.hd_weather_panel import HdWeatherPanel
@@ -40,8 +42,12 @@ ARRIVALS_SCALE = 2.5
 WEATHER_HEIGHT = 660
 # The compact weather with the energy chart beside it, in their own pixels (at SCALE): taller than portrait's 185.
 ENERGY_ROW_HEIGHT = 230
+# Spotify's height (at SCALE): taller than portrait's 120, as its now page is wide with what's up next beside it.
+SPOTIFY_HEIGHT = 150
 # The most the notices may take (at SCALE), as on portrait; the stops get the rest.
 NOTICES_ROOM = 190
+# Between Spotify and the notices (at SCALE): more than the usual gap, so the board's header is set apart.
+NOTICES_GAP = 3 * GAP
 
 
 class HdPortraitLayout(ClassicPortraitLayout):
@@ -54,6 +60,7 @@ class HdPortraitLayout(ClassicPortraitLayout):
         img = Image.new("RGBA", canvas.size, (255, 255, 255, 255))
         gap = SCALE * GAP
         width = canvas.width - 2 * gap
+        panels = self._hd_panels(panels)
 
         arrivals_y = gap + self._draw_hd_top_row(img, panels, width, clock_format) + SCALE * WEATHER_GAP
         bottom = canvas.height - gap
@@ -67,7 +74,7 @@ class HdPortraitLayout(ClassicPortraitLayout):
                 (width // SCALE, notices_height),
                 clock_format,
             )
-            bottom -= gap
+            bottom -= SCALE * NOTICES_GAP
         for panel, height in reversed(self._spotify_area(panels, SPOTIFY_HEIGHT) if self.SHOWS_SPOTIFY else []):
             bottom -= SCALE * height
             self._place_scaled(img, panel, (gap, bottom), (width // SCALE, height), clock_format)
@@ -78,6 +85,22 @@ class HdPortraitLayout(ClassicPortraitLayout):
             img, panels[ClientClasses.TFL.api_name], (gap, arrivals_y), arrivals_size, clock_format, ARRIVALS_SCALE
         )
         return Frame(img)
+
+    @staticmethod
+    def _hd_panels(panels: dict[str, Panel]) -> dict[str, Panel]:
+        """Return `panels` with Spotify's now page and the notice board swapped for the HD screen's own.
+
+        Anything else under their names (a message, a top list, the developer panel) is left as it is; the weather is
+        swapped where it's drawn (_draw_hd_top_row), as only the full one has HD designs.
+        """
+        hd = dict(panels)
+        spotify = hd.get(ClientClasses.SPOTIFY.api_name)
+        if isinstance(spotify, SpotifyPanel):
+            hd[ClientClasses.SPOTIFY.api_name] = HdSpotifyPanel.of(spotify)
+        notices = hd.get(ClientClasses.NOTICE_BOARD.api_name)
+        if isinstance(notices, NoticeBoardPanel):
+            hd[ClientClasses.NOTICE_BOARD.api_name] = HdNoticeBoardPanel.of(notices)
+        return hd
 
     def _draw_hd_top_row(
         self, img: Image.Image, panels: dict[str, Panel], width: int, clock_format: ClockFormat

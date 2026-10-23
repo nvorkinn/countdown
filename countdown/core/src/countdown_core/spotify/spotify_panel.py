@@ -2,7 +2,7 @@
 
 import io
 import logging
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, Self, override
 
 from PIL import Image, ImageDraw, ImageOps
 
@@ -87,6 +87,26 @@ class SpotifyPanel(Panel):
         if self.playback is None or track is None:
             return None
         return self.playback.elapsed(track, self.now or moment.now())
+
+
+class HdSpotifyPanel(SpotifyPanel):
+    """The now page as the HD screen shows it, wide: what's playing in one cell and what's up next in another."""
+
+    @classmethod
+    def of(cls, panel: SpotifyPanel) -> Self:
+        """Return `panel`'s page, drawn the HD screen's way."""
+        return cls(panel.queue, panel.style, panel.labels, panel.art, panel.playback, panel.now)
+
+    @override
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
+        return STYLES[self.style].wide(
+            self.queue,
+            self._cover,
+            image_width,
+            image_height,
+            self.labels,
+            self._elapsed(),
+        )
 
 
 def _album_art(art: bytes | None, height: int) -> Image.Image:

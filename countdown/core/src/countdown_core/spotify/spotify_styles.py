@@ -1,7 +1,8 @@
 """The looks the Spotify panel can have (the config's style).
 
 Each matches the departures style of the same name. A style draws both pages: what's playing, and the top tracks and
-artists. Each draws into `width` x `height`, on a transparent background.
+artists; and the now page wide, as the HD screen shows it (spotify_panel.HdSpotifyPanel), with what's up next in a
+cell of its own. Each draws into `width` x `height`, on a transparent background.
 """
 
 from collections.abc import Callable
@@ -142,6 +143,40 @@ def _track_and_by(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw,
     d.text((left, y), truncate_to_fit(name, name_font, right - left), "black", name_font, anchor="lm")
 
 
+# The wide now page: what's playing has this share of the width and what's up next the rest, past a divider with this
+# much room either side of it; up to this many coming tracks are listed, a row each. Laid out for 150 tall.
+WIDE_SPLIT = 0.65
+WIDE_GAP = 20
+WIDE_ROWS = 3
+
+
+def _wide_cells(width: int, queue: Queue) -> tuple[int, int | None]:
+    """Return where the now cell ends and the next cell starts: None, and the whole width, with nothing up next."""
+    if not queue.queue:
+        return width, None
+    split = round(width * WIDE_SPLIT)
+    return split, split + 2 * WIDE_GAP
+
+
+def _next_rows(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which fonts
+    d: ScaledDraw,
+    queue: Queue,
+    y: float,
+    span: tuple[float, float],
+    step: int,
+    fonts: tuple[ImageFont.FreeTypeFont, ImageFont.FreeTypeFont],
+    bottom: float,
+) -> None:
+    """List the coming tracks, each with its artist against the right, a row every `step` from `y` down to `bottom`."""
+    left, right = span
+    name_font, by_font = fonts
+    for track in queue.queue[:WIDE_ROWS]:
+        if y + step / 2 > bottom:
+            break
+        _track_and_by(d, y, left, right, track.name, _artists(track), name_font, by_font)
+        y += step
+
+
 def _columns(tracks: list[Track], artists: list[Artist]) -> list[tuple[str, list[tuple[str, str]]]]:
     """Put the two lists side by side, as (name, by) rows; an artist has no "by"."""
     return [
@@ -200,6 +235,46 @@ def airy_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
         up_next, body = queue.queue[0], fitted_font(SANS, 15)
         text = truncate_to_fit(f"{up_next.name} · {_artists(up_next)}", body, width - next_x)
         d.text((next_x, next_y), text, "black", body, anchor="lm")
+    if elapsed is not None:
+        _progress_bar(d, 0, width, height - 1, track.duration_ms, elapsed)
+    return img
+
+
+def airy_wide(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same arguments
+    queue: Queue,
+    art: AlbumArt,
+    width: int,
+    height: int,
+    labels: Labels = SPOTIFY_LABELS,
+    elapsed: timedelta | None = None,
+) -> Image.Image:
+    """Draw the now page wide: what's playing under its label, and past a hairline the coming tracks under theirs.
+
+    The title, the artist and the album on lines of their own beside the cover; with nothing up next the first cell
+    has the whole width. With `elapsed`, the time played beside the length, and a progress bar along the bottom.
+    """
+    img, d = _canvas(width, height)
+    track = _playing(queue)
+    cover_width = _paste_cover(d, art, height if elapsed is None else height - BAR_ROOM, (0, 0))
+    x = cover_width + 18 if cover_width else 0
+    right, next_x = _wide_cells(width, queue)
+    room = right - x
+    airy_label(d, x, 12, NOTE, _(labels.now).upper())
+    aside = _length(track.duration_ms) if elapsed is None else _played(track.duration_ms, elapsed)
+    d.text((right, 12), aside, "black", fitted_font(SANS_SEMI, 11), anchor="rm")
+    title = _shrunk(track.name, SANS, 40, room)
+    d.text((x, 70), truncate_to_fit(track.name, title, room), "black", title, anchor="ls")
+    by = fitted_font(SANS, 20)
+    d.text((x, 102), truncate_to_fit(_artists(track), by, room), "black", by, anchor="ls")
+    album = fitted_font(SANS, 16)
+    d.text((x, 128), truncate_to_fit(track.album.name, album, room), "black", album, anchor="ls")
+    if next_x is not None:
+        divider = right + WIDE_GAP
+        d.line((divider, 12, divider, height - 16), fill="black")
+        airy_label(d, next_x, 12, labels.next_icon, _(labels.next).upper())
+        d.line((next_x, 24, width, 24), fill="black")
+        fonts = fitted_font(SANS_SEMI, 15), fitted_font(SANS, 13)
+        _next_rows(d, queue, 46, (next_x, width), 30, fonts, height - 12)
     if elapsed is not None:
         _progress_bar(d, 0, width, height - 1, track.duration_ms, elapsed)
     return img
@@ -290,6 +365,45 @@ def hero_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
             fitted_font(MEDIUM, 14),
             fitted_font(BOLD, 14),
         )
+    if elapsed is not None:
+        _progress_bar(d, 0, width, height - 1, track.duration_ms, elapsed)
+    return img
+
+
+def hero_wide(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same arguments
+    queue: Queue,
+    art: AlbumArt,
+    width: int,
+    height: int,
+    labels: Labels = SPOTIFY_LABELS,
+    elapsed: timedelta | None = None,
+) -> Image.Image:
+    """Draw the now page wide: what's playing under its header, and past a rule the coming tracks under theirs.
+
+    The title big, with the artist and the album on lines of their own beside the cover; with nothing up next the
+    first cell has the whole width. With `elapsed`, the time played beside the length, and a progress bar along the
+    bottom.
+    """
+    img, d = _canvas(width, height)
+    track = _playing(queue)
+    cover_width = _paste_cover(d, art, height if elapsed is None else height - BAR_ROOM, (0, 0))
+    x = cover_width + 14 if cover_width else 0
+    right, next_x = _wide_cells(width, queue)
+    room = right - x
+    aside = _length(track.duration_ms) if elapsed is None else _played(track.duration_ms, elapsed)
+    _hero_header(d, x, right, NOTE, _(labels.now), aside)
+    title = _shrunk(track.name, BOLD, 33, room)
+    d.text((x, 61), truncate_to_fit(track.name, title, room), "black", title, anchor="lm")
+    by = fitted_font(MEDIUM, 18)
+    d.text((x, 96), truncate_to_fit(_artists(track), by, room), "black", by, anchor="lm")
+    album = fitted_font(REGULAR, 15)
+    d.text((x, 120), truncate_to_fit(track.album.name, album, room), "black", album, anchor="lm")
+    if next_x is not None:
+        divider = right + WIDE_GAP
+        d.line((divider, 12, divider, height - 16), fill="black")
+        _hero_header(d, next_x, width, labels.next_icon, _(labels.next), "")
+        fonts = fitted_font(BOLD, 15), fitted_font(REGULAR, 13)
+        _next_rows(d, queue, 50, (next_x, width), 30, fonts, height - 12)
     if elapsed is not None:
         _progress_bar(d, 0, width, height - 1, track.duration_ms, elapsed)
     return img
@@ -408,6 +522,48 @@ def card_now(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same
     return img
 
 
+def card_wide(  # noqa: PLR0913, PLR0917 -- every style's now page takes the same arguments
+    queue: Queue,
+    art: AlbumArt,
+    width: int,
+    height: int,
+    labels: Labels = SPOTIFY_LABELS,
+    elapsed: timedelta | None = None,
+) -> Image.Image:
+    """Draw the now page wide: what's playing in a card, its cover inside, and the coming tracks in a card beside it.
+
+    The title, the artist and the album on lines of their own; with nothing up next the first card has the whole
+    width. With `elapsed`, the time played beside the length in the title bar, and a progress bar along the bottom
+    inside the card.
+    """
+    img, d = _canvas(width, height)
+    track = _playing(queue)
+    aside = _length(track.duration_ms) if elapsed is None else _played(track.duration_ms, elapsed)
+    right, next_x = _wide_cells(width, queue)
+    # The cards are 10 apart, where the other styles' divider is.
+    right = width if next_x is None else right + WIDE_GAP - 5
+    _card(d, 0, right, height, NOTE, _(labels.now), aside)
+    cover_width = _paste_cover(
+        d, art, height - CARD_BAR - 14 - (0 if elapsed is None else CARD_BAR_ROOM), (8, CARD_BAR + 7)
+    )
+    x = 8 + cover_width + 12 if cover_width else 10
+    room = right - x - 10
+    title = _shrunk(track.name, BOLD, 28, room)
+    d.text((x, 62), truncate_to_fit(track.name, title, room), "black", title, anchor="lm")
+    by = fitted_font(SANS, 18)
+    d.text((x, 94), truncate_to_fit(_artists(track), by, room), "black", by, anchor="lm")
+    album = fitted_font(SANS, 15)
+    d.text((x, 118), truncate_to_fit(track.album.name, album, room), "black", album, anchor="lm")
+    if next_x is not None:
+        left = right + 10
+        _card(d, left, width, height, labels.next_icon, _(labels.next), "")
+        fonts = fitted_font(SANS_SEMI, 15), fitted_font(SANS, 13)
+        _next_rows(d, queue, CARD_BAR + 22, (left + 10, width - 11), 30, fonts, height - 14)
+    if elapsed is not None:
+        _progress_bar(d, 8, right - 8, height - 7, track.duration_ms, elapsed)
+    return img
+
+
 def card_top(  # noqa: PLR0913, PLR0917 -- every style's top page takes the same arguments
     period: str, tracks: list[Track], artists: list[Artist], width: int, height: int, service: str | None = None
 ) -> Image.Image:
@@ -466,14 +622,15 @@ class TopPage(Protocol):
 
 @dataclass(frozen=True)
 class Style:
-    """A Spotify style's two pages: `now` draws what's playing, `top` the top tracks and artists."""
+    """A Spotify style's pages: `now` what's playing, `top` the top tracks and artists, `wide` the now page wide."""
 
     now: NowPage
     top: TopPage
+    wide: NowPage
 
 
 STYLES: dict[str, Style] = {
-    "airy": Style(airy_now, airy_top),
-    "hero": Style(hero_now, hero_top),
-    "card": Style(card_now, card_top),
+    "airy": Style(airy_now, airy_top, airy_wide),
+    "hero": Style(hero_now, hero_top, hero_wide),
+    "card": Style(card_now, card_top, card_wide),
 }

@@ -47,7 +47,7 @@ adds nothing, and if every source has nothing the board says "Not available" rat
 **Layout** (`rendering/`). `LAYOUTS` holds layouts by canvas (800x480 landscape or 480x800 portrait, as the screen is
 hung, or 1404x1872 for a 1872x1404 HD screen hung portrait), each with a variant per combination of enabled APIs. The
 HD layout is the portrait one with each panel drawn bigger at the screen's own resolution (`utils/scaled_draw.py`:
-the stops two and a half times as big, the rest twice), so text is crisp and as big as on the 7.5" screens. The HD weather spans the whole width in one of four designs (`weather/hd_weather_panel.py`: columns, timeline, overview or poster), the config's `weather.design`, drawn at the stops' scale so its text is their size. The developer panel has no area of its own
+the stops two and a half times as big, the rest twice), so text is crisp and as big as on the 7.5" screens. The HD weather spans the whole width in one of four designs (`weather/hd_weather_panel.py`: columns, timeline, overview or poster), the config's `weather.design`, drawn at the stops' scale so its text is their size. Spotify's now page is wide there (each style's `wide` page: what's playing and what's up next side by side, 150 tall) and the notice board a table (`HdNoticeBoardPanel`: taller rows, the text column aligned). The developer panel has no area of its own
 (`place_developer_panel`): while Spotify shows a song it's a strip above it (open PRs and builds in one row, or a
 release's jobs in a row of boxes), and otherwise it takes Spotify's whole area.
 

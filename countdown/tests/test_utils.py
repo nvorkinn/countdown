@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from itertools import combinations
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -83,3 +84,19 @@ class Sleeps(list):
         self.append(seconds)
         if len(self) >= self.stop_after:
             raise StopWaitingError
+
+
+def assert_text_inside_and_apart(drawn: list, size: tuple[int, int]) -> None:
+    """Check every text the `drawn_text` fixture recorded is inside an image `size` big, and none on top of another.
+
+    An empty text (a header without an aside) draws nothing, and doesn't count.
+    """
+    width, height = size
+    drawn = [call for call in drawn if call[0]]
+    for text, (left, top, right, bottom), _ in drawn:
+        assert 0 <= left < right <= width, text
+        assert 0 <= top < bottom <= height, text
+    for first, second in combinations(drawn, 2):
+        _, (left_a, top_a, right_a, bottom_a), _ = first
+        _, (left_b, top_b, right_b, bottom_b), _ = second
+        assert right_a <= left_b or right_b <= left_a or bottom_a <= top_b or bottom_b <= top_a, (first, second)

@@ -32,7 +32,7 @@ from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.notice_styles import STYLES as NOTICE_STYLES
 from countdown_core.rendering import render
 from countdown_core.rendering.screen import DEFAULT_CANVAS
-from countdown_core.spotify.models import Artist, Queue, Track
+from countdown_core.spotify.models import Artist, Playback, Queue, Track
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS
@@ -1094,6 +1094,26 @@ def test_developer_panel_above_spotify_on_an_hd_portrait_screen(snapshot):
 def test_spotify_top_tracks_on_an_hd_portrait_screen(snapshot):
     img = _draw_hd_portrait(_panels(_many_route_arrivals(), spotify=_spotify_page("top", "hero")))
     snapshot.assert_matches("screen_hd_portrait_spotify_top", img)
+
+
+def test_spotify_queue_and_position_on_an_hd_portrait_screen(snapshot):
+    """The wide now page with a full queue: the coming tracks listed, and a bar from the player's position."""
+    now = dt.datetime(2026, 1, 15, 12, 0, tzinfo=dt.UTC)
+    queue = Queue.model_validate(
+        {
+            "currently_playing": {**_track("Around The World", "Daft Punk", "Homework"), "id": "t1"},
+            "queue": [
+                _track("Da Funk", "Daft Punk", "Homework"),
+                _track("Digital Love", "Daft Punk", "Discovery"),
+                _track("Harder, Better, Faster, Stronger", "Daft Punk", "Discovery"),
+                _track("One More Time", "Daft Punk", "Discovery"),
+            ],
+        }
+    )
+    playback = Playback(fetched_at=now, is_playing=True, progress_ms=168_000, track_id="t1")
+    spotify = SpotifyPanel(queue, "hero", art=_cover_art_bytes(), playback=playback, now=now)
+    img = _draw_hd_portrait(_panels(_many_route_arrivals(), spotify=spotify, notices=FEW_NOTICES))
+    snapshot.assert_matches("screen_hd_portrait_spotify_queue", img)
 
 
 @pytest.mark.parametrize("design", ["timeline", "overview", "poster"])

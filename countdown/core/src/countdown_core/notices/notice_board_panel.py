@@ -1,6 +1,6 @@
 """How the notice board is drawn."""
 
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, ClassVar, Self, override
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
@@ -8,10 +8,10 @@ from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_styles import STYLES
 from countdown_core.utils.clock import ClockFormat, format_clock
 from countdown_core.utils.scaled_draw import ScaledDraw, scaled_canvas
-from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, truncate_to_fit
+from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, resized, truncate_to_fit
 
 if TYPE_CHECKING:
-    from PIL import Image
+    from PIL import Image, ImageFont
 
     from countdown_core.core.style import Style
 
@@ -29,6 +29,13 @@ class NoticeBoardPanel(Panel):
 
     scales = True
 
+    # The rows: how tall, in which fonts, and whether the text column starts where the widest source shown ends
+    # (a table) or after each row's own source.
+    row_height: ClassVar[int] = ROW_HEIGHT
+    source_font: ClassVar[ImageFont.FreeTypeFont] = SOURCE_FONT
+    text_font: ClassVar[ImageFont.FreeTypeFont] = TEXT_FONT
+    aligned: ClassVar[bool] = False
+
     def __init__(self, notices: list[Notice], style: Style = "hero") -> None:
         """`notices` already ranked, most important first; `style`: how to draw the board round them."""
         self.notices = notices
@@ -43,7 +50,7 @@ class NoticeBoardPanel(Panel):
         if not self.notices:
             return 0
         style = STYLES[self.style]
-        return min(max_height, style.top + len(self.notices) * ROW_HEIGHT + style.bottom)
+        return min(max_height, style.top + len(self.notices) * self.row_height + style.bottom)
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
@@ -56,7 +63,7 @@ class NoticeBoardPanel(Panel):
         style.draw(draw, image_width, image_height, len(self.notices))
 
         left, right = style.inset, image_width - style.inset
-        rows = max(1, (image_height - style.top - style.bottom) // ROW_HEIGHT)
+        rows = max(1, (image_height - style.top - style.bottom) // self.row_height)
         current = [n for n in self.notices if n.severity != Severity.PLANNED]
         planned = [n for n in self.notices if n.severity == Severity.PLANNED]
         if len(current) > rows:
@@ -64,26 +71,37 @@ class NoticeBoardPanel(Panel):
         else:
             # Planned works only fill the rows left over, and don't count as "more".
             shown, more = current + planned[: rows - len(current)], 0
+        text_x = None
+        if self.aligned and shown:
+            widest = max(round(self.source_font.getlength(notice.source)) for notice in shown)
+            text_x = left + MARKER_SIZE + MARKER_GAP + widest + SOURCE_GAP
         for i, notice in enumerate(shown):
-            self._draw_row(draw, notice, style.top + i * ROW_HEIGHT, (left, right), clock_format)
+            self._draw_row(draw, notice, style.top + i * self.row_height, (left, right), clock_format, text_x)
         if more:
-            y = style.top + len(shown) * ROW_HEIGHT + ROW_HEIGHT // 2
-            draw.text((left, y), _("+{count} more").format(count=more), "black", font=TEXT_FONT, anchor="lm")
+            y = style.top + len(shown) * self.row_height + self.row_height // 2
+            draw.text((left, y), _("+{count} more").format(count=more), "black", font=self.text_font, anchor="lm")
         return img
 
-    @staticmethod
-    def _draw_row(draw: ScaledDraw, notice: Notice, y: int, span: tuple[int, int], clock_format: ClockFormat) -> None:
-        """Draw `notice`'s row with its top at `y`, between the x coordinates `span`."""
+    def _draw_row(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and how
+        self,
+        draw: ScaledDraw,
+        notice: Notice,
+        y: int,
+        span: tuple[int, int],
+        clock_format: ClockFormat,
+        text_x: int | None = None,
+    ) -> None:
+        """Draw `notice`'s row with its top at `y`, between the x coordinates `span`; its text from `text_x`, if set."""
         left, right = span
-        middle = y + ROW_HEIGHT // 2
+        middle = y + self.row_height // 2
         box = (left, middle - MARKER_SIZE // 2, left + MARKER_SIZE - 1, middle + MARKER_SIZE // 2 - 1)
         centre = ((box[0] + box[2] + 1) / 2, middle)
         if notice.severity == Severity.SEVERE:
             draw.rectangle(box, fill="black")
-            draw.text(centre, "!", "white", font=SOURCE_FONT, anchor="mm")
+            draw.text(centre, "!", "white", font=self.source_font, anchor="mm")
         elif notice.severity == Severity.WARNING:
             draw.rectangle(box, outline="black", width=2)
-            draw.text(centre, "!", "black", font=SOURCE_FONT, anchor="mm")
+            draw.text(centre, "!", "black", font=self.source_font, anchor="mm")
         elif notice.severity == Severity.INFO:
             r = 3
             draw.ellipse((centre[0] - r, middle - r, centre[0] + r - 1, middle + r - 1), fill="black")
@@ -95,15 +113,30 @@ class NoticeBoardPanel(Panel):
             draw.ellipse((centre[0] - r, middle - r, centre[0] + r - 1, middle + r - 1), outline="black")
 
         x = left + MARKER_SIZE + MARKER_GAP
-        draw.text((x, middle), notice.source, "black", font=SOURCE_FONT, anchor="lm")
-        x += round(SOURCE_FONT.getlength(notice.source)) + SOURCE_GAP
+        draw.text((x, middle), notice.source, "black", font=self.source_font, anchor="lm")
+        x = text_x if text_x is not None else x + round(self.source_font.getlength(notice.source)) + SOURCE_GAP
         available = right - x
         suffix = ""
         if notice.display_time is not None:
             suffix = f" {format_clock(notice.display_time, clock_format)}"
+        font = self.text_font
         if suffix and clock_format == "12h":
             # Keep AM/PM visible even when the longer clock leaves less room for the notice.
-            text = truncate_to_fit(notice.text, TEXT_FONT, available - TEXT_FONT.getlength(suffix)) + suffix
+            text = truncate_to_fit(notice.text, font, available - font.getlength(suffix)) + suffix
         else:
-            text = truncate_to_fit(notice.text + suffix, TEXT_FONT, available)
-        draw.text((x, middle), text, "black", font=TEXT_FONT, anchor="lm")
+            text = truncate_to_fit(notice.text + suffix, font, available)
+        draw.text((x, middle), text, "black", font=font, anchor="lm")
+
+
+class HdNoticeBoardPanel(NoticeBoardPanel):
+    """The board as the HD screen shows it: taller rows in bigger text, as a table with its text column aligned."""
+
+    row_height = 28
+    source_font = resized(SOURCE_FONT, 15)
+    text_font = resized(TEXT_FONT, 15)
+    aligned = True
+
+    @classmethod
+    def of(cls, panel: NoticeBoardPanel) -> Self:
+        """Return `panel`'s board, drawn the HD screen's way."""
+        return cls(panel.notices, panel.style)
