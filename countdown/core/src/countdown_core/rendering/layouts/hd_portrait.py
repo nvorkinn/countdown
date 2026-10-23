@@ -2,7 +2,7 @@
 
 The panels draw in pixels sized for the 7.5" screens, so at this screen's density (about 227 dpi) they'd be a third
 as big. Instead the portrait layout draws at half the size, on 702x936, and the frame is scaled up twice: the text
-comes out as big as on the 800x480 screens, and the extra room shows four stops, a 2x2 grid, instead of two.
+comes out as big as on the 800x480 screens, and the extra room makes the two stops taller.
 """
 
 from typing import TYPE_CHECKING, override
@@ -34,15 +34,14 @@ SCALE = 2
 LOGICAL = Canvas(HD_PORTRAIT.width // SCALE, HD_PORTRAIT.height // SCALE)
 # The stops share the whole width, rather than keep the 7.5" screens' width with room to spare beside them.
 STOP_WIDTH = (LOGICAL.width - 2 * GAP - (COLUMNS - 1) * COLUMN_GAP) // COLUMNS
-# Two rows of stops, each as tall as the portrait screen's one.
-ARRIVALS_HEIGHT = 2 * 165
+# The portrait screen's stops, taller by all the height this screen has more.
+ARRIVALS_HEIGHT = ClassicPortraitLayout.ARRIVALS_HEIGHT + LOGICAL.height - 800
 
 
 class HdPortraitLayout(ClassicPortraitLayout):
     """The portrait layout drawn at half the canvas and scaled up; the variants say what shows, as on portrait."""
 
     canvases = frozenset({HD_PORTRAIT})
-    stops_shown = 4
     ARRIVALS_HEIGHT = ARRIVALS_HEIGHT
 
     @override
