@@ -35,7 +35,7 @@ class WeatherPanel(Panel):
         # It sizes everything from its room, so a bigger drawing scale is just more room, and a higher cap.
         drawn_at = drawing_scale()
         inline = image_height < INLINE_MAX_HEIGHT and image_width >= image_height * INLINE_ASPECT
-        image_width, image_height = image_width * drawn_at, image_height * drawn_at
+        image_width, image_height = round(image_width * drawn_at), round(image_height * drawn_at)
         img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         draw.fontmode = "1"

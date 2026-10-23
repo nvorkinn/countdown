@@ -22,6 +22,7 @@ from countdown_core.rendering.layouts.classic_portrait import (
     SpotifyPortraitLayout,
 )
 from countdown_core.rendering.layouts.hd_portrait import (
+    ARRIVALS_SCALE,
     HD_PORTRAIT,
     HD_PORTRAIT_LAYOUTS,
     HdPortraitLayout,
@@ -352,11 +353,11 @@ class _ScalingPanel(_SolidPanel):
 
     def __init__(self, colour: tuple[int, int, int] = (0, 0, 0)) -> None:
         super().__init__(colour)
-        self.scales_seen: list[int] = []
+        self.scales_seen: list[float] = []
 
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
         self.scales_seen.append(drawing_scale())
-        return super().render(image_width * drawing_scale(), image_height * drawing_scale())
+        return super().render(round(image_width * drawing_scale()), round(image_height * drawing_scale()))
 
 
 def test_a_panel_that_scales_draws_itself_bigger_and_any_other_has_its_pixels_repeated():
@@ -374,12 +375,14 @@ def test_a_panel_that_scales_draws_itself_bigger_and_any_other_has_its_pixels_re
     assert img.getpixel((30, 10)) == (255, 255, 255, 255)
 
 
-def test_the_stops_on_an_hd_portrait_screen_are_drawn_three_times_as_big_across_its_width():
+def test_the_stops_on_an_hd_portrait_screen_are_drawn_two_and_a_half_times_as_big_across_its_width():
     stops = CombinedArrivalPanel([_ScalingPanel(_ARRIVALS_COLOUR), _ScalingPanel(_ARRIVALS_COLOUR)])
     panels = _solid_panels() | {ClientClasses.TFL.api_name: stops}
 
     box = _arrivals_box(BaseHdPortraitLayout(), HD_PORTRAIT, panels)
 
-    # Two portrait-wide stops and the gap between them, from the left gap, three times as big.
-    stop_width = min(STOP_WIDTH, ((HD_PORTRAIT.width - 4 * GAP) // 3 - COLUMN_GAP) // 2)
-    assert (box[0], box[2]) == (2 * GAP, 2 * GAP + 3 * (2 * stop_width + COLUMN_GAP))
+    # Two stops and the gap between them, from the left gap, two and a half times as big: each starts and ends on the
+    # screen pixel nearest where its own would.
+    stop_width = min(STOP_WIDTH, (int((HD_PORTRAIT.width - 4 * GAP) / ARRIVALS_SCALE) - COLUMN_GAP) // 2)
+    second_stop_x = round((stop_width + COLUMN_GAP) * ARRIVALS_SCALE)
+    assert (box[0], box[2]) == (2 * GAP, 2 * GAP + second_stop_x + round(stop_width * ARRIVALS_SCALE))

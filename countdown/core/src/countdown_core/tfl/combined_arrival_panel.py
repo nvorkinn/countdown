@@ -61,7 +61,7 @@ class CombinedArrivalPanel(Panel):
                 x += 10
             rendered = panel.render(stop_width, stop_height, clock_format=clock_format)
             draw.paste(rendered, (x, y))
-            x += rendered.size[0] // draw.scale
+            x += round(rendered.size[0] / draw.scale)
             if idx % COLUMNS == COLUMNS - 1:
                 y += stop_height
                 x = 0

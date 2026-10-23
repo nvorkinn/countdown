@@ -228,7 +228,7 @@ def card(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     d.rectangle((0, 20, width - 1, 30), fill="black")  # square off the bar's bottom corners
     x = 10
     if panel.is_tube:
-        roundel = ROUNDEL.resize((ROUNDEL.width * d.scale, ROUNDEL.height * d.scale), Image.Resampling.LANCZOS)
+        roundel = ROUNDEL.resize((d.px(ROUNDEL.width), d.px(ROUNDEL.height)), Image.Resampling.LANCZOS)
         d.paste(roundel, (x, 7))
         x += ROUNDEL.size[0] + 6
     letter_room = 34 if panel.stop_letter else 10

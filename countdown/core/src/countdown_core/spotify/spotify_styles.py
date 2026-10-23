@@ -67,12 +67,12 @@ def _playing(queue: Queue) -> Track:
 
 def _paste_cover(d: ScaledDraw, art: AlbumArt, size: int, at: tuple[int, int]) -> int:
     """Paste the cover, `size` tall in the page's pixels, at `at`; return how wide it is (0 with none)."""
-    cover = art(size * d.scale)
-    if d.scale > 1 and 0 < cover.height < size * d.scale:
+    cover = art(d.px(size))
+    if d.scale > 1 and 0 < cover.height < d.px(size):
         # The store keeps covers big enough for the 7.5" screens, not always for a screen with more pixels.
-        cover = cover.resize((size * d.scale, size * d.scale), Image.Resampling.LANCZOS)
+        cover = cover.resize((d.px(size), d.px(size)), Image.Resampling.LANCZOS)
     d.paste(cover, at)
-    return cover.width // d.scale
+    return round(cover.width / d.scale)
 
 
 def _artists(track: Track) -> str:

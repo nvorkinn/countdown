@@ -1,10 +1,10 @@
 """The classic portrait dashboard on a 1872x1404 HD screen hung portrait (1404x1872).
 
 The panels are laid out in pixels sized for the 7.5" screens, so at this screen's density (about 227 dpi) they'd be a
-third as big. So each is drawn bigger, at the screen's own resolution (see utils.scaled_draw): the stops three times
-as big, so the departures read from across the room and fill their room, and the rest twice. The full weather gets
-more height than on portrait and sizes itself to it. A panel that can't draw itself bigger (a message) has its pixels
-repeated instead.
+third as big. So each is drawn bigger, at the screen's own resolution (see utils.scaled_draw): the stops two and a
+half times as big, so the departures read from across the room and fill their room, and the rest twice. The full
+weather gets more height than on portrait and sizes itself to it. A panel that can't draw itself bigger (a message) has
+its pixels repeated instead.
 """
 
 from typing import TYPE_CHECKING, override
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 HD_PORTRAIT = Canvas(1404, 1872)
 # How many screen pixels each of a panel's takes, either way: most panels, and the stops.
 SCALE = 2
-ARRIVALS_SCALE = 3
+ARRIVALS_SCALE = 2.5
 # In the panels' own pixels (at SCALE): the full weather, taller than portrait's 270, and the compact weather with the
 # energy chart beside it, taller than portrait's 185.
 WEATHER_HEIGHT = 330
@@ -72,7 +72,7 @@ class HdPortraitLayout(ClassicPortraitLayout):
             self._place_scaled(img, panel, (gap, bottom), (width // SCALE, height), clock_format)
             bottom -= gap
 
-        arrivals_size = (width // ARRIVALS_SCALE, (bottom - arrivals_y) // ARRIVALS_SCALE)
+        arrivals_size = (int(width / ARRIVALS_SCALE), int((bottom - arrivals_y) / ARRIVALS_SCALE))
         self._place_scaled(
             img, panels[ClientClasses.TFL.api_name], (gap, arrivals_y), arrivals_size, clock_format, ARRIVALS_SCALE
         )
@@ -111,7 +111,7 @@ class HdPortraitLayout(ClassicPortraitLayout):
         at: tuple[int, int],
         size: tuple[int, int],
         clock_format: ClockFormat,
-        scale: int = SCALE,
+        scale: float = SCALE,
     ) -> None:
         """Render `panel` `size` big in its own pixels, `scale` times as big, and paste it with its top left `at`.
 
@@ -123,7 +123,9 @@ class HdPortraitLayout(ClassicPortraitLayout):
                 scaled = panel.render(*size, clock_format=clock_format)
         else:
             rendered = panel.render(*size, clock_format=clock_format)
-            scaled = rendered.resize((rendered.width * scale, rendered.height * scale), Image.Resampling.NEAREST)
+            scaled = rendered.resize(
+                (round(rendered.width * scale), round(rendered.height * scale)), Image.Resampling.NEAREST
+            )
         img.paste(scaled, at, scaled)
 
 

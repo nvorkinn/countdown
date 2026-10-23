@@ -70,3 +70,13 @@ def test_the_drawing_scale_is_one_outside_drawing_at():
     with drawing_at(2):
         assert drawing_scale() == 2
     assert drawing_scale() == 1
+
+
+def test_at_a_scale_that_isnt_whole_a_box_covers_the_screen_pixels_nearest_its_own():
+    with drawing_at(2.5):
+        img, d = scaled_canvas(20, 20)
+        d.rectangle((1, 2, 4, 2), fill="black")
+
+    assert img.size == (50, 50)
+    # Columns 1 to 4 span 2.5 to 12.5, rounded to 2 to 12 (half to even); row 2 spans 5 to 7.5, rounded to 5 to 8.
+    assert img.getbbox() == (2, 5, 12, 8)
