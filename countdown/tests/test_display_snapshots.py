@@ -18,6 +18,7 @@ from weather_factory import forecast_json, make_weather
 import countdown_core
 import countdown_core.glow.energy_panel
 from countdown_api.models import Screen
+from countdown_core.core import moment
 from countdown_core.core.api_registry import ClientClasses
 from countdown_core.departures.departures_client import DeparturesClient
 from countdown_core.developer.developer_panel import DeveloperPanel
@@ -1127,3 +1128,56 @@ def test_each_other_weather_design_on_an_hd_portrait_screen(snapshot, design):
     spotify = SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes())
     img = _draw_hd_portrait(_panels(_many_route_arrivals(), weather=weather, spotify=spotify, notices=FEW_NOTICES))
     snapshot.assert_matches(f"screen_hd_portrait_weather_{design}", img)
+
+
+# A 1872x1404 HD screen hung landscape: the black sidebar, and the stops, the hours and the rest in a column beside it.
+HD_HORIZONTAL = Screen(orientation="horizontal", width=1872, height=1404, format="png")
+
+
+def _draw_hd_landscape(panels: dict[str, Panel], available: frozenset[ClientClasses] = EVERYTHING) -> Image.Image:
+    # The sidebar's clock is the render's moment.
+    with moment.drawing_at(_FROZEN_NOW.replace(tzinfo=dt.UTC)):
+        img = draw_screen(panels, HD_HORIZONTAL, available)
+    assert img.size == (1872, 1404)
+    return img
+
+
+def _forecast_weather() -> WeatherPanel:
+    pages = weather_pages(ForecastResponse.model_validate(forecast_json()))
+    return WeatherPanel(pages[0], pages=pages)
+
+
+@pytest.mark.parametrize("style", ["airy", "hero", "card"])
+def test_every_panel_in_one_style_on_an_hd_landscape_screen(snapshot, style):
+    """The sidebar with every page of a forecast; beside it the stops, the hours, energy and Spotify, the notices."""
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, style, art=_album_art_bytes())
+    notices = NoticeBoardPanel(FEW_NOTICES.notices, style)
+    panels = _panels(_many_route_arrivals(style), weather=_forecast_weather(), spotify=spotify, notices=notices)
+    snapshot.assert_matches(f"screen_hd_landscape_style_{style}", _draw_hd_landscape(panels))
+
+
+def test_spotify_wide_without_the_energy_chart_on_an_hd_landscape_screen(snapshot):
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, art=_cover_art_bytes())
+    panels = _panels(_many_route_arrivals(), weather=_forecast_weather(), spotify=spotify, notices=FEW_NOTICES)
+    snapshot.assert_matches("screen_hd_landscape_no_energy", _draw_hd_landscape(panels, NO_GLOWMARKT))
+
+
+def test_hd_landscape_screen_with_neither_spotify_nor_the_energy_chart(snapshot):
+    """A lone weather page (no forecast's others, no hours): what comes next under it, and the stops get the rest."""
+    available = NO_GLOWMARKT - {ClientClasses.SPOTIFY}
+    snapshot.assert_matches(
+        "screen_hd_landscape_neither", _draw_hd_landscape(_panels(_many_route_arrivals()), available)
+    )
+
+
+def test_developer_panel_above_spotify_on_an_hd_landscape_screen(snapshot):
+    panels = _above_spotify(_developer_panels(DeveloperPanel(DEVELOPER_SUMMARY), "hero"), "hero")
+    panels[ClientClasses.WEATHER.api_name] = _forecast_weather()
+    img = _draw_hd_landscape(panels, DEVELOPER_AND_SPOTIFY)
+    snapshot.assert_matches("screen_hd_landscape_developer_above_spotify", img)
+
+
+def test_hd_landscape_screen_without_weather_data_yet(snapshot):
+    """The sidebar keeps the clock and says why there's no weather."""
+    panels = _panels(_many_route_arrivals(), weather=WeatherClient.message_panel("Could not connect"))
+    snapshot.assert_matches("screen_hd_landscape_no_weather", _draw_hd_landscape(panels))

@@ -22,6 +22,20 @@ from countdown_core.rendering.layouts.classic_portrait import (
     SpotifyGlowPortraitLayout,
     SpotifyPortraitLayout,
 )
+from countdown_core.rendering.layouts.hd_landscape import (
+    HD_LANDSCAPE,
+    HD_LANDSCAPE_LAYOUTS,
+    HOURS_HEIGHT,
+    MARGIN,
+    SIDEBAR_WIDTH,
+    SPOTIFY_HEIGHT as HD_LANDSCAPE_SPOTIFY_HEIGHT,
+    WIDE_SPOTIFY_HEIGHT,
+    BaseHdLandscapeLayout,
+    GlowHdLandscapeLayout,
+    HdLandscapeLayout,
+    SpotifyGlowHdLandscapeLayout,
+    SpotifyHdLandscapeLayout,
+)
 from countdown_core.rendering.layouts.hd_portrait import SPOTIFY_HEIGHT as HD_SPOTIFY_HEIGHT
 from countdown_core.rendering.layouts.hd_portrait import (
     ARRIVALS_SCALE,
@@ -43,6 +57,8 @@ from countdown_core.utils.scaled_draw import drawing_scale
 from countdown_core.utils.utils import GAP
 from countdown_core.spotify.models import Queue
 from countdown_core.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel
+from countdown_core.system_screens.message_panel import MessagePanel
+from countdown_core.weather.hd_sidebar_panel import HdHoursPanel, HdSidebarPanel
 from countdown_core.weather.hd_weather_panel import HdWeatherPanel
 from countdown_core.weather.models import ForecastResponse
 from countdown_core.weather.weather_forecast import weather_pages
@@ -100,6 +116,7 @@ def test_only_the_variant_without_spotify_or_glowmarkt_shows_four_stops():
         ("horizontal", 480, 800, Canvas(800, 480)),
         ("vertical", 480, 800, Canvas(480, 800)),
         ("vertical", 1872, 1404, Canvas(1404, 1872)),
+        ("horizontal", 1872, 1404, Canvas(1872, 1404)),
     ],
 )
 def test_the_canvas_is_the_screen_as_hung(orientation, width, height, expected):
@@ -477,3 +494,134 @@ def test_anything_else_in_spotifys_and_the_notices_areas_is_drawn_as_it_is(monke
     assert {panels[ClientClasses.SPOTIFY.api_name], panels[ClientClasses.NOTICE_BOARD.api_name]} <= {
         panel for panel, *_ in placed
     }
+
+
+@pytest.mark.parametrize(
+    ("unavailable", "expected"),
+    [
+        (set(), SpotifyGlowHdLandscapeLayout),
+        ({ClientClasses.GLOWMARKT}, SpotifyHdLandscapeLayout),
+        ({ClientClasses.SPOTIFY}, GlowHdLandscapeLayout),
+        ({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT}, BaseHdLandscapeLayout),
+    ],
+)
+def test_an_hd_landscape_screen_gets_the_sidebar_layout(unavailable, expected):
+    assert LAYOUTS.drawable(HD_LANDSCAPE) == HD_LANDSCAPE
+    layout = LAYOUTS.select(HD_LANDSCAPE, None, EVERYTHING - unavailable)
+    assert type(layout) is expected
+    assert layout.layout_id == "sidebar"
+
+
+def test_an_hd_landscape_layout_draws_an_hd_frame_as_the_panel_takes_it():
+    screen = Screen(orientation="horizontal", width=1872, height=1404, format="png")
+    for layout in HD_LANDSCAPE_LAYOUTS:
+        frame = layout.render(_solid_panels(), HD_LANDSCAPE)
+        assert frame.image.size == HD_LANDSCAPE.size
+        assert to_native(frame, screen) is frame
+
+
+def test_the_stops_on_an_hd_landscape_screen_just_fill_the_column_beside_the_sidebar():
+    stops = CombinedArrivalPanel([_ScalingPanel(_ARRIVALS_COLOUR), _ScalingPanel(_ARRIVALS_COLOUR)])
+    panels = _solid_panels() | {ClientClasses.TFL.api_name: stops}
+
+    box = _arrivals_box(BaseHdLandscapeLayout(), HD_LANDSCAPE, panels)
+
+    assert (box[0], box[2]) == (SIDEBAR_WIDTH + MARGIN, HD_LANDSCAPE.width - MARGIN)
+
+
+def _placed_landscape(monkeypatch) -> list[Placed]:
+    """Record every panel the HD landscape layout places, as _placed does the portrait one's."""
+    placed: list[Placed] = []
+    place = HdLandscapeLayout._place_scaled
+
+    def record(img, panel, at, size, clock_format, scale=SCALE):  # noqa: PLR0913, PLR0917 -- _place_scaled's signature
+        placed.append((panel, at, size, scale))
+        place(img, panel, at, size, clock_format, scale)
+
+    monkeypatch.setattr(HdLandscapeLayout, "_place_scaled", staticmethod(record))
+    return placed
+
+
+def test_the_sidebar_has_the_forecasts_pages_and_the_hours_strip_its_coming_hours(monkeypatch):
+    placed = _placed_landscape(monkeypatch)
+    pages = weather_pages(ForecastResponse.model_validate(forecast_json()))
+    panels = _solid_panels() | {ClientClasses.WEATHER.api_name: WeatherPanel(pages[2], "poster", pages)}
+
+    BaseHdLandscapeLayout().render(panels, HD_LANDSCAPE)
+
+    [(sidebar, at, size, _)] = [entry for entry in placed if isinstance(entry[0], HdSidebarPanel)]
+    assert (sidebar.pages, at, size) == (tuple(pages), (0, 0), (SIDEBAR_WIDTH // SCALE, HD_LANDSCAPE.height // SCALE))
+    [(hours, _, size, _)] = [entry for entry in placed if isinstance(entry[0], HdHoursPanel)]
+    assert hours.hours == pages[0].hours
+    assert size[1] == HOURS_HEIGHT
+
+
+def test_without_a_forecast_the_sidebar_says_why_and_the_stops_get_the_hours_room(monkeypatch):
+    placed = _placed_landscape(monkeypatch)
+    message = MessagePanel("Weather", "Could not connect")
+    panels = _solid_panels() | {ClientClasses.WEATHER.api_name: message}
+
+    BaseHdLandscapeLayout().render(panels, HD_LANDSCAPE)
+
+    [sidebar] = [panel for panel, *_ in placed if isinstance(panel, HdSidebarPanel)]
+    assert (sidebar.pages, sidebar.message) == ((), ("Weather", "Could not connect"))
+    assert not any(isinstance(panel, HdHoursPanel) for panel, *_ in placed)
+
+
+@pytest.mark.parametrize(
+    ("layout", "spotify_size", "energy_width"),
+    [
+        # Side by side: the energy chart has 45% of the column, Spotify the rest past a gap, at its usual height.
+        (SpotifyGlowHdLandscapeLayout(), (611 - 275 - 15, HD_LANDSCAPE_SPOTIFY_HEIGHT), 275),
+        # Spotify alone has the row, its now page wide and as tall as the HD portrait screen's.
+        (SpotifyHdLandscapeLayout(), (611, WIDE_SPOTIFY_HEIGHT), None),
+        (GlowHdLandscapeLayout(), None, 611),
+        (BaseHdLandscapeLayout(), None, None),
+    ],
+    ids=type,
+)
+def test_the_row_under_the_hours_has_the_energy_chart_and_spotify_as_the_variant_shows(
+    monkeypatch, layout, spotify_size, energy_width
+):
+    placed = _placed_landscape(monkeypatch)
+    spotify, energy = SpotifyPanel(_queue(), "hero"), _SolidPanel()
+    panels = _solid_panels() | {ClientClasses.SPOTIFY.api_name: spotify, ClientClasses.GLOWMARKT.api_name: energy}
+
+    layout.render(panels, HD_LANDSCAPE)
+
+    spotify_placed = [(panel, size) for panel, _, size, _ in placed if isinstance(panel, SpotifyPanel)]
+    assert [size for _, size in spotify_placed] == ([spotify_size] if spotify_size else [])
+    if spotify_size:
+        [(panel, _)] = spotify_placed
+        assert isinstance(panel, HdSpotifyPanel) is (spotify_size[1] == WIDE_SPOTIFY_HEIGHT)
+    assert [size[0] for panel, _, size, _ in placed if panel is energy] == ([energy_width] if energy_width else [])
+
+
+def test_the_stops_get_the_room_an_hd_landscape_variant_does_not_use():
+    panels = _solid_panels() | {"notice_board": _notices(2)}
+
+    heights = [_arrivals_height(layout, HD_LANDSCAPE, panels) for layout in HD_LANDSCAPE_LAYOUTS]
+
+    # Everything, then Spotify alone (wide, so taller) and the energy chart alone (as tall), then neither.
+    assert heights[1] == heights[2] < heights[0] < heights[3]
+    # The energy chart's row and the gap above it, to a screen pixel: the stops' own are 2.25 of them.
+    assert heights[3] - heights[2] == pytest.approx(2 * 150 + 30, abs=1)
+
+
+def test_the_developer_strip_sits_above_spotify_beside_the_energy_chart(monkeypatch):
+    placed = _placed_landscape(monkeypatch)
+    strip, spotify = _FittedPanel(30), _SolidPanel()
+    panels = _solid_panels() | {ClientClasses.DEVELOPER.api_name: strip, ClientClasses.SPOTIFY.api_name: spotify}
+
+    SpotifyGlowHdLandscapeLayout().render(panels, HD_LANDSCAPE)
+
+    [(_, strip_at, strip_size, _)] = [entry for entry in placed if entry[0] is strip]
+    [(_, spotify_at, spotify_size, _)] = [entry for entry in placed if entry[0] is spotify]
+    [(_, energy_at, energy_size, _)] = [
+        entry for entry in placed if entry[0] is panels[ClientClasses.GLOWMARKT.api_name]
+    ]
+    assert strip_at[0] == spotify_at[0] > energy_at[0]
+    assert (strip_size[1], spotify_size[1]) == (30, HD_LANDSCAPE_SPOTIFY_HEIGHT)
+    assert spotify_at[1] == strip_at[1] + SCALE * (30 + GAP)
+    assert energy_at[1] == strip_at[1]
+    assert energy_size[1] == 30 + GAP + HD_LANDSCAPE_SPOTIFY_HEIGHT  # the chart as tall as the two together

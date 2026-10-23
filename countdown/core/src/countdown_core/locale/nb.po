@@ -184,6 +184,9 @@ msgstr "HØY"
 msgid "High"
 msgstr "Høy"
 
+msgid "High / Low"
+msgstr "Høy / lav"
+
 msgid "Heavy freezing rain"
 msgstr "Kraftig underkjølt regn"
 
