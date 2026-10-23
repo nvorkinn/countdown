@@ -592,3 +592,13 @@ msgstr "{repo}: bygget feiler"
 #~ msgid "Location not found"
 #~ msgstr "Sted ikke funnet"
 
+msgid "THEN"
+msgstr "SÅ"
+
+#, python-brace-format
+msgid "{line} due"
+msgstr "{line} nå"
+
+#, python-brace-format
+msgid "{line} in {minutes} min"
+msgstr "{line} om {minutes} min"

@@ -1181,3 +1181,28 @@ def test_hd_landscape_screen_without_weather_data_yet(snapshot):
     """The sidebar keeps the clock and says why there's no weather."""
     panels = _panels(_many_route_arrivals(), weather=WeatherClient.message_panel("Could not connect"))
     snapshot.assert_matches("screen_hd_landscape_no_weather", _draw_hd_landscape(panels))
+
+
+@pytest.mark.parametrize(
+    ("layout", "minute"),
+    [
+        ("masthead", 0),
+        ("column", 0),
+        ("lockscreen", 0),
+        ("timeline", 0),
+        ("board", 0),
+        ("pages", 0),
+        ("pages", 1),
+    ],
+)
+def test_each_other_layout_on_an_hd_portrait_screen(snapshot, rotation_clock, layout, minute):
+    """The config's screen.layout, with everything to show; the pages layout's two pages a minute apart."""
+    rotation_clock.at_minute(minute)
+    spotify = SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes())
+    panels = _panels(_many_route_arrivals(), weather=_forecast_weather(), spotify=spotify, notices=FEW_NOTICES)
+    screen = HD_VERTICAL.model_copy(update={"layout": layout})
+    with moment.drawing_at((_FROZEN_NOW + dt.timedelta(minutes=minute)).replace(tzinfo=dt.UTC)):
+        img = draw_screen(panels, screen, EVERYTHING)
+    assert img.size == (1404, 1872)
+    name = f"{layout}_{'home' if minute else 'out'}" if layout == "pages" else layout
+    snapshot.assert_matches(f"screen_hd_portrait_layout_{name}", img)

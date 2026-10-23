@@ -140,3 +140,52 @@ class HdNoticeBoardPanel(NoticeBoardPanel):
     def of(cls, panel: NoticeBoardPanel) -> Self:
         """Return `panel`'s board, drawn the HD screen's way."""
         return cls(panel.notices, panel.style)
+
+
+class NoticeBannerPanel(Panel):
+    """The most important notice on one black line, and how many more there are: the notice board in brief."""
+
+    scales = True
+
+    HEIGHT = 26
+
+    def __init__(self, notices: list[Notice]) -> None:
+        """`notices` already ranked, most important first (as the notice board has them)."""
+        super().__init__()
+        self.notices = notices
+
+    @classmethod
+    def of(cls, panel: NoticeBoardPanel) -> Self:
+        """Return the banner for `panel`'s notices."""
+        return cls(panel.notices)
+
+    @override
+    def fitted_height(self, max_height: int) -> int:
+        """Return a line's height, or nothing with no notices."""
+        return min(max_height, self.HEIGHT) if self.notices else 0
+
+    @override
+    def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
+        img, draw = scaled_canvas(image_width, image_height)
+        if not self.notices:
+            return img
+        notice, more = self.notices[0], len(self.notices) - 1
+        draw.rounded_rectangle((0, 0, image_width - 1, image_height - 1), 6, fill="black")
+        middle = image_height / 2
+        font, source_font, marker_font = resized(TEXT_FONT, 14), resized(SOURCE_FONT, 14), resized(SOURCE_FONT, 15)
+        x = 10
+        if notice.severity in {Severity.SEVERE, Severity.WARNING}:
+            draw.text((x + 3, middle), "!", "white", font=marker_font, anchor="mm")
+        else:
+            draw.ellipse((x, middle - 3, x + 5, middle + 2), fill="white")
+        x += 16
+        draw.text((x, middle), notice.source, "white", font=source_font, anchor="lm")
+        x += round(source_font.getlength(notice.source)) + 12
+        right = image_width - 10
+        if more:
+            label = _("+{count} more").format(count=more)
+            draw.text((right, middle), label, "white", font=resized(TEXT_FONT, 12), anchor="rm")
+            right -= round(resized(TEXT_FONT, 12).getlength(label)) + 14
+        suffix = f" {format_clock(notice.display_time, clock_format)}" if notice.display_time is not None else ""
+        draw.text((x, middle), truncate_to_fit(notice.text + suffix, font, right - x), "white", font=font, anchor="lm")
+        return img
