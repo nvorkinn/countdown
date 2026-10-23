@@ -1,9 +1,8 @@
 """What every stop's departures panel shares, whichever source (TfL, Entur) its stops come from."""
 
 from abc import ABC, abstractmethod
-from copy import copy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, override
+from typing import TYPE_CHECKING, Any, Literal, Protocol, override
 
 from countdown_core.core.panel import Panel
 from countdown_core.tfl.arrival_styles import STYLES
@@ -49,12 +48,12 @@ class AbstractArrivalPanel[A: Arrival = Any](Panel, ABC):
     Subclasses adapt a source's stops and arrivals (TfL's, Entur's) to it; `A` is the source's arrival.
     """
 
+    scales = True
+
     def __init__(self, arrivals: list[A], style: Style = "hero") -> None:
         """Group `arrivals` (the stop's, in any order) into Departures, drawn in `style`."""
         super().__init__()
         self.style = style
-        # How many times its own size it's drawn (see scaled()); 1 on the 7.5" screens.
-        self.scale = 1
         groups: dict[tuple[str, str], tuple[str, str, str, Icon | None, list[int]]] = {}
         for arrival in sorted(arrivals, key=lambda a: a.time_to_station):
             *_, minutes = groups.setdefault(
@@ -115,13 +114,6 @@ class AbstractArrivalPanel[A: Arrival = Any](Panel, ABC):
     @abstractmethod
     def _destination(arrival: A) -> str: ...
 
-    def scaled(self, scale: int) -> Self:
-        """Return the same stop drawn `scale` times as big, for a screen with that many times the pixels."""
-        bigger = copy(self)
-        bigger.scale = scale
-        return bigger
-
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
-        # The styles lay out in the stop's own pixels and draw them `scale` times as big.
-        return STYLES[self.style](self, image_width // self.scale, image_height // self.scale)
+        return STYLES[self.style](self, image_width, image_height)

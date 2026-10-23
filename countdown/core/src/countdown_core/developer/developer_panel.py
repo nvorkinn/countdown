@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 class DeveloperPanel(Panel):
     """The owner's pull requests and failing builds beside their AI plans, or the latest release as it goes."""
 
+    scales = True
+
     def __init__(
         self, summary: DeveloperSummary, style: Style = "hero", now: datetime | None = None, *, compact: bool = False
     ) -> None:

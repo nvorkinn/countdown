@@ -18,9 +18,10 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
 
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageFont
 
     from countdown_core.developer.models import JobState, Release, ReleaseJob
+    from countdown_core.utils.scaled_draw import ScaledDraw
 
 # Material Symbols glyphs
 ROCKET = chr(0xEB9B)
@@ -122,7 +123,7 @@ def _height(jobs: int) -> float:
     return jobs * (NODE_HEIGHT + NODE_GAP) - NODE_GAP
 
 
-def graph(d: ImageDraw.ImageDraw, release: Release, box: tuple[float, float, float, float], look: Look) -> None:
+def graph(d: ScaledDraw, release: Release, box: tuple[float, float, float, float], look: Look) -> None:
     """Draw the release's jobs as a graph in `box` (left, top, right, bottom)."""
     if not release.jobs:  # a run that hasn't started its jobs yet: the header says enough
         return
@@ -157,7 +158,7 @@ def graph(d: ImageDraw.ImageDraw, release: Release, box: tuple[float, float, flo
 
 
 def _draw_lines(
-    d: ImageDraw.ImageDraw,
+    d: ScaledDraw,
     jobs: list[ReleaseJob],
     where: dict[str, tuple[float, float, int]],
     node_w: float,
@@ -192,7 +193,7 @@ def _draw_lines(
             d.line(points, fill="black", width=1)
 
 
-def _box(d: ImageDraw.ImageDraw, job: ReleaseJob, at: tuple[float, float], width: float, look: Look) -> None:
+def _box(d: ScaledDraw, job: ReleaseJob, at: tuple[float, float], width: float, look: Look) -> None:
     """Draw a job's box: its state's icon, its name, and how many of its jobs are done if it's several.
 
     A finished job is a black box with white ink; the rest are white boxes, a running job's name in bold. The ones that
@@ -298,7 +299,7 @@ COMPACT_HEIGHT = 52
 NARROWEST = 64  # more jobs than boxes this wide fit: the last box says how many more
 
 
-def row(d: ImageDraw.ImageDraw, release: Release, box: tuple[float, float, float], look: Look) -> None:
+def row(d: ScaledDraw, release: Release, box: tuple[float, float, float], look: Look) -> None:
     """Draw the release's jobs in a row of boxes from `box`'s left to its right, their tops at its top."""
     jobs = [job for column in _columns(release.jobs) for job in column]
     if not jobs:
@@ -319,7 +320,7 @@ def row(d: ImageDraw.ImageDraw, release: Release, box: tuple[float, float, float
 
 
 def _compact_title(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and in which fonts
-    d: ImageDraw.ImageDraw,
+    d: ScaledDraw,
     release: Release,
     others: int,
     now: datetime,

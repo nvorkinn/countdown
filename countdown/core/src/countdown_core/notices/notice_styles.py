@@ -16,9 +16,8 @@ from countdown_core.utils.utils import fitted_font, google_symbols, resized
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from PIL import ImageDraw
-
     from countdown_core.core.style import Style as SharedStyle
+    from countdown_core.utils.scaled_draw import ScaledDraw
 
 CAMPAIGN = chr(0xEF49)  # Material Symbols "campaign", a megaphone
 CARD_BAR = 28  # as tall as Spotify card's title bar
@@ -28,7 +27,7 @@ def _count(n: int) -> str:
     return ngettext("{n} notice", "{n} notices", n).format(n=n)
 
 
-def _airy(d: ImageDraw.ImageDraw, width: int, _height: int, count: int) -> None:
+def _airy(d: ScaledDraw, width: int, _height: int, count: int) -> None:
     """Draw an icon, a small-caps label and the count over a hairline, like Spotify airy's NOW PLAYING."""
     label = fitted_font(SANS_SEMI, 11)
     airy_label(d, 0, 8, CAMPAIGN, _("NOTICES"))
@@ -36,7 +35,7 @@ def _airy(d: ImageDraw.ImageDraw, width: int, _height: int, count: int) -> None:
     d.line((0, 19, width, 19), fill="black")
 
 
-def _hero(d: ImageDraw.ImageDraw, width: int, _height: int, count: int) -> None:
+def _hero(d: ScaledDraw, width: int, _height: int, count: int) -> None:
     """Draw an icon, the title and the count over a 2px rule, like Spotify hero's header."""
     d.text((0, 11), CAMPAIGN, "black", resized(google_symbols(), 22), anchor="lm")
     d.text((26, 11), _("Notices"), "black", fitted_font(SANS_SEMI, 17), anchor="lm")
@@ -44,7 +43,7 @@ def _hero(d: ImageDraw.ImageDraw, width: int, _height: int, count: int) -> None:
     d.line((0, 26, width, 26), fill="black", width=2)
 
 
-def _card(d: ImageDraw.ImageDraw, width: int, height: int, count: int) -> None:
+def _card(d: ScaledDraw, width: int, height: int, count: int) -> None:
     """Draw a rounded card under a black title bar, like Spotify card."""
     d.rounded_rectangle((0, 0, width - 1, height - 1), 10, fill="white", outline="black", width=2)
     d.rounded_rectangle((0, 0, width - 1, CARD_BAR), 10, fill="black")
@@ -58,7 +57,7 @@ def _card(d: ImageDraw.ImageDraw, width: int, height: int, count: int) -> None:
 class Style:
     """A style's chrome, and the room it leaves the rows: `top` above them, `bottom` below, `inset` either side."""
 
-    draw: Callable[[ImageDraw.ImageDraw, int, int, int], None]
+    draw: Callable[[ScaledDraw, int, int, int], None]
     top: int
     bottom: int
     inset: int

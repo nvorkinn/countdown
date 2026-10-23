@@ -21,7 +21,7 @@ from countdown_core.rendering.layouts.classic_portrait import (
     SpotifyPortraitLayout,
 )
 from countdown_core.rendering.screen import Canvas
-from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
+from countdown_core.utils.scaled_draw import drawing_at
 from countdown_core.utils.utils import GAP, WEATHER_GAP
 from countdown_core.weather.weather_panel import WeatherPanel
 from countdown_core.weather.weather_trmnl_panel import WeatherTrmnlPanel
@@ -71,19 +71,10 @@ class HdPortraitLayout(ClassicPortraitLayout):
             self._place_scaled(img, panel, (gap, bottom), (width // SCALE, height), clock_format)
             bottom -= gap
 
-        arrivals = panels[ClientClasses.TFL.api_name]
-        if isinstance(arrivals, CombinedArrivalPanel):
-            # The stops draw themselves at the bigger size: crisp, not their pixels repeated.
-            self._place(
-                img,
-                arrivals.scaled(ARRIVALS_SCALE),
-                (gap, arrivals_y),
-                (width, bottom - arrivals_y),
-                clock_format=clock_format,
-            )
-        else:
-            arrivals_size = (width // ARRIVALS_SCALE, (bottom - arrivals_y) // ARRIVALS_SCALE)
-            self._place_scaled(img, arrivals, (gap, arrivals_y), arrivals_size, clock_format, ARRIVALS_SCALE)
+        arrivals_size = (width // ARRIVALS_SCALE, (bottom - arrivals_y) // ARRIVALS_SCALE)
+        self._place_scaled(
+            img, panels[ClientClasses.TFL.api_name], (gap, arrivals_y), arrivals_size, clock_format, ARRIVALS_SCALE
+        )
         return Frame(img)
 
     def _draw_hd_top_row(
@@ -121,12 +112,17 @@ class HdPortraitLayout(ClassicPortraitLayout):
         clock_format: ClockFormat,
         scale: int = SCALE,
     ) -> None:
-        """Render `panel` `size` big in its own pixels, multiply them by `scale`, and paste it with its top left `at`.
+        """Render `panel` `size` big in its own pixels, `scale` times as big, and paste it with its top left `at`.
 
-        Each pixel is repeated, not smoothed: the 1-bit text keeps its edges, with no grey for the e-paper to dither.
+        A panel that `scales` draws itself at that size, crisply. Any other has its pixels repeated, not smoothed: the
+        1-bit text keeps its edges, with no grey for the e-paper to dither.
         """
-        rendered = panel.render(*size, clock_format=clock_format)
-        scaled = rendered.resize((rendered.width * scale, rendered.height * scale), Image.Resampling.NEAREST)
+        if panel.scales:
+            with drawing_at(scale):
+                scaled = panel.render(*size, clock_format=clock_format)
+        else:
+            rendered = panel.render(*size, clock_format=clock_format)
+            scaled = rendered.resize((rendered.width * scale, rendered.height * scale), Image.Resampling.NEAREST)
         img.paste(scaled, at, scaled)
 
 

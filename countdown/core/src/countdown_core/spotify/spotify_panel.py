@@ -33,6 +33,8 @@ PAUSE_HALO = 3
 class SpotifyPanel(Panel):
     """What's playing, with its cover, and what's up next."""
 
+    scales = True
+
     def __init__(  # noqa: PLR0913, PLR0917 -- the page's parts, each optional after the queue
         self,
         queue: Queue,

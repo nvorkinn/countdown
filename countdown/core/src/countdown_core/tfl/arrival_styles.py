@@ -5,7 +5,7 @@ Each draws the whole stop, header included, into `width` x `height`, on a transp
 
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageFont
 
 from countdown_core.i18n import _
 from countdown_core.utils.scaled_draw import ScaledDraw, scaled_canvas
@@ -34,16 +34,9 @@ ICONS = {
 }
 
 
-def _canvas(width: int, height: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
-    img = Image.new("RGBA", (width, height), (255, 255, 255, 0))
-    draw = ImageDraw.Draw(img)
-    draw.fontmode = "1"
-    return img, draw
-
-
-def _stop_canvas(panel: AbstractArrivalPanel, width: int, height: int) -> tuple[Image.Image, ScaledDraw]:
-    """Make a transparent canvas `width` x `height` in the stop's own pixels, drawn at its scale."""
-    return scaled_canvas(width, height, panel.scale)
+def _canvas(width: int, height: int) -> tuple[Image.Image, ScaledDraw]:
+    """Make a transparent canvas `width` x `height` in the panel's own pixels, at the drawing scale."""
+    return scaled_canvas(width, height)
 
 
 def _shrunk(text: str, filename: str, size: int, width: float) -> ImageFont.FreeTypeFont:
@@ -94,7 +87,7 @@ def _later(minutes: tuple[int, ...]) -> str:
 
 def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     """Draw the next departure big, so it reads from across the room; the rest in a list below."""
-    img, d = _stop_canvas(panel, width, height)
+    img, d = _canvas(width, height)
     # Header: the stop's modes (a bus, a train...), its name, its letter in a circle, and a rule.
     name_x = _header_icons(d, panel, 11, 22, 24) + 2
     letter_width = 26 if panel.stop_letter else 0
@@ -110,14 +103,14 @@ def hero(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     # A stop serving several modes gives each row its own icon, and the rows a little less room.
     indent = ROW_ICON_ROOM if panel.mixed_modes else 0
     rows, centres = _hero_rows(panel, width - indent, height)
-    img.paste(rows, (indent * panel.scale, 0), rows)
+    d.paste(rows, (indent, 0))
     _row_icons(d, panel, centres)
     return img
 
 
 def _hero_rows(panel: AbstractArrivalPanel, width: int, height: int) -> tuple[Image.Image, list[float]]:
     """Draw the departures under the header: the next big, the rest in a list; return the rows' middles too."""
-    img, d = _stop_canvas(panel, width, height)
+    img, d = _canvas(width, height)
     first, *rest = panel.departures
     y = 34
     centres = [y + 20.0]
@@ -165,7 +158,7 @@ def _hero_rows(panel: AbstractArrivalPanel, width: int, height: int) -> tuple[Im
 
 def airy(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     """Draw a row per route, with its next departure big on the right and the ones after under it."""
-    img, d = _stop_canvas(panel, width, height)
+    img, d = _canvas(width, height)
     # A bus or tram stop's letter, or a metro or railway platform's number.
     label = _("Platform {letter}") if panel.icon in ("subway", "train") else _("Stop {letter}")
     letter = label.format(letter=panel.stop_letter) if panel.stop_letter else ""
@@ -183,14 +176,14 @@ def airy(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
     # A stop serving several modes gives each row its own icon, and the rows a little less room.
     indent = ROW_ICON_ROOM if panel.mixed_modes else 0
     rows, centres = _airy_rows(panel, width - indent, height)
-    img.paste(rows, (indent * panel.scale, 0), rows)
+    d.paste(rows, (indent, 0))
     _row_icons(d, panel, centres)
     return img
 
 
 def _airy_rows(panel: AbstractArrivalPanel, width: int, height: int) -> tuple[Image.Image, list[float]]:
     """Draw a row per route under the header; return the rows' middles too."""
-    img, d = _stop_canvas(panel, width, height)
+    img, d = _canvas(width, height)
     centres: list[float] = []
     number_font, unit_font, small = fitted_font(BOLD, 26), fitted_font(REGULAR, 11), fitted_font(REGULAR, 11)
     y = 32
@@ -229,14 +222,14 @@ def card(panel: AbstractArrivalPanel, width: int, height: int) -> Image.Image:
 
     A black title bar, then a row per route with its minutes lined up in a column on the right.
     """
-    img, d = _stop_canvas(panel, width, height)
+    img, d = _canvas(width, height)
     d.rounded_rectangle((0, 0, width - 1, height - 1), 10, fill="white", outline="black", width=2)
     d.rounded_rectangle((0, 0, width - 1, 30), 10, fill="black")
     d.rectangle((0, 20, width - 1, 30), fill="black")  # square off the bar's bottom corners
     x = 10
     if panel.is_tube:
-        roundel = ROUNDEL.resize((ROUNDEL.width * panel.scale, ROUNDEL.height * panel.scale), Image.Resampling.LANCZOS)
-        img.paste(roundel, (x * panel.scale, 7 * panel.scale), roundel)
+        roundel = ROUNDEL.resize((ROUNDEL.width * d.scale, ROUNDEL.height * d.scale), Image.Resampling.LANCZOS)
+        d.paste(roundel, (x, 7))
         x += ROUNDEL.size[0] + 6
     letter_room = 34 if panel.stop_letter else 10
     title_font = fitted_font(SANS_SEMI, 16)

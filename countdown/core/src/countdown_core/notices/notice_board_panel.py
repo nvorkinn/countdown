@@ -2,16 +2,17 @@
 
 from typing import TYPE_CHECKING, override
 
-from PIL import Image, ImageDraw
-
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_styles import STYLES
 from countdown_core.utils.clock import ClockFormat, format_clock
+from countdown_core.utils.scaled_draw import ScaledDraw, scaled_canvas
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, truncate_to_fit
 
 if TYPE_CHECKING:
+    from PIL import Image
+
     from countdown_core.core.style import Style
 
 SOURCE_FONT = GOOGLE_SEMI
@@ -25,6 +26,8 @@ SOURCE_GAP = 6  # between the source tag and the text
 
 class NoticeBoardPanel(Panel):
     """The notice board: its style's title and frame, then a row per notice, the most severe first."""
+
+    scales = True
 
     def __init__(self, notices: list[Notice], style: Style = "hero") -> None:
         """`notices` already ranked, most important first; `style`: how to draw the board round them."""
@@ -49,9 +52,7 @@ class NoticeBoardPanel(Panel):
         If there are more current notices than rows, the last row says how many didn't fit.
         """
         style = STYLES[self.style]
-        img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
-        draw = ImageDraw.Draw(img)
-        draw.fontmode = "1"
+        img, draw = scaled_canvas(image_width, image_height, (255, 255, 255, 255))
         style.draw(draw, image_width, image_height, len(self.notices))
 
         left, right = style.inset, image_width - style.inset
@@ -71,9 +72,7 @@ class NoticeBoardPanel(Panel):
         return img
 
     @staticmethod
-    def _draw_row(
-        draw: ImageDraw.ImageDraw, notice: Notice, y: int, span: tuple[int, int], clock_format: ClockFormat
-    ) -> None:
+    def _draw_row(draw: ScaledDraw, notice: Notice, y: int, span: tuple[int, int], clock_format: ClockFormat) -> None:
         """Draw `notice`'s row with its top at `y`, between the x coordinates `span`."""
         left, right = span
         middle = y + ROW_HEIGHT // 2
