@@ -11,7 +11,7 @@ from countdown_core.i18n import _, format_date
 from countdown_core.utils.clock import format_clock
 from countdown_core.utils.scaled_draw import scaled_canvas
 from countdown_core.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS, resized
-from countdown_core.weather.models import Weather, WeatherDesign, WeatherPeriod
+from countdown_core.weather.models import Weather, WeatherDesign, WeatherHour, WeatherPeriod
 from countdown_core.weather.weather_panel import (
     _caption,
     _condition,
@@ -108,20 +108,7 @@ def _timeline(d: ScaledDraw, panel: HdWeatherPanel, width: int, height: int, clo
         at = (width - 2 * column + (i % 2) * column, 45 + (i // 2) * 52)
         _stat(d, at, label, value, (LABEL, VALUE + 4), column - 8)
 
-    d.line((0, STRIP_TOP, width, STRIP_TOP), fill="black", width=1)
-    if not w.hours:
-        return
-    slot = width / len(w.hours)
-    for i, hour in enumerate(w.hours):
-        centre = slot * (i + 0.5)
-        _text(d, (centre, STRIP_TOP + 8), format_clock(hour.time, clock_format), GOOGLE_SEMI, LABEL, "mt")
-        _icon(d, hour.weather_code, (centre, STRIP_TOP + 40), 36, is_day=hour.is_day)
-        _text(d, (centre, STRIP_TOP + 76), f"{round(hour.temperature)}°", GOOGLE_REGULAR, BODY + 1, "ms")
-        if hour.precipitation_probability is not None:
-            rain = _("{percent}% rain").format(percent=hour.precipitation_probability)
-            _text(d, (centre, STRIP_TOP + 88), rain, GOOGLE_SEMI, LABEL - 1, "ms")
-        if i:
-            d.line((slot * i, STRIP_TOP + 12, slot * i, height - 8), fill="black", width=1)
+    draw_hours(d, w.hours, STRIP_TOP, (width, height), clock_format)
 
 
 def _overview(d: ScaledDraw, panel: HdWeatherPanel, width: int, height: int, clock_format: ClockFormat) -> None:
@@ -179,6 +166,30 @@ def _poster(d: ScaledDraw, panel: HdWeatherPanel, width: int, height: int, clock
         if code is not None:
             _icon(d, code, (x + cell - 30, BAND_TOP + 24), 31, is_day=is_day, fill="white")
         x += cell
+
+
+def draw_hours(
+    d: ScaledDraw, hours: Sequence[WeatherHour], top: float, size: tuple[float, float], clock_format: ClockFormat
+) -> None:
+    """Draw a rule at `top`, and under it the coming `hours` side by side, across `size` (the panel's width and height).
+
+    Each hour has its time, its weather's icon, its temperature and its chance of rain, with a hairline between two.
+    """
+    width, height = size
+    d.line((0, top, width, top), fill="black", width=1)
+    if not hours:
+        return
+    slot = width / len(hours)
+    for i, hour in enumerate(hours):
+        centre = slot * (i + 0.5)
+        _text(d, (centre, top + 8), format_clock(hour.time, clock_format), GOOGLE_SEMI, LABEL, "mt")
+        _icon(d, hour.weather_code, (centre, top + 40), 36, is_day=hour.is_day)
+        _text(d, (centre, top + 76), f"{round(hour.temperature)}°", GOOGLE_REGULAR, BODY + 1, "ms")
+        if hour.precipitation_probability is not None:
+            rain = _("{percent}% rain").format(percent=hour.precipitation_probability)
+            _text(d, (centre, top + 88), rain, GOOGLE_SEMI, LABEL - 1, "ms")
+        if i:
+            d.line((slot * i, top + 12, slot * i, height - 8), fill="black", width=1)
 
 
 DESIGNS: dict[WeatherDesign, Callable[[ScaledDraw, HdWeatherPanel, int, int, ClockFormat], None]] = {
@@ -284,13 +295,14 @@ def _icon(  # noqa: PLR0913 -- a drawing helper: which icon, where, how big and 
     d.text((centre[0] - (left + right) / 2, centre[1] - (top + bottom) / 2), glyph, fill, font)
 
 
-def _temperature(  # noqa: PLR0913, PLR0917 -- a drawing helper: whose temperature, where, how big, in which font
+def _temperature(  # noqa: PLR0913, PLR0917 -- a drawing helper: whose temperature, where, how big, font, colour
     d: ScaledDraw,
     xy: Point,
     w: Weather,
     size: int,
     space: float | None = None,
     base: ImageFont.FreeTypeFont = GOOGLE_REGULAR,
+    fill: Fill = "black",
 ) -> float:
     """Draw the page's temperature on its baseline at `xy`, the unit small beside it, both shrunk to fit `space`.
 
@@ -305,8 +317,8 @@ def _temperature(  # noqa: PLR0913, PLR0917 -- a drawing helper: whose temperatu
         if space is None or width <= space or size <= 1:
             break
         size -= 1
-    d.text(xy, number, "black", number_font, "ls")
-    d.text((xy[0] + number_width + gap, xy[1]), units, "black", unit_font, "ls")
+    d.text(xy, number, fill, number_font, "ls")
+    d.text((xy[0] + number_width + gap, xy[1]), units, fill, unit_font, "ls")
     return width
 
 
