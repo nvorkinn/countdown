@@ -27,7 +27,9 @@ draws it from the next minute on (at once after a config save).
 `release.yml`'s `deploy-renderers` job waits for approval of the `deploy-renderers` environment, then runs
 `deploy.sh <tag>` on the runner against the host's Docker daemon over ssh (`DOCKER_HOST`), so the host needs only
 Docker. The script pins the images to the release, brings the stack up with `--wait`, and removes leftover
-`renderer-<slug>` containers (label `countdown.managed=1`) and their `-data` and `-key` volumes.
+`renderer-<slug>` containers (label `countdown.managed=1`) and their `-data` and `-key` volumes. It then removes
+older tags of the two images, keeping the running one and the newest other (to roll back to), and prunes dangling
+layers, so the host's disk doesn't fill with every release's images.
 
 Set up once in the repo's settings:
 
