@@ -1,5 +1,6 @@
 """Every stop on screen in one panel, two to a row, with a marker for the ones paged out."""
 
+from copy import copy
 from dataclasses import dataclass
 from math import ceil
 from typing import TYPE_CHECKING, override
@@ -39,6 +40,13 @@ class CombinedArrivalPanel(Panel):
         super().__init__()
         self.arrival_panels = arrival_panels
         self.rotation = rotation
+        self.stop_width = STOP_WIDTH
+
+    def widened(self, stop_width: int) -> CombinedArrivalPanel:
+        """Return the same stops, drawn up to `stop_width` wide each: for a layout with room to spare beside them."""
+        wider = copy(self)
+        wider.stop_width = stop_width
+        return wider
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
@@ -48,7 +56,7 @@ class CombinedArrivalPanel(Panel):
         # The layout decides the height; the stops share it, a row at a time.
         rows = max(1, ceil(len(self.arrival_panels) / COLUMNS))
         stop_height = stops_height // rows
-        stop_width = min(STOP_WIDTH, (image_width - COLUMN_GAP) // COLUMNS)
+        stop_width = min(self.stop_width, (image_width - COLUMN_GAP) // COLUMNS)
         x = 0
         y = 0
         for idx, panel in enumerate(self.arrival_panels):
