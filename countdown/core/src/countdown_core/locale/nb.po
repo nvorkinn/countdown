@@ -602,3 +602,84 @@ msgstr "{line} nå"
 #, python-brace-format
 msgid "{line} in {minutes} min"
 msgstr "{line} om {minutes} min"
+
+#, python-brace-format
+msgid "Also from {stop}"
+msgstr "Også fra {stop}"
+
+msgid "No departures"
+msgstr "Ingen avganger"
+
+#, python-brace-format
+msgid "The {place}"
+msgstr "{place} Tidende"
+
+msgid "The Daily Countdown"
+msgstr "Dagens Nedtelling"
+
+msgid "Morning edition"
+msgstr "Morgenutgave"
+
+msgid "Afternoon edition"
+msgstr "Ettermiddagsutgave"
+
+msgid "Late edition"
+msgstr "Kveldsutgave"
+
+#, python-brace-format
+msgid "{what}, departing"
+msgstr "{what}, avganger"
+
+msgid "Metro"
+msgstr "T-bane"
+
+msgid "Trams"
+msgstr "Trikker"
+
+msgid "Trains"
+msgstr "Tog"
+
+msgid "Ferries"
+msgstr "Ferger"
+
+msgid "In brief"
+msgstr "Kort fortalt"
+
+msgid "Nothing to report"
+msgstr "Ingenting å melde"
+
+msgid "On the turntable"
+msgstr "På platespilleren"
+
+msgid "At the workshop"
+msgstr "I verkstedet"
+
+msgid "Electricity"
+msgstr "Strøm"
+
+msgid "Electricity, the last 24 hours"
+msgstr "Strøm, siste 24 timer"
+
+msgid "Electricity, the last 31 days"
+msgstr "Strøm, siste 31 dager"
+
+msgid "Electricity, this year"
+msgstr "Strøm, i år"
+
+msgid "kWh per hour"
+msgstr "kWh per time"
+
+msgid "kWh per day"
+msgstr "kWh per dag"
+
+msgid "kWh per month"
+msgstr "kWh per måned"
+
+msgid "No data"
+msgstr "Ingen data"
+
+#, python-brace-format
+msgid "{lines} line"
+msgid_plural "{lines} lines"
+msgstr[0] "{lines}-linjen"
+msgstr[1] "{lines}-linjene"

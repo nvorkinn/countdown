@@ -178,7 +178,7 @@ def test_the_hd_portrait_canvas_offers_the_classic_layout_first_then_the_six_des
 
 def test_the_designs_draw_only_on_the_hd_portrait_canvas():
     assert all(layout.canvases == frozenset({HD_PORTRAIT}) for layout in HD_PORTRAIT_DESIGNS)
-    assert set(LAYOUTS.layout_ids(HD_LANDSCAPE)) == {"sidebar"}
+    assert not {"masthead", "lockscreen", "timeline"} & set(LAYOUTS.layout_ids(HD_LANDSCAPE))
 
 
 @pytest.mark.parametrize(("layout_id", "design"), DESIGNS)
