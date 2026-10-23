@@ -124,11 +124,11 @@ def test_a_portrait_layout_draws_a_portrait_frame():
         ({ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT}, BaseHdPortraitLayout),
     ],
 )
-def test_an_hd_portrait_screen_gets_the_classic_layout_stacked_with_four_stops(unavailable, expected):
+def test_an_hd_portrait_screen_gets_the_classic_layout_stacked(unavailable, expected):
     assert LAYOUTS.drawable(HD_PORTRAIT) == HD_PORTRAIT
     layout = LAYOUTS.select(HD_PORTRAIT, None, EVERYTHING - unavailable)
     assert type(layout) is expected
-    assert layout.stops_shown == 4
+    assert layout.stops_shown == 2
 
 
 def test_an_hd_portrait_layout_draws_an_hd_frame_of_doubled_pixels():

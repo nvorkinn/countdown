@@ -46,8 +46,8 @@ adds nothing, and if every source has nothing the board says "Not available" rat
 
 **Layout** (`rendering/`). `LAYOUTS` holds layouts by canvas (800x480 landscape or 480x800 portrait, as the screen is
 hung, or 1404x1872 for a 1872x1404 HD screen hung portrait), each with a variant per combination of enabled APIs. The
-HD layout is the portrait one drawn at half the size with four stops, each pixel then doubled, so text is as big as on
-the 7.5" screens. The developer panel has no area of its own
+HD layout is the portrait one drawn at half the size with taller stops, each pixel then doubled, so text is as big as
+on the 7.5" screens. The developer panel has no area of its own
 (`place_developer_panel`): while Spotify shows a song it's a strip above it (open PRs and builds in one row, or a
 release's jobs in a row of boxes), and otherwise it takes Spotify's whole area.
 
