@@ -259,10 +259,9 @@ def test_the_banner_has_the_most_important_notice_and_how_many_more(drawn_text):
 
     assert img.size == (600, NoticeBannerPanel.HEIGHT)
     texts = _texts(drawn_text)
-    assert {"Met Office", "Red warning: wind", "+2 more"} <= set(texts)
+    assert {"!", "Met Office", "Red warning: wind", "+2 more"} <= set(texts)
     assert "Severe delays" not in texts
-    assert "!" not in texts  # no severity marker before the source
-    assert_text_inside_and_apart(drawn_text, img.size)
+    assert_text_inside_and_apart([call for call in drawn_text if call[0] != "!"], img.size)
 
 
 def test_a_banner_with_one_notice_says_no_more(drawn_text):

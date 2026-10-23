@@ -28,11 +28,12 @@ def test_the_hd_board_is_a_table_whose_text_column_starts_where_the_widest_sourc
     assert_text_inside_and_apart(drawn_text, img.size)
 
 
-def test_the_portrait_board_starts_each_rows_text_after_its_own_source(drawn_text):
+def test_the_portrait_board_is_a_table_too(drawn_text):
     board = NoticeBoardPanel(NOTICES)
-    board.render(470, board.fitted_height(190))
+    img = board.render(470, board.fitted_height(190))
 
-    assert len(_text_lefts(drawn_text)) == len(NOTICES)
+    assert len(_text_lefts(drawn_text)) == 1
+    assert_text_inside_and_apart(drawn_text, img.size)
 
 
 @pytest.mark.parametrize(("board", "row_height"), [(NoticeBoardPanel, ROW_HEIGHT), (HdNoticeBoardPanel, 28)])
@@ -62,26 +63,38 @@ def test_the_hd_boards_rows_that_dont_fit_are_counted_on_the_last_one(drawn_text
 
 
 @pytest.mark.parametrize("board", [NoticeBoardPanel, HdNoticeBoardPanel])
-def test_a_row_starts_with_its_source_and_no_marker(board, drawn_text):
+def test_only_severe_and_warning_rows_have_an_icon_and_every_source_starts_at_one_indent(board, drawn_text):
     img = board(NOTICES).render(692, board(NOTICES).fitted_height(190))
 
     texts = [text for text, _box, _size in drawn_text]
-    assert "!" not in texts
+    assert texts.count("!") == 2  # Met Office's and TfL's; Circle (info) has none
     sources = {text: box for text, box, _size in drawn_text if text in {"Met Office", "Circle", "TfL"}}
-    # An untagged source starts at the edge; a severe or warning one just inside its tag.
-    assert sources["Circle"][0] < sources["TfL"][0] == sources["Met Office"][0] < 15
-    assert_text_inside_and_apart(drawn_text, img.size)
+    assert len({box[0] for box in sources.values()}) == 1
+    assert_text_inside_and_apart([call for call in drawn_text if call[0] != "!"], img.size)
 
 
-def test_severe_and_warning_sources_are_tagged_black_and_outlined():
-    board = NoticeBoardPanel(NOTICES)
+def test_info_reminders_and_planned_works_have_no_bullet():
+    plain = [
+        Notice("Circle", Severity.INFO, "Issues Reported"),
+        Notice("Claude", Severity.REMINDER, "Max renews today"),
+        Notice("Central", Severity.PLANNED, "Closed Sunday"),
+    ]
+    board = NoticeBoardPanel(plain)
     img = board.render(470, board.fitted_height(190)).convert("L")
     top = STYLES["hero"].top
 
-    def black_share(row: int) -> float:
+    # The bullets drew 14px in; now nothing is drawn before each source, which starts at the edge.
+    for row in range(len(plain)):
         y = top + row * ROW_HEIGHT
-        tile = img.crop((0, y + 4, 30, y + ROW_HEIGHT - 4))
-        return sum(tile.histogram()[:128]) / (tile.width * tile.height)
+        assert img.crop((0, y, 1, y + ROW_HEIGHT)).getextrema() == (255, 255)
+        assert img.crop((1, y + 4, 8, y + ROW_HEIGHT - 4)).getextrema()[0] < 128  # the source's first letter
 
-    severe, info, warning = (black_share(row) for row in range(3))
-    assert severe > warning > info
+
+def test_without_icons_the_sources_start_at_the_edge(drawn_text):
+    plain = [Notice("Circle", Severity.INFO, "Issues Reported"), Notice("Central", Severity.PLANNED, "Closed Sunday")]
+    NoticeBoardPanel(plain).render(470, NoticeBoardPanel(plain).fitted_height(190))
+
+    lefts = {text: box[0] for text, box, _size in drawn_text}
+    assert lefts["Circle"] < 2
+    assert lefts["Circle"] == lefts["Central"]
+    assert lefts["Issues Reported"] == lefts["Closed Sunday"]

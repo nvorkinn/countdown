@@ -19,11 +19,10 @@ SOURCE_FONT = GOOGLE_SEMI
 TEXT_FONT = GOOGLE_REGULAR
 
 ROW_HEIGHT = 22
+ICON_SIZE = 14  # the square "!" icon a severe (black) or warning (outlined) notice has before its source
+ICON_GAP = 6  # between the icon and the source
 SOURCE_GAP = 6  # between the source and the text
-TAG_PADDING = 4  # either side of a severe or warning notice's source, inside its tag
-TAG_MARGIN = 3  # above and below a tag, inside its row
-TAG_RADIUS = 3
-TAGGED = frozenset({Severity.SEVERE, Severity.WARNING})  # whose source is drawn in a tag: black if severe, outlined
+ICONED = frozenset({Severity.SEVERE, Severity.WARNING})  # the rest have no icon
 
 
 class NoticeBoardPanel(Panel):
@@ -31,12 +30,10 @@ class NoticeBoardPanel(Panel):
 
     scales = True
 
-    # The rows: how tall, in which fonts, and whether the text column starts where the widest source shown ends
-    # (a table) or after each row's own source.
+    # The rows: how tall, and in which fonts.
     row_height: ClassVar[int] = ROW_HEIGHT
     source_font: ClassVar[ImageFont.FreeTypeFont] = SOURCE_FONT
     text_font: ClassVar[ImageFont.FreeTypeFont] = TEXT_FONT
-    aligned: ClassVar[bool] = False
 
     def __init__(self, notices: list[Notice], style: Style = "hero") -> None:
         """`notices` already ranked, most important first; `style`: how to draw the board round them."""
@@ -56,9 +53,11 @@ class NoticeBoardPanel(Panel):
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
-        """Draw the style's chrome, then one notice per row: the source and as much text as fits.
+        """Draw the style's chrome, then one notice per row: an icon if severe or warning, the source, then text.
 
-        If there are more current notices than rows, the last row says how many didn't fit.
+        The rows are a table: when any row has an icon, every row keeps its place (blank on the rows without one), so
+        every source starts at one indent, and every text where the widest source shown ends. If there are more
+        current notices than rows, the last row says how many didn't fit.
         """
         style = STYLES[self.style]
         img, draw = scaled_canvas(image_width, image_height, (255, 255, 255, 255))
@@ -73,44 +72,36 @@ class NoticeBoardPanel(Panel):
         else:
             # Planned works only fill the rows left over, and don't count as "more".
             shown, more = current + planned[: rows - len(current)], 0
-        text_x = None
-        if self.aligned and shown:
-            text_x = left + max(self._source_width(notice) for notice in shown) + SOURCE_GAP
+        source_x = left + ICON_SIZE + ICON_GAP if any(notice.severity in ICONED for notice in shown) else left
+        widest = max((round(self.source_font.getlength(notice.source)) for notice in shown), default=0)
+        columns = (source_x, source_x + widest + SOURCE_GAP, right)
         for i, notice in enumerate(shown):
-            self._draw_row(draw, notice, style.top + i * self.row_height, (left, right), clock_format, text_x)
+            self._draw_row(draw, notice, style.top + i * self.row_height, columns, clock_format)
         if more:
             y = style.top + len(shown) * self.row_height + self.row_height // 2
             draw.text((left, y), _("+{count} more").format(count=more), "black", font=self.text_font, anchor="lm")
         return img
 
-    def _draw_row(  # noqa: PLR0913, PLR0917 -- a drawing helper: where to draw, what, and how
-        self,
-        draw: ScaledDraw,
-        notice: Notice,
-        y: int,
-        span: tuple[int, int],
-        clock_format: ClockFormat,
-        text_x: int | None = None,
+    def _draw_row(
+        self, draw: ScaledDraw, notice: Notice, y: int, columns: tuple[int, int, int], clock_format: ClockFormat
     ) -> None:
-        """Draw `notice`'s row with its top at `y`, between the x coordinates `span`; its text from `text_x`, if set.
+        """Draw `notice`'s row with its top at `y`: its source from the first x in `columns`, its text from the second.
 
-        A severe notice's source is white in a black tag and a warning's is in an outlined one, so they stand out
-        from the rest without a marker in front of every row.
+        The text is cut to end by the third. A severe or warning notice's icon ends just before its source.
         """
-        left, right = span
+        source_x, x, right = columns
         middle = y + self.row_height // 2
-        source_width = self._source_width(notice)
-        if notice.severity in TAGGED:
-            tag = (left, y + TAG_MARGIN, left + source_width - 1, y + self.row_height - TAG_MARGIN - 1)
+        if notice.severity in ICONED:
+            icon_x = source_x - ICON_GAP - ICON_SIZE
+            box = (icon_x, middle - ICON_SIZE // 2, icon_x + ICON_SIZE - 1, middle + ICON_SIZE // 2 - 1)
+            centre = ((box[0] + box[2] + 1) / 2, middle)
             if notice.severity == Severity.SEVERE:
-                draw.rounded_rectangle(tag, TAG_RADIUS, fill="black")
+                draw.rectangle(box, fill="black")
+                draw.text(centre, "!", "white", font=self.source_font, anchor="mm")
             else:
-                draw.rounded_rectangle(tag, TAG_RADIUS, outline="black", width=2)
-            colour = "white" if notice.severity == Severity.SEVERE else "black"
-            draw.text((left + TAG_PADDING, middle), notice.source, colour, font=self.source_font, anchor="lm")
-        else:
-            draw.text((left, middle), notice.source, "black", font=self.source_font, anchor="lm")
-        x = text_x if text_x is not None else left + source_width + SOURCE_GAP
+                draw.rectangle(box, outline="black", width=2)
+                draw.text(centre, "!", "black", font=self.source_font, anchor="mm")
+        draw.text((source_x, middle), notice.source, "black", font=self.source_font, anchor="lm")
         available = right - x
         suffix = ""
         if notice.display_time is not None:
@@ -123,19 +114,13 @@ class NoticeBoardPanel(Panel):
             text = truncate_to_fit(notice.text + suffix, font, available)
         draw.text((x, middle), text, "black", font=font, anchor="lm")
 
-    def _source_width(self, notice: Notice) -> int:
-        """Return how wide `notice`'s source is drawn, with its tag if it has one."""
-        width = round(self.source_font.getlength(notice.source))
-        return width + 2 * TAG_PADDING if notice.severity in TAGGED else width
-
 
 class HdNoticeBoardPanel(NoticeBoardPanel):
-    """The board as the HD screen shows it: taller rows in bigger text, as a table with its text column aligned."""
+    """The board as the HD screen shows it: taller rows in bigger text."""
 
     row_height = 28
     source_font = resized(SOURCE_FONT, 15)
     text_font = resized(TEXT_FONT, 15)
-    aligned = True
 
     @classmethod
     def of(cls, panel: NoticeBoardPanel) -> Self:
@@ -173,8 +158,11 @@ class NoticeBannerPanel(Panel):
         notice, more = self.notices[0], len(self.notices) - 1
         draw.rounded_rectangle((0, 0, image_width - 1, image_height - 1), 6, fill="black")
         middle = image_height / 2
-        font, source_font = resized(TEXT_FONT, 14), resized(SOURCE_FONT, 14)
+        font, source_font, icon_font = resized(TEXT_FONT, 14), resized(SOURCE_FONT, 14), resized(SOURCE_FONT, 15)
         x = 10
+        if notice.severity in ICONED:
+            draw.text((x + 3, middle), "!", "white", font=icon_font, anchor="mm")
+            x += 16
         draw.text((x, middle), notice.source, "white", font=source_font, anchor="lm")
         x += round(source_font.getlength(notice.source)) + 12
         right = image_width - 10
