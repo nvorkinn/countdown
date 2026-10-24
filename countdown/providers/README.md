@@ -24,7 +24,7 @@ providers and the render pool share them.
 
 ## The providers
 
-Each has a console script `countdown-provider-<name>` and a compose service `provider-<name>`.
+Each has a console script `countdown-provider-<name>` and a compose service `<name>`.
 
 | Provider | Reads | Writes (TTL) | Every |
 |---|---|---|---|
@@ -109,7 +109,7 @@ fetches it. Changing `SHARD_COUNT` moves most ids, which is harmless.
    sets `fixed_ids` instead (`bank_holidays/main.py`).
 3. Give it a `main()` that calls `asyncio.run(serve(provider, Settings.from_env()))`, and add it to
    `[project.scripts]` in `pyproject.toml` as `countdown-provider-<name>`.
-4. Add a `provider-<name>` service to `../renderer/deploy/docker-compose.yml` like the others.
+4. Add a `<name>` service, with a `provider-<name>` logging tag, to `../renderer/deploy/docker-compose.providers.yml` like the others.
 5. Test it with its API mocked; `tests/test_provider_runner.py` covers the loop.
 
 `weather/main.py` is the smallest complete example.
@@ -127,14 +127,14 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## In production
 
-The providers are services in [`../renderer/deploy/docker-compose.yml`](../renderer/deploy/docker-compose.yml), so every
+The providers are services in [`../renderer/deploy/docker-compose.providers.yml`](../renderer/deploy/docker-compose.providers.yml), so every
 deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. They need Redis on the host
 (`127.0.0.1:6379`, over host networking), `REDIS_PASSWORD` and `TFL_APP_KEY` from the repo's secrets, and the broker
 writing subscriptions (including `v1:sub:postcode`). A provider fetches as it starts, so its keys appear within
 seconds. To check, on the host:
 
 ```sh
-docker logs --tail 20 countdown-renderers-provider-floods-1
+docker logs --tail 20 providers-floods-1
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:floods*"'
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 SMEMBERS v1:sub:postcode'
 ```

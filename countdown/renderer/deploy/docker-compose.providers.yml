@@ -1,12 +1,13 @@
-# The providers and the render pool, on the renderers' host (deploy.sh, run by release.yml); see README.md.
-name: countdown-renderers
+# The providers, on the renderers' host (deploy.sh, run by release.yml); see README.md. Their containers are
+# providers-<service>-1. Each logs under its `provider-<service>` tag, which names its stream in VictoriaLogs.
+name: providers
 
 services:
   # The providers (see ../../providers/README.md): one per API, all from the one image, each picking its provider by
   # `command`. They fetch what the broker's subscriptions in Redis ask for and write it back there, on the host's Redis
   # (host networking). Every deploy starts and upgrades them; REDIS_PASSWORD (and TFL_APP_KEY) come from the
   # deploy-renderers job's secrets, and a missing password fails the deploy rather than start them unauthenticated.
-  provider-tfl:
+  tfl:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-tfl
     pull_policy: always
@@ -25,7 +26,7 @@ services:
         max-file: "3"
 
   # TfL's disruptions for the notice boards: the lines and stations at the stops, the roads near the postcodes.
-  provider-tfl-notices:
+  tfl-notices:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-tfl-notices
     pull_policy: always
@@ -41,7 +42,7 @@ services:
         max-size: 10m
         max-file: "3"
 
-  provider-weather:
+  weather:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-weather
     pull_policy: always
@@ -56,7 +57,7 @@ services:
         max-size: 10m
         max-file: "3"
 
-  provider-entur:
+  entur:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-entur
     pull_policy: always
@@ -72,7 +73,7 @@ services:
         max-file: "3"
 
   # The Met Office's weather warnings for the notice boards' UK postcodes (v1:sub:postcode), by place.
-  provider-met-office:
+  met-office:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-met-office
     pull_policy: always
@@ -88,7 +89,7 @@ services:
         max-file: "3"
 
   # gov.uk's bank holidays for every board in the UK: one file, with no subscription, every 6 hours.
-  provider-bank-holidays:
+  bank-holidays:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-bank-holidays
     pull_policy: always
@@ -103,8 +104,8 @@ services:
         max-size: 10m
         max-file: "3"
 
-  # The disruptions at the Entur stops, for the notice board: the same subscriptions as provider-entur, every 5 minutes.
-  provider-entur-situations:
+  # The disruptions at the Entur stops, for the notice board: the same subscriptions as `entur`, every 5 minutes.
+  entur-situations:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-entur-situations
     pull_policy: always
@@ -121,7 +122,7 @@ services:
 
   # The Environment Agency's flood warnings near the notice boards' UK postcodes (v1:sub:postcode, which countdown-server
   # writes). The render pool reads them from the store, so a board shows no floods without this.
-  provider-floods:
+  floods:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-floods
     pull_policy: always
@@ -137,7 +138,7 @@ services:
         max-file: "3"
 
   # MET Norway's weather warnings for the notice boards in Norway, fetched once for the whole country.
-  provider-metalerts:
+  metalerts:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-metalerts
     pull_policy: always
@@ -155,7 +156,7 @@ services:
   # Where each of the notice boards' postcodes (v1:sub:postcode) is, from postcodes.io and Kartverket, looked up once
   # for every screen and kept for days. The render pool, and the Met Office, floods and TfL roads providers, place a
   # postcode only from the store, so a board with a postcode shows no local notices without this.
-  provider-locations:
+  locations:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-locations
     pull_policy: always
@@ -167,57 +168,5 @@ services:
       driver: json-file
       options:
         tag: provider-locations
-        max-size: 10m
-        max-file: "3"
-
-  # The render pool (countdown/docs/stateless-renderers.md): workers that take
-  # render jobs off the queue in the host's Redis and draw the screens in v1:render:screens (which countdown-server writes,
-  # for every paired device), and a ticker that queues each of those screens every minute. Both from the
-  # countdown-renderer image, each with its own entrypoint. Host networking for Redis and the host's Fluent Bit (metrics).
-  render-worker-1: &render-worker
-    image: ghcr.io/nvorkinn/countdown-renderer:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
-    entrypoint: ["countdown-render-worker"]
-    pull_policy: always
-    # Also when a render passes its deadline, which ends the worker.
-    restart: unless-stopped
-    network_mode: host
-    mem_limit: 512m
-    environment: &render-pool-environment
-      REDIS_URL: redis://127.0.0.1:6379/0
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
-      # Names the worker in its logs and as its metrics' host.name; each screen is their `device` attribute.
-      WORKER_NAME: render-worker-1
-    logging:
-      driver: json-file
-      options:
-        tag: render-worker-1
-        max-size: 10m
-        max-file: "3"
-
-  render-worker-2:
-    <<: *render-worker
-    environment:
-      <<: *render-pool-environment
-      WORKER_NAME: render-worker-2
-    logging:
-      driver: json-file
-      options:
-        tag: render-worker-2
-        max-size: 10m
-        max-file: "3"
-
-  render-ticker:
-    image: ghcr.io/nvorkinn/countdown-renderer:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
-    entrypoint: ["countdown-render-ticker"]
-    pull_policy: always
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      REDIS_URL: redis://127.0.0.1:6379/0
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
-    logging:
-      driver: json-file
-      options:
-        tag: render-ticker
         max-size: 10m
         max-file: "3"

@@ -160,7 +160,7 @@ jobs:
         run: test "$(docker image inspect -f '{{json .Config.Entrypoint}}' countdown-renderer:ci)" = '["countdown-render-worker"]'
 
       - name: Smoke-test the render pool
-        # The render pool's services in renderer/deploy/docker-compose.yml (the workers and the ticker, all this image),
+        # The render pool's services in renderer/deploy/docker-compose.renderer.yml (the workers and the ticker, all this image),
         # each with its own entrypoint and environment (stand-ins for the deploy's variables), on the
         # host's network with a Redis of their own there, as on the host. Each must start its loop and keep going; the
         # workers must draw a screen put in the pool (its frame record appears) and drop a job for one that isn't; and
@@ -171,7 +171,7 @@ jobs:
           rc() { docker exec redis redis-cli -a ci --no-auth-warning "$@"; }
           for _ in $(seq 30); do rc ping 2>/dev/null | grep -q PONG && break; sleep 1; done
           services="$(COUNTDOWN_RENDERER_VERSION=ci REDIS_PASSWORD=ci \
-            docker compose -f renderer/deploy/docker-compose.yml config --format json \
+            docker compose -f renderer/deploy/docker-compose.renderer.yml config --format json \
             | jq -c '.services | to_entries[] | select(.value.image | startswith("ghcr.io/nvorkinn/countdown-renderer:"))
                      | select(.value.entrypoint != null)')"
           names=()
@@ -239,14 +239,14 @@ jobs:
         run: docker build -f providers/Dockerfile -t countdown-providers:ci .
 
       - name: Smoke-test the image
-        # Every provider renderer/deploy/docker-compose.yml runs, with its own command and environment (stand-ins for
+        # Every provider renderer/deploy/docker-compose.providers.yml runs, with its own command and environment (stand-ins for
         # the deploy's variables), not just the image's default: a console script that's missing, or that fails as it
         # starts, would crash-loop on the host. Side by side and with no network, so no Redis and no API: each must
         # get as far as its loop ("Starting the ... provider") and keep going (not crash-loop), then stop cleanly: as
         # the container's PID 1 it must handle SIGTERM itself, or docker stop has to kill it.
         run: |
           services="$(COUNTDOWN_RENDERER_VERSION=ci REDIS_PASSWORD=ci \
-            docker compose -f renderer/deploy/docker-compose.yml config --format json \
+            docker compose -f renderer/deploy/docker-compose.providers.yml config --format json \
             | jq -c '.services | to_entries[] | select(.value.image | startswith("ghcr.io/nvorkinn/countdown-providers:"))')"
           test -n "$services"
           names=()

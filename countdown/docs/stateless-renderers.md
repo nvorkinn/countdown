@@ -7,7 +7,7 @@ pacing) in [countdown-server](https://github.com/nvorkinn/countdown-server#readm
 
 ## Who renders
 
-`render-worker-1`, `render-worker-2` and `render-ticker`: compose services in `renderer/deploy/docker-compose.yml`, from
+`worker-1`, `worker-2` and `ticker` (containers `renderer-worker-1-1`, `renderer-worker-2-1` and `renderer-ticker-1`): compose services in `renderer/deploy/docker-compose.renderer.yml`, from
 the `countdown-renderer` image, on the host's network (`renderer/src/countdown_renderer/render_pool.py`, drawing with
 `core/`). They draw every screen in the hash `v1:render:screens`, which countdown-server writes for every paired device (its
 values are the screens' slugs, which name them in metrics). A job for any other device is dropped.

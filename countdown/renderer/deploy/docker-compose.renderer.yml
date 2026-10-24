@@ -1,0 +1,56 @@
+# The render pool, on the renderers' host (deploy.sh, run by release.yml); see README.md. Its containers are
+# renderer-<service>-1; the logging tags (render-worker-1...) name their streams in VictoriaLogs.
+name: renderer
+
+services:
+  # The render pool (countdown/docs/stateless-renderers.md): workers that take
+  # render jobs off the queue in the host's Redis and draw the screens in v1:render:screens (which countdown-server writes,
+  # for every paired device), and a ticker that queues each of those screens every minute. Both from the
+  # countdown-renderer image, each with its own entrypoint. Host networking for Redis and the host's Fluent Bit (metrics).
+  worker-1: &render-worker
+    image: ghcr.io/nvorkinn/countdown-renderer:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    entrypoint: ["countdown-render-worker"]
+    pull_policy: always
+    # Also when a render passes its deadline, which ends the worker.
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 512m
+    environment: &render-pool-environment
+      REDIS_URL: redis://127.0.0.1:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
+      # Names the worker in its logs and as its metrics' host.name; each screen is their `device` attribute.
+      WORKER_NAME: render-worker-1
+    logging:
+      driver: json-file
+      options:
+        tag: render-worker-1
+        max-size: 10m
+        max-file: "3"
+
+  worker-2:
+    <<: *render-worker
+    environment:
+      <<: *render-pool-environment
+      WORKER_NAME: render-worker-2
+    logging:
+      driver: json-file
+      options:
+        tag: render-worker-2
+        max-size: 10m
+        max-file: "3"
+
+  ticker:
+    image: ghcr.io/nvorkinn/countdown-renderer:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    entrypoint: ["countdown-render-ticker"]
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      REDIS_URL: redis://127.0.0.1:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
+    logging:
+      driver: json-file
+      options:
+        tag: render-ticker
+        max-size: 10m
+        max-file: "3"

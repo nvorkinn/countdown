@@ -182,7 +182,7 @@ jobs:
           fi
 
   deploy-renderers:
-    # Brings up the providers and the render pool in countdown/renderer/deploy/docker-compose.yml, pinned to this release's
+    # Brings up the providers and the render pool in countdown/renderer/deploy/docker-compose.*.yml, pinned to this release's
     # images.
     # It runs entirely here: the runner drives the Docker host's daemon over ssh (DOCKER_HOST), so the host needs
     # nothing installed but Docker. It waits for the deploy-renderers environment's approval (Settings >
