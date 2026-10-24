@@ -98,6 +98,12 @@ jobs:
           file: countdown/${{ matrix.image }}/Dockerfile
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=ghcr.io/nvorkinn/countdown-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          # No BuildKit attestations on the per-platform pushes. This repository is public, so the action would
+          # otherwise default to provenance mode=max, making each digest an index of image + attestation manifest, and
+          # publish-image would merge those indexes. The attestations are made once, on the merged index, in
+          # publish-image instead, so each digest saved here is a plain single-platform image manifest.
+          provenance: false
+          sbom: false
           # The previous release's layers, so the base, apt and third-party layers come out the same (same digests)
           # until their inputs change, and the deploy only pulls our own packages' layers. In the registry rather
           # than the Actions cache, which a tag's run can't read from another tag's.
@@ -125,6 +131,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # For the build provenance attestation: a Sigstore certificate (OIDC) and storing the attestation.
+      id-token: write
+      attestations: write
     strategy:
       matrix:
         include:
@@ -145,6 +154,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/setup-buildx-action@v4
       - name: Tag both platforms' images together
+        id: merge
         working-directory: digests
         env:
           IMAGE: ghcr.io/nvorkinn/countdown-${{ matrix.image }}
@@ -154,6 +164,30 @@ jobs:
           for tag in $TAGS; do args+=(-t "$IMAGE:$tag"); done
           docker buildx imagetools create "${args[@]}" $(printf "$IMAGE@sha256:%s " *)
           docker buildx imagetools inspect "$IMAGE:${TAGS%% *}"
+
+          # The merged index's digest, the subject of the attestation below, and a check that it holds just the two
+          # platforms' images (no attestation manifests nested or flattened in from the per-platform pushes).
+          ref="$IMAGE:${TAGS%% *}"
+          index_digest="$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest.Digest}}' | tr -d '"')"
+          if ! [[ "$index_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Unexpected digest for $ref: $index_digest" >&2
+            exit 1
+          fi
+          docker buildx imagetools inspect "$IMAGE@$index_digest" --raw |
+            jq -e '[.manifests[].platform | "\(.os)/\(.architecture)"] | sort == ["linux/amd64", "linux/arm64"]' >/dev/null
+          echo "digest=$index_digest" >> "$GITHUB_OUTPUT"
+
+      # GitHub's signed provenance for the merged index (what every tag points at), stored with the image in GHCR and
+      # in GitHub's attestation store. Verify with
+      # `gh attestation verify oci://ghcr.io/nvorkinn/countdown-<image>:<tag> --repo nvorkinn/pi-dashboard`.
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ghcr.io/nvorkinn/countdown-${{ matrix.image }}
+          subject-digest: ${{ steps.merge.outputs.digest }}
+          push-to-registry: true
+          # Storage records need an organization-owned repository (and the artifact-metadata permission).
+          create-storage-record: false
 
   release:
     # The image too, so a GitHub release is only created once everything it ships exists.
