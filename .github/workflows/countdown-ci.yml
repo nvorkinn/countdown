@@ -29,7 +29,7 @@ jobs:
         run: git submodule update --init --remote
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
       - name: Run Ruff
         run: uv run --frozen --only-group dev ruff check --output-format=github .
@@ -50,7 +50,7 @@ jobs:
         run: git submodule update --init --remote
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
       - name: Install dependencies
         run: uv sync --frozen
@@ -69,7 +69,7 @@ jobs:
         run: git submodule update --init --remote
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
       - name: Install system dependencies
         # libfribidi0 turns on Pillow's Raqm text layout, which the golden images are drawn with. redis-server is for the
@@ -150,7 +150,7 @@ jobs:
         run: git submodule update --init --remote
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
       - name: Build wheels and requirements
         run: ./dev/build_dist.sh
@@ -236,7 +236,7 @@ jobs:
         run: git submodule update --init --remote
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
       - name: Build wheels and requirements
         run: ./dev/build_dist.sh
