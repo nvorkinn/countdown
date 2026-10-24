@@ -13,7 +13,7 @@ jobs:
   verify-tag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Verify tag is on main
         run: |
           git fetch origin main
@@ -26,12 +26,15 @@ jobs:
     needs: verify-tag
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Pull latest API Contract submodule
         run: git submodule update --init --remote
 
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          # The wheels built here are published: don't let a cache another workflow wrote feed them.
+          enable-cache: false
       - name: Stamp version
         run: |
           version="${GITHUB_REF_NAME#v}"
@@ -49,7 +52,7 @@ jobs:
           ./dev/build_dist.sh
       # The images only install what is in dist/ (our packages never come from an index). That includes the
       # countdown_api wheel, which the build above makes from the submodule, stamped with the release's version.
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: countdown-wheel
           path: |
@@ -77,27 +80,33 @@ jobs:
             runner: ubuntu-24.04-arm
             arch: arm64
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Pull latest API Contract submodule
         run: git submodule update --init --remote
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: countdown-wheel
           path: countdown/dist
-      - uses: docker/login-action@v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build and push by digest
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: countdown
           file: countdown/${{ matrix.image }}/Dockerfile
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=ghcr.io/nvorkinn/countdown-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          # No BuildKit attestations on the per-platform pushes. This repository is public, so the action would
+          # otherwise default to provenance mode=max, making each digest an index of image + attestation manifest, and
+          # publish-image would merge those indexes. The attestations are made once, on the merged index, in
+          # publish-image instead, so each digest saved here is a plain single-platform image manifest.
+          provenance: false
+          sbom: false
           # The previous release's layers, so the base, apt and third-party layers come out the same (same digests)
           # until their inputs change, and the deploy only pulls our own packages' layers. In the registry rather
           # than the Actions cache, which a tag's run can't read from another tag's.
@@ -109,7 +118,7 @@ jobs:
         run: |
           mkdir -p digests
           touch "digests/${DIGEST#sha256:}"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: digest-${{ matrix.image }}-${{ matrix.arch }}
           path: digests/*
@@ -125,6 +134,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # For the build provenance attestation: a Sigstore certificate (OIDC) and storing the attestation.
+      id-token: write
+      attestations: write
     strategy:
       matrix:
         include:
@@ -133,18 +145,19 @@ jobs:
           - image: providers
             tags: ${{ github.ref_name }}
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: digest-${{ matrix.image }}-*
           path: digests
           merge-multiple: true
-      - uses: docker/login-action@v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Tag both platforms' images together
+        id: merge
         working-directory: digests
         env:
           IMAGE: ghcr.io/nvorkinn/countdown-${{ matrix.image }}
@@ -152,8 +165,33 @@ jobs:
         run: |
           args=()
           for tag in $TAGS; do args+=(-t "$IMAGE:$tag"); done
+          # shellcheck disable=SC2046 # one digest argument per file; the names are hex, so splitting is intended
           docker buildx imagetools create "${args[@]}" $(printf "$IMAGE@sha256:%s " *)
           docker buildx imagetools inspect "$IMAGE:${TAGS%% *}"
+
+          # The merged index's digest, the subject of the attestation below, and a check that it holds just the two
+          # platforms' images (no attestation manifests nested or flattened in from the per-platform pushes).
+          ref="$IMAGE:${TAGS%% *}"
+          index_digest="$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest.Digest}}' | tr -d '"')"
+          if ! [[ "$index_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Unexpected digest for $ref: $index_digest" >&2
+            exit 1
+          fi
+          docker buildx imagetools inspect "$IMAGE@$index_digest" --raw |
+            jq -e '[.manifests[].platform | "\(.os)/\(.architecture)"] | sort == ["linux/amd64", "linux/arm64"]' >/dev/null
+          echo "digest=$index_digest" >> "$GITHUB_OUTPUT"
+
+      # GitHub's signed provenance for the merged index (what every tag points at), stored with the image in GHCR and
+      # in GitHub's attestation store. Verify with
+      # `gh attestation verify oci://ghcr.io/nvorkinn/countdown-<image>:<tag> --repo nvorkinn/pi-dashboard`.
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ghcr.io/nvorkinn/countdown-${{ matrix.image }}
+          subject-digest: ${{ steps.merge.outputs.digest }}
+          push-to-registry: true
+          # Storage records need an organization-owned repository (and the artifact-metadata permission).
+          create-storage-record: false
 
   release:
     # The image too, so a GitHub release is only created once everything it ships exists.
@@ -162,10 +200,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Pull latest API Contract submodule
         run: git submodule update --init --remote
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: countdown-wheel
           path: countdown/dist
@@ -196,7 +234,7 @@ jobs:
     env:
       DOCKER_HOST: ssh://${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Pull latest API Contract submodule
         run: git submodule update --init --remote
       - name: Set up SSH
