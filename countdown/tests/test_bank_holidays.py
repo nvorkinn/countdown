@@ -6,7 +6,7 @@ the board share one fake Redis (fakeredis), as they share the host's.
 
 import asyncio
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import fakeredis
@@ -17,11 +17,11 @@ from test_utils import TEST_DEVICE_ID
 
 from countdown_core import i18n
 from countdown_core.core import moment
-from countdown_core.notices.calendar import NoStoredBankHolidaysError, StoredBankHolidaySource
+from countdown_core.notices.calendar import NoStoredBankHolidaysError, StoredBankHolidaySource, bank_holiday_notices
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
-from countdown_core.store.bank_holidays import DIVISIONS, StoredBankHolidays
+from countdown_core.store.bank_holidays import DIVISIONS, BankHoliday, StoredBankHolidays
 from countdown_providers.bank_holidays.main import BANK_HOLIDAYS_URL, UK, BankHolidaysProvider
 from countdown_providers.runner import ProviderRunner
 
@@ -154,6 +154,30 @@ def test_the_stored_holidays_give_the_notices_gov_uk_gave(server, now, country, 
     notices = StoredBankHolidaySource(country).fetch(now)
 
     assert notices == ([Notice("Bank holiday", Severity.REMINDER, *expected)] if expected else [])
+
+
+# "Less than a month away" is up to the same day next month, which a shorter month clamps to its last day.
+@pytest.mark.parametrize(
+    ("today", "holiday", "mentioned"),
+    [
+        (date(2026, 10, 18), date(2026, 11, 17), True),
+        (date(2026, 10, 18), date(2026, 11, 18), False),
+        (date(2026, 12, 18), date(2027, 1, 17), True),  # across the new year
+        (date(2026, 12, 18), date(2027, 1, 18), False),
+        (date(2027, 1, 31), date(2027, 2, 27), True),  # February's last day is the 28th
+        (date(2027, 1, 31), date(2027, 2, 28), False),
+        (date(2028, 1, 31), date(2028, 2, 28), True),  # a leap year's is the 29th
+        (date(2028, 1, 31), date(2028, 2, 29), False),
+        (date(2026, 10, 31), date(2026, 11, 29), True),  # and November's the 30th
+        (date(2026, 10, 31), date(2026, 11, 30), False),
+    ],
+)
+def test_a_bank_holiday_is_mentioned_until_the_same_day_next_month(today, holiday, mentioned):
+    now = datetime.combine(today, datetime.min.time().replace(hour=12), tzinfo=UTC)
+
+    notices = bank_holiday_notices([BankHoliday(title="Test Day", date=holiday)], now)
+
+    assert bool(notices) is mentioned
 
 
 def test_tomorrow_becomes_today_at_midnight_from_the_same_stored_holidays(server):
