@@ -1,7 +1,10 @@
 name: Tests
 
+# A pull request is tested once, by pull_request (the merge with main). push is for main only: it also keeps the snapshot
+# image's layer cache warm for the pull requests that read it.
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
