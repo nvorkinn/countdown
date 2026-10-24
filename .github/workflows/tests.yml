@@ -31,6 +31,31 @@ jobs:
       - name: Check Ruff formatting
         run: uv run --frozen --only-group dev ruff format --check --diff .
 
+  # The file hygiene hooks of .pre-commit-config.yaml. Ruff and ty are skipped: the lint and ty jobs run them.
+  pre-commit:
+    runs-on: ubuntu-latest
+    env:
+      SKIP: ruff-check,ruff-format,ty
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      # The hooks' environments, keyed on the config that pins them.
+      - name: Cache pre-commit environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Run pre-commit
+        # From the repository root: the hooks check the whole tree, not just countdown/.
+        working-directory: .
+        run: uvx pre-commit run --all-files --show-diff-on-failure
+
   # Type checking, with the ty countdown/uv.lock pins. ty resolves imports from the installed dependencies, so this
   # installs what the test job does (from the same uv cache), but none of its system packages.
   ty:
