@@ -2,7 +2,7 @@
 
 Everything is prefixed with `v1:`, so a later, incompatible layout can live beside this one while things move over.
 
-The keys that cross between pi-dashboard and auth-broker are the store contract's: countdown-api's store.yaml, as
+The keys that cross between pi-dashboard and countdown-server are the store contract's: countdown-api's store.yaml, as
 countdown_api.keys (its builders say what each holds, its TTL, and who writes and reads it), re-exported here. They are:
 
 - Subscriptions (written by the broker, read by the providers): `v1:sub:<source>` (`subscription`), a set of the ids
@@ -14,7 +14,7 @@ countdown_api.keys (its builders say what each holds, its TTL, and who writes an
 - The broker's providers' data (read by the renderers): `energy`, `spotify`, `spotify_top`, `album_art` (an image's own
   bytes, not JSON) and `developer`.
 - Pace (written by any provider, with a short TTL, read by the broker): `pace`.
-- Frames (written by the render pool, read by auth-broker): `frame`, a hash. See store.frame_record.
+- Frames (written by the render pool, read by countdown-server): `frame`, a hash. See store.frame_record.
 - The render queue's keys the broker writes too: RENDER_JOBS, RENDER_SCREENS and `render_queued`. See
   store.render_queue.
 
@@ -58,7 +58,7 @@ from countdown_api.keys import (
     subscription,
 )
 
-# The keys that cross to auth-broker are the store contract's (countdown-api's store.yaml: countdown_api.keys), and
+# The keys that cross to countdown-server are the store contract's (countdown-api's store.yaml: countdown_api.keys), and
 # are re-exported here so everything here names every key one way. Only the keys pi-dashboard alone writes and reads
 # are defined below.
 __all__ = [
@@ -148,7 +148,7 @@ def weather(location: str) -> str:
 
 
 # The render pool's queue (store.render_queue): RENDER_JOBS, RENDER_SCREENS and render_queued are the contract's, as
-# auth-broker queues jobs and lists the screens too; the lease and the follow-up flag are the pool's own.
+# countdown-server queues jobs and lists the screens too; the lease and the follow-up flag are the pool's own.
 
 
 def render_lease(device_id: str) -> str:

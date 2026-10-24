@@ -12,4 +12,4 @@ permissions:
 
 jobs:
   auto-approve:
-    uses: nvorkinn/auth-broker/.github/workflows/auto_approve.yml@main
+    uses: nvorkinn/countdown-server/.github/workflows/auto_approve.yml@main

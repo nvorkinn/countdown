@@ -1,20 +1,20 @@
 # Running the render pool and providers with Docker
 
 `docker-compose.yml` runs the render pool (`render-worker-1`, `render-worker-2`, `render-ticker`) and one service per
-provider, on the same host as auth-broker and its Redis. All use host networking, so Redis is at `127.0.0.1:6379` and
+provider, on the same host as countdown-server and its Redis. All use host networking, so Redis is at `127.0.0.1:6379` and
 metrics go to the host's Fluent Bit at `127.0.0.1:4318` (without one the workers log a warning each minute). How
 rendering works: [How rendering works](../../docs/stateless-renderers.md).
 
 ## The images
 
-Every release builds `ghcr.io/nvorkinn/countdown-server` (the pool) and `ghcr.io/nvorkinn/countdown-providers` from
-that release's wheels, tagged `<tag>` and `latest`. The server image's entrypoint is `countdown-render-worker`; the
+Every release builds `ghcr.io/nvorkinn/countdown-renderer` (the pool) and `ghcr.io/nvorkinn/countdown-providers` from
+that release's wheels, tagged `<tag>` and `latest`. The renderer image's entrypoint is `countdown-render-worker`; the
 ticker overrides it with `countdown-render-ticker`. It keeps nothing: no identity, no volume. To build one locally,
 from `countdown/`:
 
 ```sh
 ./dev/build_dist.sh   # the wheels and each image's requirements, in dist/
-docker build -f server/Dockerfile -t countdown-server:dev .   # or providers/Dockerfile
+docker build -f renderer/Dockerfile -t countdown-renderer:dev .   # or providers/Dockerfile
 ```
 
 ## Adding a screen
@@ -35,8 +35,8 @@ Set up once in the repo's settings:
 
 - The environment `deploy-renderers`, with yourself as required reviewer (without one it deploys unasked).
 - Secrets `DEPLOY_USER`, `DEPLOY_HOST`, `ORACLE_SSH_TOKEN` (the private key) and `DEPLOY_SSH_KNOWN_HOSTS`, the same as
-  auth-broker's. The user must be in the `docker` group.
-- Secrets `REDIS_PASSWORD` (the same as auth-broker's `secrets/redis.env`) and `TFL_APP_KEY`. A missing password fails
+  countdown-server's. The user must be in the `docker` group.
+- Secrets `REDIS_PASSWORD` (the same as countdown-server's `secrets/redis.env`) and `TFL_APP_KEY`. A missing password fails
   the deploy rather than start anything unauthenticated.
 
 To hold back or roll back, re-run an older release's `deploy-renderers` job from the Actions tab.

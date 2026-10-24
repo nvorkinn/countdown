@@ -11,7 +11,7 @@ from countdown_providers.sharding import Shard
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-# Redis runs on the providers' host (deployed by auth-broker), so host networking reaches it here.
+# Redis runs on the providers' host (deployed by countdown-server), so host networking reaches it here.
 DEFAULT_REDIS_URL = "redis://127.0.0.1:6379/0"
 
 

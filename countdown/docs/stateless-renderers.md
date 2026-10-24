@@ -3,13 +3,13 @@
 A render runs to completion and keeps nothing: read Redis, build the frame, write it, done. A small pool of warm
 workers renders a screen whenever a job for it arrives on a Redis queue. Services share only Redis; the keys are
 documented in [countdown-api](https://github.com/nvorkinn/countdown-api#readme), and the broker's side (serving frames,
-pacing) in [auth-broker](https://github.com/nvorkinn/auth-broker#readme).
+pacing) in [countdown-server](https://github.com/nvorkinn/countdown-server#readme).
 
 ## Who renders
 
-`render-worker-1`, `render-worker-2` and `render-ticker`: compose services in `server/deploy/docker-compose.yml`, from
-the `countdown-server` image, on the host's network (`server/src/countdown_server/render_pool.py`, drawing with
-`core/`). They draw every screen in the hash `v1:render:screens`, which auth-broker writes for every paired device (its
+`render-worker-1`, `render-worker-2` and `render-ticker`: compose services in `renderer/deploy/docker-compose.yml`, from
+the `countdown-renderer` image, on the host's network (`renderer/src/countdown_renderer/render_pool.py`, drawing with
+`core/`). They draw every screen in the hash `v1:render:screens`, which countdown-server writes for every paired device (its
 values are the screens' slugs, which name them in metrics). A job for any other device is dropped.
 
 A worker blocks on the job queue and calls `render(device_id, now)` (`countdown_core/render.py`) for each job, one at a
@@ -86,7 +86,7 @@ interval.
 
 ## Metrics and logs
 
-Workers send OTLP metrics (`server/src/countdown_server/pool_metrics.py`), each with `device` (the screen's slug):
+Workers send OTLP metrics (`renderer/src/countdown_renderer/pool_metrics.py`), each with `device` (the screen's slug):
 `countdown.render.duration`, `.count` (`outcome`: `written`, `unchanged` or `failed`), `.last_success` (the one to alert
 on for a stuck screen), `.expired_panels`, `.lag` and `.queued` (the pool's capacity signals). Logs are for what goes
 wrong only, with no line per frame, and nothing logged names a postcode, place or URL (`core/log_format.py`).

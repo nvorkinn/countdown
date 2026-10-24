@@ -1,6 +1,6 @@
-"""The developer panel's client: it reads what auth-broker's developer provider stored, and never asks the broker.
+"""The developer panel's client: it reads what countdown-server's developer provider stored, and never asks the broker.
 
-The store contract's developer.json (countdown_api.fixtures) is the stored value, which auth-broker's tests read too.
+The store contract's developer.json (countdown_api.fixtures) is the stored value, which the broker's tests read too.
 """
 
 import asyncio

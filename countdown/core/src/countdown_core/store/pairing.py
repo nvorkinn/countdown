@@ -1,4 +1,4 @@
-"""A screen's live pairing code in the store, which auth-broker writes, for the render to draw.
+"""A screen's live pairing code in the store, which countdown-server writes, for the render to draw.
 
 The broker's copy of a screen's config (`v1:config:<device id>`, store.config) never carries a pairing code, and
 there's none at all while the device has a code to show. The render reads only the store, so while a code is live
@@ -7,7 +7,7 @@ its `pairing_code` set, and queues a render of the screen. So the pairing
 screen is drawn in the screen's own size and language even with no config in the store. Its TTL is the code's own
 expiry (ten minutes), and the broker deletes it sooner when the code is used, or the device paired, unpaired or
 forgotten.
-The store contract's pairing_key.json (countdown_api.fixtures) pins the shape, which auth-broker's tests read too.
+The store contract's pairing_key.json (countdown_api.fixtures) pins the shape, which countdown-server's tests read too.
 
 Plaintext, by decision: any Redis reader on the host can see a live code. Nothing here logs one.
 """

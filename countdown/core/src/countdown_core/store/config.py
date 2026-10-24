@@ -1,4 +1,4 @@
-"""The screen's config in the store, which auth-broker writes.
+"""The screen's config in the store, which countdown-server writes.
 
 The broker keeps its database as the source of truth and writes each screen's config to `v1:config:<device id>`
 (keys.config): the contract's ConfigResponse, less its secrets (the weather API key empty, no pairing code), with no

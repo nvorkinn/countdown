@@ -1,6 +1,6 @@
 """The energy panel's readings in the store: the value of `v1:energy:<device id>`.
 
-Written by auth-broker's glow-provider, not by countdown-providers: the Glowmarkt passwords are the broker's, and stay
+Written by the broker's glow-provider, not by countdown-providers: the Glowmarkt passwords are the broker's, and stay
 there. The broker can't import countdown-core, so the value is Glowmarkt's own answers, as the broker got them, in a
 thin wrapper, and they're read with the models of Glowmarkt's answers (countdown_core.glow.models). The store contract
 (countdown-api's store.yaml: StoredEnergy) pins the wrapper, and both repositories test against its glow_energy.json

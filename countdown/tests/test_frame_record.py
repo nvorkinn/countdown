@@ -59,7 +59,7 @@ def stored(store):
 
 
 def test_the_hash_is_the_brokers_etag():
-    # auth-broker's routes/frames.py: blake2b(frame, digest_size=8).hexdigest(), here for a blank and a black frame.
+    # The broker's routes/frames.py: blake2b(frame, digest_size=8).hexdigest(), here for a blank and a black frame.
     assert frame_record.frame_etag(bytes(FRAME_BYTES)) == "cf4d49a0c56195f9"
     assert frame_record.frame_etag(b"\xff" * FRAME_BYTES) == "21404bb162874faf"
 

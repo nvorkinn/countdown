@@ -929,7 +929,7 @@ def _release(name, state, minutes, jobs, *, finished=None):
     return Release(repo=repo, title=title, state=state, started=started, finished=finished, jobs=jobs)
 
 
-# auth-broker's Release four minutes in: the images building, deploy-authentik waiting for approval.
+# countdown-server's Release four minutes in: the images building, deploy-authentik waiting for approval.
 AUTH_BROKER_RELEASE = _release(
     "auth-broker v1.27.0",
     "running",

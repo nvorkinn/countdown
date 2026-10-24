@@ -15,7 +15,7 @@ release each atomic in Redis, over these keys (keys.py):
 
 - **enqueue(id):** `SET queued NX`; only if that set it, `LPUSH jobs id`. So a screen is in the queue at most once,
   however many triggers fire.
-- **claim(id), after the pop:** `DEL queued`. If the screen isn't in `v1:render:screens` (which auth-broker writes, for
+- **claim(id), after the pop:** `DEL queued`. If the screen isn't in `v1:render:screens` (which the broker writes, for
   every paired device), the job is dropped. Otherwise `SET lease token NX`, and the worker renders; if the
   lease is taken, `SET again` instead, and the job is done.
 - **release(id):** if the lease is still this worker's token, `DEL lease`; if `DEL again` removed one, enqueue(id).
@@ -53,14 +53,14 @@ LEASE_TTL_MS = 30_000
 # The follow-up flag: as long as the lease it's set beside.
 AGAIN_TTL_MS = 30_000
 # The queued flag: a minute, the ticker's interval. Only a worker dying between the pop and the claim leaves one behind.
-# The store contract's, as auth-broker queues jobs with the same script and TTL.
+# The store contract's, as countdown-server queues jobs with the same script and TTL.
 QUEUED_TTL_MS = keys.RENDER_QUEUED_TTL_MS
 
 # Redis's clock, in Unix milliseconds, as a string: the seconds and the milliseconds, put together as text so that the
 # number doesn't go through Lua's floating point. The enqueue script starts with the same lines.
 _NOW_MS = "local t = redis.call('TIME')\nlocal now_ms = t[1] .. string.format('%03d', math.floor(t[2] / 1000))\n"
 
-# The store contract's enqueue script (countdown-api's lua/enqueue.lua), which auth-broker runs too. KEYS: queued, jobs.
+# The store contract's enqueue script (countdown-api's lua/enqueue.lua), which the broker runs too. KEYS: queued, jobs.
 # ARGV: the device id, the queued flag's TTL. Returns 1 if it queued the screen, 0 if it was queued already.
 _ENQUEUE = scripts.ENQUEUE.source
 

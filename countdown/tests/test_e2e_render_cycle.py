@@ -80,7 +80,7 @@ def _put_stops(store, *stop_ids: str) -> None:
 
 
 def _put_energy(store) -> None:
-    """Store the device's readings as auth-broker's glow-provider would: two hourly ones, at UTC (offset 0)."""
+    """Store the device's readings as countdown-server's glow-provider would: two hourly ones, at UTC (offset 0)."""
     now = datetime.datetime.now(datetime.UTC)
     hourly = {
         "data": [
@@ -99,7 +99,7 @@ def _put_stops_and_energy(store, *stop_ids: str) -> None:
 
 
 def _put_music(store, queue: dict, top: dict | None = None) -> None:
-    """Store Spotify's player (and top lists, the same for both periods) as auth-broker's music provider would.
+    """Store Spotify's player (and top lists, the same for both periods) as countdown-server's music provider would.
 
     A track in the queue is playing, as of the pages' clock (rotation.now).
     """

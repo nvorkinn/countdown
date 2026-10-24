@@ -1,6 +1,6 @@
-"""The Spotify area reading the store: what auth-broker's music provider wrote (fakeredis).
+"""The Spotify area reading the store: what countdown-server's music provider wrote (fakeredis).
 
-The store contract's music_player.json and music_top.json (countdown_api.fixtures) are the stored values: auth-broker's
+The store contract's music_player.json and music_top.json (countdown_api.fixtures) are the stored values: the broker's
 provider tests check that it writes exactly these, and these tests check that the renderer reads each
 part into the models of Spotify's own answers (countdown_core.spotify.models), so both services draw the same
 panels. The contract's music_art.json is the covers it stores for music_player.json, by key, each the raw bytes of the

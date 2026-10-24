@@ -2,7 +2,7 @@
 
 The broker's copy of the config never carries the code, and there's none while a code is live, so a render that reads
 the store (render(device_id, now)) draws the pairing screen from this key while it's there.
-The store contract's pairing_key.json (countdown_api.fixtures) is the stored shape, which auth-broker's tests read too.
+The store contract's pairing_key.json (countdown_api.fixtures) is the stored shape, which the broker's tests read too.
 """
 
 import json

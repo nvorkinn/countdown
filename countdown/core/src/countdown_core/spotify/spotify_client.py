@@ -3,7 +3,7 @@
 It shows Spotify, Apple Music, or both: Spotify while it's playing, else what was last played on Apple Music, with
 their top lists taking turns.
 
-They're read from the store, from what auth-broker's music provider wrote there (countdown_core.store.music) with the
+They're read from the store, from what the broker's music provider wrote there (countdown_core.store.music) with the
 broker's own tokens, so this renderer never calls the services or the broker for them. The playing track's cover too:
 the provider stores the image (keys.album_art), so the renderer never calls the services' image hosts either.
 """
@@ -129,7 +129,7 @@ class NoStoredMusicError(reader.NoStoredDataError):
 class SpotifyClient(AbstractClient[MusicSettings]):
     """Now playing and top tracks/artists, from Spotify, Apple Music or both, read from the store.
 
-    auth-broker's music provider calls the services server-side, so this renderer never holds a token; it reads the
+    countdown-server's music provider calls the services server-side, so this renderer never holds a token; it reads the
     keys of the screen `device_id`.
     """
 

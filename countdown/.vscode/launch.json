@@ -5,7 +5,7 @@
             "name": "Python Debugger: countdown-render-worker",
             "type": "debugpy",
             "request": "launch",
-            "module": "countdown_server.render_pool",
+            "module": "countdown_renderer.render_pool",
             "envFile": "${workspaceFolder}/dev/.env",
             "python": "${command:python.interpreterPath}",
             "console": "integratedTerminal"

@@ -10,7 +10,7 @@ requires-python = ">=3.14"
 dependencies = [
     "countdown-api",
     "countdown-core",
-    "countdown-server",
+    "countdown-renderer",
     "countdown-providers",
 ]
 
@@ -20,7 +20,7 @@ package = false
 [tool.uv.sources]
 countdown-api = { workspace = true }
 countdown-core = { workspace = true }
-countdown-server = { workspace = true }
+countdown-renderer = { workspace = true }
 countdown-providers = { workspace = true }
 
 [dependency-groups]
@@ -42,7 +42,7 @@ dev = [
 members = [
     "api",
     "core",
-    "server",
+    "renderer",
     "providers"
 ]
 
@@ -50,7 +50,7 @@ members = [
 source = [
     "api/src",
     "core/src",
-    "server/src",
+    "renderer/src",
     "providers/src"
 ]
 [tool.coverage.report]
@@ -63,7 +63,7 @@ line-length = 120
 src = [
     "api/src",
     "core/src",
-    "server/src",
+    "renderer/src",
     "providers/src"
 ]
 # Even when a file is named on the command line, as pre-commit does with every changed file.
@@ -87,7 +87,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # countdown-core must stay free of the apps: they depend on it, never the other way round.
 # The ban only applies inside core/ (see per-file-ignores).
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"countdown_server".msg = "countdown-core can't depend on countdown-server; pass what it needs in from there"
+"countdown_renderer".msg = "countdown-core can't depend on countdown-renderer; pass what it needs in from there"
 "countdown_providers".msg = "countdown-core can't depend on countdown-providers; pass what it needs in from there"
 
 [tool.ruff.lint.per-file-ignores]

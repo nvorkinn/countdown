@@ -1,6 +1,6 @@
 """The screen's latest frame in the store, `v1:frame:<device id>` (keys.frame), which the broker serves the screen.
 
-Frames reach the screen through Redis alone: the render writes each new picture here, and auth-broker answers the
+Frames reach the screen through Redis alone: the render writes each new picture here, and countdown-server answers the
 screen's polls from it (its `services/frame_record.py`). It's one latest value per screen, like the providers' keys, not
 a queue.
 
@@ -27,7 +27,7 @@ read and no write. The record has a TTL of TTL_S, a day, which a skipped write d
   to serve, and the screen keeps the picture it has.
 
 The store contract's `frame_record.json` (with the frame beside it, `frame_record.bin`; countdown_api.fixtures) is the
-canonical record, which auth-broker's tests read too.
+canonical record, which countdown-server's tests read too.
 """
 
 from datetime import UTC, datetime
@@ -56,7 +56,7 @@ def now() -> datetime:
 def frame_etag(frame: bytes) -> str:
     """Return the frame's hash, as the broker makes the ETag it serves the screen the frame with.
 
-    That's an 8-byte BLAKE2b, in hex (auth-broker's `routes/frames.py`). Two frames with the same hash are the same
+    That's an 8-byte BLAKE2b, in hex (countdown-server's `routes/frames.py`). Two frames with the same hash are the same
     picture, so a render whose frame hashes like the record's has nothing new to write.
     """
     return blake2b(frame, digest_size=8).hexdigest()

@@ -93,7 +93,7 @@ def assert_nothing_says_where(text: str, *traces: str | float) -> None:
 
 # --- Which weather keys are postcodes --------------------------------------------------------------------------------
 
-# The keys auth-broker's weather_place.weather_key() makes: its tests read the same file.
+# The keys countdown-server's weather_place.weather_key() makes: its tests read the same file.
 WEATHER_KEYS = fixtures.load("weather_keys.json")["keys"]
 
 

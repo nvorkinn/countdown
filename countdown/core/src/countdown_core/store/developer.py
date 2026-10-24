@@ -1,6 +1,6 @@
-"""What auth-broker's developer provider stores for the developer panel, and the renderer reads back.
+"""What countdown-server's developer provider stores for the developer panel, and the renderer reads back.
 
-The provider runs in auth-broker (broker/developer_provider.py), which can't import this, so the contract is the JSON
+The provider runs in the broker (broker/developer_provider.py), which can't import this, so the contract is the JSON
 itself: the GitHub summary and the AI plans (countdown_core.developer.models) as the broker's services/developer.py
 builds them, with `fetched_at` beside it. The store contract's developer.json (countdown_api.fixtures) is an example,
 which both repositories' tests read, so neither side can drift alone. The broker has no route for the panel: the store

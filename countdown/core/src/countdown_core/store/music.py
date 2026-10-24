@@ -1,6 +1,6 @@
-"""What auth-broker's music provider stores for the Spotify area, and the renderer reads back.
+"""What countdown-server's music provider stores for the Spotify area, and the renderer reads back.
 
-The provider runs in auth-broker (broker/spotify_provider.py), which can't
+The provider runs in countdown-server (broker/spotify_provider.py), which can't
 import this, so the contract is the JSON itself: each service's part is in Spotify's own shapes (/me/player/queue,
 /me/top/tracks, ...; Apple Music's made to look like them), read with the models in countdown_core.spotify.models.
 Only these wrappers are the store's own. The store contract (countdown-api's store.yaml: StoredPlayer, StoredTop) pins
@@ -29,7 +29,7 @@ def art_image(album: Album) -> Image | None:
     """Return which of the album's sizes of cover is the one in the store; None if it has none (a local file).
 
     The smallest at least ART_SIZE tall, else the tallest: Spotify's 300 px of its 640, 300 and 64, and the one 300 px
-    image auth-broker asks Apple Music for. auth-broker's music provider (broker/album_art.py) picks the same way, so
+    image the broker asks Apple Music for. Its music provider (broker/album_art.py) picks the same way, so
     change both together.
     """
     if not album.images:
