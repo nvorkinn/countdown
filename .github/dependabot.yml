@@ -1,11 +1,15 @@
 version: 2
 updates:
-  # countdown/pyproject.toml and uv.lock: the workspace's one lockfile. Ruff is also pinned in .pre-commit-config.yaml,
-  # which this doesn't update: keep it in step.
+  # countdown/pyproject.toml and uv.lock: the workspace's one lockfile.
   - package-ecosystem: "uv"
     directory: "/countdown"
     schedule:
       interval: "daily"
+  # .pre-commit-config.yaml's hook revs. Ruff is pinned in both places: keep them in step.
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "weekly"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
