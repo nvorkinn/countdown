@@ -15,8 +15,6 @@ Push a `v*` tag on a commit that's on `main`. `.github/workflows/release.yml` bu
 GitHub release and deploys. The tag is the version: it's stamped into the wheels at build time, so the `version` in
 `countdown/pyproject.toml` is a placeholder.
 
-`.github/workflows/countdown-ci.yml` runs only when files under `countdown/` change.
-
 ## PR status check
 
 Branch protection requires one check, **Global PR Status**: `create_global_pr_status.yml` opens it on a PR's head
