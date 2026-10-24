@@ -1,0 +1,5 @@
+# hadolint configuration, picked up from the repository root by the Lint workflow. Every ignore below says why.
+ignored:
+  - DL3008 # apt packages are not version-pinned: Debian removes superseded versions from the archive, so a pin would break the build the next time the pinned base image's package set moves. The base image itself is pinned.
+  - DL3059 # separate RUNs are deliberate: each check (font bake, Raqm assertion) has its own comment and layer, and merging them is a style change only.
+  - DL3066 # USER names the system user created a few lines above (useradd --system), which is the right way to refer to it here; a numeric id would only duplicate the useradd.

@@ -34,7 +34,6 @@ esac
 src="/work/countdown"
 # As the host's user, so what the tests write into the mounted repo (tests/images, _failures) isn't owned by root.
 # The renderer finds Material Symbols in fonts/ (git-ignored), so the image's copy goes there first.
-# shellcheck disable=SC2086 -- $flags is one flag or none
 exec docker run --rm ${SNAPSHOT_PLATFORM:+--platform "$SNAPSHOT_PLATFORM"} \
   --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -e PYTHONPATH="$src/api/src:$src/core/src:$src/renderer/src:$src/providers/src" \
