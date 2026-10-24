@@ -16,3 +16,10 @@ GitHub release and deploys. The tag is the version: it's stamped into the wheels
 `countdown/pyproject.toml` is a placeholder.
 
 `.github/workflows/countdown-ci.yml` runs only when files under `countdown/` change.
+
+## PR status check
+
+Branch protection requires one check, **Global PR Status**: `create_global_pr_status.yml` opens it on a PR's head
+commit, and `all-checks.yml` completes it, and approves the PR, once every other workflow and check on that commit has
+passed. Both call the reusable workflows in [`nvorkinn/.github`](https://github.com/nvorkinn/.github), pinned to a
+commit. When you add a workflow that runs on pull requests, add its `name` to `workflows:` in `all-checks.yml`.
