@@ -113,7 +113,7 @@ jobs:
 
       - name: Build image
         # Its layers are cached by their inputs: the locked packages change only with a pyproject or uv.lock.
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: countdown
           file: countdown/dev/snapshots.Dockerfile
