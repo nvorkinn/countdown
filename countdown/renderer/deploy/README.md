@@ -52,8 +52,8 @@ writes and how to check.
 ## Checking on the host
 
 ```sh
-docker compose -p countdown-renderers ps
-docker logs -f countdown-renderers-render-worker-1-1      # warnings and errors only: no line per frame
+docker compose -p countdown-renderers ps   # the containers are named by container_name, without the project prefix
+docker logs -f render-worker-1      # warnings and errors only: no line per frame
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli HGETALL v1:render:screens'
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli HMGET v1:frame:<device id> etag rendered_at'
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli LLEN v1:render:jobs'   # 0, between minutes

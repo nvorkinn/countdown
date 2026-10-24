@@ -134,7 +134,7 @@ writing subscriptions (including `v1:sub:postcode`). A provider fetches as it st
 seconds. To check, on the host:
 
 ```sh
-docker logs --tail 20 countdown-renderers-provider-floods-1
+docker logs --tail 20 provider-floods-1
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 --scan --pattern "v1:notices:floods*"'
 docker exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 SMEMBERS v1:sub:postcode'
 ```

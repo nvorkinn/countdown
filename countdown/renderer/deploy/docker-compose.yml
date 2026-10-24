@@ -8,6 +8,7 @@ services:
   # deploy-renderers job's secrets, and a missing password fails the deploy rather than start them unauthenticated.
   provider-tfl:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: provider-tfl-1
     command: countdown-provider-tfl
     pull_policy: always
     restart: unless-stopped
@@ -27,6 +28,7 @@ services:
   # TfL's disruptions for the notice boards: the lines and stations at the stops, the roads near the postcodes.
   provider-tfl-notices:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: provider-tfl-notices-1
     command: countdown-provider-tfl-notices
     pull_policy: always
     restart: unless-stopped
@@ -43,6 +45,7 @@ services:
 
   provider-weather:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: provider-weather-1
     command: countdown-provider-weather
     pull_policy: always
     restart: unless-stopped
@@ -58,6 +61,7 @@ services:
 
   provider-entur:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: provider-entur-1
     command: countdown-provider-entur
     pull_policy: always
     restart: unless-stopped
@@ -74,6 +78,7 @@ services:
   # The Met Office's weather warnings for the notice boards' UK postcodes (v1:sub:postcode), by place.
   provider-met-office:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: provider-met-office-1
     command: countdown-provider-met-office
     pull_policy: always
     restart: unless-stopped
@@ -90,6 +95,7 @@ services:
   # gov.uk's bank holidays for every board in the UK: one file, with no subscription, every 6 hours.
   provider-bank-holidays:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: provider-bank-holidays-1
     command: countdown-provider-bank-holidays
     pull_policy: always
     restart: unless-stopped
@@ -106,6 +112,7 @@ services:
   # The disruptions at the Entur stops, for the notice board: the same subscriptions as provider-entur, every 5 minutes.
   provider-entur-situations:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: provider-entur-situations-1
     command: countdown-provider-entur-situations
     pull_policy: always
     restart: unless-stopped
@@ -123,6 +130,7 @@ services:
   # writes). The render pool reads them from the store, so a board shows no floods without this.
   provider-floods:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: provider-floods-1
     command: countdown-provider-floods
     pull_policy: always
     restart: unless-stopped
@@ -139,6 +147,7 @@ services:
   # MET Norway's weather warnings for the notice boards in Norway, fetched once for the whole country.
   provider-metalerts:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: provider-metalerts-1
     command: countdown-provider-metalerts
     pull_policy: always
     restart: unless-stopped
@@ -157,6 +166,7 @@ services:
   # postcode only from the store, so a board with a postcode shows no local notices without this.
   provider-locations:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: provider-locations-1
     command: countdown-provider-locations
     pull_policy: always
     restart: unless-stopped
@@ -176,6 +186,7 @@ services:
   # countdown-renderer image, each with its own entrypoint. Host networking for Redis and the host's Fluent Bit (metrics).
   render-worker-1: &render-worker
     image: ghcr.io/nvorkinn/countdown-renderer:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: render-worker-1
     entrypoint: ["countdown-render-worker"]
     pull_policy: always
     # Also when a render passes its deadline, which ends the worker.
@@ -196,6 +207,7 @@ services:
 
   render-worker-2:
     <<: *render-worker
+    container_name: render-worker-2
     environment:
       <<: *render-pool-environment
       WORKER_NAME: render-worker-2
@@ -208,6 +220,7 @@ services:
 
   render-ticker:
     image: ghcr.io/nvorkinn/countdown-renderer:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    container_name: render-ticker-1
     entrypoint: ["countdown-render-ticker"]
     pull_policy: always
     restart: unless-stopped
