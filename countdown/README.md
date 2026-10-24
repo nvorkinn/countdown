@@ -131,6 +131,6 @@ hostname, sanitised to `[a-z0-9_-]`). There is no timestamp: the container's log
 sets the level (default INFO). Nothing logged says where a screen is: no postcode, place or coordinates, nor a URL with
 one in it.
 
-The host's Fluent Bit ships the containers' logs to VictoriaLogs, naming each stream after the compose service
+The host's Fluent Bit ships the containers' logs to VictoriaLogs, naming each stream after the container's logging tag
 (`render-worker-1`, `provider-tfl`...). Workers send OTLP metrics to `http://127.0.0.1:4318/v1/metrics`, listed in
 [How rendering works](docs/stateless-renderers.md#metrics-and-logs); the dashboards are in countdown-server.
