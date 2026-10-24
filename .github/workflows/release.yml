@@ -155,6 +155,7 @@ jobs:
         run: |
           args=()
           for tag in $TAGS; do args+=(-t "$IMAGE:$tag"); done
+          # shellcheck disable=SC2046 # one digest argument per file; the names are hex, so splitting is intended
           docker buildx imagetools create "${args[@]}" $(printf "$IMAGE@sha256:%s " *)
           docker buildx imagetools inspect "$IMAGE:${TAGS%% *}"
 
