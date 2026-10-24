@@ -7,7 +7,12 @@ coverage:
   status:
     project:
       default:
+        # Informational: reported on the PR, never failing it. The suite doesn't cover the whole tree evenly (the
+        # snapshot job's tests upload nothing), so a drop in the total says little about a change.
         informational: true
     patch:
       default:
-        informational: true
+        # New and changed lines (branches included: see `branch = true` in countdown/pyproject.toml) should be mostly
+        # tested; 5% of leeway keeps a small change with a few untested lines (a defensive branch) from failing.
+        target: 80%
+        threshold: 5%

@@ -1,6 +1,7 @@
 """Drawing helpers shared by the panels: fonts, sizes, borders and images."""
 
 import functools
+import http.client
 import os
 import urllib.request
 from pathlib import Path
@@ -18,14 +19,25 @@ FONTS_DIR = PACKAGE_DIR / "fonts"
 IMAGES_DIR = PACKAGE_DIR / "images"
 
 
+def _download(url: str, attempts: int = 3) -> bytes:
+    """Fetch `url`, trying again when the connection drops part-way: the 10 MB font does, now and then on GitHub."""
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=10) as resp:  # noqa: S310 -- only ever google_symbols()'s fixed https URL
+                return resp.read()
+        except OSError, http.client.HTTPException:  # URLError and timeouts are OSErrors; IncompleteRead is not
+            if attempt == attempts:
+                raise
+    raise AssertionError  # pragma: no cover -- the loop returns or raises
+
+
 def _cached_font(url: str, filename: str) -> ImageFont.FreeTypeFont:
     path = FONTS_DIR / filename
     if not path.exists():
         FONTS_DIR.mkdir(parents=True, exist_ok=True)
         # One file per process: test workers may all download it at once.
         tmp = path.with_suffix(f"{path.suffix}.{os.getpid()}.part")
-        with urllib.request.urlopen(url, timeout=10) as resp:  # noqa: S310 -- only ever google_symbols()'s fixed https URL
-            tmp.write_bytes(resp.read())
+        tmp.write_bytes(_download(url))
         tmp.replace(path)  # atomic, so a killed download never leaves a broken font
     return ImageFont.truetype(path)
 

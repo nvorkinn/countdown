@@ -25,12 +25,20 @@ countdown-providers = { workspace = true }
 
 [dependency-groups]
 dev = [
+    "deptry",
     "fakeredis[lua]",
+    # tests/test_utils.py compares images with it; no package imports it.
+    "numpy",
     "pyinstrument",
     "pyproject-runner",
     "pytest",
     "pytest-cov",
     "pytest-mock",
+    # Random test order (the seed is in the header; repeat a run with `pytest --randomly-seed=N`),
+    # which surfaces hidden order dependence.
+    "pytest-randomly",
+    # Some tests start real redis-servers: a hang fails after the timeout instead of stalling the job.
+    "pytest-timeout",
     "pytest-xdist",
     "pyyaml",
     "responses",
@@ -46,7 +54,24 @@ members = [
     "providers"
 ]
 
+[tool.pytest.ini_options]
+# A test taking this long is hung (the slowest here are those starting a real redis-server).
+timeout = 120
+
+# Unused, missing and transitive dependencies. A workspace takes one run per package, each against the dependencies in
+# its own pyproject.toml: `deptry src` in core/, renderer/ and providers/ (the deptry job in tests.yml runs them; api/
+# is the countdown-api submodule, which its own repository checks). The packages' sources are theirs to check and
+# deptry skips tests/ by default (they import the workspace's packages and what those use), so this run reads only
+# this file's own dependencies.
+[tool.deptry]
+extend_exclude = ["api", "core", "renderer", "providers"]
+
+[tool.deptry.per_rule_ignores]
+# Installed so `uv sync` has the whole workspace for the tests, which import them; nothing here does.
+DEP002 = ["countdown-api", "countdown-core", "countdown-renderer", "countdown-providers"]
+
 [tool.coverage.run]
+branch = true
 source = [
     "api/src",
     "core/src",
