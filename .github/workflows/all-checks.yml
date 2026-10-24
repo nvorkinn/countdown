@@ -1,12 +1,23 @@
 name: All checks
 
+# The one check branch protection requires is "Global PR Status", opened by Create Global PR Status and completed by
+# this once every other workflow and check on the commit has passed. The logic is shared: see
+# nvorkinn/.github/.github/workflows/all-checks.yml. Each workflow listed here ends by running this once; add a workflow
+# that runs on pull requests to the list. It also approves the PR just before the check succeeds, which needs "Allow
+# GitHub Actions to create and approve pull requests" enabled in the repository's settings.
 on:
-  pull_request:
+  workflow_run:
+    workflows: [ Create Global PR Status, countdown CI, CodeQL ]
+    types: [ completed ]
 
 permissions:
   actions: read
-  checks: read
+  checks: write
+  contents: read
+  pull-requests: write
 
 jobs:
   all-checks:
-    uses: nvorkinn/countdown-server/.github/workflows/all-checks.yml@main
+    uses: nvorkinn/.github/.github/workflows/all-checks.yml@ed4b4410ecea982d66e252c3568d9c9a7234eba7 # main
+    with:
+      approve: true
