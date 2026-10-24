@@ -1,0 +1,15 @@
+# Findings the "Scan image" steps of tests.yml's `renderer-image` and `providers-image` jobs accept. Those steps already
+# skip vulnerabilities with no fix yet (ignore-unfixed), so everything here HAS a fix, just not one we can apply: it
+# ships in the upstream image we build FROM. Every entry carries `exp:`: past that date the finding fails CI again, so
+# it gets re-checked rather than forgotten. Prefer merging a newer python:3.14-slim (the Dockerfiles' tag floats, so a
+# rebuild picks it up) and deleting the entry over extending the date.
+
+# python:3.14-slim (both images): pip's own bundled copies of msgpack, setuptools and urllib3 in the base image's pip.
+# They are not the application's packages (those are pinned in uv.lock and install into site-packages: urllib3 2.8.0
+# there). pip runs only while the image is built, from locked, hashed requirements; the containers' entrypoints are
+# the countdown-* console scripts and never run it. Goes away with the next python:3.14-slim that ships a newer pip.
+# Note an ID here hides it for the application's copy too: if one of these ever shows up in uv.lock, fix it there.
+GHSA-6v7p-g79w-8964 exp:2026-11-24
+CVE-2025-47273 exp:2026-11-24
+CVE-2026-97687 exp:2026-11-24
+CVE-2026-97689 exp:2026-11-24
