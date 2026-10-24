@@ -80,6 +80,35 @@ jobs:
       - name: Run ty
         run: uv run --frozen ty check --output-format=github
 
+  # Unused, missing and transitive dependencies. One run per package, each against its own pyproject.toml (the root's
+  # [tool.deptry] says why api/ is left out). deptry maps imports to packages from the installed environment, so this
+  # installs what the ty job does.
+  deptry:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run deptry
+        # Every package is checked even if an earlier one fails, so a run lists everything to fix.
+        run: |
+          failed=0
+          uv run --no-sync deptry . || failed=1
+          for package in core renderer providers; do
+            (cd "$package" && uv run --no-sync deptry src) || failed=1
+          done
+          exit "$failed"
+
   test:
     runs-on: ubuntu-latest
 

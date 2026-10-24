@@ -4,6 +4,11 @@ version = "0.4.2"
 requires-python = ">=3.14"
 dependencies = [
     "countdown-core",
+    # The render pool's metrics (pool_metrics.py), exported over OTLP/HTTP.
+    "opentelemetry-api",
+    "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-sdk",
+    "redis",
 ]
 
 [project.scripts]
@@ -13,6 +18,11 @@ countdown-render-ticker = "countdown_renderer.render_pool:run_ticker"
 
 [tool.uv.sources]
 countdown-core = { workspace = true }
+
+[tool.deptry.package_module_name_map]
+opentelemetry-api = "opentelemetry"
+opentelemetry-sdk = "opentelemetry"
+opentelemetry-exporter-otlp-proto-http = "opentelemetry"
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]
