@@ -1,0 +1,68 @@
+name: Deploy renderers
+
+# One environment's deploy of the providers and the render pool (countdown/renderer/deploy/docker-compose.*.yml), pinned
+# to one release's images. release.yml calls it for dev-qa, promote.yml for production. It runs entirely here: the
+# runner drives the Docker host's daemon over ssh (DOCKER_HOST), so the host needs nothing installed but Docker.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: The GitHub environment holding this host's secrets (DEPLOY_HOST and the rest) and settings, e.g.
+          dev-qa. It has no reviewers of its own; an approval, where one is wanted, is the caller's.
+        type: string
+        required: true
+      tag:
+        description: The release to deploy, e.g. v1.2.3.
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: deploy (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    # One deploy at a time per host, whichever workflow asked for it.
+    concurrency:
+      group: deploy-renderers-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      TAG: ${{ inputs.tag }}
+      DOCKER_HOST: ssh://${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+    steps:
+      - name: Check the tag
+        run: |
+          # The tag is passed to a shell on the runner, so keep it to safe characters.
+          [[ "$TAG" =~ ^v[0-9A-Za-z._-]+$ ]] || { echo "Unsupported tag: $TAG" >&2; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The release's own compose files and deploy.sh, whatever ref asked for the deploy (a promotion runs from main).
+          ref: refs/tags/${{ inputs.tag }}
+      - name: Pull latest API Contract submodule
+        run: git submodule update --init --remote
+      - name: Set up SSH
+        env:
+          ORACLE_SSH_TOKEN: ${{ secrets.ORACLE_SSH_TOKEN }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_TOKEN" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # One shared SSH connection for the whole deploy. docker compose opens a new `ssh ... docker system
+          # dial-stdio` for every container it starts or waits on, and that burst of logins can exceed the host's
+          # sshd MaxStartups, which resets the excess (v1.28.0's deploy failed that way, with every container up).
+          printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  ControlMaster auto\n  ControlPath ~/.ssh/cm-%%C\n  ControlPersist 10m\n  ServerAliveInterval 15\n' > ~/.ssh/config
+      - name: Deploy the renderers
+        env:
+          # For the providers and the render pool: Redis's password (the same as countdown-server's secrets/<env>/redis.env
+          # for this environment) and TfL's app key.
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          TFL_APP_KEY: ${{ secrets.TFL_APP_KEY }}
+          # What the pairing screen tells people to visit. The environment's variables (Settings > Environments); unset
+          # means empty, and the compose file and the code then fall back to the production site's.
+          COUNTDOWN_AUTH_HOST: ${{ vars.COUNTDOWN_AUTH_HOST }}
+          COUNTDOWN_SITE_NAME: ${{ vars.COUNTDOWN_SITE_NAME }}
+        run: bash countdown/renderer/deploy/deploy.sh "$TAG"

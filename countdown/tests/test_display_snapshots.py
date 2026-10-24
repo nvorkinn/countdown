@@ -38,6 +38,7 @@ from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.spotify.spotify_panel import SpotifyPanel
 from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS
 from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
+from countdown_core.system_screens import pairing_code_panel
 from countdown_core.system_screens.empty_panel import EmptyPanel
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_core.tfl.combined_arrival_panel import ROTATION_STRIP, CombinedArrivalPanel, Rotation
@@ -347,6 +348,38 @@ def test_pairing_qr_code_opens_the_pairing_page_with_the_code_filled_in(monkeypa
     PairingCodePanel("C4FFEZ", "7218485b654f").render(*DEFAULT_CANVAS.size)
 
     assert urls == ["https://auth.nikolaivorkinn.com/pair?code=C4FFEZ"]
+
+
+def test_pairing_qr_code_and_words_follow_the_environment(monkeypatch):
+    urls = []
+    add_data = qrcode.QRCode.add_data
+    monkeypatch.setattr(
+        qrcode.QRCode, "add_data", lambda self, data, *a, **k: (urls.append(data), add_data(self, data))[1]
+    )
+    words = []
+    draw_text = ImageDraw.ImageDraw.text
+    monkeypatch.setattr(
+        ImageDraw.ImageDraw,
+        "text",
+        lambda self, xy, text, *a, **k: (words.append(text), draw_text(self, xy, text, *a, **k))[1],
+    )
+    # Set after import: read when the screen is drawn.
+    monkeypatch.setenv("COUNTDOWN_AUTH_HOST", "auth.dev.example.org")
+    monkeypatch.setenv("COUNTDOWN_SITE_NAME", "dev.example.org")
+
+    PairingCodePanel("C4FFEZ", "7218485b654f").render(*DEFAULT_CANVAS.size)
+
+    assert urls == ["https://auth.dev.example.org/pair?code=C4FFEZ"]
+    assert "Go to dev.example.org" in words
+
+
+@pytest.mark.parametrize("value", ["", "  "])
+def test_pairing_screen_falls_back_to_the_defaults_when_the_variables_are_empty(monkeypatch, value):
+    monkeypatch.setenv("COUNTDOWN_AUTH_HOST", value)
+    monkeypatch.setenv("COUNTDOWN_SITE_NAME", value)
+
+    assert pairing_code_panel.auth_host() == "auth.nikolaivorkinn.com"
+    assert pairing_code_panel.site_name() == "nikolaivorkinn.com"
 
 
 PORTRAIT = (480, 800)

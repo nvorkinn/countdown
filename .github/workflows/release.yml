@@ -220,39 +220,14 @@ jobs:
           fi
 
   deploy-renderers:
-    # Brings up the providers and the render pool in countdown/renderer/deploy/docker-compose.*.yml, pinned to this release's
-    # images.
-    # It runs entirely here: the runner drives the Docker host's daemon over ssh (DOCKER_HOST), so the host needs
-    # nothing installed but Docker. It waits for the deploy-renderers environment's approval (Settings >
-    # Environments), as the release is still a pre-release at this point.
+    # Brings up the providers and the render pool (countdown/renderer/deploy/docker-compose.*.yml) on the dev/QA host,
+    # pinned to this release's images. No approval: starting the release is the decision. The release stays a
+    # pre-release until promote.yml deploys the same tag to production, which a release never does.
+    name: renderers (dev-qa)
     needs: release
-    runs-on: ubuntu-latest
-    environment: deploy-renderers
-    concurrency:
-      group: deploy-renderers-${{ github.ref_name }}
-      cancel-in-progress: false
-    env:
-      DOCKER_HOST: ssh://${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Pull latest API Contract submodule
-        run: git submodule update --init --remote
-      - name: Set up SSH
-        env:
-          ORACLE_SSH_TOKEN: ${{ secrets.ORACLE_SSH_TOKEN }}
-          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$ORACLE_SSH_TOKEN" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          # One shared SSH connection for the whole deploy. docker compose opens a new `ssh ... docker system
-          # dial-stdio` for every container it starts or waits on, and that burst of logins can exceed the host's
-          # sshd MaxStartups, which resets the excess (v1.28.0's deploy failed that way, with every container up).
-          printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  ControlMaster auto\n  ControlPath ~/.ssh/cm-%%C\n  ControlPersist 10m\n  ServerAliveInterval 15\n' > ~/.ssh/config
-      - name: Deploy the renderers
-        env:
-          # For the providers and the render pool: Redis's password (the same as countdown-server's secrets/redis.env) and TfL's app key.
-          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
-          TFL_APP_KEY: ${{ secrets.TFL_APP_KEY }}
-        run: bash countdown/renderer/deploy/deploy.sh "$GITHUB_REF_NAME"
+    uses: ./.github/workflows/deploy-renderers.yml
+    with:
+      environment: dev-qa
+      tag: ${{ github.ref_name }}
+    # The dev-qa environment's secrets (the host's) reach the deploy through this.
+    secrets: inherit

@@ -1,0 +1,109 @@
+name: Promote
+
+# Deploys a release that has been through dev-qa to production (the "Run workflow" button: Actions > Promote). A
+# release never touches production; this is the only way a tag gets there. To roll back, promote an older tag.
+#
+# check (the tag is on main and was deployed) -> approve (a reviewer of approve-production) -> deploy (production) ->
+# latest (the GitHub release becomes the latest, no longer a pre-release).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release to put in production, e.g. v1.2.3 (it must be deployed to dev-qa already).
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+# One promotion at a time. A second waits, queued, rather than cancel the first mid-deploy.
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: read
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # All of main's history and the tags, to see whether the tag's commit is on main.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the tag was released and deployed
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Not a release tag (vX.Y.Z): $TAG" >&2; exit 1; }
+          git rev-parse --verify --quiet "refs/tags/$TAG" > /dev/null || { echo "No tag $TAG" >&2; exit 1; }
+          # The tag's commit (an annotated tag is an object of its own), which is what a deployment records as its sha
+          # when the run that made it started from the tag. Not GITHUB_SHA: this run is on the branch it was started from.
+          sha="$(git rev-parse --verify "refs/tags/$TAG^{commit}")"
+          git merge-base --is-ancestor "$sha" origin/main || { echo "$TAG ($sha) is not on main" >&2; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --silent || { echo "No GitHub release $TAG" >&2; exit 1; }
+
+          # Whether one of this commit's deployments to an environment succeeded: 0 yes, 1 no, 2 the API failed.
+          deployed() {
+            local environment="$1" ids id ok
+            # -X GET, as gh would otherwise POST (create a deployment) once given fields.
+            ids="$(gh api -X GET --paginate "repos/$GITHUB_REPOSITORY/deployments" -f environment="$environment" -f sha="$sha" --jq '.[].id')" || return 2
+            for id in $ids; do
+              # Newest status first. A success turns inactive once a later deployment to the environment succeeds, so
+              # that counts as one too; a deployment still queued, in progress or failed does not.
+              ok="$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" \
+                --jq '[.[].state] | (index("success") != null) and (.[0] == "success" or .[0] == "inactive")')" || return 2
+              [ "$ok" = true ] && return 0
+            done
+            return 1
+          }
+
+          # dev-qa is the gate; production counts too, for a rollback to a tag that was in production.
+          found=''
+          for environment in dev-qa production; do
+            rc=0
+            deployed "$environment" || rc=$?
+            case "$rc" in
+              0) found="$environment"; break ;;
+              1) ;;
+              *) echo "Could not read $environment's deployments" >&2; exit 1 ;;
+            esac
+          done
+          [ -n "$found" ] || { echo "$TAG ($sha) has no successful dev-qa or production deployment" >&2; exit 1; }
+          echo "$TAG ($sha) is on main and was deployed to $found"
+
+  # The one manual gate: the reviewers of approve-production (Settings > Environments). Not on `production`, so that
+  # environment can hold the host's secrets without asking again.
+  approve:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: approve-production
+    steps:
+      - run: echo "Approved"
+
+  deploy:
+    name: renderers (production)
+    needs: [check, approve]
+    uses: ./.github/workflows/deploy-renderers.yml
+    with:
+      environment: production
+      tag: ${{ inputs.tag }}
+    secrets: inherit
+
+  # Only once production runs it. Releases are created as pre-releases and stay so while they are only in dev-qa;
+  # promoting an older tag (a rollback) makes that one the latest.
+  latest:
+    needs: [check, deploy]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - run: gh release edit "$TAG" --prerelease=false --latest

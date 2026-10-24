@@ -1,4 +1,4 @@
-# The providers, on the renderers' host (deploy.sh, run by release.yml); see README.md. Their containers are
+# The providers, on the renderers' host (deploy.sh, run by deploy-renderers.yml); see README.md. Their containers are
 # providers-<service>-1. Each logs under its `provider-<service>` tag, which names its stream in VictoriaLogs.
 name: providers
 
@@ -6,7 +6,7 @@ services:
   # The providers (see ../../providers/README.md): one per API, all from the one image, each picking its provider by
   # `command`. They fetch what the broker's subscriptions in Redis ask for and write it back there, on the host's Redis
   # (host networking). Every deploy starts and upgrades them; REDIS_PASSWORD (and TFL_APP_KEY) come from the
-  # deploy-renderers job's secrets, and a missing password fails the deploy rather than start them unauthenticated.
+  # deploy-renderers.yml's secrets, and a missing password fails the deploy rather than start them unauthenticated.
   tfl:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-tfl

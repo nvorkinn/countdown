@@ -5,6 +5,17 @@ rules:
       # all-checks.yml is a thin caller of the shared gate and has to run on workflow_run: it only reads other runs'
       # results and never checks out or runs code from the triggering PR.
       - all-checks.yml
+  secrets-inherit:
+    ignore:
+      # release.yml and promote.yml pass the repository's and the target environment's secrets (the host's) to
+      # deploy-renderers.yml (the same repo) on purpose.
+      - release.yml
+      - promote.yml
+  self-repository:
+    ignore:
+      # Style only: the './' form of the local reusable workflow call works, and changing it is out of scope here.
+      - release.yml
+      - promote.yml
   artipacked:
     ignore:
       # Low-confidence findings: these checkouts leave persist-credentials at its default. Setting it to false means
@@ -12,6 +23,7 @@ rules:
       # submodule updates), so it is left to a follow-up.
       - tests.yml
       - release.yml
+      - deploy-renderers.yml
   ref-version-mismatch:
     ignore:
       # The shared nvorkinn/.github workflows are pinned to a commit on its main branch (no release tags), and the

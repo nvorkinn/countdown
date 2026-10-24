@@ -26,23 +26,37 @@ draws it from the next minute on (at once after a config save).
 
 ## Deploying
 
-`release.yml`'s `deploy-renderers` job waits for approval of the `deploy-renderers` environment, then runs
-`deploy.sh <tag>` on the runner against the host's Docker daemon over ssh (`DOCKER_HOST`), so the host needs only
-Docker. The script pins the images to the release, brings each project up in turn with `--wait` (first taking down the
-old `countdown-renderers` project, which was both in one file), and removes leftover
-`renderer-<slug>` containers (label `countdown.managed=1`) and their `-data` and `-key` volumes. It then removes
+`.github/workflows/deploy-renderers.yml` runs `deploy.sh <tag>` on the runner against one environment's Docker daemon over
+ssh (`DOCKER_HOST`), so the host needs only Docker. The script pins the images to the release, brings each project up in
+turn with `--wait` (first taking down the old `countdown-renderers` project, which was both in one file), and removes
+leftover `renderer-<slug>` containers (label `countdown.managed=1`) and their `-data` and `-key` volumes. It then removes
 older tags of the two images, keeping the running one and the newest other (to roll back to), and prunes dangling
-layers, so the host's disk doesn't fill with every release's images.
+layers, so the host's disk doesn't fill with every release's images. It checks out the tag it deploys, so the compose
+files are that release's.
 
-Set up once in the repo's settings:
+There are two environments, each its own host with its own countdown-server and Redis:
 
-- The environment `deploy-renderers`, with yourself as required reviewer (without one it deploys unasked).
-- Secrets `DEPLOY_USER`, `DEPLOY_HOST`, `ORACLE_SSH_TOKEN` (the private key) and `DEPLOY_SSH_KNOWN_HOSTS`, the same as
-  countdown-server's. The user must be in the `docker` group.
-- Secrets `REDIS_PASSWORD` (the same as countdown-server's `secrets/redis.env`) and `TFL_APP_KEY`. A missing password fails
-  the deploy rather than start anything unauthenticated.
+- **dev-qa**: `release.yml` calls the deploy after it has built and published a release, with no approval. The release
+  stays a pre-release.
+- **production**: only `promote.yml` (Actions > Promote > Run workflow, input `tag`) deploys there. It needs a tag that is
+  on `main` and deployed to dev-qa, waits for a reviewer of the `approve-production` environment, runs the same deploy,
+  and then marks the release as the latest.
 
-To hold back or roll back, re-run an older release's `deploy-renderers` job from the Actions tab.
+To roll back, promote an older tag. To redeploy a release to dev-qa, re-run its deploy job from the Actions tab.
+
+Set up once in the repo's settings (see also the [README](../../../README.md#one-time-github-setup)):
+
+- Environments `dev-qa` and `production` (restricted to `main` and `v*` tags), no reviewers on either, and
+  `approve-production` with the required reviewers.
+- In each of `dev-qa` and `production`, secrets `DEPLOY_USER`, `DEPLOY_HOST`, `ORACLE_SSH_TOKEN` (the private key) and
+  `DEPLOY_SSH_KNOWN_HOSTS`, the same as countdown-server's for that host. The user must be in the `docker` group.
+- In each, secrets `REDIS_PASSWORD` and `TFL_APP_KEY`. `REDIS_PASSWORD` must be the same as countdown-server's
+  `secrets/<env>/redis.env` for that environment, or the pool and providers can't log in; a missing one fails the deploy.
+- Optionally in each, variables `COUNTDOWN_AUTH_HOST` and `COUNTDOWN_SITE_NAME`: the pairing screen's website and the
+  host its QR code opens (`https://<COUNTDOWN_AUTH_HOST>/pair?code=...`). Unset, they are `auth.nikolaivorkinn.com` and
+  `nikolaivorkinn.com`. Only the render workers read them.
+- Deploy countdown-server to an environment first: Redis is deployed there, and this stack connects to it on
+  `127.0.0.1:6379`.
 
 ## Providers
 

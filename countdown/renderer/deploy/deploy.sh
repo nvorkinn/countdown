@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Run by release.yml's deploy-renderers job, on the runner, against the host's Docker daemon (DOCKER_HOST=ssh://...),
-# so nothing is installed on the host. Pins the providers' and the render pool's images to the release, brings them
-# up, removes any per-screen renderer containers and volumes left on the host, and drops older image tags. Run by
-# hand it does the same to whatever daemon your docker talks to.
+# Run by deploy-renderers.yml (release.yml calls it for dev-qa, promote.yml for production), on the runner, against
+# the host's Docker daemon (DOCKER_HOST=ssh://...), so nothing is installed on the host. Pins the providers' and the
+# render pool's images to the release, brings them up, removes any per-screen renderer containers and volumes left on
+# the host, and drops older image tags. Run by hand it does the same to whatever daemon your docker talks to.
 # Usage: deploy.sh <tag>
 set -euo pipefail
 
