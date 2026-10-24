@@ -1,24 +1,24 @@
 # countdown
 
 The Python code that draws the 7.5" e-paper dashboard: TfL and Entur departures, weather, a notice board, Glowmarkt
-energy use, Spotify and a developer panel, all configured through [auth-broker](https://github.com/nvorkinn/auth-broker).
+energy use, Spotify and a developer panel, all configured through [countdown-server](https://github.com/nvorkinn/countdown-server).
 ESP32 screens fetch the frames from the broker; nothing here talks to a screen or to the broker.
 
-This repository and auth-broker share only Redis. For the whole system (who calls whom, which secret exists when) see
-auth-broker's [How the pieces fit together](https://github.com/nvorkinn/auth-broker/blob/main/docs/architecture.md).
+This repository and countdown-server share only Redis. For the whole system (who calls whom, which secret exists when) see
+countdown-server's [How the pieces fit together](https://github.com/nvorkinn/countdown-server/blob/main/docs/architecture.md).
 
 ## Packages
 
 A uv workspace; `uv sync` installs everything editable.
 
 - `core/` (`countdown-core`): the drawing: API clients that read the store, panels, layouts and the render function.
-- `server/` (`countdown-server`): the render pool, `countdown-render-worker` and `countdown-render-ticker`; see
+- `renderer/` (`countdown-renderer`): the render pool, `countdown-render-worker` and `countdown-render-ticker`; see
   [How rendering works](docs/stateless-renderers.md).
 - `providers/` (`countdown-providers`): one process per API, fetching what screens subscribe to into the store; see
   [its README](providers/README.md).
 - `api/`: the [countdown-api](https://github.com/nvorkinn/countdown-api#readme) submodule, the store contract.
 
-Running them is in [`server/deploy/`](server/deploy/).
+Running them is in [`renderer/deploy/`](renderer/deploy/).
 
 ## How it works
 
@@ -33,7 +33,7 @@ validate fails the render and the screen keeps its frame; a field the broker add
 
 **API clients** (`*_client.py`, `core/api_registry.py`). Each API has an `AbstractClient` subclass: departures (TfL and
 Entur), Open-Meteo weather, Glowmarkt energy, Spotify and Apple Music, the developer panel and the notice board. They
-read only the store, which the [providers](providers/README.md) and auth-broker's providers fill: the render calls no
+read only the store, which the [providers](providers/README.md) and countdown-server's providers fill: the render calls no
 upstream API and holds no API token. A client whose key has expired returns a "Not available" panel; one that fails
 for another reason shows "Could not connect", and an API that isn't set up shows "Not configured". Redis not answering
 fails the render. One broken API never takes the others down.
@@ -89,7 +89,7 @@ images install only these wheels, never an index.
 
 ## Running a worker in development
 
-Everything a worker draws is in Redis, so point it at a Redis that the broker and providers fill (a local auth-broker,
+Everything a worker draws is in Redis, so point it at a Redis that the broker and providers fill (a local countdown-server,
 and the providers). Put the compose services' environment in `dev/.env`:
 
 ```bash
@@ -133,4 +133,4 @@ one in it.
 
 The host's Fluent Bit ships the containers' logs to VictoriaLogs, naming each stream after the compose service
 (`render-worker-1`, `provider-tfl`...). Workers send OTLP metrics to `http://127.0.0.1:4318/v1/metrics`, listed in
-[How rendering works](docs/stateless-renderers.md#metrics-and-logs); the dashboards are in auth-broker.
+[How rendering works](docs/stateless-renderers.md#metrics-and-logs); the dashboards are in countdown-server.

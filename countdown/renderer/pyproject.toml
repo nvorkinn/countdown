@@ -1,5 +1,5 @@
 [project]
-name = "countdown-server"
+name = "countdown-renderer"
 version = "0.4.2"
 requires-python = ">=3.14"
 dependencies = [
@@ -8,8 +8,8 @@ dependencies = [
 
 [project.scripts]
 # The render pool (docs/stateless-renderers.md): the workers and the ticker, from the one image.
-countdown-render-worker = "countdown_server.render_pool:run_worker"
-countdown-render-ticker = "countdown_server.render_pool:run_ticker"
+countdown-render-worker = "countdown_renderer.render_pool:run_worker"
+countdown-render-ticker = "countdown_renderer.render_pool:run_ticker"
 
 [tool.uv.sources]
 countdown-core = { workspace = true }

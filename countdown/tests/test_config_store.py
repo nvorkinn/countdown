@@ -1,8 +1,8 @@
-"""The screen's config from the store: auth-broker's copy of the device's settings, which the render reads.
+"""The screen's config from the store: countdown-server's copy of the device's settings, which the render reads.
 
-auth-broker writes `v1:config:<device id>` from its database on every save and as it starts, and the render reads it
+The broker writes `v1:config:<device id>` from its database on every save and as it starts, and the render reads it
 (store.config.read) with the contract's own ConfigResponse: it's the only way a config reaches the render.
-The store contract's config_store.json (countdown_api.fixtures) is the stored shape, which auth-broker's tests read too.
+The store contract's config_store.json (countdown_api.fixtures) is the stored shape, which the broker's tests read too.
 
 What the render accepts is the compatibility policy: the broker may add fields (ignored), but a value outside what the
 contract lists is invalid, and so is a config missing a section.

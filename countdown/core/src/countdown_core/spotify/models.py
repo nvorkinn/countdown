@@ -16,7 +16,7 @@ class Image(BaseModel):
     width: int
     height: int
     # Exactly as the service wrote it, not normalised as a URL: the cover's key in the store is made from this string
-    # (store.keys.album_art), as auth-broker's music provider made it. The renderer never fetches it.
+    # (store.keys.album_art), as countdown-server's music provider made it. The renderer never fetches it.
     url: str
 
 

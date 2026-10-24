@@ -9,4 +9,4 @@ permissions:
 
 jobs:
   all-checks:
-    uses: nvorkinn/auth-broker/.github/workflows/all-checks.yml@main
+    uses: nvorkinn/countdown-server/.github/workflows/all-checks.yml@main

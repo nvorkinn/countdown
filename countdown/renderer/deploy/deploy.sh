@@ -6,7 +6,7 @@
 # Usage: deploy.sh <tag>
 set -euo pipefail
 
-export COUNTDOWN_SERVER_VERSION="$1"
+export COUNTDOWN_RENDERER_VERSION="$1"
 cd "$(dirname "$0")"
 
 docker compose pull
@@ -51,8 +51,8 @@ fi
 
 # Every release pulls new tags, so drop the older ones of what was just deployed: keep the running tag and the
 # newest other one (to roll back to), remove the rest. `docker image rm` refuses an image a container still uses,
-# and only these repositories are touched, so a deploy running at once (this or auth-broker's, on the same host)
-# never loses an image it just pulled. The same cleanup as auth-broker's scripts/deploy.sh.
+# and only these repositories are touched, so a deploy running at once (this or countdown-server's, on the same host)
+# never loses an image it just pulled. The same cleanup as countdown-server's scripts/deploy.sh.
 IMAGES_KEPT=2
 for image in $(docker compose config --images | sort -u); do
   repo="${image%:*}"
@@ -60,6 +60,13 @@ for image in $(docker compose config --images | sort -u); do
     while read -r old; do
       docker image rm "$old" >/dev/null 2>&1 && echo "Removed old image $old" || true
     done
+done
+# The render pool's image from before it was renamed countdown-renderer. ghcr.io/nvorkinn/countdown-server is now
+# the broker's (countdown-server's) on the same host, so only the tags with the render pool's entrypoint go.
+for old in $(docker images ghcr.io/nvorkinn/countdown-server --format '{{.Repository}}:{{.Tag}}'); do
+  if [ "$(docker image inspect -f '{{json .Config.Entrypoint}}' "$old" 2>/dev/null)" = '["countdown-render-worker"]' ]; then
+    docker image rm "$old" >/dev/null 2>&1 && echo "Removed old image $old" || true
+  fi
 done
 # Layers left untagged by the above or by re-pulled tags.
 docker image prune -f >/dev/null

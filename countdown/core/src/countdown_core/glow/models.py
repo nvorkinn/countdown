@@ -1,4 +1,4 @@
-"""The parts of Glow's (Glowmarkt's) API responses the energy panel reads, as auth-broker stores them."""
+"""The parts of Glow's (Glowmarkt's) API responses the energy panel reads, as countdown-server stores them."""
 
 from pydantic import BaseModel
 

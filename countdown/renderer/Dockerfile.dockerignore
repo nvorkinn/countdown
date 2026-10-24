@@ -2,4 +2,4 @@
 # .venv especially).
 *
 !dist/*.whl
-!dist/requirements-server.txt
+!dist/requirements-renderer.txt

@@ -1,4 +1,4 @@
-"""The energy panel's client: electricity readings from the store, written there by auth-broker's glow-provider."""
+"""The energy panel's client: electricity readings from the store, written there by countdown-server's glow-provider."""
 
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, override
@@ -39,7 +39,7 @@ class NoStoredEnergyError(reader.NoStoredDataError):
 class GlowClient(AbstractClient[Glowmarkt]):
     """The energy panel's pages in turn, one a minute (see core.rotation): the last 24 hours, 31 days, and this year.
 
-    The readings come from the store, under the device's id (`v1:energy:<device id>`, written by auth-broker's
+    The readings come from the store, under the device's id (`v1:energy:<device id>`, written by countdown-server's
     glow-provider, which signs in to Glowmarkt itself), so this renderer never does.
     """
 

@@ -2,7 +2,7 @@
 
 The real Redis is a redis-server of the test's own, on a free port, when one is installed (CI installs it); its tests
 are skipped otherwise. Every test runs on both, so the Lua is checked by the Redis that runs it in production too.
-The enqueue script is the store contract's (countdown_api.scripts.ENQUEUE), which auth-broker runs to queue jobs itself,
+The enqueue script is the store contract's (countdown_api.scripts.ENQUEUE), which the broker runs to queue jobs itself,
 and its render_queue.json (countdown_api.fixtures) pins the script's SHA1 and keys: both repositories' tests read it.
 """
 
@@ -26,7 +26,7 @@ DEVICE = "a1b2c3d4e5f6"
 OTHER = "0f9e8d7c6b5a"
 # The enqueue script's SHA1 and keys, as the store contract pins them for both repositories.
 QUEUE = fixtures.load("render_queue.json")
-# The screens as auth-broker writes them (its broker/services/render_screens.py), the same file as its tests read.
+# The screens as countdown-server writes them (its broker/services/render_screens.py), the same file as its tests read.
 SCREENS = fixtures.load("render_screens.json")
 
 
@@ -90,7 +90,7 @@ def test_the_keys_are_the_designs():
 
 
 def test_the_enqueue_script_and_its_keys_are_the_store_contracts():
-    # Its SHA1 is what EVALSHA calls it by; auth-broker runs the same script from the contract.
+    # Its SHA1 is what EVALSHA calls it by; countdown-server runs the same script from the contract.
     script = render_queue._ENQUEUE
     assert script == scripts.ENQUEUE.source
     assert hashlib.sha1(script.encode(), usedforsecurity=False).hexdigest() == QUEUE["enqueue_sha1"]

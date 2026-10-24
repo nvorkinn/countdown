@@ -2,8 +2,8 @@
 
 One long-running process per API (TfL, Entur, weather...) that fetches what the screens want and writes it to the
 shared Redis store, which the render pool reads. Ten screens watching one bus stop cost one TfL call, not ten.
-auth-broker's own providers write the energy, music and developer panels' keys; see its
-[README](https://github.com/nvorkinn/auth-broker#readme). The keys and their models are the store contract, listed in
+countdown-server's own providers write the energy, music and developer panels' keys; see its
+[README](https://github.com/nvorkinn/countdown-server#readme). The keys and their models are the store contract, listed in
 [countdown-api](https://github.com/nvorkinn/countdown-api#readme).
 
 ## The model
@@ -64,7 +64,7 @@ makes the notices when it draws, in the screen's language:
   is announced on `v1:location:changed`, which wakes the providers that read it (`wakes_on`) so their notices follow
   within seconds. A second runner in the same process places the postcodes that weather keys stand for.
 - **Pace.** A provider with bursty data defines `pace(item_id, fetched)` (`provider.py`); the runner writes
-  `v1:pace:<name>:<id>` with a short TTL, which auth-broker reads to poll sooner.
+  `v1:pace:<name>:<id>` with a short TTL, which countdown-server reads to poll sooner.
 
 Nothing logged says where a screen is: no postcode, place or coordinates, nor a URL with one in it. Failures are
 logged by reason (`log_format.error_reason`: the error's type and an HTTP status), never its text, which can quote a URL
@@ -109,7 +109,7 @@ fetches it. Changing `SHARD_COUNT` moves most ids, which is harmless.
    sets `fixed_ids` instead (`bank_holidays/main.py`).
 3. Give it a `main()` that calls `asyncio.run(serve(provider, Settings.from_env()))`, and add it to
    `[project.scripts]` in `pyproject.toml` as `countdown-provider-<name>`.
-4. Add a `provider-<name>` service to `../server/deploy/docker-compose.yml` like the others.
+4. Add a `provider-<name>` service to `../renderer/deploy/docker-compose.yml` like the others.
 5. Test it with its API mocked; `tests/test_provider_runner.py` covers the loop.
 
 `weather/main.py` is the smallest complete example.
@@ -127,7 +127,7 @@ docker build -f providers/Dockerfile -t countdown-providers:dev .
 
 ## In production
 
-The providers are services in [`../server/deploy/docker-compose.yml`](../server/deploy/docker-compose.yml), so every
+The providers are services in [`../renderer/deploy/docker-compose.yml`](../renderer/deploy/docker-compose.yml), so every
 deploy starts and upgrades them, and `--wait` fails the deploy if one won't stay up. They need Redis on the host
 (`127.0.0.1:6379`, over host networking), `REDIS_PASSWORD` and `TFL_APP_KEY` from the repo's secrets, and the broker
 writing subscriptions (including `v1:sub:postcode`). A provider fetches as it starts, so its keys appear within

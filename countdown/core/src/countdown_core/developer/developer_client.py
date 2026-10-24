@@ -27,7 +27,7 @@ class DeveloperSettings:
 class DeveloperClient(AbstractClient[DeveloperSettings]):
     """GitHub and the AI plans, from the store (`v1:developer:<device id>`).
 
-    auth-broker's developer provider writes it there: it holds the GitHub token and makes the calls, so this renderer
+    The broker's developer provider writes it there: it holds the GitHub token and makes the calls, so this renderer
     never holds a token nor asks the broker. The provider polls, and asks for a faster refresh itself while a release
     runs (its pace key, which the broker reads, and a render job for each of its screens on every cycle).
     """

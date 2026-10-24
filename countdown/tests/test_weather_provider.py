@@ -78,7 +78,7 @@ def test_place_id_of_takes_the_trailing_geonames_id(location, expected):
     assert place_id_of(location) == expected
 
 
-# The keys auth-broker's weather_place.weather_key() makes: its tests read the same file.
+# The keys countdown-server's weather_place.weather_key() makes: its tests read the same file.
 WEATHER_KEYS = fixtures.load("weather_keys.json")["keys"]
 
 

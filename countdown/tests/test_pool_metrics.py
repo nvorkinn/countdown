@@ -1,4 +1,4 @@
-"""The render pool's metrics (countdown_server.pool_metrics): every one by the screen's `device` attribute."""
+"""The render pool's metrics (countdown_renderer.pool_metrics): every one by the screen's `device` attribute."""
 
 import pytest
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -7,7 +7,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from countdown_core.core.abstract_client import ClientStatus
 from countdown_core.core.api_registry import API_NAMES
 from countdown_core.render import Outcome, Result, Stage
-from countdown_server.pool_metrics import FAILED, UNCHANGED, WRITTEN, PoolMetrics, outcome_of
+from countdown_renderer.pool_metrics import FAILED, UNCHANGED, WRITTEN, PoolMetrics, outcome_of
 
 DEVICE, SLUG = "a1b2c3d4e5f6", "nvorkinn-test"
 

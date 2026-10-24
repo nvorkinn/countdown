@@ -1,7 +1,7 @@
 """The render pool: the `countdown-render-worker` and `countdown-render-ticker` console scripts.
 
-Design: countdown/docs/stateless-renderers.md. Both run from the countdown-server image, as compose services on the
-host (server/deploy/docker-compose.yml), with REDIS_URL and REDIS_PASSWORD:
+Design: countdown/docs/stateless-renderers.md. Both run from the countdown-renderer image, as compose services on the
+host (renderer/deploy/docker-compose.yml), with REDIS_URL and REDIS_PASSWORD:
 
 - **The worker** is a thin wrapper round the render function: it blocks on the job queue (store.render_queue), claims
   each job, calls `render(device_id, now)` and releases the job, then records the metrics (pool_metrics). One render at
@@ -32,7 +32,7 @@ from redis.exceptions import RedisError
 from countdown_core import render as rendering
 from countdown_core.core.log_format import configure_logging, error_reason, without_text
 from countdown_core.store import render_queue
-from countdown_server.pool_metrics import PoolMetrics
+from countdown_renderer.pool_metrics import PoolMetrics
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -36,12 +36,12 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           # Every workspace member: the root project is virtual, so it isn't built.
-          for package in countdown-api countdown-core countdown-server countdown-providers; do
+          for package in countdown-api countdown-core countdown-renderer countdown-providers; do
             (cd countdown && uv version --frozen --package "$package" "$version")
           done
       - name: Build countdown wheels
         working-directory: countdown
-        # Every workspace member: the render pool (countdown-server), the providers and the libraries they depend on
+        # Every workspace member: the render pool (countdown-renderer), the providers and the libraries they depend on
         # (countdown-core, countdown-api), none of which is on an index. And each image's third-party requirements,
         # pinned and hashed from uv.lock.
         run: |
@@ -67,7 +67,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        image: [ server, providers ]
+        image: [ renderer, providers ]
         platform: [ linux/amd64, linux/arm64 ]
         include:
           - platform: linux/amd64
@@ -116,7 +116,7 @@ jobs:
           if-no-files-found: error
 
   publish-image:
-    # countdown-server's image, the render pool's (countdown/server/deploy/), is tagged with the version and :latest,
+    # countdown-renderer's image, the render pool's (countdown/renderer/deploy/), is tagged with the version and :latest,
     # as every release is the latest. countdown-providers', run there too, is only ever pinned to a version, so there's
     # no :latest to move. Both are built from this release's own wheels.
     name: publish ${{ matrix.image }}
@@ -128,7 +128,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - image: server
+          - image: renderer
             tags: ${{ github.ref_name }} latest
           - image: providers
             tags: ${{ github.ref_name }}
@@ -182,7 +182,7 @@ jobs:
           fi
 
   deploy-renderers:
-    # Brings up the providers and the render pool in countdown/server/deploy/docker-compose.yml, pinned to this release's
+    # Brings up the providers and the render pool in countdown/renderer/deploy/docker-compose.yml, pinned to this release's
     # images.
     # It runs entirely here: the runner drives the Docker host's daemon over ssh (DOCKER_HOST), so the host needs
     # nothing installed but Docker. It waits for the deploy-renderers environment's approval (Settings >
@@ -214,7 +214,7 @@ jobs:
           printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  ControlMaster auto\n  ControlPath ~/.ssh/cm-%%C\n  ControlPersist 10m\n  ServerAliveInterval 15\n' > ~/.ssh/config
       - name: Deploy the renderers
         env:
-          # For the providers and the render pool: Redis's password (the same as auth-broker's secrets/redis.env) and TfL's app key.
+          # For the providers and the render pool: Redis's password (the same as countdown-server's secrets/redis.env) and TfL's app key.
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
           TFL_APP_KEY: ${{ secrets.TFL_APP_KEY }}
-        run: bash countdown/server/deploy/deploy.sh "$GITHUB_REF_NAME"
+        run: bash countdown/renderer/deploy/deploy.sh "$GITHUB_REF_NAME"

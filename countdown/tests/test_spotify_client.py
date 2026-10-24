@@ -1,4 +1,4 @@
-"""The Spotify area's client, reading what auth-broker's music provider stored (test_spotify_store has the contract)."""
+"""The Spotify area's client, reading what the broker's music provider stored (test_spotify_store has the contract)."""
 
 import asyncio
 import json

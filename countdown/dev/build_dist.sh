@@ -5,7 +5,7 @@
 # countdown/, before `docker build`; release.yml and countdown-ci.yml do the same.
 set -e
 uv build --wheel --all-packages
-for image in server providers; do
+for image in renderer providers; do
   uv export --frozen --no-emit-workspace --no-dev --no-header --quiet --package "countdown-$image" \
     -o "dist/requirements-$image.txt"
 done

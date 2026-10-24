@@ -1,6 +1,6 @@
-"""The energy panel from the store (`v1:energy:<device id>`, written by auth-broker's glow-provider).
+"""The energy panel from the store (`v1:energy:<device id>`, written by countdown-server's glow-provider).
 
-The store contract's glow_energy.json (countdown_api.fixtures), which auth-broker's tests read too: what Glowmarkt
+The store contract's glow_energy.json (countdown_api.fixtures), which countdown-server's tests read too: what Glowmarkt
 answers, what's asked of it, and the stored value the broker writes from those answers. The panel drawn from the
 stored value must be the one in fixtures/glow_energy_pages.json: what the client drew from the same Glowmarkt answers,
 at the fixture's `now`, when it asked Glowmarkt itself.

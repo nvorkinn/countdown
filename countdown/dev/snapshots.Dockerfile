@@ -25,7 +25,7 @@ WORKDIR /work/countdown
 COPY pyproject.toml uv.lock ./
 COPY api/pyproject.toml api/
 COPY core/pyproject.toml core/
-COPY server/pyproject.toml server/
+COPY renderer/pyproject.toml renderer/
 COPY providers/pyproject.toml providers/
 RUN uv sync --frozen --no-install-workspace
 

@@ -1,4 +1,4 @@
-"""The energy client's own workings; test_glow_store has it drawing the stored readings auth-broker writes."""
+"""The energy client's own workings; test_glow_store has it drawing the stored readings countdown-server writes."""
 
 import asyncio
 import json
