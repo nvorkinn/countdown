@@ -49,7 +49,7 @@ jobs:
           ./dev/build_dist.sh
       # The images only install what is in dist/ (our packages never come from an index). That includes the
       # countdown_api wheel, which the build above makes from the submodule, stamped with the release's version.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: countdown-wheel
           path: |
@@ -109,7 +109,7 @@ jobs:
         run: |
           mkdir -p digests
           touch "digests/${DIGEST#sha256:}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: digest-${{ matrix.image }}-${{ matrix.arch }}
           path: digests/*
