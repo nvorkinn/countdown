@@ -1,14 +1,8 @@
-name: countdown CI
+name: Tests
 
 on:
   push:
-    paths:
-      - "countdown/**"
-      - ".github/workflows/countdown-ci.yml"
   pull_request:
-    paths:
-      - "countdown/**"
-      - ".github/workflows/countdown-ci.yml"
 
 permissions:
   contents: read

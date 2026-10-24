@@ -1,8 +1,4 @@
-# Countdown CI only runs when its own files change, so carry its last upload
-# forward instead of reporting it as missing.
 flag_management:
-  default_rules:
-    carryforward: true
   individual_flags:
     - name: countdown
       paths:
