@@ -1,4 +1,4 @@
-# The render pool, on the renderers' host (deploy.sh, run by release.yml); see README.md. Its containers are
+# The render pool, on the renderers' host (deploy.sh, run by deploy-renderers.yml); see README.md. Its containers are
 # renderer-<service>-1; the logging tags (render-worker-1...) name their streams in VictoriaLogs.
 name: renderer
 
@@ -20,6 +20,11 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
       # Names the worker in its logs and as its metrics' host.name; each screen is their `device` attribute.
       WORKER_NAME: render-worker-1
+      # What the pairing screen sends people to (its QR code and its "Go to ..."): the environment's own site. Only the
+      # workers draw it, not the ticker. deploy-renderers.yml sets these from the environment's variables; unset or empty
+      # (also running deploy.sh by hand) is production's.
+      COUNTDOWN_AUTH_HOST: ${COUNTDOWN_AUTH_HOST:-auth.nikolaivorkinn.com}
+      COUNTDOWN_SITE_NAME: ${COUNTDOWN_SITE_NAME:-nikolaivorkinn.com}
     logging:
       driver: json-file
       options:

@@ -1,5 +1,6 @@
 """The pairing screen: the code to enter on the website to set the device up."""
 
+import os
 import urllib.parse
 from typing import TYPE_CHECKING, override
 
@@ -23,8 +24,12 @@ MARGIN = 40
 MAX_SIDE = 104
 GAP = 12
 
-# Scanning it opens the pairing page with the code already typed in.
-PAIRING_URL = "https://auth.nikolaivorkinn.com/pair?code={code}"
+# Scanning it opens the pairing page with the code already typed in. The host is the environment's: auth_host() reads
+# COUNTDOWN_AUTH_HOST when the screen is drawn, and the words name the site the same way (COUNTDOWN_SITE_NAME), so
+# dev/QA and production can each point at their own. Unset or empty, they are production's.
+DEFAULT_AUTH_HOST = "auth.nikolaivorkinn.com"
+DEFAULT_SITE_NAME = "nikolaivorkinn.com"
+PAIRING_URL = "https://{host}/pair?code={code}"
 QR_BORDER = 2  # modules of white round it, the QR spec's quiet zone being 4 but the screen's margin adding to it
 QR_SIDE = 340
 QR_SIDE_TALL = 300
@@ -35,6 +40,16 @@ SIDEWAYS_TITLE, SIDEWAYS_BODY = 44, 28
 # QR code, which sits QR_TOP_TALL (before scaling) below the middle.
 TALL_SHIFT = 238
 QR_TOP_TALL = -28
+
+
+def auth_host() -> str:
+    """Return the pairing page's host (`COUNTDOWN_AUTH_HOST`), read now rather than at import."""
+    return os.environ.get("COUNTDOWN_AUTH_HOST", "").strip() or DEFAULT_AUTH_HOST
+
+
+def site_name() -> str:
+    """Return the website's name the screen says to go to (`COUNTDOWN_SITE_NAME`), read now, not at import."""
+    return os.environ.get("COUNTDOWN_SITE_NAME", "").strip() or DEFAULT_SITE_NAME
 
 
 class PairingCodePanel(Panel):
@@ -64,7 +79,7 @@ class PairingCodePanel(Panel):
 
         title, body, small = (TITLE, BODY, SMALL) if not sideways else (SIDEWAYS_TITLE, SIDEWAYS_BODY, SMALL - 6)
         text(-178 if not sideways else -170, _("Set up this display"), title)
-        text(-98 if not sideways else -105, _("Go to {site}").format(site="nikolaivorkinn.com"), body)
+        text(-98 if not sideways else -105, _("Go to {site}").format(site=site_name()), body)
         text(-54 if not sideways else -68, _("and enter this code:"), body)
         self._draw_code(draw, column_x, column_width, center_y + (-4 + shift) * scale)
         text(168, _("Device: {device}").format(device=self.device_id), small)
@@ -82,7 +97,7 @@ class PairingCodePanel(Panel):
     def _qr_code(self, side: int) -> Image.Image:
         """Draw the QR code to the pairing page, code filled in, at most `side` pixels square, centred on white."""
         qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=QR_BORDER, box_size=1)
-        qr.add_data(PAIRING_URL.format(code=urllib.parse.quote(self.pairing_code)))
+        qr.add_data(PAIRING_URL.format(host=auth_host(), code=urllib.parse.quote(self.pairing_code)))
         qr.make(fit=True)
         modules = qr.modules_count + 2 * QR_BORDER
         # Whole pixels per module keep the squares crisp.
