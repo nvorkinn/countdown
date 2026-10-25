@@ -216,13 +216,13 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" \
               countdown/dist/*.whl \
-              --title "$GITHUB_REF_NAME" --generate-notes --prerelease
+              --title "$GITHUB_REF_NAME" --generate-notes
           fi
 
   deploy-renderers:
     # Brings up the providers and the render pool (countdown/renderer/deploy/docker-compose.*.yml) on the dev/QA host,
-    # pinned to this release's images. No approval: starting the release is the decision. The release stays a
-    # pre-release until promote.yml deploys the same tag to production, which a release never does.
+    # pinned to this release's images. No approval: starting the release is the decision. A release never touches
+    # production: promote.yml deploys a tag there.
     name: renderers (dev-qa)
     needs: release
     uses: ./.github/workflows/deploy-renderers.yml

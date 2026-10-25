@@ -3,8 +3,7 @@ name: Promote
 # Deploys a release that has been through dev-qa to production (the "Run workflow" button: Actions > Promote). A
 # release never touches production; this is the only way a tag gets there. To roll back, promote an older tag.
 #
-# check (the tag is on main and was deployed) -> approve (a reviewer of approve-production) -> deploy (production) ->
-# latest (the GitHub release becomes the latest, no longer a pre-release).
+# check (the tag is on main and was deployed) -> approve (a reviewer of approve-production) -> deploy (production).
 on:
   workflow_dispatch:
     inputs:
@@ -93,17 +92,3 @@ jobs:
       environment: production
       tag: ${{ inputs.tag }}
     secrets: inherit
-
-  # Only once production runs it. Releases are created as pre-releases and stay so while they are only in dev-qa;
-  # promoting an older tag (a rollback) makes that one the latest.
-  latest:
-    needs: [check, deploy]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      TAG: ${{ inputs.tag }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      GH_REPO: ${{ github.repository }}
-    steps:
-      - run: gh release edit "$TAG" --prerelease=false --latest
