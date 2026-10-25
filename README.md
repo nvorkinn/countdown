@@ -16,18 +16,16 @@ the Redis this repository's render pool and providers use) and this repository's
 **production**. A tag is built once and the same tag is promoted.
 
 - **Release** (dev-qa, no approval): push a `v*` tag on a commit that's on `main`.
-  `.github/workflows/release.yml` builds the wheels and images, creates the GitHub release as a
-  **pre-release** and deploys the render pool and providers to dev-qa
+  `.github/workflows/release.yml` builds the wheels and images, creates the GitHub release and deploys the render pool and providers to dev-qa
   (`.github/workflows/deploy-renderers.yml`). Starting a release is the decision to deploy it there. A release never
   touches production. The tag is the version: it's stamped into the wheels at build time, so the `version` in
   `countdown/pyproject.toml` is a placeholder.
 - **Promote** (production): once a release has been tried on dev-qa, run Actions > Promote > Run workflow with its tag
   (`vX.Y.Z`). `.github/workflows/promote.yml` checks that the tag's commit is on `main` and that the tag has a successful
   dev-qa deployment, waits for a reviewer of the `approve-production` environment, deploys the same tag's images to
-  production, and only then marks the GitHub release as the latest (no longer a pre-release). One promotion runs at a
-  time.
+  production. One promotion runs at a time.
 - **Roll back** by promoting an older tag the same way (a tag that was in production before passes the check too).
-  The deploy takes the compose files from that tag, and the release becomes the latest again.
+  The deploy takes the compose files from that tag.
 
 ### One-time GitHub setup
 
