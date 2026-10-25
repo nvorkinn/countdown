@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw
 
 from countdown_core.core.panel import Panel
 from countdown_core.i18n import _
+from countdown_core.utils.scaled_draw import drawing_scale
 from countdown_core.utils.utils import fitted_font, width_scale
 
 if TYPE_CHECKING:
@@ -53,7 +54,12 @@ def site_name() -> str:
 
 
 class PairingCodePanel(Panel):
-    """Shown full-screen while a device isn't paired yet."""
+    """Shown full-screen while a device isn't paired yet.
+
+    Laid out in the 7.5" screens' pixels, and drawn `drawing_scale()` times as big on the HD screens (see render).
+    """
+
+    scales = True
 
     def __init__(self, pairing_code: str, device_id: str) -> None:
         """`pairing_code` is the broker's code to show; `device_id` names the device."""
@@ -63,14 +69,16 @@ class PairingCodePanel(Panel):
 
     @override
     def render(self, image_width: int, image_height: int, *, clock_format: ClockFormat = "24h") -> Image.Image:
-        img = Image.new("RGBA", (image_width, image_height), (255, 255, 255, 255))
+        zoom = drawing_scale()
+        img = Image.new("RGBA", (round(image_width * zoom), round(image_height * zoom)), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
         # Sized for 800 wide: a narrower (portrait) screen gets it all smaller.
-        scale = width_scale(image_width)
+        scale = width_scale(image_width) * zoom
         sideways = image_width > image_height
         # Wide screen: the words and the code on the left, the QR code on the right. Tall: the QR code under them.
         column_x, column_width = (MARGIN, SIDEWAYS_COLUMN) if sideways else (0, image_width)
-        center_x, center_y = column_x + column_width / 2, image_height / 2
+        column_x, column_width = column_x * zoom, column_width * zoom
+        center_x, center_y = column_x + column_width / 2, image_height * zoom / 2
         shift = 0 if sideways else -TALL_SHIFT
 
         def text(offset: float, words: str, size: int) -> None:
@@ -81,15 +89,15 @@ class PairingCodePanel(Panel):
         text(-178 if not sideways else -170, _("Set up this display"), title)
         text(-98 if not sideways else -105, _("Go to {site}").format(site=site_name()), body)
         text(-54 if not sideways else -68, _("and enter this code:"), body)
-        self._draw_code(draw, column_x, column_width, center_y + (-4 + shift) * scale)
+        self._draw_code(draw, column_x, column_width, center_y + (-4 + shift) * scale, zoom)
         text(168, _("Device: {device}").format(device=self.device_id), small)
 
         if sideways:
-            side = round(QR_SIDE * min(1.0, image_height / 480))
-            top_left = (image_width - MARGIN - side, round((image_height - side) / 2))
+            side = round(QR_SIDE * min(1.0, image_height / 480) * zoom)
+            top_left = (round((image_width - MARGIN) * zoom - side), round((img.height - side) / 2))
         else:
-            side = QR_SIDE_TALL
-            top_left = (round((image_width - side) / 2), round(center_y + QR_TOP_TALL * scale))
+            side = round(QR_SIDE_TALL * zoom)
+            top_left = (round((img.width - side) / 2), round(center_y + QR_TOP_TALL * scale))
         img.paste(self._qr_code(side), top_left)
 
         return img
@@ -108,14 +116,15 @@ class PairingCodePanel(Panel):
         canvas.paste(picture, ((side - picture.width) // 2, (side - picture.height) // 2))
         return canvas
 
-    def _draw_code(self, draw: ImageDraw.ImageDraw, left: float, width: float, top: float) -> None:
+    def _draw_code(self, draw: ImageDraw.ImageDraw, left: float, width: float, top: float, zoom: float) -> None:
         code = self.pairing_code
         # Shrinks the squares for a code too long to fit at full size.
-        margin = 0 if left else MARGIN
-        side = min(MAX_SIDE, round((width - 2 * margin - GAP * (len(code) - 1)) // len(code)))
-        font = fitted_font(LETTER_FONT, round(78 * side / MAX_SIDE))
-        x = left + (width - (len(code) * side + (len(code) - 1) * GAP)) / 2
+        margin = 0 if left else MARGIN * zoom
+        gap, max_side = GAP * zoom, MAX_SIDE * zoom
+        side = min(round(max_side), round((width - 2 * margin - gap * (len(code) - 1)) // len(code)))
+        font = fitted_font(LETTER_FONT, round(78 * zoom * side / max_side))
+        x = left + (width - (len(code) * side + (len(code) - 1) * gap)) / 2
         for char in code:
             draw.rectangle((x, top, x + side - 1, top + side - 1), fill="black")
-            draw.text((x + side / 2, top + side / 2 + 2), char, anchor="mm", font=font, fill="white")
-            x += side + GAP
+            draw.text((x + side / 2, top + side / 2 + 2 * zoom), char, anchor="mm", font=font, fill="white")
+            x += side + gap

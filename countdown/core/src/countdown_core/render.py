@@ -31,19 +31,28 @@ from countdown_core.store import config as stored_config
 from countdown_core.store import frame_record, reader
 from countdown_core.store import pairing as stored_pairing
 from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
+from countdown_core.utils.scaled_draw import drawing_at
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from datetime import datetime
 
+    from PIL import Image
+
     from countdown_api.models import ConfigResponse
     from countdown_core.core.abstract_client import ClientStatus
     from countdown_core.core.panel import Panel
+    from countdown_core.rendering.screen import Canvas
 
 logger = logging.getLogger(__name__)
 
 # The time zone for a config whose own the renderer doesn't know.
 FALLBACK_TIMEZONE = "Europe/London"
+
+# The 7.5" screens' short side; a screen with a longer one is HD, and draws the pairing screen bigger.
+DESIGN_SHORT_SIDE = 480
+# The pairing screen's design width, landscape and portrait (800x480 and 480x800).
+PAIRING_DESIGN_WIDTH = {True: 800, False: 480}
 
 
 class Result(StrEnum):
@@ -113,7 +122,7 @@ def render(device_id: str, now: datetime) -> Outcome:
         _apply_locale(config)
         if config.pairing_code:
             pairing = PairingCodePanel(config.pairing_code, device_id)
-            frame = to_native(Frame(pairing.render(*canvas_for(config.screen).size)), config.screen)
+            frame = to_native(Frame(_pairing_picture(pairing, canvas_for(config.screen))), config.screen)
             data = encode(frame.image, config.screen)
             return Outcome(_record(device_id, data), Stage.PAIRING, frame, data)
 
@@ -146,6 +155,14 @@ def _stored_config(device_id: str) -> ConfigResponse | None:
     """Return the device's config from the store; None if there's none, or no store to read it from."""
     client = reader.store()
     return None if client is None else stored_config.read(client, device_id)
+
+
+def _pairing_picture(pairing: PairingCodePanel, canvas: Canvas) -> Image.Image:
+    """Draw the pairing screen for `canvas`: in the 7.5" screens' pixels, `scale` times as big on the HD screen."""
+    landscape = canvas.width > canvas.height
+    scale = canvas.width / PAIRING_DESIGN_WIDTH[landscape] if min(canvas.size) > DESIGN_SHORT_SIDE else 1.0
+    with drawing_at(scale):
+        return pairing.render(round(canvas.width / scale), round(canvas.height / scale))
 
 
 def _live_pairing(device_id: str) -> ConfigResponse | None:
