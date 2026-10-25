@@ -31,8 +31,9 @@ from countdown_core.i18n import set_locale
 from countdown_core.notices.notice import Notice, Severity
 from countdown_core.notices.notice_board_panel import NoticeBoardPanel
 from countdown_core.notices.notice_styles import STYLES as NOTICE_STYLES
+from countdown_core.render import _pairing_picture
 from countdown_core.rendering import render, stops_fitting
-from countdown_core.rendering.screen import DEFAULT_CANVAS
+from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas
 from countdown_core.spotify.models import Artist, Playback, Queue, Track
 from countdown_core.spotify.spotify_client import SpotifyClient
 from countdown_core.spotify.spotify_panel import SpotifyPanel
@@ -1274,3 +1275,17 @@ def test_a_second_row_of_stops_on_an_hd_landscape_screen_while_nothing_plays(sna
     assert stops_fitting(panels, HD_HORIZONTAL, available) == 4
 
     snapshot.assert_matches("screen_hd_landscape_second_row", _draw_hd_landscape(panels, available))
+
+
+@pytest.mark.parametrize("size", [(1872, 1404), (1404, 1872)])
+def test_pairing_code_screen_is_drawn_bigger_on_an_hd_screen(size):
+    canvas = Canvas(*size)
+    img = _pairing_picture(PairingCodePanel("C4FFEZ", "7218485b654f"), canvas).convert("L")
+    assert img.size == size
+    # Nothing touches the edge, and it fills the screen as the small screen's picture fills its own.
+    left, top, right, bottom = ImageChops.invert(img).getbbox()
+    assert left > 0
+    assert top > 0
+    assert right < size[0]
+    assert bottom < size[1]
+    assert right - left > size[0] * 0.6 or bottom - top > size[1] * 0.6
