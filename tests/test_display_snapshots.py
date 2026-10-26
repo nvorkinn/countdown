@@ -977,8 +977,8 @@ AUTH_BROKER_RELEASE = _release(
         _job("terraform", "queued", ["tag", "deploy-authentik"]),
     ],
 )
-# pi-dashboard's: a chain of six, which wraps onto two rows.
-PI_DASHBOARD_JOBS = [
+# countdown's: a chain of six, which wraps onto two rows.
+COUNTDOWN_JOBS = [
     _job("verify-tag", "done"),
     _job("build-python", "done", ["verify-tag"]),
     _job("build-image", "running", ["build-python"], 4, 6),
@@ -986,14 +986,14 @@ PI_DASHBOARD_JOBS = [
     _job("release", "queued", ["build-python", "publish-image"]),
     _job("deploy-renderers", "queued", ["release"]),
 ]
-PI_DASHBOARD_RELEASE = _release("pi-dashboard v2.14.0", "running", 6, PI_DASHBOARD_JOBS)
-PI_DASHBOARD_FAILED = _release(
-    "pi-dashboard v2.14.0",
+COUNTDOWN_RELEASE = _release("countdown v2.14.0", "running", 6, COUNTDOWN_JOBS)
+COUNTDOWN_FAILED = _release(
+    "countdown v2.14.0",
     "failed",
     5,
     [
         job.model_copy(update={"state": "failed", "done": 5}) if job.key == "build-image" else job
-        for job in PI_DASHBOARD_JOBS
+        for job in COUNTDOWN_JOBS
     ],
     finished=RELEASE_NOW,
 )
@@ -1058,8 +1058,8 @@ def test_a_release_above_spotify(snapshot):
 def test_a_release_in_the_strip_above_spotify(snapshot, style):
     """At the landscape and portrait widths: the jobs in a row without the lines, then too many for the row."""
     summaries = [
-        _with_releases(PI_DASHBOARD_RELEASE, AUTH_BROKER_RELEASE),
-        _with_releases(PI_DASHBOARD_FAILED),
+        _with_releases(COUNTDOWN_RELEASE, AUTH_BROKER_RELEASE),
+        _with_releases(COUNTDOWN_FAILED),
         _with_releases(AUTH_BROKER_RELEASED),
         _with_releases(CROWDED_RELEASE),
     ]
@@ -1076,8 +1076,8 @@ def test_a_release_in_the_strip_above_spotify(snapshot, style):
 def test_a_release_as_it_goes(snapshot, style):
     """At the landscape and portrait widths: a long chain wrapped (with a second release), failed, released, crowded."""
     summaries = [
-        _with_releases(PI_DASHBOARD_RELEASE, AUTH_BROKER_RELEASE),
-        _with_releases(PI_DASHBOARD_FAILED),
+        _with_releases(COUNTDOWN_RELEASE, AUTH_BROKER_RELEASE),
+        _with_releases(COUNTDOWN_FAILED),
         _with_releases(AUTH_BROKER_RELEASED),
         _with_releases(CROWDED_RELEASE),
     ]
