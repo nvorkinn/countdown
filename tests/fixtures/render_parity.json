@@ -1,5 +1,5 @@
 {
-  "_comment": "What the per-screen loop drew before the render function (pi-dashboard main at 1b3743d, DisplayLoop.run with ApiRegistry and DisplayController), recorded from that code before it changed: for each case, its config (GET /api/config's body), the store as the providers left it (a cover as base64), and the moment, frozen in every module that reads the clock, with Material Symbols stood in for by Ubuntu-Regular. `etag` is frame_record.frame_etag of the frame it PUT; `panels`, the kind of panel each API drew (null for the pairing screen). render(device_id, now) must draw exactly the same frames from the same inputs.",
+  "_comment": "What the per-screen loop drew before the render function (countdown main at 1b3743d, DisplayLoop.run with ApiRegistry and DisplayController), recorded from that code before it changed: for each case, its config (GET /api/config's body), the store as the providers left it (a cover as base64), and the moment, frozen in every module that reads the clock, with Material Symbols stood in for by Ubuntu-Regular. `etag` is frame_record.frame_etag of the frame it PUT; `panels`, the kind of panel each API drew (null for the pairing screen). render(device_id, now) must draw exactly the same frames from the same inputs.",
   "device_id": "device-123",
   "cases": [
     {
