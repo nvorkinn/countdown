@@ -18,10 +18,12 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import TEST_DEVICE_ID
 
 from countdown_api import fixtures
-from countdown_core.core import rotation
-from countdown_core.spotify import spotify_styles
 from countdown_core.spotify.models import Artist, Queue, TopResponse, Track
-from countdown_core.spotify.spotify_client import (
+from countdown_core.store import keys, reader
+from countdown_core.store.music import StoredPlayer, StoredTop, art_image
+from countdown_renderer import rotation
+from countdown_renderer.spotify import spotify_styles
+from countdown_renderer.spotify.spotify_client import (
     TOP_EVERY_S,
     TOP_WHEN_IDLE_EVERY_S,
     TOP_WHILE_PLAYING_S,
@@ -30,12 +32,10 @@ from countdown_core.spotify.spotify_client import (
     SpotifyClient,
     music_client_class,
 )
-from countdown_core.spotify.spotify_panel import SpotifyPanel
-from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
-from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
-from countdown_core.store import keys, reader
-from countdown_core.store.music import StoredPlayer, StoredTop, art_image
-from countdown_core.utils.utils import fitted_font
+from countdown_renderer.spotify.spotify_panel import SpotifyPanel
+from countdown_renderer.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
+from countdown_renderer.spotify.spotify_top_panel import SpotifyTopPanel
+from countdown_renderer.utils.utils import fitted_font
 
 PLAYER = fixtures.load("music_player.json")
 TOP = fixtures.load("music_top.json")

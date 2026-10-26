@@ -8,8 +8,8 @@ import pytest
 from test_utils import TEST_DEVICE_ID
 
 from countdown_api.models import Glowmarkt
-from countdown_core.glow.glow_client import GlowClient, _bucket_starts
 from countdown_core.store import keys, reader
+from countdown_renderer.glow.glow_client import GlowClient, _bucket_starts
 
 CONFIG = Glowmarkt(enabled=True)
 

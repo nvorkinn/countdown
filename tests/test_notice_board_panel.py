@@ -1,10 +1,10 @@
 import pytest
 from test_utils import assert_text_inside_and_apart
 
-from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_panel import ROW_HEIGHT, HdNoticeBoardPanel, NoticeBoardPanel
-from countdown_core.notices.notice_styles import STYLES
-from countdown_core.utils.scaled_draw import drawing_at
+from countdown_renderer.notices.notice import Notice, Severity
+from countdown_renderer.notices.notice_board_panel import ROW_HEIGHT, HdNoticeBoardPanel, NoticeBoardPanel
+from countdown_renderer.notices.notice_styles import STYLES
+from countdown_renderer.utils.scaled_draw import drawing_at
 
 NOTICES = [
     Notice("Met Office", Severity.SEVERE, "Red warning: wind until Fri 21:00"),

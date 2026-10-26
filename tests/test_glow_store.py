@@ -17,11 +17,11 @@ import responses
 
 from countdown_api import fixtures
 from countdown_api.models import Glowmarkt
-from countdown_core.core import moment
-from countdown_core.core.abstract_client import ClientStatus
-from countdown_core.glow.glow_client import GlowClient, NoStoredEnergyError
 from countdown_core.store import keys, reader
 from countdown_core.store.energy import StoredEnergy
+from countdown_renderer import moment
+from countdown_renderer.abstract_client import ClientStatus
+from countdown_renderer.glow.glow_client import GlowClient, NoStoredEnergyError
 
 FIXTURE = fixtures.load("glow_energy.json")
 STORED = FIXTURE["stored"]

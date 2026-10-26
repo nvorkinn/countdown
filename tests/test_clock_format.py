@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from countdown_core.utils.clock import format_clock
+from countdown_renderer.utils.clock import format_clock
 
 
 @pytest.mark.parametrize(

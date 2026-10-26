@@ -1,1 +1,1 @@
-"""The dashboard's drawing: the clients reading the store, the panels, the layouts, and the render (render.py)."""
+"""What the providers and the render pool share: the store and its models, the API clients, logging and i18n."""

@@ -20,16 +20,6 @@ import responses
 from location_factory import FakeLocations
 
 from countdown_core import i18n
-from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.tfl import (
-    NoStoredTflNoticesError,
-    StoredTflLineStatusSource,
-    StoredTflRoadSource,
-    StoredTflStationSource,
-    line_status_notices,
-    road_notices,
-    station_notices,
-)
 from countdown_core.notices.tfl_feed import is_near
 from countdown_core.store import keys, reader
 from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
@@ -45,6 +35,16 @@ from countdown_providers.tfl_notices.main import (
     TflLineStatusProvider,
     TflRoadProvider,
     TflStationProvider,
+)
+from countdown_renderer.notices.notice import Notice, Severity
+from countdown_renderer.notices.tfl import (
+    NoStoredTflNoticesError,
+    StoredTflLineStatusSource,
+    StoredTflRoadSource,
+    StoredTflStationSource,
+    line_status_notices,
+    road_notices,
+    station_notices,
 )
 
 if TYPE_CHECKING:

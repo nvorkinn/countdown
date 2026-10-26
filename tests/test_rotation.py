@@ -13,12 +13,12 @@ from conftest import ROTATION_START
 from test_utils import TEST_DEVICE_ID, put_departures
 from weather_factory import forecast_json
 
-from countdown_core import render as render_module
-from countdown_core.core import rotation
-from countdown_core.core.api_registry import ApiRegistry
 from countdown_core.store import keys
-from countdown_core.tfl.combined_arrival_panel import Rotation
 from countdown_core.weather.models import WeatherPeriod
+from countdown_renderer import render as render_module
+from countdown_renderer import rotation
+from countdown_renderer.api_registry import ApiRegistry
+from countdown_renderer.tfl.combined_arrival_panel import Rotation
 
 TABS = [WeatherPeriod.NOW, WeatherPeriod.TONIGHT, WeatherPeriod.TOMORROW, WeatherPeriod.WEEKEND]
 # Taken as this module is imported, before any test's fixtures freeze it.

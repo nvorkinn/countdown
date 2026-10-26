@@ -12,7 +12,7 @@ the `countdown-renderer` image, on the host's network (`renderer/src/countdown_r
 `core/`). They draw every screen in the hash `v1:render:screens`, which countdown-server writes for every paired device (its
 values are the screens' slugs, which name them in metrics). A job for any other device is dropped.
 
-A worker blocks on the job queue and calls `render(device_id, now)` (`countdown_core/render.py`) for each job, one at a
+A worker blocks on the job queue and calls `render(device_id, now)` (`countdown_renderer/render.py`) for each job, one at a
 time (the locale is a module global). A render that passes 20 s ends the worker (`faulthandler`), and compose restarts
 it. The only state kept between renders is read-only: fonts, translations and Redis connections.
 

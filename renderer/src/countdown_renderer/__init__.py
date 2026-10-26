@@ -1,1 +1,1 @@
-"""The render pool: workers and a ticker that draw the screens' frames into Redis."""
+"""The render pool and what it draws with: the clients reading the store, the panels, the layouts and the render."""

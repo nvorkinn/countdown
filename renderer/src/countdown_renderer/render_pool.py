@@ -29,9 +29,9 @@ from typing import TYPE_CHECKING
 import redis
 from redis.exceptions import RedisError
 
-from countdown_core import render as rendering
 from countdown_core.core.log_format import configure_logging, error_reason, without_text
 from countdown_core.store import render_queue
+from countdown_renderer import render as rendering
 from countdown_renderer.pool_metrics import PoolMetrics
 
 if TYPE_CHECKING:

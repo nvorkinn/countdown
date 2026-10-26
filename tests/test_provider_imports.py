@@ -18,7 +18,7 @@ PROVIDERS = [
     "weather",
 ]
 
-HEAVY = ("PIL", "countdown_core.core.abstract_client")
+HEAVY = ("PIL", "countdown_renderer")
 
 
 @pytest.mark.parametrize("provider", PROVIDERS)

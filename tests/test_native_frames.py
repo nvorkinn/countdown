@@ -7,16 +7,16 @@ screen's picture a quarter into the panel's 800x480 landscape one, as render.ren
 import pytest
 from PIL import Image
 
-import countdown_core.core.api_registry  # noqa: F401 -- before the panels: the import order the render has
+import countdown_renderer.api_registry  # noqa: F401 -- before the panels: the import order the render has
 from countdown_api.models import Screen
-from countdown_core.core.api_registry import ClientClasses
-from countdown_core.core.panel import Panel
-from countdown_core.notices.notice_board_panel import NoticeBoardPanel
-from countdown_core.rendering import render, to_native
-from countdown_core.rendering.layout import Frame
-from countdown_core.rendering.screen import canvas_for
-from countdown_core.system_screens.message_panel import MessagePanel
-from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
+from countdown_renderer.api_registry import ClientClasses
+from countdown_renderer.notices.notice_board_panel import NoticeBoardPanel
+from countdown_renderer.panel import Panel
+from countdown_renderer.rendering import render, to_native
+from countdown_renderer.rendering.layout import Frame
+from countdown_renderer.rendering.screen import canvas_for
+from countdown_renderer.system_screens.message_panel import MessagePanel
+from countdown_renderer.system_screens.pairing_code_panel import PairingCodePanel
 
 pytestmark = pytest.mark.usefixtures("symbols_font")
 

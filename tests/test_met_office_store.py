@@ -22,16 +22,16 @@ from location_factory import FakeLocations
 from test_utils import TEST_DEVICE_ID
 
 from countdown_core import i18n
-from countdown_core.core import moment
-from countdown_core.notices.met_office import NoStoredWarningsError, StoredMetOfficeWarningsSource, warning_notices
-from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
 from countdown_core.store.location import StoredLocation
 from countdown_core.store.met_office import StoredMetOfficeWarnings
 from countdown_core.tfl.models import Postcode
 from countdown_providers.met_office.main import FEED_URL, MetOfficeProvider
 from countdown_providers.runner import ProviderRunner
+from countdown_renderer import moment
+from countdown_renderer.notices.met_office import NoStoredWarningsError, StoredMetOfficeWarningsSource, warning_notices
+from countdown_renderer.notices.notice import Notice, Severity
+from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FEED = (FIXTURES / "met_office_warnings.xml").read_bytes()

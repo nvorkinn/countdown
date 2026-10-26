@@ -115,7 +115,7 @@ version = "0.4.2"
 source = { virtual = "." }
 dependencies = [
     { name = "countdown-api" },
-    { name = "countdown-core", extra = ["render"] },
+    { name = "countdown-core" },
     { name = "countdown-providers" },
     { name = "countdown-renderer" },
 ]
@@ -142,7 +142,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "countdown-api", editable = "api" },
-    { name = "countdown-core", extras = ["render"], editable = "core" },
+    { name = "countdown-core", editable = "core" },
     { name = "countdown-providers", editable = "providers" },
     { name = "countdown-renderer", editable = "renderer" },
 ]
@@ -208,24 +208,15 @@ dependencies = [
     { name = "urllib3" },
 ]
 
-[package.optional-dependencies]
-render = [
-    { name = "pillow" },
-    { name = "qrcode" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "babel" },
     { name = "countdown-api", editable = "api" },
-    { name = "pillow", marker = "extra == 'render'" },
     { name = "pydantic" },
-    { name = "qrcode", marker = "extra == 'render'" },
     { name = "redis" },
     { name = "requests" },
     { name = "urllib3", specifier = "==2.8.0" },
 ]
-provides-extras = ["render"]
 
 [[package]]
 name = "countdown-providers"
@@ -249,19 +240,25 @@ name = "countdown-renderer"
 version = "0.4.2"
 source = { editable = "renderer" }
 dependencies = [
-    { name = "countdown-core", extra = ["render"] },
+    { name = "countdown-api" },
+    { name = "countdown-core" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
+    { name = "pillow" },
+    { name = "qrcode" },
     { name = "redis" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "countdown-core", extras = ["render"], editable = "core" },
+    { name = "countdown-api", editable = "api" },
+    { name = "countdown-core", editable = "core" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
+    { name = "pillow" },
+    { name = "qrcode" },
     { name = "redis" },
 ]
 

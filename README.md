@@ -24,7 +24,7 @@ Running them is in [`renderer/deploy/`](renderer/deploy/).
 
 ## How it works
 
-Every frame is one call of `render(device_id, now)` (`core/src/countdown_core/render.py`). It reads the screen's config
+Every frame is one call of `render(device_id, now)` (`renderer/src/countdown_renderer/render.py`). It reads the screen's config
 from Redis, builds the API clients fresh, has each read its key, draws the frame, and writes it to `v1:frame:<device id>`
 if it changed. Rendering is described in [How rendering works](docs/stateless-renderers.md).
 

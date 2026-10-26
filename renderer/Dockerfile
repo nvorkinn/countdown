@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir --root-user-action=ignore --disable-pip-version-c
     && rm -rf /tmp/wheels
 
 # Downloaded on first use otherwise, again every time a container is recreated.
-RUN python -c "from countdown_core.utils.utils import google_symbols; google_symbols()"
+RUN python -c "from countdown_renderer.utils.utils import google_symbols; google_symbols()"
 # Fail the build rather than render text differently from the snapshot tests.
 RUN python -c "from PIL import features; assert features.check('raqm'), 'Pillow has no Raqm text layout'"
 

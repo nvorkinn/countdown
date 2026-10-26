@@ -32,8 +32,8 @@ def main() -> int:
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
 
     # Imported only now: reader.store() reads REDIS_URL the first time it's asked.
-    from countdown_core import render  # noqa: PLC0415
     from countdown_core.store import reader, render_queue  # noqa: PLC0415
+    from countdown_renderer import render  # noqa: PLC0415
 
     device_ids = args.device_ids or sorted(render_queue.screens(reader.require_store()))
     if not device_ids:

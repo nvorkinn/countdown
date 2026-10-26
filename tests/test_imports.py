@@ -18,7 +18,7 @@ MODULES = sorted(
 
 def test_the_layouts_are_among_the_modules() -> None:
     """The walk finds the layout modules, so the test below covers what the render worker loads."""
-    assert "countdown_core.rendering.layouts.hd_landscape_column" in MODULES
+    assert "countdown_renderer.rendering.layouts.hd_landscape_column" in MODULES
 
 
 @pytest.mark.parametrize("name", MODULES)

@@ -1,8 +1,8 @@
-import countdown_core  # noqa: F401, I001 -- see test_display_snapshots.py for why this comes first
+import countdown_renderer  # noqa: F401, I001 -- see test_display_snapshots.py for why this comes first
 import pytest
 from PIL import ImageDraw
 
-from countdown_core.glow.energy_panel import EnergyPanel
+from countdown_renderer.glow.energy_panel import EnergyPanel
 import itertools
 
 

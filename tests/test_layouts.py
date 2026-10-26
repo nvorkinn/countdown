@@ -1,4 +1,4 @@
-import countdown_core  # noqa: F401, I001 -- see test_display_snapshots.py for why this comes first
+import countdown_renderer  # noqa: F401, I001 -- see test_display_snapshots.py for why this comes first
 import logging
 from datetime import datetime
 
@@ -7,23 +7,29 @@ from PIL import Image, ImageChops, ImageDraw, ImageOps
 from weather_factory import forecast_json, make_weather
 
 from countdown_api.models import Screen
-from countdown_core.core.api_registry import ClientClasses
-from countdown_core.core.panel import Panel
-from countdown_core.glow.energy_panel import EnergyPanel
-from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_panel import HdNoticeBoardPanel, NoticeBoardPanel
-from countdown_core.rendering import LAYOUTS, layout_for, to_native
-from countdown_core.rendering.layout import Box, Frame, Layout
-from countdown_core.rendering.layouts.classic import CLASSIC, BaseLayout, GlowLayout, SpotifyGlowLayout, SpotifyLayout
-from countdown_core.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
-from countdown_core.rendering.layouts.classic_portrait import (
+from countdown_renderer.api_registry import ClientClasses
+from countdown_renderer.panel import Panel
+from countdown_renderer.glow.energy_panel import EnergyPanel
+from countdown_renderer.notices.notice import Notice, Severity
+from countdown_renderer.notices.notice_board_panel import HdNoticeBoardPanel, NoticeBoardPanel
+from countdown_renderer.rendering import LAYOUTS, layout_for, to_native
+from countdown_renderer.rendering.layout import Box, Frame, Layout
+from countdown_renderer.rendering.layouts.classic import (
+    CLASSIC,
+    BaseLayout,
+    GlowLayout,
+    SpotifyGlowLayout,
+    SpotifyLayout,
+)
+from countdown_renderer.rendering.layouts.classic_portrait import CLASSIC_PORTRAIT
+from countdown_renderer.rendering.layouts.classic_portrait import (
     BasePortraitLayout,
     GlowPortraitLayout,
     SpotifyGlowPortraitLayout,
     SpotifyPortraitLayout,
 )
-from countdown_core.rendering.layouts.hd_landscape import ARRIVALS_SCALE as HD_ARRIVALS_SCALE
-from countdown_core.rendering.layouts.hd_landscape import (
+from countdown_renderer.rendering.layouts.hd_landscape import ARRIVALS_SCALE as HD_ARRIVALS_SCALE
+from countdown_renderer.rendering.layouts.hd_landscape import (
     HD_LANDSCAPE,
     HD_LANDSCAPE_LAYOUTS,
     HOURS_HEIGHT,
@@ -37,8 +43,8 @@ from countdown_core.rendering.layouts.hd_landscape import (
     SpotifyGlowHdLandscapeLayout,
     SpotifyHdLandscapeLayout,
 )
-from countdown_core.rendering.layouts.hd_portrait import SPOTIFY_HEIGHT as HD_SPOTIFY_HEIGHT
-from countdown_core.rendering.layouts.hd_portrait import (
+from countdown_renderer.rendering.layouts.hd_portrait import SPOTIFY_HEIGHT as HD_SPOTIFY_HEIGHT
+from countdown_renderer.rendering.layouts.hd_portrait import (
     ARRIVALS_SCALE,
     HD_PORTRAIT,
     HD_PORTRAIT_LAYOUTS,
@@ -51,23 +57,23 @@ from countdown_core.rendering.layouts.hd_portrait import (
     SpotifyGlowHdPortraitLayout,
     SpotifyHdPortraitLayout,
 )
-from countdown_core.rendering.registry import LayoutRegistry
-from countdown_core.tfl.combined_arrival_panel import COLUMN_GAP, STOP_WIDTH, CombinedArrivalPanel
-from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
-from countdown_core.utils.scaled_draw import drawing_scale
-from countdown_core.utils.utils import GAP
+from countdown_renderer.rendering.registry import LayoutRegistry
+from countdown_renderer.tfl.combined_arrival_panel import COLUMN_GAP, STOP_WIDTH, CombinedArrivalPanel
+from countdown_renderer.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
+from countdown_renderer.utils.scaled_draw import drawing_scale
+from countdown_renderer.utils.utils import GAP
 from countdown_core.spotify.models import Queue
-from countdown_core.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel
-from countdown_core.system_screens.message_panel import MessagePanel
-from countdown_core.weather.hd_sidebar_panel import HdHoursPanel, HdSidebarPanel
-from countdown_core.weather.hd_weather_panel import HdWeatherPanel
+from countdown_renderer.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel
+from countdown_renderer.system_screens.message_panel import MessagePanel
+from countdown_renderer.weather.hd_sidebar_panel import HdHoursPanel, HdSidebarPanel
+from countdown_renderer.weather.hd_weather_panel import HdWeatherPanel
 from countdown_core.weather.models import ForecastResponse
-from countdown_core.weather.weather_forecast import weather_pages
-from countdown_core.weather.weather_panel import WeatherPanel
+from countdown_renderer.weather.weather_forecast import weather_pages
+from countdown_renderer.weather.weather_panel import WeatherPanel
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from countdown_core.utils.clock import ClockFormat
+    from countdown_renderer.utils.clock import ClockFormat
 
 # What only the arrivals are drawn in: not the white background, the black panels or any anti-aliased grey text.
 _ARRIVALS_COLOUR = (200, 120, 30)

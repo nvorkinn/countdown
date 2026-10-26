@@ -21,12 +21,11 @@ from location_factory import FakeLocations
 from redis.exceptions import RedisError
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.core import http_session, log_format, moment
+from countdown_core.core import http_session, log_format
 from countdown_core.notices import location, norway_feed
 from countdown_core.notices.location import lookup_outcode, lookup_postcode
 from countdown_core.notices.models import FloodWarningsResponse
 from countdown_core.notices.norway_feed import ADDRESSES_URL, lookup_norwegian_postcode
-from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys
 from countdown_core.store.floods import StoredFloods
 from countdown_core.store.location import StoredLocation
@@ -44,6 +43,8 @@ from countdown_providers.runner import ProviderRunner
 from countdown_providers.tfl.main import TflProvider
 from countdown_providers.tfl_notices.main import TflLineStatusProvider, TflRoadProvider, TflStationProvider
 from countdown_providers.weather.main import WeatherProvider
+from countdown_renderer import moment
+from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
 # Coordinates odd enough that finding them in a log can't be chance.

@@ -11,7 +11,7 @@ from weather_factory import forecast_json
 from countdown_api.models import Weather as WeatherSection
 from countdown_core.store import keys, reader
 from countdown_core.weather.models import Upcoming, Weather, WeatherPeriod
-from countdown_core.weather.weather_client import NoStoredForecastError, WeatherClient, location_key
+from countdown_renderer.weather.weather_client import NoStoredForecastError, WeatherClient, location_key
 
 FORECAST_JSON = forecast_json()
 LONDON = "london-gb-2643743"

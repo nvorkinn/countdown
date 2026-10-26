@@ -14,43 +14,42 @@ from PIL import Image, ImageChops, ImageDraw
 from tfl_factory import tfl_panel
 from weather_factory import forecast_json, make_weather
 
-# `countdown_core` must be imported before any display.* module, or it's a circular import.
-import countdown_core
-import countdown_core.glow.energy_panel
+# `countdown_renderer` must be imported before any of its panel modules, or it's a circular import.
+import countdown_renderer.glow.energy_panel
 from countdown_api.models import Screen
-from countdown_core.core import moment
-from countdown_core.core.api_registry import ClientClasses
-from countdown_core.departures.departures_client import DeparturesClient
-from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.models import AiPlan, DeveloperSummary, GitHubSummary, Release, ReleaseJob
-from countdown_core.entur.entur_arrival_panel import EnturArrivalPanel
 from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
-from countdown_core.glow.energy_panel import EnergyPanel
-from countdown_core.glow.glow_client import GlowClient
 from countdown_core.i18n import set_locale
-from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_panel import NoticeBoardPanel
-from countdown_core.notices.notice_styles import STYLES as NOTICE_STYLES
-from countdown_core.render import _pairing_picture
-from countdown_core.rendering import render, stops_fitting
-from countdown_core.rendering.screen import DEFAULT_CANVAS, Canvas
 from countdown_core.spotify.models import Artist, Playback, Queue, Track
-from countdown_core.spotify.spotify_client import SpotifyClient
-from countdown_core.spotify.spotify_panel import SpotifyPanel
-from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS
-from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
-from countdown_core.system_screens import pairing_code_panel
-from countdown_core.system_screens.empty_panel import EmptyPanel
-from countdown_core.system_screens.pairing_code_panel import PairingCodePanel
-from countdown_core.tfl.combined_arrival_panel import ROTATION_STRIP, CombinedArrivalPanel, Rotation
 from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
 from countdown_core.weather.models import ForecastResponse, WeatherPeriod
-from countdown_core.weather.weather_client import WeatherClient
-from countdown_core.weather.weather_forecast import weather_pages
-from countdown_core.weather.weather_panel import WeatherPanel
+from countdown_renderer import moment
+from countdown_renderer.api_registry import ClientClasses
+from countdown_renderer.departures.departures_client import DeparturesClient
+from countdown_renderer.developer.developer_panel import DeveloperPanel
+from countdown_renderer.entur.entur_arrival_panel import EnturArrivalPanel
+from countdown_renderer.glow.energy_panel import EnergyPanel
+from countdown_renderer.glow.glow_client import GlowClient
+from countdown_renderer.notices.notice import Notice, Severity
+from countdown_renderer.notices.notice_board_panel import NoticeBoardPanel
+from countdown_renderer.notices.notice_styles import STYLES as NOTICE_STYLES
+from countdown_renderer.render import _pairing_picture
+from countdown_renderer.rendering import render, stops_fitting
+from countdown_renderer.rendering.screen import DEFAULT_CANVAS, Canvas
+from countdown_renderer.spotify.spotify_client import SpotifyClient
+from countdown_renderer.spotify.spotify_panel import SpotifyPanel
+from countdown_renderer.spotify.spotify_styles import APPLE_MUSIC_LABELS
+from countdown_renderer.spotify.spotify_top_panel import SpotifyTopPanel
+from countdown_renderer.system_screens import pairing_code_panel
+from countdown_renderer.system_screens.empty_panel import EmptyPanel
+from countdown_renderer.system_screens.pairing_code_panel import PairingCodePanel
+from countdown_renderer.tfl.combined_arrival_panel import ROTATION_STRIP, CombinedArrivalPanel, Rotation
+from countdown_renderer.weather.weather_client import WeatherClient
+from countdown_renderer.weather.weather_forecast import weather_pages
+from countdown_renderer.weather.weather_panel import WeatherPanel
 
 if TYPE_CHECKING:
-    from countdown_core.core.panel import Panel
+    from countdown_renderer.panel import Panel
 
 
 def draw_screen(panels, screen, available, *, clock_format="24h") -> Image.Image:
@@ -83,7 +82,7 @@ class _FrozenDatetime(dt.datetime):
 
 @pytest.fixture(autouse=True)
 def _freeze_time(monkeypatch):
-    monkeypatch.setattr(countdown_core.glow.energy_panel, "datetime", _FrozenDatetime)
+    monkeypatch.setattr(countdown_renderer.glow.energy_panel, "datetime", _FrozenDatetime)
 
 
 BUS_STOP = SingleStopPoint(

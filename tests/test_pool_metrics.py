@@ -4,10 +4,10 @@ import pytest
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from redis.exceptions import ConnectionError as RedisConnectionError
 
-from countdown_core.core.abstract_client import ClientStatus
-from countdown_core.core.api_registry import API_NAMES
-from countdown_core.render import Outcome, Result, Stage
+from countdown_renderer.abstract_client import ClientStatus
+from countdown_renderer.api_registry import API_NAMES
 from countdown_renderer.pool_metrics import FAILED, UNCHANGED, WRITTEN, PoolMetrics, outcome_of
+from countdown_renderer.render import Outcome, Result, Stage
 
 DEVICE, SLUG = "a1b2c3d4e5f6", "nvorkinn-test"
 

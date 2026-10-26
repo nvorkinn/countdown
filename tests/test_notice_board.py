@@ -10,24 +10,24 @@ from PIL import Image, ImageDraw
 from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.core import moment
-from countdown_core.core.api_registry import section_for
-from countdown_core.notices import notice_board_client as board_module
-from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
-from countdown_core.notices.floods import StoredFloodWarningsSource
-from countdown_core.notices.met_office import StoredMetOfficeWarningsSource, warning_notices
 from countdown_core.notices.met_office_feed import region_for
-from countdown_core.notices.notice import Notice, NoticeSource, Severity
-from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
-from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
-from countdown_core.notices.notice_styles import STYLES
-from countdown_core.notices.tfl import NoStoredTflNoticesError, StoredTflRoadSource
 from countdown_core.store import keys
 from countdown_core.store.bank_holidays import StoredBankHolidays
 from countdown_core.store.location import StoredLocation
 from countdown_core.tfl.models import Postcode
-from countdown_core.utils.clock import format_clock
 from countdown_providers.met_office.main import feed_items
+from countdown_renderer import moment
+from countdown_renderer.api_registry import section_for
+from countdown_renderer.notices import notice_board_client as board_module
+from countdown_renderer.notices.calendar import ClockChangeSource, StoredBankHolidaySource
+from countdown_renderer.notices.floods import StoredFloodWarningsSource
+from countdown_renderer.notices.met_office import StoredMetOfficeWarningsSource, warning_notices
+from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
+from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
+from countdown_renderer.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
+from countdown_renderer.notices.notice_styles import STYLES
+from countdown_renderer.notices.tfl import NoStoredTflNoticesError, StoredTflRoadSource
+from countdown_renderer.utils.clock import format_clock
 
 NOW = datetime(2026, 9, 25, 12, 0, tzinfo=UTC)
 SOUTHWARK = Postcode(
@@ -479,7 +479,7 @@ def test_board_with_an_unknown_postcode_says_so(store, clock, caplog):
     store.set(keys.bank_holidays(), StoredBankHolidays(fetched_at=NOW, divisions=BANK_HOLIDAYS).model_dump_json())
     client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="ZZ1 1ZZ"))
 
-    with caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"):
+    with caplog.at_level("WARNING", logger="countdown_renderer.notices.notice_board_client"):
         panel = update(client)
 
     assert panel.message == "Unknown postcode"
@@ -492,7 +492,7 @@ def test_board_waits_for_a_location_not_in_the_store_yet_and_reads_again_a_poll_
     client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="SE17 3LL"))
     client._read = lambda sources, now: ({}, set())
 
-    with caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"):
+    with caplog.at_level("WARNING", logger="countdown_renderer.notices.notice_board_client"):
         panel = update(client)  # its key isn't there: the place's notices aren't available
     assert panel.message == "Not available"
     assert client.location is None
@@ -520,7 +520,7 @@ def test_board_whose_store_cant_be_read_tries_again_without_naming_the_postcode(
     client._read = lambda sources, now: ({}, set())
 
     with (
-        caplog.at_level("WARNING", logger="countdown_core.notices.notice_board_client"),
+        caplog.at_level("WARNING", logger="countdown_renderer.notices.notice_board_client"),
         pytest.raises(RuntimeError, match=r"^Couldn't look up the postcode yet$"),
     ):
         update(client)

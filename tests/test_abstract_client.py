@@ -7,8 +7,8 @@ import pytest
 from config_factory import make_config
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.core import abstract_client
-from countdown_core.core.abstract_client import AbstractClient, ClientStatus
+from countdown_renderer import abstract_client
+from countdown_renderer.abstract_client import AbstractClient, ClientStatus
 
 
 class FakeClient(AbstractClient):

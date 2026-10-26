@@ -1,4 +1,4 @@
-import countdown_core  # noqa: I001 -- see test_display_snapshots.py for why this comes first
+import countdown_renderer  # noqa: I001 -- see test_display_snapshots.py for why this comes first
 import datetime as dt
 from typing import TYPE_CHECKING
 
@@ -18,37 +18,37 @@ from test_display_snapshots import (
     _panels,
 )
 
-import countdown_core.glow.energy_panel
-from countdown_core.core import moment
-from countdown_core.core.api_registry import ClientClasses
-from countdown_core.departures.departures_client import DeparturesClient
-from countdown_core.developer.developer_panel import DeveloperPanel
-from countdown_core.glow.glow_client import GlowClient
-from countdown_core.notices.focus_notices_panel import FocusNoticesPanel
-from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_panel import NoticeBoardPanel
-from countdown_core.rendering.layouts.hd import SCALE, HdLayout
-from countdown_core.rendering.layouts.hd_landscape import HD_LANDSCAPE
-from countdown_core.rendering.layouts.hd_landscape_focus import (
+import countdown_renderer.glow.energy_panel
+from countdown_renderer import moment
+from countdown_renderer.api_registry import ClientClasses
+from countdown_renderer.departures.departures_client import DeparturesClient
+from countdown_renderer.developer.developer_panel import DeveloperPanel
+from countdown_renderer.glow.glow_client import GlowClient
+from countdown_renderer.notices.focus_notices_panel import FocusNoticesPanel
+from countdown_renderer.notices.notice import Notice, Severity
+from countdown_renderer.notices.notice_board_panel import NoticeBoardPanel
+from countdown_renderer.rendering.layouts.hd import SCALE, HdLayout
+from countdown_renderer.rendering.layouts.hd_landscape import HD_LANDSCAPE
+from countdown_renderer.rendering.layouts.hd_landscape_focus import (
     FOCUS_SCALE,
     HD_LANDSCAPE_FOCUS_LAYOUTS,
     HdLandscapeFocusLayout,
 )
-from countdown_core.spotify.spotify_client import SpotifyClient
-from countdown_core.spotify.spotify_panel import SpotifyPanel
-from countdown_core.system_screens.message_panel import MessagePanel
-from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
-from countdown_core.tfl.focus_panel import FocusPanel
+from countdown_renderer.spotify.spotify_client import SpotifyClient
+from countdown_renderer.spotify.spotify_panel import SpotifyPanel
+from countdown_renderer.system_screens.message_panel import MessagePanel
+from countdown_renderer.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
+from countdown_renderer.tfl.focus_panel import FocusPanel
 from countdown_core.tfl.models import BusArrival
-from countdown_core.weather.focus_weather_panel import FocusWeatherPanel
+from countdown_renderer.weather.focus_weather_panel import FocusWeatherPanel
 from countdown_core.weather.models import ForecastResponse
-from countdown_core.weather.weather_client import WeatherClient
-from countdown_core.weather.weather_forecast import weather_pages
-from countdown_core.weather.weather_panel import WeatherPanel
+from countdown_renderer.weather.weather_client import WeatherClient
+from countdown_renderer.weather.weather_forecast import weather_pages
+from countdown_renderer.weather.weather_panel import WeatherPanel
 
 if TYPE_CHECKING:
-    from countdown_core.core.panel import Panel
-    from countdown_core.rendering.layout import Layout
+    from countdown_renderer.panel import Panel
+    from countdown_renderer.rendering.layout import Layout
 
 SPOTIFY, GLOW = ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT
 VARIANTS = [
@@ -67,7 +67,7 @@ class _FrozenDatetime(dt.datetime):
 
 @pytest.fixture(autouse=True)
 def _freeze_time(monkeypatch):
-    monkeypatch.setattr(countdown_core.glow.energy_panel, "datetime", _FrozenDatetime)
+    monkeypatch.setattr(countdown_renderer.glow.energy_panel, "datetime", _FrozenDatetime)
     with moment.drawing_at(_FROZEN_NOW.replace(tzinfo=dt.UTC)):
         yield
 

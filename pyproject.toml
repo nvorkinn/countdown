@@ -9,7 +9,7 @@ requires-python = ">=3.14"
 # The workspace's own packages, so `uv sync` installs them all (editable) for the tests.
 dependencies = [
     "countdown-api",
-    "countdown-core[render]",
+    "countdown-core",
     "countdown-renderer",
     "countdown-providers",
 ]
