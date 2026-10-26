@@ -21,8 +21,7 @@ from location_factory import FakeLocations
 from redis.exceptions import RedisError
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.core import log_format, moment
-from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.core import http_session, log_format, moment
 from countdown_core.notices import location, norway
 from countdown_core.notices.location import lookup_outcode, lookup_postcode
 from countdown_core.notices.models import FloodWarningsResponse
@@ -118,7 +117,7 @@ def nowhere(monkeypatch) -> str:
 
 def retrying_session() -> requests.Session:
     """Return countdown_core's retrying session (the providers' too), retrying at once rather than backing off."""
-    session = AbstractClient._build_retrying_session(backoff_factor=0)
+    session = http_session.retrying_session(backoff_factor=0)
     session.trust_env = False  # straight to the closed port, not through a proxy
     return session
 

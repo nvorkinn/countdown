@@ -26,7 +26,7 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.core.http_session import retrying_session
 from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.store import keys
 from countdown_core.store.location import weather_postcode
@@ -153,7 +153,7 @@ def main() -> None:
     # One client for the runner and the locations it reads.
     redis = settings.redis()
     # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
+    session = retrying_session()
     asyncio.run(serve(WeatherProvider(session, LocationReader(redis)), settings, redis=redis))
 
 

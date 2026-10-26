@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
+from countdown_core.core.http_session import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date, language
 from countdown_core.notices.calendar import when
 from countdown_core.notices.notice import Notice, NoticeSource, Severity

@@ -8,10 +8,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Any
 
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3 import Retry
-
+from countdown_core.core.http_session import retrying_session
 from countdown_core.i18n import N_
 from countdown_core.store.reader import NoStoredDataError
 from countdown_core.system_screens.message_panel import MessagePanel
@@ -25,8 +22,6 @@ logger = logging.getLogger(__name__)
 # A client call slower than this is logged, so a slow API shows up in the journal by name
 # instead of just making the whole render late.
 SLOW_CALL_S = 5
-
-DEFAULT_TIMEOUT = 10
 
 # What a panel says when the store has nothing for it: its key has expired (the provider is down), or isn't there yet.
 NOT_AVAILABLE = N_("Not available")
@@ -62,7 +57,7 @@ class AbstractClient[C = Any](ABC):
         # The screen whose keys in the store the client reads (the ones by device: energy, music, developer).
         self.device_id = device_id
         self.config: C = config
-        self.session = self._build_retrying_session()
+        self.session = retrying_session()
         self.cache: dict[str, object] = {}
         self.status: ClientStatus = ClientStatus.UNINITIALISED
         self.last_updated: datetime | None = None
@@ -98,21 +93,6 @@ class AbstractClient[C = Any](ABC):
     @abstractmethod
     def _initialise(self) -> None:
         pass
-
-    @staticmethod
-    def _build_retrying_session(retries: int = 3, backoff_factor: float = 0.5) -> requests.Session:
-        """Build a requests.Session that retries connection errors and 502/503/504 with backoff."""
-        session = requests.Session()
-        retry = Retry(
-            total=retries,
-            backoff_factor=backoff_factor,
-            status_forcelist=[502, 503, 504],
-            allowed_methods=None,  # retry on every method, including the POST used for auth
-        )
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount("https://", adapter)
-        session.mount("http://", adapter)
-        return session
 
     def _log_if_slow(self, what: str, started: float) -> None:
         elapsed = time.monotonic() - started
