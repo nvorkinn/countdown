@@ -5,12 +5,17 @@ requires-python = ">=3.14"
 dependencies = [
     "babel",
     "countdown-api",
-    "pillow",
     "pydantic",
-    "qrcode",
     "redis",
     "requests",
     "urllib3==2.8.0",
+]
+
+[project.optional-dependencies]
+# What drawing a screen needs; the providers run without it (they install countdown-core bare).
+render = [
+    "pillow",
+    "qrcode",
 ]
 
 [tool.deptry.package_module_name_map]
