@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
+from countdown_core.core.http_session import DEFAULT_TIMEOUT, retrying_session
 from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.notices.location import FULL_POSTCODE
 from countdown_core.notices.met_office import region_for
@@ -162,7 +162,7 @@ def main() -> None:
     # One client for the runner and the locations it reads.
     redis = settings.redis()
     # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
+    session = retrying_session()
     asyncio.run(serve(MetOfficeProvider(session, LocationReader(redis)), settings, redis=redis))
 
 

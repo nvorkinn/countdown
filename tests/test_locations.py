@@ -24,7 +24,7 @@ from responses import matchers
 from test_utils import TEST_DEVICE_ID
 
 from countdown_core.core import log_format, moment
-from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.core.http_session import retrying_session
 from countdown_core.notices import location as location_module
 from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.norway import ADDRESSES_URL
@@ -370,7 +370,7 @@ def test_urllib3s_retry_warnings_which_quote_the_postcodes_url_are_kept_out(
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
     monkeypatch.setattr(location_module, "POSTCODES_URL", f"http://127.0.0.1:{port}/postcodes")
-    session = AbstractClient._build_retrying_session(backoff_factor=0)
+    session = retrying_session(backoff_factor=0)
     session.trust_env = False  # straight to the closed port, not through a proxy
     caplog.set_level(logging.DEBUG)
 

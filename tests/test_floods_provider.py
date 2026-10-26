@@ -21,7 +21,7 @@ from location_factory import FakeLocations
 from responses import matchers
 
 from countdown_core.core import log_format
-from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.core.http_session import retrying_session
 from countdown_core.notices.models import FloodWarningsResponse
 from countdown_core.store import keys
 from countdown_core.tfl.models import Postcode, PostcodeResponse
@@ -338,7 +338,7 @@ def test_urllib3s_retry_warnings_which_quote_the_coordinates_are_kept_out(
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
     monkeypatch.setattr(floods_main, "FLOOD_AREAS_URL", f"http://127.0.0.1:{port}/id/floodAreas")
-    session = AbstractClient._build_retrying_session(backoff_factor=0)
+    session = retrying_session(backoff_factor=0)
     session.trust_env = False  # straight to the closed port, not through a proxy
     located.put(place_of("SE17 3LL"))
     provider = FloodsProvider(session, located.reader, now=clock)

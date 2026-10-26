@@ -24,7 +24,7 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
-from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.core.http_session import retrying_session
 from countdown_core.core.log_format import configure_logging
 from countdown_core.entur.entur_client import EnturClient
 from countdown_core.notices.entur import query_situations
@@ -102,7 +102,7 @@ def main() -> None:
     configure_logging()
     settings = Settings.from_env()
     # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff (never a 429).
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
+    session = retrying_session()
     asyncio.run(serve(EnturSituationsProvider(EnturClient(session)), settings))
 
 

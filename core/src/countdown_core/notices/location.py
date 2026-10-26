@@ -4,7 +4,7 @@ import re
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
+from countdown_core.core.http_session import DEFAULT_TIMEOUT
 from countdown_core.tfl.models import OutcodeResponse, Postcode, PostcodeResponse
 
 if TYPE_CHECKING:

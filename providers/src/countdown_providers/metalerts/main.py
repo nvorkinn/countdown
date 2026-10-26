@@ -23,7 +23,7 @@ from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT, AbstractClient
+from countdown_core.core.http_session import DEFAULT_TIMEOUT, retrying_session
 from countdown_core.core.log_format import configure_logging
 from countdown_core.notices.norway import MET_HEADERS, METALERTS_URL
 from countdown_core.store import keys
@@ -149,7 +149,7 @@ def main() -> None:
     """Run the `countdown-provider-metalerts` console script."""
     configure_logging()
     # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
+    session = retrying_session()
     asyncio.run(serve(MetAlertsProvider(session), Settings.from_env()))
 
 

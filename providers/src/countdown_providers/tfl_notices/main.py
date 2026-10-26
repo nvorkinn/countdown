@@ -25,7 +25,7 @@ from datetime import UTC, datetime, timedelta
 from itertools import batched
 from typing import TYPE_CHECKING
 
-from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.core.http_session import retrying_session
 from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.notices.location import FULL_POSTCODE
 from countdown_core.notices.tfl import ROAD_SEVERITY, is_near
@@ -216,11 +216,10 @@ def providers(
     The road provider reads where the postcodes are through `locations`.
     """
     # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session  # noqa: SLF001 -- shared with countdown_core's clients on purpose
     return [
-        TflLineStatusProvider(TflSource(session(), app_key)),
-        TflStationProvider(TflSource(session(), app_key)),
-        TflRoadProvider(TflSource(session(), app_key), locations),
+        TflLineStatusProvider(TflSource(retrying_session(), app_key)),
+        TflStationProvider(TflSource(retrying_session(), app_key)),
+        TflRoadProvider(TflSource(retrying_session(), app_key), locations),
     ]
 
 

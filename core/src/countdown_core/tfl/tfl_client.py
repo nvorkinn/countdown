@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
+from countdown_core.core.http_session import DEFAULT_TIMEOUT
 from countdown_core.tfl.models import (
     ArrivalUnion,
     BusArrival,

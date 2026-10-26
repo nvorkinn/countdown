@@ -5,7 +5,7 @@ The renderer doesn't call these: it reads the forecasts the provider stores (Wea
 
 from typing import TYPE_CHECKING
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
+from countdown_core.core.http_session import DEFAULT_TIMEOUT
 from countdown_core.weather.models import ForecastResponse, GeocodingResponse, GeocodingResult
 
 if TYPE_CHECKING:

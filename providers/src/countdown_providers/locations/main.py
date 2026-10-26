@@ -40,7 +40,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from countdown_core.core.abstract_client import AbstractClient
+from countdown_core.core.http_session import retrying_session
 from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.notices.location import FULL_POSTCODE, OUTCODE, lookup_outcode, lookup_postcode
 from countdown_core.notices.norway import lookup_norwegian_postcode
@@ -195,7 +195,7 @@ def main() -> None:
     """Run the `countdown-provider-locations` console script. postcodes.io and Kartverket are keyless."""
     configure_logging()
     # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
-    session = AbstractClient._build_retrying_session()  # noqa: SLF001 -- shared with countdown_core's clients on purpose
+    session = retrying_session()
     postcodes = LocationsProvider(session)
     asyncio.run(serve_all([postcodes, WeatherPostcodesProvider(postcodes)], Settings.from_env()))
 

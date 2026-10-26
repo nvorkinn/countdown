@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
-from countdown_core.core.abstract_client import DEFAULT_TIMEOUT
+from countdown_core.core.http_session import DEFAULT_TIMEOUT
 
 if TYPE_CHECKING:
     import requests
