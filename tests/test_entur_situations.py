@@ -25,12 +25,8 @@ from countdown_core.core import moment
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.entur.entur_client import HEADERS, JOURNEY_PLANNER_URL, EnturClient
 from countdown_core.notices import notice_board_client as board_module
-from countdown_core.notices.entur import (
-    QUAY_SITUATIONS_QUERY,
-    SITUATIONS_QUERY,
-    NoStoredSituationsError,
-    StoredEnturSituationsSource,
-)
+from countdown_core.notices.entur import NoStoredSituationsError, StoredEnturSituationsSource
+from countdown_core.notices.entur_feed import QUAY_SITUATIONS_QUERY, SITUATIONS_QUERY
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader

@@ -2,7 +2,7 @@
 
 Where each postcode is comes from the store, as provider-locations placed it (`v1:location:<place>`, read each cycle
 by locations.reader.LocationReader; one it hasn't placed, or that doesn't exist, is left out until it has), and gives
-the Met Office warning region it's in (countdown_core.notices.met_office.region_for). The Met Office publishes a
+the Met Office warning region it's in (countdown_core.notices.met_office_feed.region_for). The Met Office publishes a
 warnings RSS feed per region, so each region's feed is fetched once a cycle however many postcodes are in it, and
 written under each of them, `v1:notices:met-office:<place>`, as a StoredMetOfficeWarnings: the feed's items, which the
 render pool makes its notices from when it draws. A Norwegian postcode (four digits) is MET Norway's to warn about, not
@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from countdown_core.core.http_session import DEFAULT_TIMEOUT, retrying_session
 from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.notices.location import FULL_POSTCODE
-from countdown_core.notices.met_office import region_for
+from countdown_core.notices.met_office_feed import region_for
 from countdown_core.store import keys
 from countdown_core.store.met_office import FeedItem, StoredMetOfficeWarnings
 from countdown_providers.config import Settings

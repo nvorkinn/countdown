@@ -1,6 +1,6 @@
 """The disruptions at an Entur stop in the store: the value of `v1:notices:entur:<stop id>`.
 
-Written by provider-entur-situations: Entur's own answer to the situations query (countdown_core.notices.entur's
+Written by provider-entur-situations: Entur's own answer to the situations query (notices/entur_feed.py's
 SITUATIONS_QUERY, or QUAY_SITUATIONS_QUERY for a quay), its GraphQL `data` exactly as it came, so the renderer makes
 the notices from it as it draws (StoredEnturSituationsSource): each summary in the screen's language, "Line 5"
 translated, and the situations that have ended since left out.

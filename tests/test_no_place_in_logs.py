@@ -22,10 +22,10 @@ from redis.exceptions import RedisError
 from test_utils import TEST_DEVICE_ID
 
 from countdown_core.core import http_session, log_format, moment
-from countdown_core.notices import location, norway
+from countdown_core.notices import location, norway_feed
 from countdown_core.notices.location import lookup_outcode, lookup_postcode
 from countdown_core.notices.models import FloodWarningsResponse
-from countdown_core.notices.norway import ADDRESSES_URL, lookup_norwegian_postcode
+from countdown_core.notices.norway_feed import ADDRESSES_URL, lookup_norwegian_postcode
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys
 from countdown_core.store.floods import StoredFloods
@@ -108,7 +108,7 @@ def nowhere(monkeypatch) -> str:
         base = f"http://127.0.0.1:{s.getsockname()[1]}"
     monkeypatch.setattr(location, "POSTCODES_URL", f"{base}/postcodes")
     monkeypatch.setattr(location, "OUTCODES_URL", f"{base}/outcodes")
-    monkeypatch.setattr(norway, "ADDRESSES_URL", f"{base}/adresser/v1/sok")
+    monkeypatch.setattr(norway_feed, "ADDRESSES_URL", f"{base}/adresser/v1/sok")
     monkeypatch.setattr(open_meteo, "GEOCODING_URL", f"{base}/v1/search")
     monkeypatch.setattr(open_meteo, "FORECAST_URL", f"{base}/v1/forecast")
     monkeypatch.setattr(floods_main, "FLOOD_AREAS_URL", f"{base}/id/floodAreas")

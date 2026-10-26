@@ -26,11 +26,11 @@ from countdown_core.notices.tfl import (
     StoredTflLineStatusSource,
     StoredTflRoadSource,
     StoredTflStationSource,
-    is_near,
     line_status_notices,
     road_notices,
     station_notices,
 )
+from countdown_core.notices.tfl_feed import is_near
 from countdown_core.store import keys, reader
 from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
 from countdown_core.tfl.models import PostcodeResponse

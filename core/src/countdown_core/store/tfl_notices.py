@@ -47,7 +47,7 @@ class StoredRoadDisruptions(Stored):
     """The road disruptions near a postcode's place: the value of `v1:notices:tfl-roads:<place>`.
 
     The entries of TfL's /Road/all/Disruption (asked for the severities the board shows) within
-    notices.tfl.ROAD_RADIUS_KM of the postcode. TfL only knows London's roads, so elsewhere it's always empty.
+    notices.tfl_feed.ROAD_RADIUS_KM of the postcode. TfL only knows London's roads, so elsewhere it's always empty.
     """
 
     # As the broker subscribed it, e.g. "SE17 3LL".

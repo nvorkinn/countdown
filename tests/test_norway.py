@@ -12,13 +12,8 @@ from countdown_core import i18n
 from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_core.notices.calendar import ClockChangeSource
 from countdown_core.notices.entur import StoredEnturSituationsSource
-from countdown_core.notices.norway import (
-    ADDRESSES_URL,
-    NorwegianHolidaySource,
-    lookup_norwegian_postcode,
-    norwegian_holidays,
-    parse_metalerts,
-)
+from countdown_core.notices.norway import NorwegianHolidaySource, norwegian_holidays, parse_metalerts
+from countdown_core.notices.norway_feed import ADDRESSES_URL, lookup_norwegian_postcode
 from countdown_core.notices.notice import Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys

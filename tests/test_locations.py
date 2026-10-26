@@ -27,7 +27,7 @@ from countdown_core.core import log_format, moment
 from countdown_core.core.http_session import retrying_session
 from countdown_core.notices import location as location_module
 from countdown_core.notices.location import POSTCODES_URL
-from countdown_core.notices.norway import ADDRESSES_URL
+from countdown_core.notices.norway_feed import ADDRESSES_URL
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
 from countdown_core.store.bank_holidays import StoredBankHolidays

@@ -1,17 +1,17 @@
 """Weather warnings for a UK postcode, from the Met Office's RSS feeds.
 
-provider-met-office fetches the feed of each subscribed postcode's region and stores its items under the postcode
-(countdown_core.store.met_office); the notice board reads them from there (StoredMetOfficeWarningsSource) and makes
-its notices from them when it draws (warning_notices).
+provider-met-office fetches the feed of each subscribed postcode's region (met_office_feed.region_for) and stores its
+items under the postcode (countdown_core.store.met_office); the notice board reads them from there
+(StoredMetOfficeWarningsSource) and makes its notices from them when it draws (warning_notices).
 """
 
-import logging
 import re
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
 from countdown_core.i18n import N_, _, format_date
+from countdown_core.notices.met_office_feed import region_for
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.store import keys, reader
 from countdown_core.store.met_office import StoredMetOfficeWarnings
@@ -25,61 +25,7 @@ if TYPE_CHECKING:
     from countdown_core.store.met_office import FeedItem
     from countdown_core.tfl.models import Postcode
 
-logger = logging.getLogger(__name__)
-
 UK_TIME = ZoneInfo("Europe/London")
-
-# Met Office warning regions, keyed by postcodes.io's English region or, outside
-# England, its country. Scotland is split further, by council area (below).
-REGION_BY_AREA = {
-    "London": "se",
-    "South East": "se",
-    "South West": "sw",
-    "East of England": "ee",
-    "East Midlands": "em",
-    "West Midlands": "wm",
-    "Yorkshire and The Humber": "yh",
-    "North West": "nw",
-    "North East": "ne",
-    "Wales": "wl",
-    "Northern Ireland": "ni",
-}
-SCOTTISH_REGION_BY_COUNCIL = {
-    "Orkney Islands": "os",
-    "Shetland Islands": "os",
-    "Highland": "he",
-    "Na h-Eileanan Siar": "he",
-    "Aberdeen City": "gr",
-    "Aberdeenshire": "gr",
-    "Moray": "gr",
-    "Angus": "ta",
-    "Dundee City": "ta",
-    "Perth and Kinross": "ta",
-    "Fife": "ta",
-    "Stirling": "ta",
-    "Falkirk": "ta",
-    "Clackmannanshire": "ta",
-    "Argyll and Bute": "st",
-    "East Ayrshire": "st",
-    "North Ayrshire": "st",
-    "South Ayrshire": "st",
-    "East Dunbartonshire": "st",
-    "West Dunbartonshire": "st",
-    "Glasgow City": "st",
-    "Inverclyde": "st",
-    "North Lanarkshire": "st",
-    "South Lanarkshire": "st",
-    "East Renfrewshire": "st",
-    "Renfrewshire": "st",
-    "Dumfries and Galloway": "dg",
-    "Scottish Borders": "dg",
-    "City of Edinburgh": "dg",
-    "East Lothian": "dg",
-    "Midlothian": "dg",
-    "West Lothian": "dg",
-}
-# The whole of the UK: noisier, but better than nothing for a place we can't place.
-UK_REGION = "UK"
 
 SEVERITY_BY_COLOUR = {"red": Severity.SEVERE, "amber": Severity.WARNING, "yellow": Severity.INFO}
 WARNING_BY_COLOUR = {
@@ -90,19 +36,6 @@ WARNING_BY_COLOUR = {
 TITLE_PATTERN = re.compile(r"^(Red|Amber|Yellow) warning of (.+?) affecting", re.IGNORECASE)
 # e.g. "valid from 0600 Wed 25 Sep to 2100 Wed 25 Sep"
 VALID_TO_PATTERN = re.compile(r"\bto (\d{4}) \w{3} (\d{1,2}) (\w{3})\b")
-
-
-def region_for(location: Postcode) -> str:
-    """Find the Met Office warning region `location` is in; the whole UK if it's in none we know."""
-    if location.country == "Scotland":
-        region = SCOTTISH_REGION_BY_COUNCIL.get(location.admin_district or "")
-    else:
-        region = REGION_BY_AREA.get(location.region or location.country)
-    if region is None:
-        # Not the area: it says roughly where the screen, and someone's home, is.
-        logger.warning("No Met Office warning region for a postcode's area; using the whole UK")
-        return UK_REGION
-    return region
 
 
 def _valid_until(description: str, now: datetime) -> datetime | None:
