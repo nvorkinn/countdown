@@ -182,7 +182,7 @@ jobs:
 
       # GitHub's signed provenance for the merged index (what every tag points at), stored with the image in GHCR and
       # in GitHub's attestation store. Verify with
-      # `gh attestation verify oci://ghcr.io/nvorkinn/countdown-<image>:<tag> --repo nvorkinn/pi-dashboard`.
+      # `gh attestation verify oci://ghcr.io/nvorkinn/countdown-<image>:<tag> --repo nvorkinn/countdown`.
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:

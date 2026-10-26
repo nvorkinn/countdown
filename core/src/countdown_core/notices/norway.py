@@ -30,7 +30,7 @@ ADDRESSES_URL = "https://ws.geonorge.no/adresser/v1/sok"
 # Only the MetAlerts provider asks MET (countdown_providers.metalerts); the board reads its answer from the store.
 METALERTS_URL = "https://api.met.no/weatherapi/metalerts/2.0/current.json"
 # api.met.no refuses requests that don't say who's asking (https://api.met.no/doc/TermsOfService).
-MET_HEADERS = {"User-Agent": "countdown https://github.com/nvorkinn/pi-dashboard"}
+MET_HEADERS = {"User-Agent": "countdown https://github.com/nvorkinn/countdown"}
 
 
 def lookup_norwegian_postcode(session: requests.Session, postcode: str) -> Postcode | None:

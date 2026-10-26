@@ -3,7 +3,7 @@
 # root, after `uv build --wheel --all-packages` has filled dist/. See README.md.
 FROM python:3.14-slim
 
-LABEL org.opencontainers.image.source="https://github.com/nvorkinn/pi-dashboard"
+LABEL org.opencontainers.image.source="https://github.com/nvorkinn/countdown"
 LABEL org.opencontainers.image.description="countdown providers: fetch each API's data into the shared Redis store"
 
 # Third-party packages first, pinned and hashed from uv.lock (dev/build_dist.sh), in a layer of their own: the

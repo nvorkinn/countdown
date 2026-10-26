@@ -1,7 +1,7 @@
-"""pi-dashboard's side of the store contract, through its canonical examples (countdown-api's countdown_api.fixtures).
+"""Our side of the store contract, through its canonical examples (countdown-api's countdown_api.fixtures).
 
 countdown-server writes most of what crosses between the two repositories, and reads the rest; its tests check its side
-against the same files. Here each of pi-dashboard's readers reads the example the broker would have written, under the
+against the same files. Here each of our readers reads the example the broker would have written, under the
 contract's key, and each of its writers writes exactly the example the broker reads, with the contract's TTL. So
 neither side can move alone: a change to the stored shape is a change to the contract first.
 """

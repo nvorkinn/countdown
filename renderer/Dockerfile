@@ -3,7 +3,7 @@
 # the repository root, after `uv build --wheel --all-packages` has filled dist/. See deploy/README.md.
 FROM python:3.14-slim
 
-LABEL org.opencontainers.image.source="https://github.com/nvorkinn/pi-dashboard"
+LABEL org.opencontainers.image.source="https://github.com/nvorkinn/countdown"
 LABEL org.opencontainers.image.description="countdown render pool: the workers and the ticker"
 
 # fribidi turns on Pillow's Raqm text layout, which the snapshot tests render with.

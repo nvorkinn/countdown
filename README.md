@@ -1,6 +1,6 @@
 # countdown
 
-[![codecov](https://codecov.io/gh/nvorkinn/pi-dashboard/graph/badge.svg)](https://codecov.io/gh/nvorkinn/pi-dashboard)
+[![codecov](https://codecov.io/gh/nvorkinn/countdown/graph/badge.svg)](https://codecov.io/gh/nvorkinn/countdown)
 
 The Python code that draws the 7.5" e-paper dashboard: TfL and Entur departures, weather, a notice board, Glowmarkt
 energy use, Spotify and a developer panel, all configured through [countdown-server](https://github.com/nvorkinn/countdown-server).
