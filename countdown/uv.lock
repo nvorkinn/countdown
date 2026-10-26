@@ -184,7 +184,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.13" }]
+requires-dist = [{ name = "pydantic" }]
 
 [package.metadata.requires-dev]
 dev = [
