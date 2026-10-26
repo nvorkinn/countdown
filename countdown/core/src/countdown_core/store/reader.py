@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING
 
 import redis
 
+from countdown_core.store import file_store
+
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
@@ -66,6 +68,8 @@ def _connect(*, decode_responses: bool) -> redis.Redis | None:
     url = os.environ.get("REDIS_URL", "")
     if not url:
         return None
+    if file_store.is_file_url(url):
+        return file_store.connect(url, decode_responses=decode_responses)
     return redis.Redis.from_url(
         url,
         password=os.environ.get("REDIS_PASSWORD") or None,
