@@ -115,7 +115,7 @@ version = "0.4.2"
 source = { virtual = "." }
 dependencies = [
     { name = "countdown-api" },
-    { name = "countdown-core" },
+    { name = "countdown-core", extra = ["render"] },
     { name = "countdown-providers" },
     { name = "countdown-renderer" },
 ]
@@ -142,7 +142,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "countdown-api", editable = "api" },
-    { name = "countdown-core", editable = "core" },
+    { name = "countdown-core", extras = ["render"], editable = "core" },
     { name = "countdown-providers", editable = "providers" },
     { name = "countdown-renderer", editable = "renderer" },
 ]
@@ -202,25 +202,30 @@ source = { editable = "core" }
 dependencies = [
     { name = "babel" },
     { name = "countdown-api" },
-    { name = "pillow" },
     { name = "pydantic" },
-    { name = "qrcode" },
     { name = "redis" },
     { name = "requests" },
     { name = "urllib3" },
+]
+
+[package.optional-dependencies]
+render = [
+    { name = "pillow" },
+    { name = "qrcode" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "babel" },
     { name = "countdown-api", editable = "api" },
-    { name = "pillow" },
+    { name = "pillow", marker = "extra == 'render'" },
     { name = "pydantic" },
-    { name = "qrcode" },
+    { name = "qrcode", marker = "extra == 'render'" },
     { name = "redis" },
     { name = "requests" },
     { name = "urllib3", specifier = "==2.8.0" },
 ]
+provides-extras = ["render"]
 
 [[package]]
 name = "countdown-providers"
@@ -244,7 +249,7 @@ name = "countdown-renderer"
 version = "0.4.2"
 source = { editable = "renderer" }
 dependencies = [
-    { name = "countdown-core" },
+    { name = "countdown-core", extra = ["render"] },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
@@ -253,7 +258,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "countdown-core", editable = "core" },
+    { name = "countdown-core", extras = ["render"], editable = "core" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },

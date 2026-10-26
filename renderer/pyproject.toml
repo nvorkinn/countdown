@@ -3,7 +3,7 @@ name = "countdown-renderer"
 version = "0.4.2"
 requires-python = ">=3.14"
 dependencies = [
-    "countdown-core",
+    "countdown-core[render]",
     # The render pool's metrics (pool_metrics.py), exported over OTLP/HTTP.
     "opentelemetry-api",
     "opentelemetry-exporter-otlp-proto-http",
