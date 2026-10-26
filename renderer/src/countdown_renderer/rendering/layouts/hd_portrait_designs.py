@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING, override
 
 from PIL import Image, ImageDraw
 
-from countdown_core.i18n import _
 from countdown_renderer import rotation
 from countdown_renderer.api_registry import ClientClasses
 from countdown_renderer.notices.notice_board_panel import NoticeBannerPanel, NoticeBoardPanel
@@ -53,6 +52,7 @@ from countdown_renderer.weather.hd_clock_panels import (
 from countdown_renderer.weather.hd_sidebar_panel import HdHoursPanel
 from countdown_renderer.weather.hd_weather_panel import HdWeatherPanel
 from countdown_renderer.weather.weather_panel import WeatherPanel
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

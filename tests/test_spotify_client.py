@@ -8,7 +8,6 @@ import pytest
 from pydantic import ValidationError
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.store import keys, reader
 from countdown_renderer import rotation
 from countdown_renderer.spotify.spotify_client import (
     TOP_WHEN_IDLE_EVERY_S,
@@ -20,6 +19,7 @@ from countdown_renderer.spotify.spotify_client import (
 from countdown_renderer.spotify.spotify_panel import SpotifyPanel
 from countdown_renderer.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
 from countdown_renderer.spotify.spotify_top_panel import SpotifyTopPanel
+from countdown_shared.store import keys, reader
 
 DEVICE_ID = TEST_DEVICE_ID
 

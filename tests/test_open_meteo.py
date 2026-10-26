@@ -6,7 +6,7 @@ import requests
 import responses
 from weather_factory import forecast_json
 
-from countdown_core.weather.open_meteo import FORECAST_URL, GEOCODING_URL, fetch_forecast, geocode
+from countdown_shared.weather.open_meteo import FORECAST_URL, GEOCODING_URL, fetch_forecast, geocode
 
 GEOCODING_JSON = {"results": [{"name": "London", "latitude": 51.5, "longitude": -0.12, "country": "United Kingdom"}]}
 

@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import N_
-from countdown_core.store import developer, reader
 from countdown_renderer.abstract_client import AbstractClient
 from countdown_renderer.developer.developer_panel import DeveloperPanel
 from countdown_renderer.developer.notices import DeveloperNoticeSource
+from countdown_shared.i18n import N_
+from countdown_shared.store import developer, reader
 
 if TYPE_CHECKING:
     from countdown_renderer.notices.notice import NoticeSource

@@ -8,8 +8,6 @@ layout draws them twice as big (rendering.layouts.hd_landscape).
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _, format_date, local_zone
-from countdown_core.weather.models import WeatherPeriod
 from countdown_renderer import moment
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.clock import format_clock
@@ -18,15 +16,17 @@ from countdown_renderer.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, UBUNTU_B
 from countdown_renderer.weather.hd_weather_panel import _fitted, _icon, _temperature, _text, draw_hours
 from countdown_renderer.weather.weather_panel import _condition, _temperature_text
 from countdown_renderer.weather.weather_trmnl_panel import page_outlook, page_readings
+from countdown_shared.i18n import _, format_date, local_zone
+from countdown_shared.weather.models import WeatherPeriod
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from PIL import Image
 
-    from countdown_core.weather.models import Weather, WeatherHour
     from countdown_renderer.utils.clock import ClockFormat
     from countdown_renderer.utils.scaled_draw import ScaledDraw
+    from countdown_shared.weather.models import Weather, WeatherHour
 
 # Between the sidebar's edges and what's in it, in its own pixels.
 MARGIN = 22

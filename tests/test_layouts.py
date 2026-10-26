@@ -62,12 +62,12 @@ from countdown_renderer.tfl.combined_arrival_panel import COLUMN_GAP, STOP_WIDTH
 from countdown_renderer.rendering.screen import DEFAULT_CANVAS, Canvas, canvas_for
 from countdown_renderer.utils.scaled_draw import drawing_scale
 from countdown_renderer.utils.utils import GAP
-from countdown_core.spotify.models import Queue
+from countdown_shared.spotify.models import Queue
 from countdown_renderer.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel
 from countdown_renderer.system_screens.message_panel import MessagePanel
 from countdown_renderer.weather.hd_sidebar_panel import HdHoursPanel, HdSidebarPanel
 from countdown_renderer.weather.hd_weather_panel import HdWeatherPanel
-from countdown_core.weather.models import ForecastResponse
+from countdown_shared.weather.models import ForecastResponse
 from countdown_renderer.weather.weather_forecast import weather_pages
 from countdown_renderer.weather.weather_panel import WeatherPanel
 from typing import TYPE_CHECKING

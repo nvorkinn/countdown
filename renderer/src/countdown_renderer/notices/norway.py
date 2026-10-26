@@ -10,16 +10,16 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
-from countdown_core.i18n import N_, _, format_date, language
-from countdown_core.store import keys, reader
-from countdown_core.store.metalerts import StoredMetAlerts
 from countdown_renderer.notices.calendar import when
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
+from countdown_shared.i18n import N_, _, format_date, language
+from countdown_shared.store import keys, reader
+from countdown_shared.store.metalerts import StoredMetAlerts
 
 if TYPE_CHECKING:
     import requests
 
-    from countdown_core.tfl.models import Postcode
+    from countdown_shared.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 

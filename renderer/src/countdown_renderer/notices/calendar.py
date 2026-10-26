@@ -9,15 +9,15 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
-from countdown_core.i18n import N_, _, format_date, local_zone
-from countdown_core.store import keys, reader
-from countdown_core.store.bank_holidays import StoredBankHolidays
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
+from countdown_shared.i18n import N_, _, format_date, local_zone
+from countdown_shared.store import keys, reader
+from countdown_shared.store.bank_holidays import StoredBankHolidays
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from countdown_core.store.bank_holidays import BankHoliday
+    from countdown_shared.store.bank_holidays import BankHoliday
 
 UK_TIME = ZoneInfo("Europe/London")
 

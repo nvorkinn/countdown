@@ -8,11 +8,6 @@ import responses
 from test_utils import TEST_DEVICE_ID
 
 from countdown_api.models import DepartureStop
-from countdown_core import i18n
-from countdown_core.notices.norway_feed import ADDRESSES_URL, lookup_norwegian_postcode
-from countdown_core.store import keys
-from countdown_core.store.location import StoredLocation
-from countdown_core.tfl.models import Postcode
 from countdown_renderer.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_renderer.notices.calendar import ClockChangeSource
 from countdown_renderer.notices.entur import StoredEnturSituationsSource
@@ -20,6 +15,11 @@ from countdown_renderer.notices.norway import NorwegianHolidaySource, norwegian_
 from countdown_renderer.notices.notice import Severity
 from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_renderer.utils.clock import format_clock
+from countdown_shared import i18n
+from countdown_shared.notices.norway_feed import ADDRESSES_URL, lookup_norwegian_postcode
+from countdown_shared.store import keys
+from countdown_shared.store.location import StoredLocation
+from countdown_shared.tfl.models import Postcode
 
 NOW = datetime(2026, 10, 16, 12, 0, tzinfo=UTC)
 OSLO = Postcode(postcode="0150", latitude=59.9116, longitude=10.7505, country="Norway", admin_district="Oslo")

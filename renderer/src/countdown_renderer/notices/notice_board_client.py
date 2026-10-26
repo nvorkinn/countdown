@@ -7,9 +7,6 @@ from typing import TYPE_CHECKING, override
 
 from redis.exceptions import RedisError
 
-from countdown_core.i18n import N_, local_zone
-from countdown_core.store import keys, reader
-from countdown_core.store.location import StoredLocation
 from countdown_renderer import moment
 from countdown_renderer.abstract_client import NOT_AVAILABLE, AbstractClient
 from countdown_renderer.notices.calendar import ClockChangeSource, StoredBankHolidaySource
@@ -18,14 +15,17 @@ from countdown_renderer.notices.met_office import StoredMetOfficeWarningsSource
 from countdown_renderer.notices.norway import NorwegianHolidaySource, StoredMetAlertsSource
 from countdown_renderer.notices.notice_board_panel import NoticeBoardPanel
 from countdown_renderer.notices.tfl import StoredTflRoadSource
+from countdown_shared.i18n import N_, local_zone
+from countdown_shared.store import keys, reader
+from countdown_shared.store.location import StoredLocation
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from countdown_core.tfl.models import Postcode
     from countdown_renderer.notices.notice import Notice, NoticeSource
     from countdown_renderer.style import Style
     from countdown_renderer.system_screens.message_panel import MessagePanel
+    from countdown_shared.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 

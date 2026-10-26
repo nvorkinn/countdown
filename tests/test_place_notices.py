@@ -30,13 +30,6 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from responses import matchers
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.notices.location import POSTCODES_URL
-from countdown_core.notices.norway_feed import ADDRESSES_URL
-from countdown_core.store import keys, reader
-from countdown_core.store.bank_holidays import StoredBankHolidays
-from countdown_core.store.metalerts import StoredMetAlerts
-from countdown_core.tfl.models import Postcode
-from countdown_core.tfl.tfl_client import TFL_URL, TflSource
 from countdown_providers import runner as runner_module
 from countdown_providers.floods import main as floods_main
 from countdown_providers.floods.main import FLOOD_AREAS_URL, FLOODS_URL, FloodsProvider
@@ -49,6 +42,13 @@ from countdown_providers.tfl_notices import main as tfl_notices_main
 from countdown_providers.tfl_notices.main import TflRoadProvider
 from countdown_renderer import moment
 from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
+from countdown_shared.notices.location import POSTCODES_URL
+from countdown_shared.notices.norway_feed import ADDRESSES_URL
+from countdown_shared.store import keys, reader
+from countdown_shared.store.bank_holidays import StoredBankHolidays
+from countdown_shared.store.metalerts import StoredMetAlerts
+from countdown_shared.tfl.models import Postcode
+from countdown_shared.tfl.tfl_client import TFL_URL, TflSource
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "place_notices.json").read_text(encoding="utf-8"))

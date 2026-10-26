@@ -5,13 +5,13 @@ import pkgutil
 
 import pytest
 
-import countdown_core
 import countdown_providers
 import countdown_renderer
+import countdown_shared
 
 MODULES = sorted(
     module.name
-    for package in (countdown_core, countdown_providers, countdown_renderer)
+    for package in (countdown_shared, countdown_providers, countdown_renderer)
     for module in pkgutil.walk_packages(package.__path__, f"{package.__name__}.")
 )
 

@@ -8,10 +8,10 @@ from datetime import datetime, timedelta
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Any
 
-from countdown_core.core.http_session import retrying_session
-from countdown_core.i18n import N_
-from countdown_core.store.reader import NoStoredDataError
 from countdown_renderer.system_screens.message_panel import MessagePanel
+from countdown_shared.core.http_session import retrying_session
+from countdown_shared.i18n import N_
+from countdown_shared.store.reader import NoStoredDataError
 
 if TYPE_CHECKING:
     from countdown_renderer.notices.notice import NoticeSource

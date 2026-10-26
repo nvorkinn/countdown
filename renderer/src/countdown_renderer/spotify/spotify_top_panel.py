@@ -8,9 +8,9 @@ from countdown_renderer.spotify.spotify_styles import STYLES
 if TYPE_CHECKING:
     from PIL import Image
 
-    from countdown_core.spotify.models import Artist, Track
     from countdown_renderer.style import Style
     from countdown_renderer.utils.clock import ClockFormat
+    from countdown_shared.spotify.models import Artist, Track
 
 
 class SpotifyTopPanel(Panel):

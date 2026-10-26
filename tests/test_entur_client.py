@@ -7,7 +7,11 @@ from config_factory import make_config as make_broker_config
 from test_utils import TEST_DEVICE_ID, put_departures
 
 from countdown_api.models import DepartureStop
-from countdown_core.entur.entur_client import (
+from countdown_providers.entur.main import to_stop_departures
+from countdown_renderer.departures.departures_client import DeparturesClient, DeparturesSettings
+from countdown_renderer.entur.entur_arrival_panel import EnturArrivalPanel
+from countdown_renderer.tfl.stored_source import StoredArrivalPanel
+from countdown_shared.entur.entur_client import (
     HEADERS,
     EnturClient,
     EnturDeparture,
@@ -15,11 +19,7 @@ from countdown_core.entur.entur_client import (
     TransportMode,
     normalize_stop_id,
 )
-from countdown_core.store import keys
-from countdown_providers.entur.main import to_stop_departures
-from countdown_renderer.departures.departures_client import DeparturesClient, DeparturesSettings
-from countdown_renderer.entur.entur_arrival_panel import EnturArrivalPanel
-from countdown_renderer.tfl.stored_source import StoredArrivalPanel
+from countdown_shared.store import keys
 
 NOW = datetime(2026, 10, 16, 16, 0, tzinfo=UTC)
 

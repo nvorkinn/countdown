@@ -19,8 +19,8 @@ import pytest
 import redis
 
 from countdown_api import fixtures, scripts
-from countdown_core.store import keys, render_queue
-from countdown_core.store.render_queue import Claim
+from countdown_shared.store import keys, render_queue
+from countdown_shared.store.render_queue import Claim
 
 DEVICE = "a1b2c3d4e5f6"
 OTHER = "0f9e8d7c6b5a"

@@ -6,12 +6,12 @@ the time on the right, with a thin rule under it.
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _, format_date, local_zone
 from countdown_renderer import moment
 from countdown_renderer.newspaper.typesetting import double_rule, serif, serif_bold, shrunk
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.clock import format_clock
 from countdown_renderer.utils.scaled_draw import scaled_canvas
+from countdown_shared.i18n import _, format_date, local_zone
 
 if TYPE_CHECKING:
     from PIL import Image

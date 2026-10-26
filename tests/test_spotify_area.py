@@ -3,8 +3,6 @@
 import datetime as dt
 
 from countdown_api.models import Screen
-from countdown_core.developer.models import DeveloperSummary, GitHubSummary, Release
-from countdown_core.spotify.models import Queue
 from countdown_renderer.api_registry import ClientClasses
 from countdown_renderer.developer.developer_panel import DeveloperPanel
 from countdown_renderer.developer.developer_styles import COMPACT_HEIGHT
@@ -14,6 +12,8 @@ from countdown_renderer.rendering.layouts.classic import SPOTIFY_HEIGHT, BaseLay
 from countdown_renderer.spotify.spotify_client import SpotifyClient
 from countdown_renderer.spotify.spotify_panel import SpotifyPanel
 from countdown_renderer.spotify.spotify_top_panel import SpotifyTopPanel
+from countdown_shared.developer.models import DeveloperSummary, GitHubSummary, Release
+from countdown_shared.spotify.models import Queue
 
 SPOTIFY = SpotifyPanel(Queue(currently_playing=None, queue=[]))
 GITHUB = GitHubSummary(login="nvorkinn", repos=1, open_prs=0, review_requests=0, failing=[])

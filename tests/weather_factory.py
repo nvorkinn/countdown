@@ -1,6 +1,6 @@
 import datetime as dt
 
-from countdown_core.weather.models import Upcoming, Weather
+from countdown_shared.weather.models import Upcoming, Weather
 
 
 def make_weather(**overrides) -> Weather:

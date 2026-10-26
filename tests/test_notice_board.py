@@ -10,11 +10,6 @@ from PIL import Image, ImageDraw
 from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.notices.met_office_feed import region_for
-from countdown_core.store import keys
-from countdown_core.store.bank_holidays import StoredBankHolidays
-from countdown_core.store.location import StoredLocation
-from countdown_core.tfl.models import Postcode
 from countdown_providers.met_office.main import feed_items
 from countdown_renderer import moment
 from countdown_renderer.api_registry import section_for
@@ -28,6 +23,11 @@ from countdown_renderer.notices.notice_board_panel import ROW_HEIGHT, NoticeBoar
 from countdown_renderer.notices.notice_styles import STYLES
 from countdown_renderer.notices.tfl import NoStoredTflNoticesError, StoredTflRoadSource
 from countdown_renderer.utils.clock import format_clock
+from countdown_shared.notices.met_office_feed import region_for
+from countdown_shared.store import keys
+from countdown_shared.store.bank_holidays import StoredBankHolidays
+from countdown_shared.store.location import StoredLocation
+from countdown_shared.tfl.models import Postcode
 
 NOW = datetime(2026, 9, 25, 12, 0, tzinfo=UTC)
 SOUTHWARK = Postcode(
@@ -184,7 +184,7 @@ def test_met_office_region_from_postcode(country, region, district, expected):
 def test_met_office_logs_neither_the_postcode_nor_its_area_when_it_has_no_region(caplog):
     location = SOUTHWARK.model_copy(update={"country": "Scotland", "region": None, "admin_district": "Somewhere New"})
 
-    with caplog.at_level("WARNING", logger="countdown_core.notices.met_office_feed"):
+    with caplog.at_level("WARNING", logger="countdown_shared.notices.met_office_feed"):
         region_for(location)
 
     assert caplog.messages == ["No Met Office warning region for a postcode's area; using the whole UK"]

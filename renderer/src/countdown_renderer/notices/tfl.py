@@ -9,11 +9,11 @@ language and what's current is judged as of drawing.
 import re
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _
-from countdown_core.notices.tfl_feed import ROAD_SEVERITIES
-from countdown_core.store import keys, reader
-from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
+from countdown_shared.i18n import _
+from countdown_shared.notices.tfl_feed import ROAD_SEVERITIES
+from countdown_shared.store import keys, reader
+from countdown_shared.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 
     import requests
 
-    from countdown_core.store.models import Stored
-    from countdown_core.tfl.models import DisruptedPoint, Line, RoadDisruption
+    from countdown_shared.store.models import Stored
+    from countdown_shared.tfl.models import DisruptedPoint, Line, RoadDisruption
 
 # The line statuses worth a notice, by TfL's name for them (/Line/Meta/Severity has the
 # full list, the same for every mode). Everything else -- minor delays, bus diversions

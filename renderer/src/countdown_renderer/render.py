@@ -19,10 +19,6 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from redis.exceptions import RedisError
 
-from countdown_core.i18n import set_locale
-from countdown_core.store import config as stored_config
-from countdown_core.store import frame_record, reader
-from countdown_core.store import pairing as stored_pairing
 from countdown_renderer import moment
 from countdown_renderer.api_registry import ApiRegistry, ClientClasses
 from countdown_renderer.rendering import layout_for, stops_fitting, to_native
@@ -32,6 +28,10 @@ from countdown_renderer.rendering.layout import Frame
 from countdown_renderer.rendering.screen import canvas_for
 from countdown_renderer.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_renderer.utils.scaled_draw import drawing_at
+from countdown_shared.i18n import set_locale
+from countdown_shared.store import config as stored_config
+from countdown_shared.store import frame_record, reader
+from countdown_shared.store import pairing as stored_pairing
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

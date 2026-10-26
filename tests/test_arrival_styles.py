@@ -1,7 +1,7 @@
 import pytest
 from tfl_factory import tfl_panel
 
-from countdown_core.tfl.models import BusArrival, SingleStopPoint
+from countdown_shared.tfl.models import BusArrival, SingleStopPoint
 
 STOP = SingleStopPoint(
     naptanId="490000123W",

@@ -19,12 +19,6 @@ import requests
 import responses
 from location_factory import FakeLocations
 
-from countdown_core import i18n
-from countdown_core.notices.tfl_feed import is_near
-from countdown_core.store import keys, reader
-from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
-from countdown_core.tfl.models import PostcodeResponse
-from countdown_core.tfl.tfl_client import TFL_URL, DisruptedPoints, Lines, RoadDisruptions, TflSource
 from countdown_providers import runner as runner_module
 from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import ProviderRunner
@@ -46,6 +40,12 @@ from countdown_renderer.notices.tfl import (
     road_notices,
     station_notices,
 )
+from countdown_shared import i18n
+from countdown_shared.notices.tfl_feed import is_near
+from countdown_shared.store import keys, reader
+from countdown_shared.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
+from countdown_shared.tfl.models import PostcodeResponse
+from countdown_shared.tfl.tfl_client import TFL_URL, DisruptedPoints, Lines, RoadDisruptions, TflSource
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

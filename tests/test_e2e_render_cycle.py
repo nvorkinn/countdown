@@ -20,11 +20,6 @@ from test_utils import put_departures
 from weather_factory import forecast_json
 
 from countdown_api.models import ConfigResponse, Screen
-from countdown_core import i18n
-from countdown_core.store import keys, reader
-from countdown_core.store.location import StoredLocation
-from countdown_core.store.tfl_notices import StoredLineStatus, StoredStationDisruptions
-from countdown_core.tfl.models import Postcode
 from countdown_renderer import render as render_module
 from countdown_renderer import rotation
 from countdown_renderer.glow.energy_panel import EnergyPanel
@@ -39,6 +34,11 @@ from countdown_renderer.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_renderer.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_renderer.utils import utils
 from countdown_renderer.weather.weather_panel import WeatherPanel
+from countdown_shared import i18n
+from countdown_shared.store import keys, reader
+from countdown_shared.store.location import StoredLocation
+from countdown_shared.store.tfl_notices import StoredLineStatus, StoredStationDisruptions
+from countdown_shared.tfl.models import Postcode
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator

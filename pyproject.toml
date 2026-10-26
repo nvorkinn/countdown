@@ -9,7 +9,7 @@ requires-python = ">=3.14"
 # The workspace's own packages, so `uv sync` installs them all (editable) for the tests.
 dependencies = [
     "countdown-api",
-    "countdown-core",
+    "countdown-shared",
     "countdown-renderer",
     "countdown-providers",
 ]
@@ -19,7 +19,7 @@ package = false
 
 [tool.uv.sources]
 countdown-api = { workspace = true }
-countdown-core = { workspace = true }
+countdown-shared = { workspace = true }
 countdown-renderer = { workspace = true }
 countdown-providers = { workspace = true }
 
@@ -49,7 +49,7 @@ dev = [
 [tool.uv.workspace]
 members = [
     "api",
-    "core",
+    "shared",
     "renderer",
     "providers"
 ]
@@ -59,22 +59,22 @@ members = [
 timeout = 120
 
 # Unused, missing and transitive dependencies. A workspace takes one run per package, each against the dependencies in
-# its own pyproject.toml: `deptry src` in core/, renderer/ and providers/ (the deptry job in tests.yml runs them; api/
+# its own pyproject.toml: `deptry src` in shared/, renderer/ and providers/ (the deptry job in tests.yml runs them; api/
 # is the countdown-api submodule, which its own repository checks). The packages' sources are theirs to check and
 # deptry skips tests/ by default (they import the workspace's packages and what those use), so this run reads only
 # this file's own dependencies.
 [tool.deptry]
-extend_exclude = ["api", "core", "renderer", "providers"]
+extend_exclude = ["api", "shared", "renderer", "providers"]
 
 [tool.deptry.per_rule_ignores]
 # Installed so `uv sync` has the whole workspace for the tests, which import them; nothing here does.
-DEP002 = ["countdown-api", "countdown-core", "countdown-renderer", "countdown-providers"]
+DEP002 = ["countdown-api", "countdown-shared", "countdown-renderer", "countdown-providers"]
 
 [tool.coverage.run]
 branch = true
 source = [
     "api/src",
-    "core/src",
+    "shared/src",
     "renderer/src",
     "providers/src"
 ]
@@ -87,7 +87,7 @@ line-length = 120
 # So isort knows the workspace packages are first-party.
 src = [
     "api/src",
-    "core/src",
+    "shared/src",
     "renderer/src",
     "providers/src"
 ]
@@ -109,14 +109,14 @@ ignore = [
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
-# countdown-core must stay free of the apps: they depend on it, never the other way round.
-# The ban only applies inside core/ (see per-file-ignores).
+# countdown-shared must stay free of the apps: they depend on it, never the other way round.
+# The ban only applies inside shared/ (see per-file-ignores).
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"countdown_renderer".msg = "countdown-core can't depend on countdown-renderer; pass what it needs in from there"
-"countdown_providers".msg = "countdown-core can't depend on countdown-providers; pass what it needs in from there"
+"countdown_renderer".msg = "countdown-shared can't depend on countdown-renderer; pass what it needs in from there"
+"countdown_providers".msg = "countdown-shared can't depend on countdown-providers; pass what it needs in from there"
 
 [tool.ruff.lint.per-file-ignores]
-"!core/**" = ["TID251"]
+"!shared/**" = ["TID251"]
 "tests/**" = [
     "S101",    # pytest is built on assert
     "PLR2004", # a test compares against the literal values it expects

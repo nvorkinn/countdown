@@ -15,8 +15,8 @@ areas are asked for again once a day, as the EA redraws them now and then, or at
 Nothing logged names a postcode or anything worked out from one (its district, its coordinates, a URL with either in
 it): a postcode says where a screen, and someone's home, is, and the logs go to the central log store. So a failure is
 logged by its reason (log_format.error_reason: the error's type, and an HTTP error's status); urllib3's warnings, which
-quote the URL they retried, are kept out of every process's logs (countdown_core.core.log_format), and the runner names
-no postcode either.
+quote the URL they retried, are kept out of every process's logs (countdown_shared.core.log_format), and the runner
+names no postcode either.
 
 The HTTP calls are synchronous (requests), so each batch runs in a worker thread (asyncio.to_thread), like the TfL
 provider's.
@@ -27,22 +27,22 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from countdown_core.core.http_session import DEFAULT_TIMEOUT, retrying_session
-from countdown_core.core.log_format import configure_logging, error_reason
-from countdown_core.notices.location import FULL_POSTCODE
-from countdown_core.notices.models import FloodAreasResponse, FloodWarningsResponse
-from countdown_core.store import keys
-from countdown_core.store.floods import StoredFloods
 from countdown_providers.config import Settings
 from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import serve
+from countdown_shared.core.http_session import DEFAULT_TIMEOUT, retrying_session
+from countdown_shared.core.log_format import configure_logging, error_reason
+from countdown_shared.notices.location import FULL_POSTCODE
+from countdown_shared.notices.models import FloodAreasResponse, FloodWarningsResponse
+from countdown_shared.store import keys
+from countdown_shared.store.floods import StoredFloods
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     import requests
 
-    from countdown_core.tfl.models import Postcode
+    from countdown_shared.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ def main() -> None:
     settings = Settings.from_env()
     # One client for the runner and the locations it reads.
     redis = settings.redis()
-    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff.
     session = retrying_session()
     asyncio.run(serve(FloodsProvider(session, LocationReader(redis)), settings, redis=redis))
 

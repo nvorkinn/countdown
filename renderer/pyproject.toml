@@ -4,7 +4,7 @@ version = "0.4.2"
 requires-python = ">=3.14"
 dependencies = [
     "countdown-api",
-    "countdown-core",
+    "countdown-shared",
     # The render pool's metrics (pool_metrics.py), exported over OTLP/HTTP.
     "opentelemetry-api",
     "opentelemetry-exporter-otlp-proto-http",
@@ -21,7 +21,7 @@ countdown-render-ticker = "countdown_renderer.render_pool:run_ticker"
 
 [tool.uv.sources]
 countdown-api = { workspace = true }
-countdown-core = { workspace = true }
+countdown-shared = { workspace = true }
 
 [tool.deptry.package_module_name_map]
 pillow = "PIL"

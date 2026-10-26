@@ -1,6 +1,6 @@
 """The TfL provider: `v1:sub:tfl`'s NaPTAN stop ids to `v1:departures:<stop id>`.
 
-It wraps countdown_core's TflSource, which makes the requests. TflSource is synchronous (requests), so each batch runs
+It wraps countdown_shared's TflSource, which makes the requests. TflSource is synchronous (requests), so each batch runs
 in a worker thread (asyncio.to_thread).
 
 A failed request is logged by its reason (log_format.error_reason: its type and status), never its text: that quotes
@@ -13,14 +13,14 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from countdown_core.core.http_session import retrying_session
-from countdown_core.core.log_format import configure_logging, error_reason
-from countdown_core.store import keys
-from countdown_core.store.models import Departure, StopDepartures
-from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
-from countdown_core.tfl.tfl_client import TflSource
 from countdown_providers.config import Settings
 from countdown_providers.runner import serve
+from countdown_shared.core.http_session import retrying_session
+from countdown_shared.core.log_format import configure_logging, error_reason
+from countdown_shared.store import keys
+from countdown_shared.store.models import Departure, StopDepartures
+from countdown_shared.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
+from countdown_shared.tfl.tfl_client import TflSource
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -103,7 +103,7 @@ def main() -> None:
     """Run the `countdown-provider-tfl` console script. TFL_APP_KEY is optional (TfL rate-limits harder without)."""
     configure_logging()
     settings = Settings.from_env()
-    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff.
     session = retrying_session()
     provider = TflProvider(TflSource(session, os.environ.get("TFL_APP_KEY", "")))
     asyncio.run(serve(provider, settings))

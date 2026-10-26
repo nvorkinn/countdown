@@ -13,7 +13,7 @@ countdown-server's [How the pieces fit together](https://github.com/nvorkinn/cou
 
 A uv workspace; `uv sync` installs everything editable.
 
-- `core/` (`countdown-core`): the drawing: API clients that read the store, panels, layouts and the render function.
+- `shared/` (`countdown-shared`): what the providers and the render pool share: the store and its models, the API clients, logging and i18n.
 - `renderer/` (`countdown-renderer`): the render pool, `countdown-render-worker` and `countdown-render-ticker`; see
   [How rendering works](docs/stateless-renderers.md).
 - `providers/` (`countdown-providers`): one process per API, fetching what screens subscribe to into the store; see
@@ -33,7 +33,7 @@ if it changed. Rendering is described in [How rendering works](docs/stateless-re
 `v1:pairing:<device id>` instead (`store/pairing.py`) and the render draws the pairing screen. A config that doesn't
 validate fails the render and the screen keeps its frame; a field the broker adds is ignored.
 
-**API clients** (`*_client.py`, `core/api_registry.py`). Each API has an `AbstractClient` subclass: departures (TfL and
+**API clients** (`*_client.py`, `api_registry.py`). Each API has an `AbstractClient` subclass: departures (TfL and
 Entur), Open-Meteo weather, Glowmarkt energy, Spotify and Apple Music, the developer panel and the notice board. They
 read only the store, which the [providers](providers/README.md) and countdown-server's providers fill: the render calls no
 upstream API and holds no API token. A client whose key has expired returns a "Not available" panel; one that fails
@@ -65,7 +65,7 @@ server always sends the whole frame.
 
 **Language, time zone and clock.** The config's `language` (`en` or `nb`), `timezone` and `clock_format` (`24h` or
 `12h`) apply per screen. Every drawn text is English in the code, marked `_()` (or `N_()`), and translated from
-`core/src/countdown_core/locale/<language>.po`; an untranslated text stays English. After adding or changing a text,
+`shared/src/countdown_shared/locale/<language>.po`; an untranslated text stays English. After adding or changing a text,
 run `sh dev/update_translations.sh` from the repository root. Dates go through Babel (`i18n.format_date`). A Norwegian
 postcode (`notice_board.country` is `NO`) gets Norway's notices: public holidays are worked out here and the rest comes
 from the store.
@@ -127,7 +127,7 @@ are redrawn with it.
 
 ## Logs and metrics
 
-The pool and the providers log one JSON object per line on stderr (`countdown_core/core/log_format.py`): `level`, `_msg`,
+The pool and the providers log one JSON object per line on stderr (`countdown_shared/core/log_format.py`): `level`, `_msg`,
 `logger`, `source` and `exception`. The pool adds `worker`; the providers add `device` (`DEVICE_NAME`, else the
 hostname, sanitised to `[a-z0-9_-]`). There is no timestamp: the container's log driver stamps each line. `LOG_LEVEL`
 sets the level (default INFO). Nothing logged says where a screen is: no postcode, place or coordinates, nor a URL with

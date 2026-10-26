@@ -7,12 +7,12 @@ its quay code and modes, and each departure's mode, and is turned back into Entu
 
 from typing import TYPE_CHECKING
 
-from countdown_core.entur.entur_client import DEPARTED_GRACE, EnturDeparture, EnturStop, TransportMode
-from countdown_core.store import keys, reader
-from countdown_core.store.models import StopDepartures
 from countdown_renderer import moment
 from countdown_renderer.entur.entur_arrival_panel import EnturArrivalPanel
 from countdown_renderer.tfl.stored_source import NoStoredDeparturesError
+from countdown_shared.entur.entur_client import DEPARTED_GRACE, EnturDeparture, EnturStop, TransportMode
+from countdown_shared.store import keys, reader
+from countdown_shared.store.models import StopDepartures
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -20,8 +20,8 @@ if TYPE_CHECKING:
 
     import redis
 
-    from countdown_core.store.models import Departure
     from countdown_renderer.style import Style
+    from countdown_shared.store.models import Departure
 
 
 def _entur_departure(departure: Departure, now: datetime) -> EnturDeparture | None:

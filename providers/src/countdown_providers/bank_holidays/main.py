@@ -2,7 +2,7 @@
 
 gov.uk publishes one small file (BANK_HOLIDAYS_URL) with every division's holidays, a year or so ahead, so there's
 nothing to subscribe to: every UK notice board reads the same key and picks its own division, England and Wales,
-Scotland or Northern Ireland (countdown_core.notices.calendar.StoredBankHolidaySource). The file changes a few times a
+Scotland or Northern Ireland (countdown_shared.notices.calendar.StoredBankHolidaySource). The file changes a few times a
 year, so it's fetched every 6 hours and kept for a week: gov.uk being down, even for days, changes nothing on the
 screens.
 
@@ -16,12 +16,12 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from countdown_core.core.http_session import DEFAULT_TIMEOUT, retrying_session
-from countdown_core.core.log_format import configure_logging
-from countdown_core.store import keys
-from countdown_core.store.bank_holidays import DIVISIONS, StoredBankHolidays
 from countdown_providers.config import Settings
 from countdown_providers.runner import serve
+from countdown_shared.core.http_session import DEFAULT_TIMEOUT, retrying_session
+from countdown_shared.core.log_format import configure_logging
+from countdown_shared.store import keys
+from countdown_shared.store.bank_holidays import DIVISIONS, StoredBankHolidays
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -78,7 +78,7 @@ class BankHolidaysProvider:
 def main() -> None:
     """Run the `countdown-provider-bank-holidays` console script. gov.uk needs no key."""
     configure_logging()
-    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff.
     session = retrying_session()
     asyncio.run(serve(BankHolidaysProvider(session), Settings.from_env()))
 

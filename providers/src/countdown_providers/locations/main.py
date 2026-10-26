@@ -3,9 +3,9 @@
 And where each UK postcode or postcode district that a `v1:sub:weather` key is the slug of (`sw1a-1aa`, `se17`) is,
 for the weather provider (WeatherPostcodesProvider, a second runner in the same process).
 
-The one process that looks postcodes up: a UK postcode with postcodes.io (countdown_core.notices.location's
+The one process that looks postcodes up: a UK postcode with postcodes.io (countdown_shared.notices.location's
 lookup_postcode), a Norwegian one (four digits, as the broker writes them) with Kartverket's address search
-(countdown_core.notices.norway_feed's lookup_norwegian_postcode). Each is written as a StoredLocation (keys.location),
+(countdown_shared.notices.norway_feed's lookup_norwegian_postcode). Each is written as a StoredLocation (keys.location),
 which the notice board reads for what it shows about its place (the bank holidays' division, MetAlerts' area), so the
 render pool asks neither, and so do the Met Office, floods and TfL roads providers, for where to fetch their notices
 (reader.py), so each postcode is looked up once in all. A postcode neither knows is written too, as not found, so a
@@ -40,21 +40,21 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from countdown_core.core.http_session import retrying_session
-from countdown_core.core.log_format import configure_logging, error_reason
-from countdown_core.notices.location import FULL_POSTCODE, OUTCODE, lookup_outcode, lookup_postcode
-from countdown_core.notices.norway_feed import lookup_norwegian_postcode
-from countdown_core.store import keys
-from countdown_core.store.location import StoredLocation, weather_postcode
 from countdown_providers.config import Settings
 from countdown_providers.runner import serve_all
+from countdown_shared.core.http_session import retrying_session
+from countdown_shared.core.log_format import configure_logging, error_reason
+from countdown_shared.notices.location import FULL_POSTCODE, OUTCODE, lookup_outcode, lookup_postcode
+from countdown_shared.notices.norway_feed import lookup_norwegian_postcode
+from countdown_shared.store import keys
+from countdown_shared.store.location import StoredLocation, weather_postcode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     import requests
 
-    from countdown_core.tfl.models import Postcode
+    from countdown_shared.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ class WeatherPostcodesProvider:
     """Where the UK postcodes and postcode districts that weather location keys are slugs of are, for provider-weather.
 
     A postcode typed as a screen's weather location (not picked as a place) is subscribed to as its slug (`sw1a-1aa`,
-    `se17`: countdown_core.store.location.weather_postcode). Each is looked up by
+    `se17`: countdown_shared.store.location.weather_postcode). Each is looked up by
     `postcodes`, the LocationsProvider of this process, so with its cache, and written under the postcode's own key
     (`v1:location:SW1A1AA`, `v1:location:SE17`), as for a notice board's. Any other weather key (a picked place's, or
     other typed text's) is the weather provider's to look up with Open-Meteo, and is left out.
@@ -194,7 +194,7 @@ class WeatherPostcodesProvider:
 def main() -> None:
     """Run the `countdown-provider-locations` console script. postcodes.io and Kartverket are keyless."""
     configure_logging()
-    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff.
     session = retrying_session()
     postcodes = LocationsProvider(session)
     asyncio.run(serve_all([postcodes, WeatherPostcodesProvider(postcodes)], Settings.from_env()))

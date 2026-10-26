@@ -8,10 +8,10 @@ style.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from countdown_core.i18n import _, ngettext
 from countdown_renderer.spotify.spotify_styles import airy_label
 from countdown_renderer.tfl.arrival_styles import MEDIUM, SANS_SEMI
 from countdown_renderer.utils.utils import fitted_font, google_symbols, resized
+from countdown_shared.i18n import _, ngettext
 
 if TYPE_CHECKING:
     from collections.abc import Callable

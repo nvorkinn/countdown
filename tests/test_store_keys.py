@@ -1,8 +1,8 @@
-"""The shared store's key names (countdown_core/store/keys.py)."""
+"""The shared store's key names (countdown_shared/store/keys.py)."""
 
 import pytest
 
-from countdown_core.store import keys
+from countdown_shared.store import keys
 
 
 @pytest.mark.parametrize(("postcode", "place"), [("SW1A 1AA", "SW1A1AA"), ("N1 9GU", "N19GU"), ("0150", "0150")])

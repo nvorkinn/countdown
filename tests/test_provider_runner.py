@@ -9,12 +9,12 @@ import fakeredis
 import pytest
 from redis.exceptions import ConnectionError as RedisConnectionError
 
-from countdown_core.store import keys
-from countdown_core.store.models import StopDepartures
 from countdown_providers import runner as runner_module
 from countdown_providers.config import DEFAULT_REDIS_URL, Settings
 from countdown_providers.runner import PACE_TTL_S, ProviderRunner, next_tick, serve, serve_all
 from countdown_providers.sharding import Shard, shard_of
+from countdown_shared.store import keys
+from countdown_shared.store.models import StopDepartures
 
 FETCHED_AT = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
 # Long enough that a test only gets a second cycle by nudging (or a short interval of its own).

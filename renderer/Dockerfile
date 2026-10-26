@@ -20,7 +20,7 @@ RUN --mount=type=bind,source=dist/requirements-renderer.txt,target=/tmp/requirem
 # Our packages only ever come from these wheels, never an index: anyone could publish a package there under one of
 # their names. That includes countdown-api, which isn't on PyPI at all. --no-index also fails the build if the
 # requirements above left a dependency out.
-COPY dist/countdown_renderer-*.whl dist/countdown_core-*.whl dist/countdown_api-*.whl /tmp/wheels/
+COPY dist/countdown_renderer-*.whl dist/countdown_shared-*.whl dist/countdown_api-*.whl /tmp/wheels/
 RUN pip install --no-cache-dir --root-user-action=ignore --disable-pip-version-check --no-index /tmp/wheels/*.whl \
     && rm -rf /tmp/wheels
 

@@ -8,18 +8,18 @@ import fakeredis
 import requests
 import responses
 
-from countdown_core.entur.entur_client import (
+from countdown_providers.entur.main import EnturProvider, to_stop_departures
+from countdown_providers.runner import ProviderRunner
+from countdown_shared.entur.entur_client import (
     HEADERS,
     JOURNEY_PLANNER_URL,
     EnturDeparture,
     EnturStop,
     TransportMode,
 )
-from countdown_core.entur.entur_source import DEPARTURES_PER_STOP, EnturSource
-from countdown_core.store import keys
-from countdown_core.store.models import Departure, StopDepartures
-from countdown_providers.entur.main import EnturProvider, to_stop_departures
-from countdown_providers.runner import ProviderRunner
+from countdown_shared.entur.entur_source import DEPARTURES_PER_STOP, EnturSource
+from countdown_shared.store import keys
+from countdown_shared.store.models import Departure, StopDepartures
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
 

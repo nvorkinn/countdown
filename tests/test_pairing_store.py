@@ -16,10 +16,10 @@ from config_factory import make_config
 
 from countdown_api import fixtures
 from countdown_api.models import ConfigResponse
-from countdown_core import i18n
-from countdown_core.store import frame_record, keys, reader
-from countdown_core.store import pairing as stored_pairing
 from countdown_renderer.render import Outcome, Result, Stage, render
+from countdown_shared import i18n
+from countdown_shared.store import frame_record, keys, reader
+from countdown_shared.store import pairing as stored_pairing
 
 FIXTURE = fixtures.load("pairing_key.json")
 DEVICE_ID = FIXTURE["device_id"]

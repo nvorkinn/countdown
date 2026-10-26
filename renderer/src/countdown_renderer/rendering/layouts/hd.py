@@ -20,9 +20,9 @@ from countdown_renderer.utils.utils import GAP
 from countdown_renderer.weather.weather_panel import WeatherPanel
 
 if TYPE_CHECKING:
-    from countdown_core.weather.models import Weather, WeatherHour
     from countdown_renderer.panel import Panel
     from countdown_renderer.utils.clock import ClockFormat
+    from countdown_shared.weather.models import Weather, WeatherHour
 
 # How many screen pixels each of a panel's takes, either way, unless the layout says otherwise.
 SCALE = 2

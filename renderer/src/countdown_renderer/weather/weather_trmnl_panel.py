@@ -4,8 +4,6 @@ from typing import override
 
 from PIL import Image, ImageDraw
 
-from countdown_core.i18n import N_, _, format_date
-from countdown_core.weather.models import Upcoming, Weather, WeatherPeriod
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.clock import ClockFormat, format_clock
 from countdown_renderer.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS, resized
@@ -20,6 +18,8 @@ from countdown_renderer.weather.weather_panel import (
     _temperature_text,
     icon_for,
 )
+from countdown_shared.i18n import N_, _, format_date
+from countdown_shared.weather.models import Upcoming, Weather, WeatherPeriod
 
 HEIGHT = 270
 

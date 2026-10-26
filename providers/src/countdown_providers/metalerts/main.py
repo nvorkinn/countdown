@@ -2,7 +2,7 @@
 
 MetAlerts answers for the whole country at once (current.json without a place), so one answer serves every Norwegian
 notice board, whatever its postcode: the render pool picks out the warnings whose area covers its own place
-(countdown_core.notices.norway.StoredMetAlertsSource). So it reads the broker's postcodes (`v1:sub:postcode`) only to
+(countdown_shared.notices.norway.StoredMetAlertsSource). So it reads the broker's postcodes (`v1:sub:postcode`) only to
 know whether any screen is in Norway (a Norwegian postcode is four digits; the UK's are other providers'), asks MET
 nothing while none is, and needs no postcode's place.
 
@@ -23,13 +23,13 @@ from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
-from countdown_core.core.http_session import DEFAULT_TIMEOUT, retrying_session
-from countdown_core.core.log_format import configure_logging
-from countdown_core.notices.norway_feed import MET_HEADERS, METALERTS_URL
-from countdown_core.store import keys
-from countdown_core.store.metalerts import StoredMetAlerts
 from countdown_providers.config import Settings
 from countdown_providers.runner import serve
+from countdown_shared.core.http_session import DEFAULT_TIMEOUT, retrying_session
+from countdown_shared.core.log_format import configure_logging
+from countdown_shared.notices.norway_feed import MET_HEADERS, METALERTS_URL
+from countdown_shared.store import keys
+from countdown_shared.store.metalerts import StoredMetAlerts
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -148,7 +148,7 @@ class MetAlertsProvider:
 def main() -> None:
     """Run the `countdown-provider-metalerts` console script."""
     configure_logging()
-    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff.
     session = retrying_session()
     asyncio.run(serve(MetAlertsProvider(session), Settings.from_env()))
 

@@ -7,12 +7,12 @@ Laid out in pixels sized for the 7.5" screens; the HD screen's timeline layout d
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _
 from countdown_renderer.panel import Panel
 from countdown_renderer.tfl.abstract_arrival_panel import AbstractArrivalPanel
 from countdown_renderer.tfl.arrival_styles import BOLD, ICONS, MEDIUM, SANS, SANS_SEMI, _shrunk
 from countdown_renderer.utils.scaled_draw import scaled_canvas
 from countdown_renderer.utils.utils import fitted_font, google_symbols, resized, truncate_to_fit
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

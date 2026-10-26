@@ -39,9 +39,9 @@ from countdown_renderer.spotify.spotify_panel import SpotifyPanel
 from countdown_renderer.system_screens.message_panel import MessagePanel
 from countdown_renderer.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
 from countdown_renderer.tfl.focus_panel import FocusPanel
-from countdown_core.tfl.models import BusArrival
+from countdown_shared.tfl.models import BusArrival
 from countdown_renderer.weather.focus_weather_panel import FocusWeatherPanel
-from countdown_core.weather.models import ForecastResponse
+from countdown_shared.weather.models import ForecastResponse
 from countdown_renderer.weather.weather_client import WeatherClient
 from countdown_renderer.weather.weather_forecast import weather_pages
 from countdown_renderer.weather.weather_panel import WeatherPanel

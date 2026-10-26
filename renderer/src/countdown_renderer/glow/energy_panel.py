@@ -4,11 +4,11 @@ from datetime import datetime
 from math import ceil, floor, log10
 from typing import TYPE_CHECKING, TypedDict, override
 
-from countdown_core.i18n import N_, _, format_date
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.clock import ClockFormat, format_clock
 from countdown_renderer.utils.scaled_draw import scaled_canvas
 from countdown_renderer.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, resized
+from countdown_shared.i18n import N_, _, format_date
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -4,7 +4,7 @@ import os
 import fakeredis
 import pytest
 
-from countdown_core.store import file_store, reader, render_queue
+from countdown_shared.store import file_store, reader, render_queue
 
 
 @pytest.fixture

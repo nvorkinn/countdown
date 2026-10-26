@@ -8,10 +8,10 @@ from PIL import Image as PILImage
 
 from countdown_api import fixtures
 from countdown_renderer.spotify import spotify_panel
-from countdown_core.spotify.models import Album, Image, Playback, Queue, Track
+from countdown_shared.spotify.models import Album, Image, Playback, Queue, Track
 from countdown_renderer.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel, _album_art, _paused
 from countdown_renderer.spotify.spotify_styles import APPLE_MUSIC_LABELS, STYLES
-from countdown_core.store.music import ART_SIZE, art_image
+from countdown_shared.store.music import ART_SIZE, art_image
 
 ART = fixtures.read_bytes("music_art.jpg")
 

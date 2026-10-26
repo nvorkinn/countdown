@@ -7,11 +7,11 @@ and the right in turn (the most important top left, then top right), each with i
 from math import ceil
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _
 from countdown_renderer.notices.notice import Severity
 from countdown_renderer.notices.notice_board_panel import SOURCE_GAP, HdNoticeBoardPanel
 from countdown_renderer.notices.notice_styles import STYLES
 from countdown_renderer.utils.scaled_draw import scaled_canvas
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from PIL import Image

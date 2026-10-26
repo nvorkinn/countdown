@@ -8,7 +8,6 @@ so nothing in it rotates. Laid out in pixels sized for the 7.5" screens; the lay
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _
 from countdown_renderer.utils.clock import format_clock
 from countdown_renderer.utils.scaled_draw import scaled_canvas
 from countdown_renderer.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, UBUNTU_BOLD
@@ -16,14 +15,15 @@ from countdown_renderer.weather.hd_clock_panels import HdWeatherColumnPanel, clo
 from countdown_renderer.weather.hd_sidebar_panel import current_page, later_rows
 from countdown_renderer.weather.hd_weather_panel import _fitted, _font, _icon, _temperature
 from countdown_renderer.weather.weather_panel import _condition
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from PIL import Image
 
-    from countdown_core.weather.models import WeatherHour
     from countdown_renderer.utils.clock import ClockFormat
     from countdown_renderer.utils.scaled_draw import ScaledDraw
     from countdown_renderer.weather.hd_sidebar_panel import Row
+    from countdown_shared.weather.models import WeatherHour
 
 # Where the hours' rule is, how tall an hour's row is, and a later page's; the hours the later pages leave room for.
 RULE = 392

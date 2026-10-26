@@ -24,7 +24,7 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
 WORKDIR /work
 COPY pyproject.toml uv.lock ./
 COPY api/pyproject.toml api/
-COPY core/pyproject.toml core/
+COPY shared/pyproject.toml shared/
 COPY renderer/pyproject.toml renderer/
 COPY providers/pyproject.toml providers/
 RUN uv sync --frozen --no-install-workspace
