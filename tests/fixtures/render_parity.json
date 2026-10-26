@@ -237,9 +237,9 @@
       },
       "store": {
         "v1:departures:NSR:StopPlace:58381": "{\"fetched_at\":\"2026-10-17T12:00:10Z\",\"stop_id\":\"NSR:StopPlace:58381\",\"name\":\"Majorstuen\",\"mode\":\"metro\",\"stop_letter\":null,\"modes\":[\"metro\",\"tram\"],\"departures\":[{\"line\":\"2\",\"destination\":\"Ellingsrudåsen\",\"expected_at\":\"2026-10-17T12:03:30Z\",\"platform\":null,\"mode\":\"metro\"},{\"line\":\"19\",\"destination\":\"Ljabru\",\"expected_at\":\"2026-10-17T12:07:30Z\",\"platform\":null,\"mode\":\"tram\"}]}",
-        "v1:developer:device-123": "{\"fetched_at\": \"2026-10-17T12:00:00+00:00\", \"github\": {\"login\": \"nvorkinn\", \"repos\": 9, \"open_prs\": 3, \"review_requests\": 1, \"failing\": [\"auth-broker\"], \"releases\": [{\"repo\": \"pi-dashboard\", \"title\": \"v0.4.3\", \"state\": \"running\", \"started\": \"2026-10-17T11:57:00+00:00\", \"finished\": null, \"jobs\": [{\"key\": \"build\", \"name\": \"Build\", \"state\": \"done\", \"needs\": []}, {\"key\": \"deploy\", \"name\": \"Deploy\", \"state\": \"running\", \"needs\": [\"build\"], \"done\": 1, \"total\": 2}]}]}, \"plans\": [{\"name\": \"Copilot\", \"plan\": \"Pro\", \"renews\": \"2026-11-01\", \"used\": 280, \"limit\": 300}, {\"name\": \"Claude\", \"plan\": \"Max\", \"renews\": \"2026-10-18\", \"used\": null, \"limit\": null}]}"
+        "v1:developer:device-123": "{\"fetched_at\": \"2026-10-17T12:00:00+00:00\", \"github\": {\"login\": \"nvorkinn\", \"repos\": 9, \"open_prs\": 3, \"review_requests\": 1, \"failing\": [\"auth-broker\"], \"releases\": [{\"repo\": \"countdown\", \"title\": \"v0.4.3\", \"state\": \"running\", \"started\": \"2026-10-17T11:57:00+00:00\", \"finished\": null, \"jobs\": [{\"key\": \"build\", \"name\": \"Build\", \"state\": \"done\", \"needs\": []}, {\"key\": \"deploy\", \"name\": \"Deploy\", \"state\": \"running\", \"needs\": [\"build\"], \"done\": 1, \"total\": 2}]}]}, \"plans\": [{\"name\": \"Copilot\", \"plan\": \"Pro\", \"renews\": \"2026-11-01\", \"used\": 280, \"limit\": 300}, {\"name\": \"Claude\", \"plan\": \"Max\", \"renews\": \"2026-10-18\", \"used\": null, \"limit\": null}]}"
       },
-      "etag": "d01f7ba920011d13",
+      "etag": "a08d714b9c1299de",
       "panels": {
         "notice_board": "NoticeBoardPanel",
         "glowmarkt": "MessagePanel",

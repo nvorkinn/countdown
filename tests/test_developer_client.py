@@ -169,12 +169,12 @@ def test_the_notice_source_reads_the_store_itself_not_the_panels_last_poll(clien
     _put(store, ANSWER)
     asyncio.run(client.update())  # the panel's poll, before the board's
     (source,) = client.notice_sources()
-    _put(store, ANSWER | {"github": ANSWER["github"] | {"failing": ["pi-dashboard"]}})  # the provider's next cycle
+    _put(store, ANSWER | {"github": ANSWER["github"] | {"failing": ["countdown"]}})  # the provider's next cycle
 
     texts = [n.text for n in source.fetch(NOW) if n.source == "GitHub"]
     store.delete(KEY)  # then its key expires
 
-    assert texts == ["pi-dashboard: build failing"]
+    assert texts == ["countdown: build failing"]
     with pytest.raises(NoStoredDeveloperError):
         source.fetch(NOW)
 
@@ -240,9 +240,7 @@ def test_a_stored_panel_without_releases_has_none(client, store):
 
 
 def test_notices_for_a_release_failed_and_one_waiting_for_approval(client, store):
-    failed = _release(
-        "failed", title="v2.14.0", repo="pi-dashboard", jobs=[{"key": "b", "name": "b", "state": "failed"}]
-    )
+    failed = _release("failed", title="v2.14.0", repo="countdown", jobs=[{"key": "b", "name": "b", "state": "failed"}])
     _put(store, _with_releases(_release(), failed))
     (source,) = client.notice_sources()
 
@@ -251,7 +249,7 @@ def test_notices_for_a_release_failed_and_one_waiting_for_approval(client, store
     assert notices == [
         (Severity.WARNING, "auth-broker: build failing"),
         (Severity.REMINDER, "auth-broker v1.27.0: deploy-authentik waiting for your approval"),
-        (Severity.WARNING, "pi-dashboard v2.14.0: release failed"),
+        (Severity.WARNING, "countdown v2.14.0: release failed"),
     ]
 
 
