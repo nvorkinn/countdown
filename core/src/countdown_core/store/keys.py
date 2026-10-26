@@ -2,7 +2,7 @@
 
 Everything is prefixed with `v1:`, so a later, incompatible layout can live beside this one while things move over.
 
-The keys that cross between pi-dashboard and countdown-server are the store contract's: countdown-api's store.yaml, as
+The keys that cross between this side and countdown-server are the store contract's: countdown-api's store.yaml, as
 countdown_api.keys (its builders say what each holds, its TTL, and who writes and reads it), re-exported here. They are:
 
 - Subscriptions (written by the broker, read by the providers): `v1:sub:<source>` (`subscription`), a set of the ids
@@ -18,7 +18,7 @@ countdown_api.keys (its builders say what each holds, its TTL, and who writes an
 - The render queue's keys the broker writes too: RENDER_JOBS, RENDER_SCREENS and `render_queued`. See
   store.render_queue.
 
-Defined here are the keys only pi-dashboard writes and reads. Data (written by the providers with a TTL, read by the
+Defined here are the keys only this repository writes and reads. Data (written by the providers with a TTL, read by the
 renderers): one key per thing, holding the JSON of a countdown_core.store.models model; a missing key means its
 provider is down (or hasn't got to it yet). And the render pool's own lease and follow-up flag.
 """
@@ -59,7 +59,7 @@ from countdown_api.keys import (
 )
 
 # The keys that cross to countdown-server are the store contract's (countdown-api's store.yaml: countdown_api.keys), and
-# are re-exported here so everything here names every key one way. Only the keys pi-dashboard alone writes and reads
+# are re-exported here so everything here names every key one way. Only the keys this repository alone writes and reads
 # are defined below.
 __all__ = [
     "ALBUM_ART_TTL_S",
