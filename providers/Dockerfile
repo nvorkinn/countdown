@@ -1,6 +1,6 @@
 # countdown-providers: every provider (one per API) in one image; each Compose service picks its provider by
-# command, e.g. `countdown-provider-weather`. Built from a release's wheels -- the build context is countdown/, after
-# `uv build --wheel --all-packages` has filled countdown/dist/. See README.md.
+# command, e.g. `countdown-provider-weather`. Built from a release's wheels -- the build context is the repository
+# root, after `uv build --wheel --all-packages` has filled dist/. See README.md.
 FROM python:3.14-slim
 
 LABEL org.opencontainers.image.source="https://github.com/nvorkinn/pi-dashboard"

@@ -1,6 +1,6 @@
 # countdown-renderer: the render pool (countdown-render-worker, the default, and countdown-render-ticker), which draws
 # the frames the screens (the ESP32) fetch from the broker. Built from a release's wheels -- the build context is
-# countdown/, after `uv build --wheel --all-packages` has filled countdown/dist/. See deploy/README.md.
+# the repository root, after `uv build --wheel --all-packages` has filled dist/. See deploy/README.md.
 FROM python:3.14-slim
 
 LABEL org.opencontainers.image.source="https://github.com/nvorkinn/pi-dashboard"

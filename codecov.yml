@@ -1,8 +1,6 @@
 flag_management:
   individual_flags:
     - name: countdown
-      paths:
-        - countdown/
 coverage:
   status:
     project:
@@ -12,7 +10,7 @@ coverage:
         informational: true
     patch:
       default:
-        # New and changed lines (branches included: see `branch = true` in countdown/pyproject.toml) should be mostly
+        # New and changed lines (branches included: see `branch = true` in pyproject.toml) should be mostly
         # tested; 5% of leeway keeps a small change with a few untested lines (a defensive branch) from failing.
         target: 80%
         threshold: 5%

@@ -12,7 +12,7 @@ rendering works: [How rendering works](../../docs/stateless-renderers.md).
 Every release builds `ghcr.io/nvorkinn/countdown-renderer` (the pool) and `ghcr.io/nvorkinn/countdown-providers` from
 that release's wheels, tagged `<tag>` and `latest`. The renderer image's entrypoint is `countdown-render-worker`; the
 ticker overrides it with `countdown-render-ticker`. It keeps nothing: no identity, no volume. To build one locally,
-from `countdown/`:
+from the repository root:
 
 ```sh
 ./dev/build_dist.sh   # the wheels and each image's requirements, in dist/

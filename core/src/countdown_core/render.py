@@ -7,7 +7,7 @@ panels, starts no threads and keeps nothing between calls but the read-only cach
 the translations and the Redis clients (reader.store). So the same inputs draw the same frame, whoever calls it.
 
 The render pool's workers (countdown_renderer.render_pool) call it from a job queue (store.render_queue), for every
-screen the broker lists in `v1:render:screens` (see countdown/docs/stateless-renderers.md). The broker serves the
+screen the broker lists in `v1:render:screens` (see docs/stateless-renderers.md). The broker serves the
 record to the screen.
 """
 

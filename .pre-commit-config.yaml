@@ -19,14 +19,14 @@ repos:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
-  # The whole project at once (not just the files committed), with the ty that countdown/uv.lock pins and against the
+  # The whole project at once (not just the files committed), with the ty that uv.lock pins and against the
   # workspace's installed dependencies. A local hook rather than astral-sh/ty-pre-commit: that runs `uv check`, which
   # checks only the workspace root's own package (here, none), so it passes without looking at anything.
   - repo: local
     hooks:
       - id: ty
         name: ty
-        entry: uv run --directory=countdown --frozen ty check
+        entry: uv run --frozen ty check
         language: system
         types_or: [python, pyi]
         pass_filenames: false

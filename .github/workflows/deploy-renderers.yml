@@ -1,6 +1,6 @@
 name: Deploy renderers
 
-# One environment's deploy of the providers and the render pool (countdown/renderer/deploy/docker-compose.*.yml), pinned
+# One environment's deploy of the providers and the render pool (renderer/deploy/docker-compose.*.yml), pinned
 # to one release's images. release.yml calls it for dev-qa, promote.yml for production. It runs entirely here: the
 # runner drives the Docker host's daemon over ssh (DOCKER_HOST), so the host needs nothing installed but Docker.
 on:
@@ -65,4 +65,4 @@ jobs:
           # means empty, and the compose file and the code then fall back to the production site's.
           COUNTDOWN_AUTH_HOST: ${{ vars.COUNTDOWN_AUTH_HOST }}
           COUNTDOWN_SITE_NAME: ${{ vars.COUNTDOWN_SITE_NAME }}
-        run: bash countdown/renderer/deploy/deploy.sh "$TAG"
+        run: bash renderer/deploy/deploy.sh "$TAG"

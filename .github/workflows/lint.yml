@@ -58,7 +58,7 @@ jobs:
           mkdir "$RUNNER_TEMP/shellcheck"
           tar -xJf "$RUNNER_TEMP/shellcheck.tar.xz" -C "$RUNNER_TEMP/shellcheck" --strip-components=1 "shellcheck-v${VERSION}/shellcheck"
           # Every tracked shell script outside the vendored submodule.
-          git ls-files -z -- '*.sh' ':!:countdown/api' | xargs -0 --no-run-if-empty "$RUNNER_TEMP/shellcheck/shellcheck"
+          git ls-files -z -- '*.sh' ':!:api' | xargs -0 --no-run-if-empty "$RUNNER_TEMP/shellcheck/shellcheck"
 
   hadolint:
     runs-on: ubuntu-latest
@@ -76,4 +76,4 @@ jobs:
           echo "$SHA256  $RUNNER_TEMP/hadolint" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/hadolint"
           # Every tracked Dockerfile (Dockerfile, *.Dockerfile) outside the vendored submodule.
-          git ls-files -z -- 'Dockerfile' '**/Dockerfile' '*.Dockerfile' ':!:countdown/api' | xargs -0 --no-run-if-empty "$RUNNER_TEMP/hadolint"
+          git ls-files -z -- 'Dockerfile' '**/Dockerfile' '*.Dockerfile' ':!:api' | xargs -0 --no-run-if-empty "$RUNNER_TEMP/hadolint"

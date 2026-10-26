@@ -76,7 +76,7 @@ warnings are silenced by `configure_logging`.
 ```sh
 docker run --rm -p 127.0.0.1:6379:6379 redis:8.10-alpine
 redis-cli SADD v1:sub:tfl 490000123W           # a stop to fetch
-uv run countdown-provider-tfl                   # from countdown/; set TFL_APP_KEY to avoid TfL's tighter limits
+uv run countdown-provider-tfl                   # from the repository root; set TFL_APP_KEY to avoid TfL's tighter limits
 redis-cli GET v1:departures:490000123W
 redis-cli PUBLISH v1:sub:changed ""             # after changing the set, to fetch at once rather than next tick
 ```
@@ -118,7 +118,7 @@ fetches it. Changing `SHARD_COUNT` moves most ids, which is harmless.
 
 All providers are in one image, `ghcr.io/nvorkinn/countdown-providers:<tag>`, built by each release from its own wheels
 and pinned to the release by the deploy. Its default command is the TfL provider; a service picks another with
-`command`. To build it locally, from `countdown/`:
+`command`. To build it locally, from the repository root:
 
 ```sh
 ./dev/build_dist.sh   # the wheels and each image's requirements, in dist/

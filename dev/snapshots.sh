@@ -10,15 +10,14 @@
 set -eu
 
 here="$(cd "$(dirname "$0")" && pwd)"
-countdown="$(dirname "$here")"
-repo="$(dirname "$countdown")"
+repo="$(dirname "$here")"
 image="${SNAPSHOT_IMAGE:-countdown-snapshots}"
 mode="${1:-test}"
 [ $# -gt 0 ] && shift
 
 build() {
   docker build ${SNAPSHOT_PLATFORM:+--platform "$SNAPSHOT_PLATFORM"} \
-    -f "$here/snapshots.Dockerfile" -t "$image" "$countdown"
+    -f "$here/snapshots.Dockerfile" -t "$image" "$repo"
 }
 
 case "$mode" in
@@ -31,7 +30,7 @@ esac
 # CI builds the image itself (and caches it); SNAPSHOT_SKIP_BUILD=1 then reuses it.
 [ -n "${SNAPSHOT_SKIP_BUILD:-}" ] || build
 
-src="/work/countdown"
+src="/work"
 # As the host's user, so what the tests write into the mounted repo (tests/images, _failures) isn't owned by root.
 # The renderer finds Material Symbols in fonts/ (git-ignored), so the image's copy goes there first.
 exec docker run --rm ${SNAPSHOT_PLATFORM:+--platform "$SNAPSHOT_PLATFORM"} \
