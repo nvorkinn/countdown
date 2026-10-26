@@ -10,10 +10,10 @@ name less " Underground Station". The provider has already turned TfL's arrivals
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, override
 
-from countdown_core.store import keys, reader
-from countdown_core.store.models import StopDepartures
 from countdown_renderer import moment
 from countdown_renderer.tfl.abstract_arrival_panel import AbstractArrivalPanel
+from countdown_shared.store import keys, reader
+from countdown_shared.store.models import StopDepartures
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 
     import redis
 
-    from countdown_core.store.models import Departure
     from countdown_renderer.style import Style
+    from countdown_shared.store.models import Departure
 
 
 class NoStoredDeparturesError(reader.NoStoredDataError):

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from redis.exceptions import RedisError
 
 from countdown_api.models import ConfigResponse, Glowmarkt
-from countdown_core.i18n import N_
 from countdown_renderer.abstract_client import AbstractClient, ClientStatus
 from countdown_renderer.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_renderer.developer.developer_client import DeveloperClient, DeveloperSettings
@@ -17,6 +16,7 @@ from countdown_renderer.notices.notice_board_client import NoticeBoardClient, No
 from countdown_renderer.spotify.spotify_client import MusicSettings, SpotifyClient, music_client_class
 from countdown_renderer.style import panel_style
 from countdown_renderer.weather.weather_client import WeatherClient
+from countdown_shared.i18n import N_
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

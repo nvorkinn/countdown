@@ -8,7 +8,6 @@ as big.
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.scaled_draw import scaled_canvas
 from countdown_renderer.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, UBUNTU_BOLD
@@ -16,14 +15,15 @@ from countdown_renderer.weather.hd_clock_panels import SQUARE, SQUARE_GAP, _draw
 from countdown_renderer.weather.hd_sidebar_panel import current_page
 from countdown_renderer.weather.hd_weather_panel import _fitted, _font, _icon, _temperature
 from countdown_renderer.weather.weather_panel import _condition
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from PIL import Image
 
-    from countdown_core.weather.models import Weather
     from countdown_renderer.utils.clock import ClockFormat
+    from countdown_shared.weather.models import Weather
 
 # The header line's height, and the room at its ends.
 HEADER_HEIGHT = 46

@@ -10,7 +10,7 @@ import sys
 import pytest
 import requests
 
-from countdown_core.core import log_format as renderer
+from countdown_shared.core import log_format as renderer
 
 FORMATTERS = [pytest.param(renderer.JsonFormatter(), id="renderer")]
 

@@ -20,14 +20,14 @@ import responses
 from location_factory import FakeLocations
 from responses import matchers
 
-from countdown_core.core import log_format
-from countdown_core.core.http_session import retrying_session
-from countdown_core.notices.models import FloodWarningsResponse
-from countdown_core.store import keys
-from countdown_core.tfl.models import Postcode, PostcodeResponse
 from countdown_providers.floods import main as floods_main
 from countdown_providers.floods.main import FLOOD_AREAS_URL, FLOODS_URL, FloodsProvider
 from countdown_providers.runner import ProviderRunner
+from countdown_shared.core import log_format
+from countdown_shared.core.http_session import retrying_session
+from countdown_shared.notices.models import FloodWarningsResponse
+from countdown_shared.store import keys
+from countdown_shared.tfl.models import Postcode, PostcodeResponse
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "floods.json").read_text())
 PLACES = FIXTURE["places"]
@@ -333,7 +333,7 @@ def provider_logging(monkeypatch):
 def test_urllib3s_retry_warnings_which_quote_the_coordinates_are_kept_out(
     provider_logging, located, clock, caplog, monkeypatch
 ):
-    """A real connection failure, retried by countdown_core's retrying session: urllib3 warns with each URL."""
+    """A real connection failure, retried by countdown_shared's retrying session: urllib3 warns with each URL."""
     with socket.socket() as s:  # a port nothing listens on
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]

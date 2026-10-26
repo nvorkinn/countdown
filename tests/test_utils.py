@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 from PIL import Image, ImageChops
 
-from countdown_core.store import keys
-from countdown_core.store.models import Departure, StopDepartures
+from countdown_shared.store import keys
+from countdown_shared.store.models import Departure, StopDepartures
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

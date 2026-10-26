@@ -1,6 +1,6 @@
 """The Entur situations provider: `v1:sub:entur`'s NSR stop ids to `v1:notices:entur:<stop id>`, for the notice board.
 
-Each stop's value is Entur's own answer to countdown_core.notices.entur_feed's situations query (with the same
+Each stop's value is Entur's own answer to countdown_shared.notices.entur_feed's situations query (with the same
 ET-Client-Name header as the departures): the situations on the stop and on the next 20 lines leaving it. The render
 pool makes the notices from it as it draws (StoredEnturSituationsSource).
 
@@ -24,14 +24,14 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
-from countdown_core.core.http_session import retrying_session
-from countdown_core.core.log_format import configure_logging
-from countdown_core.entur.entur_client import EnturClient
-from countdown_core.notices.entur_feed import query_situations
-from countdown_core.store import keys
-from countdown_core.store.situations import StoredSituations
 from countdown_providers.config import Settings
 from countdown_providers.runner import serve
+from countdown_shared.core.http_session import retrying_session
+from countdown_shared.core.log_format import configure_logging
+from countdown_shared.entur.entur_client import EnturClient
+from countdown_shared.notices.entur_feed import query_situations
+from countdown_shared.store import keys
+from countdown_shared.store.situations import StoredSituations
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -101,7 +101,7 @@ def main() -> None:
     """Run the `countdown-provider-entur-situations` console script. Entur needs no key, only its ET-Client-Name."""
     configure_logging()
     settings = Settings.from_env()
-    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff (never a 429).
+    # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff (never a 429).
     session = retrying_session()
     asyncio.run(serve(EnturSituationsProvider(EnturClient(session)), settings))
 

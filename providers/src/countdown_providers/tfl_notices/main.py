@@ -14,7 +14,7 @@ Three providers in one process (runner.serve_all), one for each kind of TfL disr
   it hasn't placed, or that doesn't exist, is left out until it has.
 
 What's stored is TfL's own answers (store/tfl_notices.py); the render pool makes the notices from them as it draws. The
-requests are countdown-core's (TflSource), which are synchronous (requests), so each batch runs in a worker thread
+requests are countdown-shared's (TflSource), which are synchronous (requests), so each batch runs in a worker thread
 (asyncio.to_thread), with a session of its own.
 """
 
@@ -25,21 +25,21 @@ from datetime import UTC, datetime, timedelta
 from itertools import batched
 from typing import TYPE_CHECKING
 
-from countdown_core.core.http_session import retrying_session
-from countdown_core.core.log_format import configure_logging, error_reason
-from countdown_core.notices.location import FULL_POSTCODE
-from countdown_core.notices.tfl_feed import ROAD_SEVERITIES, is_near
-from countdown_core.store import keys
-from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
-from countdown_core.tfl.tfl_client import TflSource
 from countdown_providers.config import Settings
 from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import serve_all
+from countdown_shared.core.http_session import retrying_session
+from countdown_shared.core.log_format import configure_logging, error_reason
+from countdown_shared.notices.location import FULL_POSTCODE
+from countdown_shared.notices.tfl_feed import ROAD_SEVERITIES, is_near
+from countdown_shared.store import keys
+from countdown_shared.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
+from countdown_shared.tfl.tfl_client import TflSource
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from countdown_core.tfl.models import Line, Postcode
+    from countdown_shared.tfl.models import Line, Postcode
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +215,7 @@ def providers(
 
     The road provider reads where the postcodes are through `locations`.
     """
-    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff.
     return [
         TflLineStatusProvider(TflSource(retrying_session(), app_key)),
         TflStationProvider(TflSource(retrying_session(), app_key)),

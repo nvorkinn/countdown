@@ -16,10 +16,6 @@ import requests
 import responses
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core import i18n
-from countdown_core.store import keys, reader
-from countdown_core.store.metalerts import StoredMetAlerts
-from countdown_core.tfl.models import Postcode
 from countdown_renderer import moment
 from countdown_renderer.notices.norway import (
     NoStoredMetAlertsError,
@@ -30,6 +26,10 @@ from countdown_renderer.notices.norway import (
 from countdown_renderer.notices.notice import Notice, Severity
 from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_renderer.utils.clock import format_clock
+from countdown_shared import i18n
+from countdown_shared.store import keys, reader
+from countdown_shared.store.metalerts import StoredMetAlerts
+from countdown_shared.tfl.models import Postcode
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "metalerts_current.json").read_text(encoding="utf-8"))

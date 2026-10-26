@@ -2,8 +2,8 @@ import pytest
 from pydantic import TypeAdapter
 from tfl_fixtures import BUS_STOP_JSON, METRO_STOP_JSON
 
-from countdown_core.glow.models import Readings
-from countdown_core.tfl.models import (
+from countdown_shared.glow.models import Readings
+from countdown_shared.tfl.models import (
     ArrivalUnion,
     BusArrival,
     MetroStopPoint,

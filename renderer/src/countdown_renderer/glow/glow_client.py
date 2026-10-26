@@ -4,12 +4,12 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, override
 
 from countdown_api.models import Glowmarkt
-from countdown_core.i18n import N_
-from countdown_core.store import keys, reader
-from countdown_core.store.energy import StoredEnergy
 from countdown_renderer import moment, rotation
 from countdown_renderer.abstract_client import AbstractClient
 from countdown_renderer.glow.energy_panel import PAGES, EnergyPanel
+from countdown_shared.i18n import N_
+from countdown_shared.store import keys, reader
+from countdown_shared.store.energy import StoredEnergy
 
 if TYPE_CHECKING:
     from datetime import tzinfo

@@ -23,24 +23,24 @@ import responses
 from responses import matchers
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.core import log_format
-from countdown_core.core.http_session import retrying_session
-from countdown_core.notices import location as location_module
-from countdown_core.notices.location import POSTCODES_URL
-from countdown_core.notices.norway_feed import ADDRESSES_URL
-from countdown_core.store import keys, reader
-from countdown_core.store.bank_holidays import StoredBankHolidays
-from countdown_core.store.floods import StoredFloods
-from countdown_core.store.location import StoredLocation
-from countdown_core.store.met_office import StoredMetOfficeWarnings
-from countdown_core.store.metalerts import StoredMetAlerts
-from countdown_core.store.tfl_notices import StoredRoadDisruptions
-from countdown_core.tfl.models import Postcode
 from countdown_providers.locations import main as locations_main
 from countdown_providers.locations.main import LOOKUP_EVERY, LocationsProvider
 from countdown_providers.runner import ProviderRunner
 from countdown_renderer import moment
 from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
+from countdown_shared.core import log_format
+from countdown_shared.core.http_session import retrying_session
+from countdown_shared.notices import location as location_module
+from countdown_shared.notices.location import POSTCODES_URL
+from countdown_shared.notices.norway_feed import ADDRESSES_URL
+from countdown_shared.store import keys, reader
+from countdown_shared.store.bank_holidays import StoredBankHolidays
+from countdown_shared.store.floods import StoredFloods
+from countdown_shared.store.location import StoredLocation
+from countdown_shared.store.met_office import StoredMetOfficeWarnings
+from countdown_shared.store.metalerts import StoredMetAlerts
+from countdown_shared.store.tfl_notices import StoredRoadDisruptions
+from countdown_shared.tfl.models import Postcode
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "locations.json").read_text(encoding="utf-8"))
@@ -366,7 +366,7 @@ def provider_logging(monkeypatch):
 def test_urllib3s_retry_warnings_which_quote_the_postcodes_url_are_kept_out(
     provider_logging, clock, caplog, monkeypatch
 ):
-    """A real connection failure, retried by countdown_core's retrying session: urllib3 warns with each URL."""
+    """A real connection failure, retried by countdown_shared's retrying session: urllib3 warns with each URL."""
     with socket.socket() as s:  # a port nothing listens on
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]

@@ -1,7 +1,7 @@
 """Weather warnings for a UK postcode, from the Met Office's RSS feeds.
 
 provider-met-office fetches the feed of each subscribed postcode's region (met_office_feed.region_for) and stores its
-items under the postcode (countdown_core.store.met_office); the notice board reads them from there
+items under the postcode (countdown_shared.store.met_office); the notice board reads them from there
 (StoredMetOfficeWarningsSource) and makes its notices from them when it draws (warning_notices).
 """
 
@@ -10,11 +10,11 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
-from countdown_core.i18n import N_, _, format_date
-from countdown_core.notices.met_office_feed import region_for
-from countdown_core.store import keys, reader
-from countdown_core.store.met_office import StoredMetOfficeWarnings
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
+from countdown_shared.i18n import N_, _, format_date
+from countdown_shared.notices.met_office_feed import region_for
+from countdown_shared.store import keys, reader
+from countdown_shared.store.met_office import StoredMetOfficeWarnings
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -22,8 +22,8 @@ if TYPE_CHECKING:
     import redis
     import requests
 
-    from countdown_core.store.met_office import FeedItem
-    from countdown_core.tfl.models import Postcode
+    from countdown_shared.store.met_office import FeedItem
+    from countdown_shared.tfl.models import Postcode
 
 UK_TIME = ZoneInfo("Europe/London")
 

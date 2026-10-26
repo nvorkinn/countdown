@@ -5,17 +5,17 @@ The renderer never asks the EA itself; the provider fetches each postcode's warn
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import N_, _
-from countdown_core.store import keys, reader
-from countdown_core.store.floods import StoredFloods
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
+from countdown_shared.i18n import N_, _
+from countdown_shared.store import keys, reader
+from countdown_shared.store.floods import StoredFloods
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     import requests
 
-    from countdown_core.notices.models import FloodWarningsResponse
+    from countdown_shared.notices.models import FloodWarningsResponse
 
 # severityLevel 4 is "warning no longer in force", which isn't worth showing.
 SEVERITY_BY_LEVEL = {

@@ -11,15 +11,15 @@ from typing import TYPE_CHECKING, Protocol
 
 from PIL import Image, ImageFont
 
-from countdown_core.i18n import N_, _
 from countdown_renderer.tfl.arrival_styles import BOLD, MEDIUM, REGULAR, SANS, SANS_SEMI, _canvas, _shrunk
 from countdown_renderer.utils.utils import fitted_font, google_symbols, resized, truncate_to_fit
+from countdown_shared.i18n import N_, _
 
 if TYPE_CHECKING:
     from datetime import timedelta
 
-    from countdown_core.spotify.models import Artist, Queue, Track
     from countdown_renderer.utils.scaled_draw import ScaledDraw
+    from countdown_shared.spotify.models import Artist, Queue, Track
 
 # Material Symbols glyphs
 NOTE = chr(0xE405)

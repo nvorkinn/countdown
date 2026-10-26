@@ -10,7 +10,7 @@ from countdown_renderer import moment
 from countdown_renderer.departures.departures_client import DeparturesClient
 from countdown_renderer.notices.notice import Notice, Severity
 from countdown_renderer.notices.notice_board_panel import NoticeBannerPanel, NoticeBoardPanel
-from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
+from countdown_shared.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
 from countdown_renderer.tfl.route_board_panel import BAR, ROW, STOP_GAP, RouteBoardPanel, rows_each
 from countdown_renderer.tfl.timeline_panel import WINDOW, TimelinePanel, departures, placed
 from countdown_renderer.utils.scaled_draw import drawing_at
@@ -24,7 +24,7 @@ from countdown_renderer.weather.hd_clock_panels import (
     high_low,
 )
 from countdown_renderer.weather.hd_sidebar_panel import current_page, later_rows, readings
-from countdown_core.weather.models import ForecastResponse, WeatherPeriod
+from countdown_shared.weather.models import ForecastResponse, WeatherPeriod
 from countdown_renderer.weather.weather_forecast import weather_pages
 
 MOMENT = dt.datetime(2026, 1, 15, 12, 0, tzinfo=dt.UTC)

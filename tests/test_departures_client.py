@@ -8,9 +8,6 @@ from test_utils import TEST_DEVICE_ID, put_departures
 from tfl_fixtures import BUS_STOP_JSON, METRO_STOP_JSON
 
 from countdown_api.models import DepartureStop
-from countdown_core.store import keys, reader
-from countdown_core.tfl.models import MetroStopPoint, SingleStopPoint
-from countdown_core.tfl.tfl_client import _find_stop_child
 from countdown_renderer.abstract_client import ClientStatus
 from countdown_renderer.departures.departures_client import DeparturesClient, DeparturesSettings, ResolvedStop
 from countdown_renderer.entur.stored_source import StoredEnturSource
@@ -21,6 +18,9 @@ from countdown_renderer.tfl.stored_source import (
     StoredTflSource,
     StoredTubePanel,
 )
+from countdown_shared.store import keys, reader
+from countdown_shared.tfl.models import MetroStopPoint, SingleStopPoint
+from countdown_shared.tfl.tfl_client import _find_stop_child
 
 
 def make_bus_stop(naptan_id="490000123W"):

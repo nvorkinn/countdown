@@ -11,8 +11,6 @@ from typing import TYPE_CHECKING, Any, Protocol, override
 from redis.exceptions import RedisError
 
 from countdown_api.models import ConfigResponse, DepartureStop
-from countdown_core.i18n import N_
-from countdown_core.store import reader
 from countdown_renderer import rotation
 from countdown_renderer.abstract_client import AbstractClient
 from countdown_renderer.entur.stored_source import StoredEnturSource
@@ -21,6 +19,8 @@ from countdown_renderer.notices.tfl import StoredTflLineStatusSource, StoredTflS
 from countdown_renderer.style import panel_style
 from countdown_renderer.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
 from countdown_renderer.tfl.stored_source import NoStoredDeparturesError, StoredTflSource
+from countdown_shared.i18n import N_
+from countdown_shared.store import reader
 
 if TYPE_CHECKING:
     from countdown_renderer.notices.notice import NoticeSource

@@ -27,16 +27,16 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 from redis.exceptions import RedisError
 
-from countdown_core.core.log_format import error_reason
-from countdown_core.store import keys
-from countdown_core.store.location import StoredLocation
+from countdown_shared.core.log_format import error_reason
+from countdown_shared.store import keys
+from countdown_shared.store.location import StoredLocation
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from redis.asyncio import Redis
 
-    from countdown_core.tfl.models import Postcode
+    from countdown_shared.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 

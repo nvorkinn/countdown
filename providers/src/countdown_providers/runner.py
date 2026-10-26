@@ -25,9 +25,9 @@ from typing import TYPE_CHECKING, cast
 
 from redis.exceptions import RedisError
 
-from countdown_core.core.log_format import error_reason, without_text
-from countdown_core.store import keys
 from countdown_providers.sharding import Shard
+from countdown_shared.core.log_format import error_reason, without_text
+from countdown_shared.store import keys
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence

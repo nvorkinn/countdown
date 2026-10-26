@@ -12,9 +12,9 @@ if TYPE_CHECKING:
 
     from PIL import Image
 
-    from countdown_core.developer.models import DeveloperSummary
     from countdown_renderer.style import Style
     from countdown_renderer.utils.clock import ClockFormat
+    from countdown_shared.developer.models import DeveloperSummary
 
 
 class DeveloperPanel(Panel):

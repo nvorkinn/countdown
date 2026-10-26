@@ -4,9 +4,9 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from PIL import Image, ImageDraw
 
-from countdown_core import i18n
+from countdown_shared import i18n
 from countdown_renderer.developer import release_styles
-from countdown_core.developer.models import Release, ReleaseJob
+from countdown_shared.developer.models import Release, ReleaseJob
 
 NOW = datetime(2026, 10, 17, 15, 4, tzinfo=UTC)
 

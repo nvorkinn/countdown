@@ -17,9 +17,9 @@ from pydantic import ValidationError
 
 from countdown_api import fixtures
 from countdown_api.models import ConfigResponse
-from countdown_core.store import config as stored_config
-from countdown_core.store import keys
 from countdown_renderer.weather.weather_client import location_key
+from countdown_shared.store import config as stored_config
+from countdown_shared.store import keys
 
 FIXTURE = fixtures.load("config_store.json")
 DEVICE_ID = FIXTURE["device_id"]

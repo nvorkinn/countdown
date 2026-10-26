@@ -4,17 +4,17 @@ import logging
 from typing import TYPE_CHECKING, override
 
 from countdown_api.models import Weather as WeatherSection
-from countdown_core.i18n import N_
-from countdown_core.store import keys, reader
-from countdown_core.store.models import StoredForecast
 from countdown_renderer import rotation
 from countdown_renderer.abstract_client import AbstractClient
 from countdown_renderer.weather.weather_forecast import weather_pages
 from countdown_renderer.weather.weather_panel import WeatherPanel
+from countdown_shared.i18n import N_
+from countdown_shared.store import keys, reader
+from countdown_shared.store.models import StoredForecast
 
 if TYPE_CHECKING:
-    from countdown_core.weather.models import ForecastResponse
     from countdown_renderer.panel import Panel
+    from countdown_shared.weather.models import ForecastResponse
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class WeatherClient(AbstractClient[WeatherSection]):
     """A forecast carousel, read from the store under the location key the broker subscribes to.
 
     That's `v1:weather:<key>` (see location_key), written by the weather provider from Open-Meteo
-    (countdown_core.weather.open_meteo), which is keyless, so the config carries no key. With no location
+    (countdown_shared.weather.open_meteo), which is keyless, so the config carries no key. With no location
     configured there's nothing to read, and the panel says it needs configuring. The forecast is read on every poll
     and nothing of it is kept: once its key has expired, the panel says it's not available.
     """

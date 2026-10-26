@@ -8,7 +8,6 @@ nothing in them rotates. They're laid out in pixels sized for the 7.5" screens, 
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _, format_date, local_zone
 from countdown_renderer import moment
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.clock import format_clock
@@ -17,15 +16,16 @@ from countdown_renderer.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, UBUNTU_B
 from countdown_renderer.weather.hd_sidebar_panel import current_page, later_rows, readings
 from countdown_renderer.weather.hd_weather_panel import _fitted, _font, _icon, _stat, _temperature
 from countdown_renderer.weather.weather_panel import _condition
+from countdown_shared.i18n import _, format_date, local_zone
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from PIL import Image
 
-    from countdown_core.weather.models import Weather
     from countdown_renderer.utils.clock import ClockFormat
     from countdown_renderer.utils.scaled_draw import Fill, ScaledDraw
+    from countdown_shared.weather.models import Weather
 
 # Between a panel's edges and what's in it, in its own pixels.
 MARGIN = 24

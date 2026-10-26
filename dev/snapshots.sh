@@ -35,7 +35,7 @@ src="/work"
 # The renderer finds Material Symbols in fonts/ (git-ignored), so the image's copy goes there first.
 exec docker run --rm ${SNAPSHOT_PLATFORM:+--platform "$SNAPSHOT_PLATFORM"} \
   --user "$(id -u):$(id -g)" -e HOME=/tmp \
-  -e PYTHONPATH="$src/api/src:$src/core/src:$src/renderer/src:$src/providers/src" \
+  -e PYTHONPATH="$src/api/src:$src/shared/src:$src/renderer/src:$src/providers/src" \
   -v "$repo:/work" -w "$src" "$image" \
   sh -c 'cp -n /opt/fonts/* renderer/src/countdown_renderer/fonts/ && exec pytest -p no:cacheprovider -n auto -m snapshot "$@"' \
   sh $flags "$@"

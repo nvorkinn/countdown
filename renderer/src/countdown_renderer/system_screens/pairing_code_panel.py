@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, override
 import qrcode
 from PIL import Image, ImageDraw
 
-from countdown_core.i18n import _
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.scaled_draw import drawing_scale
 from countdown_renderer.utils.utils import fitted_font, width_scale
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from countdown_renderer.utils.clock import ClockFormat

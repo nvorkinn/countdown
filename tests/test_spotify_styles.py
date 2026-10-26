@@ -5,7 +5,7 @@ import pytest
 from PIL import Image
 from test_utils import assert_text_inside_and_apart
 
-from countdown_core.spotify.models import Artist, Queue, Track
+from countdown_shared.spotify.models import Artist, Queue, Track
 from countdown_renderer.spotify.spotify_styles import STYLES, WIDE_ROWS, _length
 
 STYLE_NAMES = list(STYLES)

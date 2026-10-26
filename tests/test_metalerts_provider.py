@@ -16,11 +16,11 @@ import pytest
 import requests
 import responses
 
-from countdown_core.notices.norway_feed import MET_HEADERS, METALERTS_URL
-from countdown_core.store import keys
-from countdown_core.store.metalerts import StoredMetAlerts
 from countdown_providers.metalerts.main import WITHOUT_EXPIRES, MetAlertsProvider, is_norwegian
 from countdown_providers.runner import ProviderRunner
+from countdown_shared.notices.norway_feed import MET_HEADERS, METALERTS_URL
+from countdown_shared.store import keys
+from countdown_shared.store.metalerts import StoredMetAlerts
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "metalerts_current.json").read_text(encoding="utf-8"))
 NOW = datetime.fromisoformat(FIXTURE["fetched_at"])

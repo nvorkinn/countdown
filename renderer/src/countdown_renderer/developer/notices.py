@@ -2,9 +2,9 @@
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _, local_zone
-from countdown_core.store import developer
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
+from countdown_shared.i18n import _, local_zone
+from countdown_shared.store import developer
 
 if TYPE_CHECKING:
     from datetime import datetime

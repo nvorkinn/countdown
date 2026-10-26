@@ -19,7 +19,7 @@ Failures stay small: a batch whose fetch raises is logged and skipped (its keys 
 provider couldn't fetch is left out, and an unreachable Redis is retried on the next tick. A missed nudge only delays a
 change until the next tick.
 
-Stored models are in `countdown_core/store/models.py` and the key builders in `store/keys.py`, in countdown-core so the
+Stored models are in `countdown_shared/store/models.py` and the key builders in `store/keys.py`, in countdown-shared so the
 providers and the render pool share them.
 
 ## The providers
@@ -99,7 +99,7 @@ fetches it. Changing `SHARD_COUNT` moves most ids, which is harmless.
 
 ## Adding a provider
 
-1. Add its stored model to `countdown_core/store/models.py` (subclass `Stored`, which carries `fetched_at`) and, if it's
+1. Add its stored model to `countdown_shared/store/models.py` (subclass `Stored`, which carries `fetched_at`) and, if it's
    new, its key builder to `keys.py`.
 2. Add `countdown_providers/<name>/main.py` with a class matching the `Provider` protocol (`provider.py`): `name` (the
    `v1:sub:<name>` set it reads), `ttl_s`, `interval_s`, `output_key(id)` and `async fetch(ids)`. `fetch` returns a

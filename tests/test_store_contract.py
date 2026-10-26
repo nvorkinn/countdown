@@ -17,10 +17,10 @@ from pydantic import TypeAdapter
 
 from countdown_api import fixtures, models, scripts
 from countdown_api import keys as contract_keys
-from countdown_core.store import config, developer, frame_record, keys, pairing, reader, render_queue
-from countdown_core.store.energy import StoredEnergy
-from countdown_core.store.music import StoredPlayer, StoredTop
 from countdown_providers.runner import PACE_TTL_S, ProviderRunner
+from countdown_shared.store import config, developer, frame_record, keys, pairing, reader, render_queue
+from countdown_shared.store.energy import StoredEnergy
+from countdown_shared.store.music import StoredPlayer, StoredTop
 
 CONFIG = fixtures.load("config_store.json")
 PAIRING = fixtures.load("pairing_key.json")

@@ -98,7 +98,7 @@ jobs:
         run: |
           failed=0
           uv run --no-sync deptry . || failed=1
-          for package in core renderer providers; do
+          for package in shared renderer providers; do
             (cd "$package" && uv run --no-sync deptry src) || failed=1
           done
           exit "$failed"

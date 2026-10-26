@@ -10,10 +10,10 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, override
 
-from countdown_core.i18n import _, language
-from countdown_core.store import keys, reader
-from countdown_core.store.situations import StoredSituations
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
+from countdown_shared.i18n import _, language
+from countdown_shared.store import keys, reader
+from countdown_shared.store.situations import StoredSituations
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

@@ -4,11 +4,11 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
-from countdown_core.store import keys
-from countdown_core.store.models import Departure, StopDepartures
-from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
-from countdown_core.tfl.tfl_client import TflSource
 from countdown_providers.tfl.main import TflProvider, to_stop_departures
+from countdown_shared.store import keys
+from countdown_shared.store.models import Departure, StopDepartures
+from countdown_shared.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
+from countdown_shared.tfl.tfl_client import TflSource
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
 

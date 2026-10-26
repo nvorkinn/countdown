@@ -2,13 +2,13 @@
 
 from typing import TYPE_CHECKING, ClassVar, Self, override
 
-from countdown_core.i18n import _
 from countdown_renderer.notices.notice import Notice, Severity
 from countdown_renderer.notices.notice_styles import STYLES
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.clock import ClockFormat, format_clock
 from countdown_renderer.utils.scaled_draw import ScaledDraw, scaled_canvas
 from countdown_renderer.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, resized, truncate_to_fit
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from PIL import Image, ImageFont

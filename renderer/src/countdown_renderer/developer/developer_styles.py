@@ -6,18 +6,18 @@ Each matches the Spotify style of the same name: GitHub on the left half, the AI
 
 from typing import TYPE_CHECKING
 
-from countdown_core.i18n import _, format_date, ngettext
 from countdown_renderer.spotify.spotify_styles import CARD_BAR, _card, _hero_header, airy_label
 from countdown_renderer.tfl.arrival_styles import BOLD, MEDIUM, REGULAR, SANS, SANS_SEMI, _canvas
 from countdown_renderer.utils.utils import fitted_font, google_symbols, resized, truncate_to_fit
+from countdown_shared.i18n import _, format_date, ngettext
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from PIL import Image, ImageFont
 
-    from countdown_core.developer.models import AiPlan, DeveloperSummary, GitHubSummary
     from countdown_renderer.utils.scaled_draw import ScaledDraw
+    from countdown_shared.developer.models import AiPlan, DeveloperSummary, GitHubSummary
 
 # Material Symbols glyphs
 CODE = chr(0xE86F)

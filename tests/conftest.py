@@ -6,9 +6,9 @@ import pytest
 from PIL import Image, ImageDraw, ImageFont
 from test_utils import highlight_diff, images_equal
 
-from countdown_core.store import reader
 from countdown_renderer import rotation
 from countdown_renderer.utils import utils
+from countdown_shared.store import reader
 
 
 @pytest.fixture(autouse=True)

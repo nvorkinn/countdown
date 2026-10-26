@@ -8,13 +8,13 @@ the 7.5" screens; the layout draws it twice as big (rendering.layouts.hd_landsca
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _
 from countdown_renderer.notices.notice import Severity
 from countdown_renderer.notices.notice_styles import CAMPAIGN
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.clock import format_clock
 from countdown_renderer.utils.scaled_draw import scaled_canvas
 from countdown_renderer.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, google_symbols, resized, truncate_to_fit
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

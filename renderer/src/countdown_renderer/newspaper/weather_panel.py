@@ -7,8 +7,6 @@ forecast's later pages (tonight, tomorrow, the weekend) with its icon.
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import N_, _
-from countdown_core.weather.models import Upcoming, WeatherPeriod
 from countdown_renderer.newspaper.typesetting import (
     CONTENT_TOP,
     headline,
@@ -26,15 +24,17 @@ from countdown_renderer.weather.hd_sidebar_panel import current_page
 from countdown_renderer.weather.hd_weather_panel import _icon
 from countdown_renderer.weather.weather_panel import WEATHER_CODE_DESC, _condition, _temperature_text
 from countdown_renderer.weather.weather_trmnl_panel import _compass
+from countdown_shared.i18n import N_, _
+from countdown_shared.weather.models import Upcoming, WeatherPeriod
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from PIL import Image
 
-    from countdown_core.weather.models import Weather
     from countdown_renderer.utils.clock import ClockFormat
     from countdown_renderer.utils.scaled_draw import ScaledDraw
+    from countdown_shared.weather.models import Weather
 
 # The box with the weather now: how tall, and in it the icon's middle and size, the temperature's baseline and size,
 # and the conditions' baseline.

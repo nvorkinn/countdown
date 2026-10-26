@@ -20,11 +20,6 @@ import responses
 from test_utils import TEST_DEVICE_ID
 
 from countdown_api.models import DepartureStop
-from countdown_core import i18n
-from countdown_core.entur.entur_client import HEADERS, JOURNEY_PLANNER_URL, EnturClient
-from countdown_core.notices.entur_feed import QUAY_SITUATIONS_QUERY, SITUATIONS_QUERY
-from countdown_core.store import keys, reader
-from countdown_core.store.situations import StoredSituations
 from countdown_providers.entur_situations.main import QUOTA_BACKOFF, EnturSituationsProvider
 from countdown_providers.runner import ProviderRunner
 from countdown_renderer import moment
@@ -33,6 +28,11 @@ from countdown_renderer.notices import notice_board_client as board_module
 from countdown_renderer.notices.entur import NoStoredSituationsError, StoredEnturSituationsSource
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
 from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
+from countdown_shared import i18n
+from countdown_shared.entur.entur_client import HEADERS, JOURNEY_PLANNER_URL, EnturClient
+from countdown_shared.notices.entur_feed import QUAY_SITUATIONS_QUERY, SITUATIONS_QUERY
+from countdown_shared.store import keys, reader
+from countdown_shared.store.situations import StoredSituations
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "entur_situations.json").read_text())
 NOW = datetime.fromisoformat(FIXTURE["now"])

@@ -42,8 +42,8 @@ from countdown_renderer.rendering.layouts.hd_landscape_newspaper import (
 from countdown_renderer.spotify.spotify_client import SpotifyClient
 from countdown_renderer.spotify.spotify_panel import SpotifyPanel
 from countdown_renderer.tfl.combined_arrival_panel import CombinedArrivalPanel
-from countdown_core.tfl.models import TubeArrival
-from countdown_core.weather.models import WeatherPeriod
+from countdown_shared.tfl.models import TubeArrival
+from countdown_shared.weather.models import WeatherPeriod
 from countdown_renderer.weather.weather_client import WeatherClient
 
 SPOTIFY, GLOW, DEVELOPER = ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT, ClientClasses.DEVELOPER

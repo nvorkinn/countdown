@@ -8,13 +8,13 @@ from datetime import datetime
 from math import ceil
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import N_, _
 from countdown_renderer.glow.energy_panel import PAGES, EnergyPanel
 from countdown_renderer.newspaper.typesetting import double_rule, serif, serif_bold
 from countdown_renderer.panel import Panel
 from countdown_renderer.system_screens.message_panel import MessagePanel
 from countdown_renderer.utils.clock import format_clock
 from countdown_renderer.utils.scaled_draw import scaled_canvas
+from countdown_shared.i18n import N_, _
 
 if TYPE_CHECKING:
     from PIL import Image

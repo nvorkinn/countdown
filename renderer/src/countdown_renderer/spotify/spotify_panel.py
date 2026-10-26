@@ -13,10 +13,10 @@ from countdown_renderer.spotify.spotify_styles import SPOTIFY_LABELS, STYLES
 if TYPE_CHECKING:
     from datetime import datetime, timedelta
 
-    from countdown_core.spotify.models import Playback, Queue
     from countdown_renderer.spotify.spotify_styles import Labels
     from countdown_renderer.style import Style
     from countdown_renderer.utils.clock import ClockFormat
+    from countdown_shared.spotify.models import Playback, Queue
 
 logger = logging.getLogger(__name__)
 

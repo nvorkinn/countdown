@@ -21,15 +21,15 @@ from redis.exceptions import RedisError
 from weather_factory import forecast_json
 
 from countdown_api import fixtures
-from countdown_core.notices.location import OUTCODES_URL, POSTCODES_URL, lookup_outcode
-from countdown_core.store import keys
-from countdown_core.store.location import StoredLocation, weather_postcode
-from countdown_core.store.models import StoredForecast
-from countdown_core.tfl.models import Postcode
-from countdown_core.weather.open_meteo import FORECAST_URL, GEOCODING_URL, PLACE_URL
 from countdown_providers.locations.main import LocationsProvider, WeatherPostcodesProvider
 from countdown_providers.runner import ProviderRunner
 from countdown_providers.weather.main import WeatherProvider
+from countdown_shared.notices.location import OUTCODES_URL, POSTCODES_URL, lookup_outcode
+from countdown_shared.store import keys
+from countdown_shared.store.location import StoredLocation, weather_postcode
+from countdown_shared.store.models import StoredForecast
+from countdown_shared.tfl.models import Postcode
+from countdown_shared.weather.open_meteo import FORECAST_URL, GEOCODING_URL, PLACE_URL
 
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
 # Coordinates odd enough that finding them in a log can't be chance.

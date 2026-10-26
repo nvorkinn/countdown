@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, override
 
 from PIL import Image, ImageDraw, ImageFont
 
-from countdown_core.i18n import N_, _, format_date
-from countdown_core.weather.models import Weather, WeatherDesign, WeatherPeriod
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.scaled_draw import drawing_scale
 from countdown_renderer.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI, METEOCONS, resized, truncate_to_fit
+from countdown_shared.i18n import N_, _, format_date
+from countdown_shared.weather.models import Weather, WeatherDesign, WeatherPeriod
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

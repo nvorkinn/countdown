@@ -39,12 +39,12 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           # Every workspace member: the root project is virtual, so it isn't built.
-          for package in countdown-api countdown-core countdown-renderer countdown-providers; do
+          for package in countdown-api countdown-shared countdown-renderer countdown-providers; do
             uv version --frozen --package "$package" "$version"
           done
       - name: Build countdown wheels
         # Every workspace member: the render pool (countdown-renderer), the providers and the libraries they depend on
-        # (countdown-core, countdown-api), none of which is on an index. And each image's third-party requirements,
+        # (countdown-shared, countdown-api), none of which is on an index. And each image's third-party requirements,
         # pinned and hashed from uv.lock.
         run: |
           uv sync --frozen

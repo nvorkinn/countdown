@@ -37,7 +37,7 @@ class Provider(Protocol):
         ...
 
     def output_key(self, item_id: str) -> str:
-        """Return the Redis key to write `item_id`'s data to, from countdown_core.store.keys."""
+        """Return the Redis key to write `item_id`'s data to, from countdown_shared.store.keys."""
         ...
 
     async def fetch(self, ids: list[str]) -> Mapping[str, BaseModel]:

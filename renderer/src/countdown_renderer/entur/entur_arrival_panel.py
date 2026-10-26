@@ -2,8 +2,8 @@
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
 from countdown_renderer.tfl.abstract_arrival_panel import AbstractArrivalPanel, Icon
+from countdown_shared.entur.entur_client import EnturDeparture, EnturStop, TransportMode
 
 if TYPE_CHECKING:
     from countdown_renderer.style import Style

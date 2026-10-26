@@ -9,7 +9,7 @@ pacing) in [countdown-server](https://github.com/nvorkinn/countdown-server#readm
 
 `worker-1`, `worker-2` and `ticker` (containers `renderer-worker-1-1`, `renderer-worker-2-1` and `renderer-ticker-1`): compose services in `renderer/deploy/docker-compose.renderer.yml`, from
 the `countdown-renderer` image, on the host's network (`renderer/src/countdown_renderer/render_pool.py`, drawing with
-`core/`). They draw every screen in the hash `v1:render:screens`, which countdown-server writes for every paired device (its
+the store and models of `countdown-shared`). They draw every screen in the hash `v1:render:screens`, which countdown-server writes for every paired device (its
 values are the screens' slugs, which name them in metrics). A job for any other device is dropped.
 
 A worker blocks on the job queue and calls `render(device_id, now)` (`countdown_renderer/render.py`) for each job, one at a
@@ -61,7 +61,7 @@ and no last-good copy is kept.
 ## Rotation
 
 Each rotating panel (the stops, the weather's tabs, the energy windows, the Spotify area) shows page
-`epoch minute mod its page count` (`core/rotation.py`). Every screen turns its pages together, on the minute; two
+`epoch minute mod its page count` (`countdown_renderer/rotation.py`). Every screen turns its pages together, on the minute; two
 renders in one minute draw the same page; a config change carries on at the clock's page. The minute is counted from
 the epoch, not the hour, so a page count that doesn't divide 60 doesn't jump back on the hour. When Spotify's page has
 nothing to show, the next is drawn.
@@ -89,4 +89,4 @@ interval.
 Workers send OTLP metrics (`renderer/src/countdown_renderer/pool_metrics.py`), each with `device` (the screen's slug):
 `countdown.render.duration`, `.count` (`outcome`: `written`, `unchanged` or `failed`), `.last_success` (the one to alert
 on for a stuck screen), `.expired_panels`, `.lag` and `.queued` (the pool's capacity signals). Logs are for what goes
-wrong only, with no line per frame, and nothing logged names a postcode, place or URL (`core/log_format.py`).
+wrong only, with no line per frame, and nothing logged names a postcode, place or URL (`countdown_shared/core/log_format.py`).

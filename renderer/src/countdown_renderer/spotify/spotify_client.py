@@ -3,7 +3,7 @@
 It shows Spotify, Apple Music, or both: Spotify while it's playing, else what was last played on Apple Music, with
 their top lists taking turns.
 
-They're read from the store, from what the broker's music provider wrote there (countdown_core.store.music) with the
+They're read from the store, from what the broker's music provider wrote there (countdown_shared.store.music) with the
 broker's own tokens, so this renderer never calls the services or the broker for them. The playing track's cover too:
 the provider stores the image (keys.album_art), so the renderer never calls the services' image hosts either.
 """
@@ -14,25 +14,25 @@ from typing import TYPE_CHECKING, cast
 
 from redis.exceptions import RedisError
 
-from countdown_core.i18n import N_
-from countdown_core.store import keys, reader
-from countdown_core.store.music import StoredPlayer, StoredTop, TopLists, art_image
 from countdown_renderer import rotation
 from countdown_renderer.abstract_client import AbstractClient
 from countdown_renderer.spotify.spotify_panel import SpotifyPanel
 from countdown_renderer.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
 from countdown_renderer.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_renderer.style import normalise, panel_style
+from countdown_shared.i18n import N_
+from countdown_shared.store import keys, reader
+from countdown_shared.store.music import StoredPlayer, StoredTop, TopLists, art_image
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
 
     from countdown_api.models import ConfigResponse
-    from countdown_core.spotify.models import Album, Queue
     from countdown_renderer.panel import Panel
     from countdown_renderer.spotify.spotify_styles import Labels
     from countdown_renderer.style import Style
+    from countdown_shared.spotify.models import Album, Queue
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class MusicService:
 
     name: str  # English, marked with N_()
     labels: Labels
-    # Its part of what the broker's music provider stores (countdown_core.store.music).
+    # Its part of what the broker's music provider stores (countdown_shared.store.music).
     stored_as: str
 
 

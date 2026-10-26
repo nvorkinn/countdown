@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageFont
 
-from countdown_core.i18n import _
 from countdown_renderer.utils.scaled_draw import ScaledDraw, scaled_canvas
 from countdown_renderer.utils.utils import ROUNDEL, fitted_font, google_symbols, resized, truncate_to_fit
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from collections.abc import Callable

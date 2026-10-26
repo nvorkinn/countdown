@@ -9,7 +9,6 @@ Laid out in pixels sized for the 7.5" screens, and drawn bigger by the layout.
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _
 from countdown_renderer.panel import Panel
 from countdown_renderer.utils.scaled_draw import scaled_canvas
 from countdown_renderer.utils.utils import GOOGLE_REGULAR, GOOGLE_SEMI
@@ -17,15 +16,16 @@ from countdown_renderer.weather.hd_sidebar_panel import HdHoursPanel, current_pa
 from countdown_renderer.weather.hd_weather_panel import _fitted, _icon, _stat, _temperature, draw_hours
 from countdown_renderer.weather.weather_panel import _condition
 from countdown_renderer.weather.weather_trmnl_panel import page_readings
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from PIL import Image
 
-    from countdown_core.weather.models import Weather
     from countdown_renderer.utils.clock import ClockFormat
     from countdown_renderer.utils.scaled_draw import ScaledDraw
+    from countdown_shared.weather.models import Weather
 
 # Wider than this, the later pages go beside the weather now rather than under it; then the weather now has this
 # much of the width, and the hours go under both if it's this tall.

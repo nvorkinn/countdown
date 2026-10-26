@@ -2,12 +2,12 @@ import pytest
 from test_utils import assert_text_inside_and_apart
 from weather_factory import forecast_json, make_weather
 
-from countdown_core.weather.models import WEATHER_DESIGNS, ForecastResponse, WeatherPeriod
 from countdown_renderer.rendering.layouts.hd_portrait import ARRIVALS_SCALE, HD_PORTRAIT, SCALE, WEATHER_HEIGHT
 from countdown_renderer.utils.scaled_draw import drawing_at
 from countdown_renderer.utils.utils import GAP
 from countdown_renderer.weather.hd_weather_panel import DESIGNS, HdWeatherPanel
 from countdown_renderer.weather.weather_forecast import weather_pages
+from countdown_shared.weather.models import WEATHER_DESIGNS, ForecastResponse, WeatherPeriod
 
 # The room the HD portrait layout gives the weather, in the panel's own pixels, and at the stops' scale.
 SIZE = (int((HD_PORTRAIT.width - 2 * SCALE * GAP) / ARRIVALS_SCALE), int(WEATHER_HEIGHT / ARRIVALS_SCALE))

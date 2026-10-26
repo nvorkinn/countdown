@@ -9,10 +9,10 @@ in a row, without the lines.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from countdown_core.i18n import _
 from countdown_renderer.spotify.spotify_styles import CARD_BAR, _card, _hero_header, airy_label
 from countdown_renderer.tfl.arrival_styles import BOLD, MEDIUM, SANS, SANS_SEMI, _canvas
 from countdown_renderer.utils.utils import fitted_font, google_symbols, resized, truncate_to_fit
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -20,8 +20,8 @@ if TYPE_CHECKING:
 
     from PIL import Image, ImageFont
 
-    from countdown_core.developer.models import JobState, Release, ReleaseJob
     from countdown_renderer.utils.scaled_draw import ScaledDraw
+    from countdown_shared.developer.models import JobState, Release, ReleaseJob
 
 # Material Symbols glyphs
 ROCKET = chr(0xEB9B)

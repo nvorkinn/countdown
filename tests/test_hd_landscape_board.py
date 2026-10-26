@@ -42,7 +42,7 @@ from countdown_renderer.spotify.spotify_client import SpotifyClient
 from countdown_renderer.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel
 from countdown_renderer.tfl.board_stop_panel import BAR, ROW, BoardStopPanel
 from countdown_renderer.tfl.combined_arrival_panel import CombinedArrivalPanel, Rotation
-from countdown_core.tfl.models import BusArrival
+from countdown_shared.tfl.models import BusArrival
 from countdown_renderer.utils.utils import GAP
 from countdown_renderer.weather.board_weather_panels import BoardHeaderPanel, BoardWeatherPanel
 from countdown_renderer.weather.hd_sidebar_panel import HdHoursPanel

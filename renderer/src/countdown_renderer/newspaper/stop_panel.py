@@ -7,13 +7,13 @@ a row each, with its destination, a dotted leader and its next time against the 
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import N_, _, ngettext
 from countdown_renderer.newspaper.typesetting import CONTENT_TOP, headline, leaders, serif, serif_bold, shrunk, wrapped
 from countdown_renderer.panel import Panel
 from countdown_renderer.system_screens.message_panel import MessagePanel
 from countdown_renderer.tfl.abstract_arrival_panel import AbstractArrivalPanel
 from countdown_renderer.utils.scaled_draw import scaled_canvas
 from countdown_renderer.utils.utils import truncate_to_fit
+from countdown_shared.i18n import N_, _, ngettext
 
 if TYPE_CHECKING:
     from PIL import Image

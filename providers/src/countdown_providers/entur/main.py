@@ -1,6 +1,6 @@
 """The Entur provider: `v1:sub:entur`'s NSR stop ids (stop places and quays) to `v1:departures:<stop id>`.
 
-It wraps countdown_core's EnturSource (the GraphQL queries, and the ET-Client-Name header). EnturSource is synchronous
+It wraps countdown_shared's EnturSource (the GraphQL queries, and the ET-Client-Name header). EnturSource is synchronous
 (requests), so each batch runs in a worker thread (asyncio.to_thread), like the TfL provider. Entur needs no key;
 identified clients may make 1000 non-trip requests a minute
 (https://developer.entur.no/docs/open-services/journey-planner/rate-limiting), and a stop costs two a minute here.
@@ -11,19 +11,19 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from countdown_core.core.http_session import retrying_session
-from countdown_core.core.log_format import configure_logging
-from countdown_core.entur.entur_client import TransportMode
-from countdown_core.entur.entur_source import EnturSource
-from countdown_core.store import keys
-from countdown_core.store.models import Departure, StopDepartures
 from countdown_providers.config import Settings
 from countdown_providers.runner import serve
+from countdown_shared.core.http_session import retrying_session
+from countdown_shared.core.log_format import configure_logging
+from countdown_shared.entur.entur_client import TransportMode
+from countdown_shared.entur.entur_source import EnturSource
+from countdown_shared.store import keys
+from countdown_shared.store.models import Departure, StopDepartures
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from countdown_core.entur.entur_client import EnturDeparture, EnturStop
+    from countdown_shared.entur.entur_client import EnturDeparture, EnturStop
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ def main() -> None:
     """Run the `countdown-provider-entur` console script. Entur needs no key, only the client's ET-Client-Name."""
     configure_logging()
     settings = Settings.from_env()
-    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff.
     session = retrying_session()
     asyncio.run(serve(EnturProvider(EnturSource(session)), settings))
 

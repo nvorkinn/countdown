@@ -7,7 +7,6 @@ workshop" (the developer panel's pull requests and builds), when the layout show
 
 from typing import TYPE_CHECKING, override
 
-from countdown_core.i18n import _
 from countdown_renderer.developer.developer_panel import DeveloperPanel
 from countdown_renderer.developer.developer_styles import _builds
 from countdown_renderer.newspaper.typesetting import CONTENT_TOP, headline, serif, serif_bold, wrapped
@@ -21,6 +20,7 @@ from countdown_renderer.system_screens.message_panel import MessagePanel
 from countdown_renderer.utils.clock import format_clock
 from countdown_renderer.utils.scaled_draw import scaled_canvas
 from countdown_renderer.utils.utils import truncate_to_fit
+from countdown_shared.i18n import _
 
 if TYPE_CHECKING:
     from PIL import Image

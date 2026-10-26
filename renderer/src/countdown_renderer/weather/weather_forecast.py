@@ -2,7 +2,7 @@
 
 import datetime as dt
 
-from countdown_core.weather.models import ForecastResponse, Upcoming, Weather, WeatherDay, WeatherHour, WeatherPeriod
+from countdown_shared.weather.models import ForecastResponse, Upcoming, Weather, WeatherDay, WeatherHour, WeatherPeriod
 
 # The hour whose weather stands for the whole night, when the forecast has it.
 NIGHT_HOUR = 21

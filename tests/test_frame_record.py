@@ -1,4 +1,4 @@
-"""The screen's frame record in the store (countdown_core.store.frame_record), and the render writing it.
+"""The screen's frame record in the store (countdown_shared.store.frame_record), and the render writing it.
 
 The record is written by the render (render.render), the only way a frame reaches the broker. The store is conftest's
 fake Redis, read back the way the broker reads it: as bytes.
@@ -16,9 +16,9 @@ from test_e2e_render_cycle import DEVICE_ID as E2E_DEVICE_ID
 from test_e2e_render_cycle import _make_config, _put_stops_and_energy
 
 from countdown_api import fixtures
-from countdown_core.store import frame_record, keys, reader
 from countdown_renderer import render as render_module
 from countdown_renderer.render import Outcome, Result, render
+from countdown_shared.store import frame_record, keys, reader
 
 FIXTURE = fixtures.load("frame_record.json")
 FIXTURE_FRAME = fixtures.read_bytes(FIXTURE["fields"]["frame"]["file"])

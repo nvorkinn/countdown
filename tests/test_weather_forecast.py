@@ -4,8 +4,8 @@ import pytest
 from pydantic import ValidationError
 from weather_factory import forecast_json
 
-from countdown_core.weather.models import ForecastResponse, WeatherPeriod
 from countdown_renderer.weather.weather_forecast import _coming_hours, weather_pages
+from countdown_shared.weather.models import ForecastResponse, WeatherPeriod
 
 
 def local_time(*fields: int) -> dt.datetime:

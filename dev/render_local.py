@@ -1,6 +1,6 @@
 """Draw screens from a JSON store file, with no Redis: `uv run dev/render_local.py [device id ...]`, from the repo root.
 
-The data is a store file (core/src/countdown_core/store/file_store.py): by default local-only/store.json, or the
+The data is a store file (shared/src/countdown_shared/store/file_store.py): by default local-only/store.json, or the
 one --store names. Edit it, run this again, and see the frame it draws in local-only/renders/<device id>.png (or
 --out). With no device id, every screen the file lists in `v1:render:screens` is drawn.
 
@@ -32,8 +32,8 @@ def main() -> int:
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
 
     # Imported only now: reader.store() reads REDIS_URL the first time it's asked.
-    from countdown_core.store import reader, render_queue  # noqa: PLC0415
     from countdown_renderer import render  # noqa: PLC0415
+    from countdown_shared.store import reader, render_queue  # noqa: PLC0415
 
     device_ids = args.device_ids or sorted(render_queue.screens(reader.require_store()))
     if not device_ids:

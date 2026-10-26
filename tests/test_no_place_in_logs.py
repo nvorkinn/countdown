@@ -21,19 +21,6 @@ from location_factory import FakeLocations
 from redis.exceptions import RedisError
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.core import http_session, log_format
-from countdown_core.notices import location, norway_feed
-from countdown_core.notices.location import lookup_outcode, lookup_postcode
-from countdown_core.notices.models import FloodWarningsResponse
-from countdown_core.notices.norway_feed import ADDRESSES_URL, lookup_norwegian_postcode
-from countdown_core.store import keys
-from countdown_core.store.floods import StoredFloods
-from countdown_core.store.location import StoredLocation
-from countdown_core.tfl import tfl_client
-from countdown_core.tfl.models import Postcode
-from countdown_core.tfl.tfl_client import TFL_URL, TflSource
-from countdown_core.weather import open_meteo
-from countdown_core.weather.open_meteo import fetch_forecast, geocode
 from countdown_providers.floods import main as floods_main
 from countdown_providers.floods.main import FloodsProvider, fetch_flood_areas
 from countdown_providers.locations.main import LocationsProvider, WeatherPostcodesProvider
@@ -45,6 +32,19 @@ from countdown_providers.tfl_notices.main import TflLineStatusProvider, TflRoadP
 from countdown_providers.weather.main import WeatherProvider
 from countdown_renderer import moment
 from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
+from countdown_shared.core import http_session, log_format
+from countdown_shared.notices import location, norway_feed
+from countdown_shared.notices.location import lookup_outcode, lookup_postcode
+from countdown_shared.notices.models import FloodWarningsResponse
+from countdown_shared.notices.norway_feed import ADDRESSES_URL, lookup_norwegian_postcode
+from countdown_shared.store import keys
+from countdown_shared.store.floods import StoredFloods
+from countdown_shared.store.location import StoredLocation
+from countdown_shared.tfl import tfl_client
+from countdown_shared.tfl.models import Postcode
+from countdown_shared.tfl.tfl_client import TFL_URL, TflSource
+from countdown_shared.weather import open_meteo
+from countdown_shared.weather.open_meteo import fetch_forecast, geocode
 
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
 # Coordinates odd enough that finding them in a log can't be chance.
@@ -117,7 +117,7 @@ def nowhere(monkeypatch) -> str:
 
 
 def retrying_session() -> requests.Session:
-    """Return countdown_core's retrying session (the providers' too), retrying at once rather than backing off."""
+    """Return countdown_shared's retrying session (the providers' too), retrying at once rather than backing off."""
     session = http_session.retrying_session(backoff_factor=0)
     session.trust_env = False  # straight to the closed port, not through a proxy
     return session

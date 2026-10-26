@@ -41,19 +41,19 @@ from countdown_renderer.rendering.layouts.hd_portrait_designs import (
     next_departures,
 )
 from countdown_renderer.rendering.screen import DEFAULT_CANVAS
-from countdown_core.spotify.models import Queue
+from countdown_shared.spotify.models import Queue
 from countdown_renderer.spotify.spotify_client import SpotifyClient
 from countdown_renderer.spotify.spotify_panel import SpotifyPanel
 from countdown_renderer.system_screens.message_panel import MessagePanel
 from countdown_renderer.tfl.abstract_arrival_panel import AbstractArrivalPanel
 from countdown_renderer.tfl.combined_arrival_panel import CombinedArrivalPanel
-from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
+from countdown_shared.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
 from countdown_renderer.tfl.route_board_panel import RouteBoardPanel
 from countdown_renderer.tfl.timeline_panel import TimelinePanel
 from countdown_renderer.weather.hd_clock_panels import HdClockPanel, HdMastheadPanel, HdWeatherColumnPanel
 from countdown_renderer.weather.hd_sidebar_panel import HdHoursPanel
 from countdown_renderer.weather.hd_weather_panel import HdWeatherPanel
-from countdown_core.weather.models import ForecastResponse
+from countdown_shared.weather.models import ForecastResponse
 from countdown_renderer.weather.weather_client import WeatherClient
 from countdown_renderer.weather.weather_forecast import weather_pages
 from countdown_renderer.weather.weather_panel import WeatherPanel

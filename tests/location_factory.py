@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING
 
 import fakeredis
 
-from countdown_core.store import keys
-from countdown_core.store.location import StoredLocation
 from countdown_providers.locations.reader import LocationReader
+from countdown_shared.store import keys
+from countdown_shared.store.location import StoredLocation
 
 if TYPE_CHECKING:
-    from countdown_core.tfl.models import Postcode
+    from countdown_shared.tfl.models import Postcode
 
 LOOKED_UP = datetime(2026, 9, 25, 6, 0, tzinfo=UTC)
 

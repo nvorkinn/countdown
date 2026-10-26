@@ -6,9 +6,9 @@ requires-python = ">=3.14"
 members = [
     "countdown",
     "countdown-api",
-    "countdown-core",
     "countdown-providers",
     "countdown-renderer",
+    "countdown-shared",
 ]
 
 [[package]]
@@ -115,9 +115,9 @@ version = "0.4.2"
 source = { virtual = "." }
 dependencies = [
     { name = "countdown-api" },
-    { name = "countdown-core" },
     { name = "countdown-providers" },
     { name = "countdown-renderer" },
+    { name = "countdown-shared" },
 ]
 
 [package.dev-dependencies]
@@ -142,9 +142,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "countdown-api", editable = "api" },
-    { name = "countdown-core", editable = "core" },
     { name = "countdown-providers", editable = "providers" },
     { name = "countdown-renderer", editable = "renderer" },
+    { name = "countdown-shared", editable = "shared" },
 ]
 
 [package.metadata.requires-dev]
@@ -196,9 +196,53 @@ dev = [
 ]
 
 [[package]]
-name = "countdown-core"
+name = "countdown-providers"
 version = "0.4.2"
-source = { editable = "core" }
+source = { editable = "providers" }
+dependencies = [
+    { name = "countdown-shared" },
+    { name = "pydantic" },
+    { name = "redis" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "countdown-shared", editable = "shared" },
+    { name = "pydantic" },
+    { name = "redis" },
+]
+
+[[package]]
+name = "countdown-renderer"
+version = "0.4.2"
+source = { editable = "renderer" }
+dependencies = [
+    { name = "countdown-api" },
+    { name = "countdown-shared" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
+    { name = "pillow" },
+    { name = "qrcode" },
+    { name = "redis" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "countdown-api", editable = "api" },
+    { name = "countdown-shared", editable = "shared" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
+    { name = "pillow" },
+    { name = "qrcode" },
+    { name = "redis" },
+]
+
+[[package]]
+name = "countdown-shared"
+version = "0.4.2"
+source = { editable = "shared" }
 dependencies = [
     { name = "babel" },
     { name = "countdown-api" },
@@ -216,50 +260,6 @@ requires-dist = [
     { name = "redis" },
     { name = "requests" },
     { name = "urllib3", specifier = "==2.8.0" },
-]
-
-[[package]]
-name = "countdown-providers"
-version = "0.4.2"
-source = { editable = "providers" }
-dependencies = [
-    { name = "countdown-core" },
-    { name = "pydantic" },
-    { name = "redis" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "countdown-core", editable = "core" },
-    { name = "pydantic" },
-    { name = "redis" },
-]
-
-[[package]]
-name = "countdown-renderer"
-version = "0.4.2"
-source = { editable = "renderer" }
-dependencies = [
-    { name = "countdown-api" },
-    { name = "countdown-core" },
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp-proto-http" },
-    { name = "opentelemetry-sdk" },
-    { name = "pillow" },
-    { name = "qrcode" },
-    { name = "redis" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "countdown-api", editable = "api" },
-    { name = "countdown-core", editable = "core" },
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp-proto-http" },
-    { name = "opentelemetry-sdk" },
-    { name = "pillow" },
-    { name = "qrcode" },
-    { name = "redis" },
 ]
 
 [[package]]

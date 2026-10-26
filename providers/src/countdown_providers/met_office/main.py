@@ -2,7 +2,7 @@
 
 Where each postcode is comes from the store, as provider-locations placed it (`v1:location:<place>`, read each cycle
 by locations.reader.LocationReader; one it hasn't placed, or that doesn't exist, is left out until it has), and gives
-the Met Office warning region it's in (countdown_core.notices.met_office_feed.region_for). The Met Office publishes a
+the Met Office warning region it's in (countdown_shared.notices.met_office_feed.region_for). The Met Office publishes a
 warnings RSS feed per region, so each region's feed is fetched once a cycle however many postcodes are in it, and
 written under each of them, `v1:notices:met-office:<place>`, as a StoredMetOfficeWarnings: the feed's items, which the
 render pool makes its notices from when it draws. A Norwegian postcode (four digits) is MET Norway's to warn about, not
@@ -21,22 +21,22 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from countdown_core.core.http_session import DEFAULT_TIMEOUT, retrying_session
-from countdown_core.core.log_format import configure_logging, error_reason
-from countdown_core.notices.location import FULL_POSTCODE
-from countdown_core.notices.met_office_feed import region_for
-from countdown_core.store import keys
-from countdown_core.store.met_office import FeedItem, StoredMetOfficeWarnings
 from countdown_providers.config import Settings
 from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import serve
+from countdown_shared.core.http_session import DEFAULT_TIMEOUT, retrying_session
+from countdown_shared.core.log_format import configure_logging, error_reason
+from countdown_shared.notices.location import FULL_POSTCODE
+from countdown_shared.notices.met_office_feed import region_for
+from countdown_shared.store import keys
+from countdown_shared.store.met_office import FeedItem, StoredMetOfficeWarnings
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     import requests
 
-    from countdown_core.tfl.models import Postcode
+    from countdown_shared.tfl.models import Postcode
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,7 @@ def main() -> None:
     settings = Settings.from_env()
     # One client for the runner and the locations it reads.
     redis = settings.redis()
-    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff.
     session = retrying_session()
     asyncio.run(serve(MetOfficeProvider(session, LocationReader(redis)), settings, redis=redis))
 

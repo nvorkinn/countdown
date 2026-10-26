@@ -11,7 +11,7 @@ doesn't look up: provider-locations does, as the one process that looks postcode
 client). One it hasn't placed yet, or that doesn't exist, has no forecast that cycle, as for the providers of notices
 about a place; a forecast already stored for it stays until its TTL.
 
-It uses countdown_core.weather.open_meteo's HTTP calls, which are synchronous (requests), so each batch runs in
+It uses countdown_shared.weather.open_meteo's HTTP calls, which are synchronous (requests), so each batch runs in
 a worker thread (asyncio.to_thread), like the TfL provider.
 
 A location key says where a screen is (a town, or typed text, which can be a postcode), and the logs go to the central
@@ -26,15 +26,15 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from countdown_core.core.http_session import retrying_session
-from countdown_core.core.log_format import configure_logging, error_reason
-from countdown_core.store import keys
-from countdown_core.store.location import weather_postcode
-from countdown_core.store.models import StoredForecast
-from countdown_core.weather.open_meteo import fetch_forecast, geocode, place_coordinates
 from countdown_providers.config import Settings
 from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import serve
+from countdown_shared.core.http_session import retrying_session
+from countdown_shared.core.log_format import configure_logging, error_reason
+from countdown_shared.store import keys
+from countdown_shared.store.location import weather_postcode
+from countdown_shared.store.models import StoredForecast
+from countdown_shared.weather.open_meteo import fetch_forecast, geocode, place_coordinates
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -152,7 +152,7 @@ def main() -> None:
     settings = Settings.from_env()
     # One client for the runner and the locations it reads.
     redis = settings.redis()
-    # countdown_core's retrying session: retries connection errors and 502/503/504 with backoff.
+    # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff.
     session = retrying_session()
     asyncio.run(serve(WeatherProvider(session, LocationReader(redis)), settings, redis=redis))
 

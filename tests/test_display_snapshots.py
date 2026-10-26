@@ -17,12 +17,6 @@ from weather_factory import forecast_json, make_weather
 # `countdown_renderer` must be imported before any of its panel modules, or it's a circular import.
 import countdown_renderer.glow.energy_panel
 from countdown_api.models import Screen
-from countdown_core.developer.models import AiPlan, DeveloperSummary, GitHubSummary, Release, ReleaseJob
-from countdown_core.entur.entur_client import EnturDeparture, EnturStop, TransportMode
-from countdown_core.i18n import set_locale
-from countdown_core.spotify.models import Artist, Playback, Queue, Track
-from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
-from countdown_core.weather.models import ForecastResponse, WeatherPeriod
 from countdown_renderer import moment
 from countdown_renderer.api_registry import ClientClasses
 from countdown_renderer.departures.departures_client import DeparturesClient
@@ -47,6 +41,12 @@ from countdown_renderer.tfl.combined_arrival_panel import ROTATION_STRIP, Combin
 from countdown_renderer.weather.weather_client import WeatherClient
 from countdown_renderer.weather.weather_forecast import weather_pages
 from countdown_renderer.weather.weather_panel import WeatherPanel
+from countdown_shared.developer.models import AiPlan, DeveloperSummary, GitHubSummary, Release, ReleaseJob
+from countdown_shared.entur.entur_client import EnturDeparture, EnturStop, TransportMode
+from countdown_shared.i18n import set_locale
+from countdown_shared.spotify.models import Artist, Playback, Queue, Track
+from countdown_shared.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
+from countdown_shared.weather.models import ForecastResponse, WeatherPeriod
 
 if TYPE_CHECKING:
     from countdown_renderer.panel import Panel
