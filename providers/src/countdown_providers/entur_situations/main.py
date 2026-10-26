@@ -1,6 +1,6 @@
 """The Entur situations provider: `v1:sub:entur`'s NSR stop ids to `v1:notices:entur:<stop id>`, for the notice board.
 
-Each stop's value is Entur's own answer to countdown_core.notices.entur's situations query (with the same
+Each stop's value is Entur's own answer to countdown_core.notices.entur_feed's situations query (with the same
 ET-Client-Name header as the departures): the situations on the stop and on the next 20 lines leaving it. The render
 pool makes the notices from it as it draws (StoredEnturSituationsSource).
 
@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING
 from countdown_core.core.http_session import retrying_session
 from countdown_core.core.log_format import configure_logging
 from countdown_core.entur.entur_client import EnturClient
-from countdown_core.notices.entur import query_situations
+from countdown_core.notices.entur_feed import query_situations
 from countdown_core.store import keys
 from countdown_core.store.situations import StoredSituations
 from countdown_providers.config import Settings

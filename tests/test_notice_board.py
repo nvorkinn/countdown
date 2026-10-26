@@ -15,7 +15,8 @@ from countdown_core.core.api_registry import section_for
 from countdown_core.notices import notice_board_client as board_module
 from countdown_core.notices.calendar import ClockChangeSource, StoredBankHolidaySource
 from countdown_core.notices.floods import StoredFloodWarningsSource
-from countdown_core.notices.met_office import StoredMetOfficeWarningsSource, region_for, warning_notices
+from countdown_core.notices.met_office import StoredMetOfficeWarningsSource, warning_notices
+from countdown_core.notices.met_office_feed import region_for
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.notices.notice_board_panel import ROW_HEIGHT, NoticeBoardPanel
@@ -183,7 +184,7 @@ def test_met_office_region_from_postcode(country, region, district, expected):
 def test_met_office_logs_neither_the_postcode_nor_its_area_when_it_has_no_region(caplog):
     location = SOUTHWARK.model_copy(update={"country": "Scotland", "region": None, "admin_district": "Somewhere New"})
 
-    with caplog.at_level("WARNING", logger="countdown_core.notices.met_office"):
+    with caplog.at_level("WARNING", logger="countdown_core.notices.met_office_feed"):
         region_for(location)
 
     assert caplog.messages == ["No Met Office warning region for a postcode's area; using the whole UK"]

@@ -5,9 +5,9 @@ for the weather provider (WeatherPostcodesProvider, a second runner in the same 
 
 The one process that looks postcodes up: a UK postcode with postcodes.io (countdown_core.notices.location's
 lookup_postcode), a Norwegian one (four digits, as the broker writes them) with Kartverket's address search
-(countdown_core.notices.norway's lookup_norwegian_postcode). Each is written as a StoredLocation (keys.location), which
-the notice board reads for what it shows about its place (the bank holidays' division, MetAlerts' area), so the render
-pool asks neither, and so do the Met Office, floods and TfL roads providers, for where to fetch their notices
+(countdown_core.notices.norway_feed's lookup_norwegian_postcode). Each is written as a StoredLocation (keys.location),
+which the notice board reads for what it shows about its place (the bank holidays' division, MetAlerts' area), so the
+render pool asks neither, and so do the Met Office, floods and TfL roads providers, for where to fetch their notices
 (reader.py), so each postcode is looked up once in all. A postcode neither knows is written too, as not found, so a
 board can say "Unknown postcode" rather than wait for a location that won't come.
 
@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING
 from countdown_core.core.http_session import retrying_session
 from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.notices.location import FULL_POSTCODE, OUTCODE, lookup_outcode, lookup_postcode
-from countdown_core.notices.norway import lookup_norwegian_postcode
+from countdown_core.notices.norway_feed import lookup_norwegian_postcode
 from countdown_core.store import keys
 from countdown_core.store.location import StoredLocation, weather_postcode
 from countdown_providers.config import Settings

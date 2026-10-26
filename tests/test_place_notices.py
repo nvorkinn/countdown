@@ -32,7 +32,7 @@ from test_utils import TEST_DEVICE_ID
 
 from countdown_core.core import moment
 from countdown_core.notices.location import POSTCODES_URL
-from countdown_core.notices.norway import ADDRESSES_URL
+from countdown_core.notices.norway_feed import ADDRESSES_URL
 from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
 from countdown_core.store.bank_holidays import StoredBankHolidays

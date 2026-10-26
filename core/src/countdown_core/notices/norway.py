@@ -1,8 +1,7 @@
-"""The notice board's sources for a Norwegian postcode.
+"""The notice board's sources for a Norwegian postcode: its public holidays (worked out here) and weather warnings.
 
-Where it is (Kartverket, asked only by provider-locations: the board reads its answer from the store), public holidays
-(worked out here) and weather warnings (MET Norway's MetAlerts, from the store: the MetAlerts provider fetches them for
-all of Norway, and the board picks out its place's).
+The warnings are MET Norway's MetAlerts, from the store: the MetAlerts provider fetches them for all of Norway, and the
+board picks out its place's. What the providers ask MET and Kartverket, and where, is norway_feed's.
 """
 
 import itertools
@@ -11,54 +10,20 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
-from countdown_core.core.http_session import DEFAULT_TIMEOUT
 from countdown_core.i18n import N_, _, format_date, language
 from countdown_core.notices.calendar import when
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.store import keys, reader
 from countdown_core.store.metalerts import StoredMetAlerts
-from countdown_core.tfl.models import Postcode
 
 if TYPE_CHECKING:
     import requests
 
+    from countdown_core.tfl.models import Postcode
+
 logger = logging.getLogger(__name__)
 
 NORWAY_TIME = ZoneInfo("Europe/Oslo")
-# Kartverket's address search: free, no key. A postcode's addresses all carry its place name and municipality.
-ADDRESSES_URL = "https://ws.geonorge.no/adresser/v1/sok"
-# Only the MetAlerts provider asks MET (countdown_providers.metalerts); the board reads its answer from the store.
-METALERTS_URL = "https://api.met.no/weatherapi/metalerts/2.0/current.json"
-# api.met.no refuses requests that don't say who's asking (https://api.met.no/doc/TermsOfService).
-MET_HEADERS = {"User-Agent": "countdown https://github.com/nvorkinn/countdown"}
-
-
-def lookup_norwegian_postcode(session: requests.Session, postcode: str) -> Postcode | None:
-    """Look up where a Norwegian postcode is, as a Postcode with its municipality as the district.
-
-    provider-locations' lookup, which it stores for the board (keys.location). None if Kartverket has no address with
-    it; raises if Kartverket can't be reached, so the caller can try again later.
-    """
-    response = session.get(
-        ADDRESSES_URL,
-        params={"postnummer": postcode.strip(), "treffPerSide": 1, "utkoordsys": 4258},
-        timeout=DEFAULT_TIMEOUT,
-    )
-    response.raise_for_status()
-    addresses = response.json().get("adresser") or []
-    if not addresses:
-        return None
-    address = addresses[0]
-    point = address.get("representasjonspunkt") or {}
-    if point.get("lat") is None or point.get("lon") is None:
-        return None
-    return Postcode(
-        postcode=address.get("postnummer") or postcode,
-        latitude=point["lat"],
-        longitude=point["lon"],
-        country="Norway",
-        admin_district=(address.get("kommunenavn") or "").title() or None,
-    )
 
 
 def _easter(year: int) -> date:

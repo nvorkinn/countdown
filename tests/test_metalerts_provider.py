@@ -16,7 +16,7 @@ import pytest
 import requests
 import responses
 
-from countdown_core.notices.norway import MET_HEADERS, METALERTS_URL
+from countdown_core.notices.norway_feed import MET_HEADERS, METALERTS_URL
 from countdown_core.store import keys
 from countdown_core.store.metalerts import StoredMetAlerts
 from countdown_providers.metalerts.main import WITHOUT_EXPIRES, MetAlertsProvider, is_norwegian

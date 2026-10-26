@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 from countdown_core.core.http_session import retrying_session
 from countdown_core.core.log_format import configure_logging, error_reason
 from countdown_core.notices.location import FULL_POSTCODE
-from countdown_core.notices.tfl import ROAD_SEVERITY, is_near
+from countdown_core.notices.tfl_feed import ROAD_SEVERITIES, is_near
 from countdown_core.store import keys
 from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
 from countdown_core.tfl.tfl_client import TflSource
@@ -194,7 +194,7 @@ class TflRoadProvider:
     def _fetch_blocking(self, places: dict[str, Postcode]) -> dict[str, StoredRoadDisruptions]:
         fetched_at = self.now()
         try:
-            disruptions = self.tfl.road_disruptions(ROAD_SEVERITY)
+            disruptions = self.tfl.road_disruptions(ROAD_SEVERITIES)
         except Exception as e:  # noqa: BLE001 -- the places keep their last keys until they expire
             logger.warning("Couldn't fetch TfL's road disruptions: %s", error_reason(e))
             return {}

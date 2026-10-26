@@ -1,7 +1,7 @@
 """Disruptions at the Norwegian stops the screen shows departures for.
 
 These are Entur's situation messages (Ruter's and every other operator's), on the stops themselves and on the lines
-leaving them. provider-entur-situations asks Entur for each stop's (query_situations) and stores the answer
+leaving them. provider-entur-situations asks Entur for each stop's (entur_feed.query_situations) and stores the answer
 (`v1:notices:entur:<stop id>`); the notice board reads it from there (StoredEnturSituationsSource) and makes the
 notices as it draws (situation_notices).
 """
@@ -10,7 +10,6 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, override
 
-from countdown_core.entur.entur_client import normalize_stop_id
 from countdown_core.i18n import _, language
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
 from countdown_core.store import keys, reader
@@ -21,30 +20,7 @@ if TYPE_CHECKING:
 
     import redis
 
-    from countdown_core.entur.entur_client import EnturClient
-
 logger = logging.getLogger(__name__)
-
-_SITUATION = """
-      summary { value language }
-      validityPeriod { endTime }
-      severity
-"""
-
-# Every summary's every language, so the renderer can pick the screen's as it draws.
-SITUATIONS_QUERY = f"""
-query StopSituations($id: String!) {{
-  stopPlace(id: $id) {{ name situations {{ {_SITUATION} }} estimatedCalls(numberOfDepartures: 20) {{
-    serviceJourney {{ line {{ publicCode }} }} situations {{ {_SITUATION} }} }} }}
-}}
-"""
-
-QUAY_SITUATIONS_QUERY = f"""
-query QuaySituations($id: String!) {{
-  quay(id: $id) {{ name situations {{ {_SITUATION} }} estimatedCalls(numberOfDepartures: 20) {{
-    serviceJourney {{ line {{ publicCode }} }} situations {{ {_SITUATION} }} }} }}
-}}
-"""
 
 # Entur's severities (SIRI's): the worst ones are a warning, the rest just worth knowing.
 WARNING_SEVERITIES = {"severe", "verySevere"}
@@ -62,17 +38,6 @@ def _text(texts: list[dict[str, Any]]) -> str:
 def _until(situation: dict[str, Any]) -> datetime | None:
     end = (situation.get("validityPeriod") or {}).get("endTime")
     return datetime.fromisoformat(end) if end else None
-
-
-def query_situations(client: EnturClient, stop_id: str) -> dict[str, Any]:
-    """Ask Entur for the situations at a stop place or quay and on the next 20 lines leaving it.
-
-    `stop_id` is as `v1:sub:entur` has it, with or without its NSR prefix. Returns Entur's GraphQL `data` as it came
-    (`{"stopPlace": None}` for a stop it doesn't know); raises on an HTTP error or a GraphQL one.
-    """
-    normalized = normalize_stop_id(stop_id)
-    query = QUAY_SITUATIONS_QUERY if normalized.startswith("NSR:Quay:") else SITUATIONS_QUERY
-    return client.query(query, {"id": normalized})
 
 
 def situation_notices(answers: Iterable[StoredSituations], now: datetime) -> list[Notice]:

@@ -6,13 +6,12 @@ incidents near it. These sources read them and make the notices as the board pol
 language and what's current is judged as of drawing.
 """
 
-import json
 import re
-from math import asin, cos, radians, sin, sqrt
 from typing import TYPE_CHECKING, override
 
 from countdown_core.i18n import _
 from countdown_core.notices.notice import Notice, NoticeSource, Severity
+from countdown_core.notices.tfl_feed import ROAD_SEVERITIES
 from countdown_core.store import keys, reader
 from countdown_core.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
 
@@ -39,8 +38,7 @@ PLANNED_STATUSES = {"Part Closure", "Planned Closure", "Closed", "Not Running"}
 # Words a sentence can't end on, so "St. Paul's" isn't taken for the end of one.
 ABBREVIATIONS = {"st", "rd", "ave", "mt", "no"}
 
-ROAD_RADIUS_KM = 3
-ROAD_SEVERITY = {"Severe": Severity.WARNING, "Serious": Severity.INFO}
+ROAD_SEVERITY = dict(zip(ROAD_SEVERITIES, (Severity.WARNING, Severity.INFO), strict=True))
 
 
 class NoStoredTflNoticesError(reader.NoStoredDataError):
@@ -175,15 +173,6 @@ def station_notices(points: Iterable[DisruptedPoint], now: datetime) -> list[Not
     return notices
 
 
-def is_near(disruption: RoadDisruption, latitude: float, longitude: float) -> bool:
-    """Whether a road disruption is within ROAD_RADIUS_KM of a place; one TfL gives no point for isn't."""
-    try:
-        lon, lat = json.loads(disruption.point or "")
-    except ValueError, TypeError:
-        return False
-    return _distance_km(latitude, longitude, lat, lon) <= ROAD_RADIUS_KM
-
-
 def road_notices(disruptions: Iterable[RoadDisruption]) -> list[Notice]:
     """Make the notices for the serious and severe road disruptions among `disruptions` (already the nearby ones)."""
     return [
@@ -214,9 +203,3 @@ def _headline(reason: str | None, line_name: str) -> str:
 
 def _short_station_name(common_name: str) -> str:
     return re.sub(r" (Underground|Rail|DLR)? ?Station$", "", common_name).strip()
-
-
-def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    lat1, lon1, lat2, lon2 = map(radians, (lat1, lon1, lat2, lon2))
-    a = sin((lat2 - lat1) / 2) ** 2 + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2) ** 2
-    return 2 * 6371 * asin(sqrt(a))
