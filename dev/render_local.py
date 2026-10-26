@@ -1,7 +1,7 @@
-"""Draw screens from a JSON store file, with no Redis: `uv run dev/render_local.py [device id ...]`, from countdown/.
+"""Draw screens from a JSON store file, with no Redis: `uv run dev/render_local.py [device id ...]`, from the repo root.
 
-The data is a store file (core/src/countdown_core/store/file_store.py): by default ../local-only/store.json, or the
-one --store names. Edit it, run this again, and see the frame it draws in ../local-only/renders/<device id>.png (or
+The data is a store file (core/src/countdown_core/store/file_store.py): by default local-only/store.json, or the
+one --store names. Edit it, run this again, and see the frame it draws in local-only/renders/<device id>.png (or
 --out). With no device id, every screen the file lists in `v1:render:screens` is drawn.
 
 It always reads the file, whatever REDIS_URL is set to in the shell, so it can't draw into a real Redis; and it writes
@@ -15,9 +15,9 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-COUNTDOWN = Path(__file__).resolve().parent.parent
-DEFAULT_STORE = COUNTDOWN.parent / "local-only" / "store.json"
-DEFAULT_OUT = COUNTDOWN.parent / "local-only" / "renders"
+REPO = Path(__file__).resolve().parent.parent
+DEFAULT_STORE = REPO / "local-only" / "store.json"
+DEFAULT_OUT = REPO / "local-only" / "renders"
 
 
 def main() -> int:

@@ -1,5 +1,0 @@
-# The image only needs the built wheels and its requirements (dev/build_dist.sh), not the rest of countdown/ (its
-# .venv especially).
-*
-!dist/*.whl
-!dist/requirements-providers.txt

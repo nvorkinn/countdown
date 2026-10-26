@@ -40,10 +40,9 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           # Every workspace member: the root project is virtual, so it isn't built.
           for package in countdown-api countdown-core countdown-renderer countdown-providers; do
-            (cd countdown && uv version --frozen --package "$package" "$version")
+            uv version --frozen --package "$package" "$version"
           done
       - name: Build countdown wheels
-        working-directory: countdown
         # Every workspace member: the render pool (countdown-renderer), the providers and the libraries they depend on
         # (countdown-core, countdown-api), none of which is on an index. And each image's third-party requirements,
         # pinned and hashed from uv.lock.
@@ -56,8 +55,8 @@ jobs:
         with:
           name: countdown-wheel
           path: |
-            countdown/dist/*.whl
-            countdown/dist/requirements-*.txt
+            dist/*.whl
+            dist/requirements-*.txt
 
   build-image:
     # Each image for each platform on a runner of that platform, as emulating arm64 on an amd64 runner took
@@ -86,7 +85,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: countdown-wheel
-          path: countdown/dist
+          path: dist
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -97,8 +96,8 @@ jobs:
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          context: countdown
-          file: countdown/${{ matrix.image }}/Dockerfile
+          context: .
+          file: ${{ matrix.image }}/Dockerfile
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=ghcr.io/nvorkinn/countdown-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
           # No BuildKit attestations on the per-platform pushes. This repository is public, so the action would
@@ -125,7 +124,7 @@ jobs:
           if-no-files-found: error
 
   publish-image:
-    # countdown-renderer's image, the render pool's (countdown/renderer/deploy/), is tagged with the version and :latest,
+    # countdown-renderer's image, the render pool's (renderer/deploy/), is tagged with the version and :latest,
     # as every release is the latest. countdown-providers', run there too, is only ever pinned to a version, so there's
     # no :latest to move. Both are built from this release's own wheels.
     name: publish ${{ matrix.image }}
@@ -206,21 +205,21 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: countdown-wheel
-          path: countdown/dist
+          path: dist
       - name: Create GitHub release or update its assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" countdown/dist/*.whl --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/*.whl --clobber
           else
             gh release create "$GITHUB_REF_NAME" \
-              countdown/dist/*.whl \
+              dist/*.whl \
               --title "$GITHUB_REF_NAME" --generate-notes
           fi
 
   deploy-renderers:
-    # Brings up the providers and the render pool (countdown/renderer/deploy/docker-compose.*.yml) on the dev/QA host,
+    # Brings up the providers and the render pool (renderer/deploy/docker-compose.*.yml) on the dev/QA host,
     # pinned to this release's images. No approval: starting the release is the decision. A release never touches
     # production: promote.yml deploys a tag there.
     name: renderers (dev-qa)

@@ -1,12 +1,12 @@
 version: 2
 updates:
-  # countdown/pyproject.toml and uv.lock: the workspace's one lockfile, covering all four member packages (api, core,
-  # renderer, providers); countdown/api is also a submodule, whose own pyproject and lockfile are not scanned.
+  # pyproject.toml and uv.lock: the workspace's one lockfile, covering all four member packages (api, core,
+  # renderer, providers); api is also a submodule, whose own pyproject and lockfile are not scanned.
   - package-ecosystem: "uv"
-    directory: "/countdown"
+    directory: "/"
     schedule:
       interval: "daily"
-  # .pre-commit-config.yaml's hook revs. Ruff is pinned in both this file and countdown/uv.lock, and Dependabot bumps
+  # .pre-commit-config.yaml's hook revs. Ruff is pinned in both this file and uv.lock, and Dependabot bumps
   # each separately (a group can't span ecosystems): merge the two PRs together to keep them in step. ty is not
   # duplicated: the hook runs the one in uv.lock.
   - package-ecosystem: "pre-commit"
@@ -17,34 +17,34 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-  # The render pool's and the providers' images. Their Python follows countdown/.python-version, by hand: a newer one
+  # The render pool's and the providers' images. Their Python follows .python-version, by hand: a newer one
   # than the tests run on goes untested, and can lack wheels.
   - package-ecosystem: "docker"
     directories:
-      - "/countdown/renderer"
-      - "/countdown/providers"
+      - "/renderer"
+      - "/providers"
     schedule:
       interval: "weekly"
     ignore:
       - dependency-name: "python"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
-  # The snapshot image is pinned by digest on purpose: the goldens in countdown/tests/images/ are drawn in it, so any
+  # The snapshot image is pinned by digest on purpose: the goldens in tests/images/ are drawn in it, so any
   # new python base (even a patch or a new digest of the same tag) can change the pixels. Bump it by hand, redrawing
-  # the goldens (see countdown/README.md). uv and the other images are left to Dependabot.
+  # the goldens (see README.md). uv and the other images are left to Dependabot.
   - package-ecosystem: "docker"
-    directory: "/countdown/dev"
+    directory: "/dev"
     schedule:
       interval: "weekly"
     ignore:
       - dependency-name: "python"
-  # countdown/renderer/deploy/docker-compose.*.yml only reference this project's own images
+  # renderer/deploy/docker-compose.*.yml only reference this project's own images
   # (ghcr.io/nvorkinn/countdown-*:${COUNTDOWN_RENDERER_VERSION}), set at deploy time, so there is nothing for
   # Dependabot to bump today; the entry picks up any third-party image added later.
   - package-ecosystem: "docker-compose"
-    directory: "/countdown/renderer/deploy"
+    directory: "/renderer/deploy"
     schedule:
       interval: "weekly"
-  # countdown/api: a new commit of the store contract shows up as a PR.
+  # api: a new commit of the store contract shows up as a PR.
   - package-ecosystem: "gitsubmodule"
     directory: "/"
     schedule:

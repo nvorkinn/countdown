@@ -1,5 +1,5 @@
 # The image the snapshot tests render in, locally and in CI, so the goldens in tests/images/ are drawn on one
-# platform. Built from countdown/ as the context (dev/snapshots.sh does). It holds the OS, Python, the locked
+# platform. Built from the repository root as the context (dev/snapshots.sh does). It holds the OS, Python, the locked
 # third-party packages and the one downloaded font; the repo is mounted at run time, never copied in.
 
 # Pinned by digest: the manifest list, so linux/amd64 and linux/arm64 both resolve from it.
@@ -21,7 +21,7 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
 
 # The locked packages, in a layer that only a change to a pyproject or uv.lock rebuilds. Our own packages aren't
 # installed: the mounted repo's src/ directories are put on PYTHONPATH instead (dev/snapshots.sh).
-WORKDIR /work/countdown
+WORKDIR /work
 COPY pyproject.toml uv.lock ./
 COPY api/pyproject.toml api/
 COPY core/pyproject.toml core/
