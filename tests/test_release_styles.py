@@ -1,11 +1,11 @@
-import countdown_core  # noqa: F401, I001  (import order: see test_display_snapshots.py)
+import countdown_renderer  # noqa: F401, I001  (import order: see test_display_snapshots.py)
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from PIL import Image, ImageDraw
 
 from countdown_core import i18n
-from countdown_core.developer import release_styles
+from countdown_renderer.developer import release_styles
 from countdown_core.developer.models import Release, ReleaseJob
 
 NOW = datetime(2026, 10, 17, 15, 4, tzinfo=UTC)

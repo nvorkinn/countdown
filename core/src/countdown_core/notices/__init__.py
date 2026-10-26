@@ -1,1 +1,1 @@
-"""The notice board: disruptions, weather warnings, holidays and the like, gathered from many feeds."""
+"""The feeds behind the notice board: the lookups, queries and tables the providers fetch with."""

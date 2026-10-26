@@ -42,9 +42,9 @@ from opentelemetry.sdk.metrics.export import MetricReader, PeriodicExportingMetr
 from opentelemetry.sdk.resources import HOST_NAME, SERVICE_INSTANCE_ID, SERVICE_NAME, Resource
 from redis.exceptions import RedisError
 
-from countdown_core.core.abstract_client import ClientStatus
-from countdown_core.core.api_registry import API_NAMES
-from countdown_core.render import Outcome, Result
+from countdown_renderer.abstract_client import ClientStatus
+from countdown_renderer.api_registry import API_NAMES
+from countdown_renderer.render import Outcome, Result
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable

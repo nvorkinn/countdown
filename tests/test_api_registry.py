@@ -15,24 +15,30 @@ from weather_factory import forecast_json
 from countdown_api import fixtures
 from countdown_api.models import Glowmarkt
 from countdown_api.models import Weather as WeatherSection
-from countdown_core.core.abstract_client import AbstractClient, ClientStatus
-from countdown_core.core.api_registry import (
+from countdown_core.store import keys, reader
+from countdown_core.store.models import StoredForecast
+from countdown_core.weather.models import ForecastResponse, WeatherPeriod
+from countdown_renderer.abstract_client import AbstractClient, ClientStatus
+from countdown_renderer.api_registry import (
     ApiRegistry,
     ClientClasses,
     FailedClient,
     is_enabled,
     section_for,
 )
-from countdown_core.departures.departures_client import DeparturesClient, DeparturesSettings
-from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
-from countdown_core.glow.glow_client import GlowClient
-from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
-from countdown_core.spotify.spotify_client import APPLE_MUSIC, SPOTIFY, AppleMusicClient, MusicSettings, SpotifyClient
-from countdown_core.store import keys, reader
-from countdown_core.store.models import StoredForecast
-from countdown_core.system_screens.message_panel import MessagePanel
-from countdown_core.weather.models import ForecastResponse, WeatherPeriod
-from countdown_core.weather.weather_client import WeatherClient
+from countdown_renderer.departures.departures_client import DeparturesClient, DeparturesSettings
+from countdown_renderer.developer.developer_client import DeveloperClient, DeveloperSettings
+from countdown_renderer.glow.glow_client import GlowClient
+from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
+from countdown_renderer.spotify.spotify_client import (
+    APPLE_MUSIC,
+    SPOTIFY,
+    AppleMusicClient,
+    MusicSettings,
+    SpotifyClient,
+)
+from countdown_renderer.system_screens.message_panel import MessagePanel
+from countdown_renderer.weather.weather_client import WeatherClient
 
 
 class FakeClient(AbstractClient):

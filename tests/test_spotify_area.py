@@ -3,17 +3,17 @@
 import datetime as dt
 
 from countdown_api.models import Screen
-from countdown_core.core.api_registry import ClientClasses
-from countdown_core.developer.developer_panel import DeveloperPanel
-from countdown_core.developer.developer_styles import COMPACT_HEIGHT
 from countdown_core.developer.models import DeveloperSummary, GitHubSummary, Release
-from countdown_core.developer.release_styles import COMPACT_HEIGHT as RELEASE_STRIP
-from countdown_core.rendering import layout_for, place_developer_panel
-from countdown_core.rendering.layouts.classic import SPOTIFY_HEIGHT, BaseLayout, SpotifyLayout
 from countdown_core.spotify.models import Queue
-from countdown_core.spotify.spotify_client import SpotifyClient
-from countdown_core.spotify.spotify_panel import SpotifyPanel
-from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
+from countdown_renderer.api_registry import ClientClasses
+from countdown_renderer.developer.developer_panel import DeveloperPanel
+from countdown_renderer.developer.developer_styles import COMPACT_HEIGHT
+from countdown_renderer.developer.release_styles import COMPACT_HEIGHT as RELEASE_STRIP
+from countdown_renderer.rendering import layout_for, place_developer_panel
+from countdown_renderer.rendering.layouts.classic import SPOTIFY_HEIGHT, BaseLayout, SpotifyLayout
+from countdown_renderer.spotify.spotify_client import SpotifyClient
+from countdown_renderer.spotify.spotify_panel import SpotifyPanel
+from countdown_renderer.spotify.spotify_top_panel import SpotifyTopPanel
 
 SPOTIFY = SpotifyPanel(Queue(currently_playing=None, queue=[]))
 GITHUB = GitHubSummary(login="nvorkinn", repos=1, open_prs=0, review_requests=0, failing=[])

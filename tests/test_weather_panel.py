@@ -6,9 +6,9 @@ from PIL import ImageDraw
 from weather_factory import forecast_json, make_weather
 
 from countdown_core.weather.models import ForecastResponse, Upcoming, WeatherPeriod
-from countdown_core.weather.weather_forecast import weather_pages
-from countdown_core.weather.weather_panel import FALLBACK_ICON, ICON_MAP, WEATHER_CODE_DESC, WeatherPanel, icon_for
-from countdown_core.weather.weather_trmnl_panel import HEIGHT, WeatherTrmnlPanel, _compass
+from countdown_renderer.weather.weather_forecast import weather_pages
+from countdown_renderer.weather.weather_panel import FALLBACK_ICON, ICON_MAP, WEATHER_CODE_DESC, WeatherPanel, icon_for
+from countdown_renderer.weather.weather_trmnl_panel import HEIGHT, WeatherTrmnlPanel, _compass
 
 
 def _assert_clear_text(calls, size):

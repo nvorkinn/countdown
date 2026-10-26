@@ -1,8 +1,8 @@
-import countdown_core  # noqa: F401, I001 -- see test_display_snapshots.py for why this comes first
+import countdown_renderer  # noqa: F401, I001 -- see test_display_snapshots.py for why this comes first
 from PIL import Image, ImageDraw
 
-from countdown_core.utils.scaled_draw import ScaledDraw, drawing_at, drawing_scale, scaled_canvas
-from countdown_core.utils.utils import GOOGLE_SEMI
+from countdown_renderer.utils.scaled_draw import ScaledDraw, drawing_at, drawing_scale, scaled_canvas
+from countdown_renderer.utils.utils import GOOGLE_SEMI
 
 
 def _shapes(d: ImageDraw.ImageDraw | ScaledDraw) -> None:

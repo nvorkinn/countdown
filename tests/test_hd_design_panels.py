@@ -1,4 +1,4 @@
-import countdown_core  # noqa: F401, I001 -- see test_display_snapshots.py for why this comes first
+import countdown_renderer  # noqa: F401, I001 -- see test_display_snapshots.py for why this comes first
 import datetime as dt
 
 import pytest
@@ -6,15 +6,15 @@ from tfl_factory import tfl_panel
 from test_utils import assert_text_inside_and_apart
 from weather_factory import forecast_json, make_weather
 
-from countdown_core.core import moment
-from countdown_core.departures.departures_client import DeparturesClient
-from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_panel import NoticeBannerPanel, NoticeBoardPanel
+from countdown_renderer import moment
+from countdown_renderer.departures.departures_client import DeparturesClient
+from countdown_renderer.notices.notice import Notice, Severity
+from countdown_renderer.notices.notice_board_panel import NoticeBannerPanel, NoticeBoardPanel
 from countdown_core.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
-from countdown_core.tfl.route_board_panel import BAR, ROW, STOP_GAP, RouteBoardPanel, rows_each
-from countdown_core.tfl.timeline_panel import WINDOW, TimelinePanel, departures, placed
-from countdown_core.utils.scaled_draw import drawing_at
-from countdown_core.weather.hd_clock_panels import (
+from countdown_renderer.tfl.route_board_panel import BAR, ROW, STOP_GAP, RouteBoardPanel, rows_each
+from countdown_renderer.tfl.timeline_panel import WINDOW, TimelinePanel, departures, placed
+from countdown_renderer.utils.scaled_draw import drawing_at
+from countdown_renderer.weather.hd_clock_panels import (
     SQUARE,
     SQUARE_GAP,
     HdClockPanel,
@@ -23,9 +23,9 @@ from countdown_core.weather.hd_clock_panels import (
     clock_and_date,
     high_low,
 )
-from countdown_core.weather.hd_sidebar_panel import current_page, later_rows, readings
+from countdown_renderer.weather.hd_sidebar_panel import current_page, later_rows, readings
 from countdown_core.weather.models import ForecastResponse, WeatherPeriod
-from countdown_core.weather.weather_forecast import weather_pages
+from countdown_renderer.weather.weather_forecast import weather_pages
 
 MOMENT = dt.datetime(2026, 1, 15, 12, 0, tzinfo=dt.UTC)
 MESSAGE = ("Weather", "Could not connect")

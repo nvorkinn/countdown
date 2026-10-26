@@ -1,1 +1,1 @@
-"""Departures from Norwegian stops, from Entur's Journey Planner."""
+"""Entur's Journey Planner client and models, for departures from Norwegian stops."""

@@ -30,10 +30,8 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from responses import matchers
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.core import moment
 from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.norway_feed import ADDRESSES_URL
-from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
 from countdown_core.store.bank_holidays import StoredBankHolidays
 from countdown_core.store.metalerts import StoredMetAlerts
@@ -49,6 +47,8 @@ from countdown_providers.met_office.main import FEED_URL, MetOfficeProvider
 from countdown_providers.runner import ProviderRunner
 from countdown_providers.tfl_notices import main as tfl_notices_main
 from countdown_providers.tfl_notices.main import TflRoadProvider
+from countdown_renderer import moment
+from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "place_notices.json").read_text(encoding="utf-8"))

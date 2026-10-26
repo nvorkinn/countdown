@@ -5,7 +5,7 @@ as the broker does, and builds the real clients afresh each time, reading what t
 would. Nothing is asked of any other service: `responses` refuses every request.
 """
 
-import datetime
+import datetime as dt
 import io
 import json
 import socket
@@ -21,24 +21,24 @@ from weather_factory import forecast_json
 
 from countdown_api.models import ConfigResponse, Screen
 from countdown_core import i18n
-from countdown_core import render as render_module
-from countdown_core.core import rotation
-from countdown_core.glow.energy_panel import EnergyPanel
-from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_client import NoticeBoardClient
-from countdown_core.notices.notice_board_panel import NoticeBoardPanel
-from countdown_core.render import Outcome, Result, Stage
-from countdown_core.rendering import layout_for
-from countdown_core.rendering.layouts.classic import BaseLayout, GlowLayout
-from countdown_core.spotify.spotify_panel import SpotifyPanel
-from countdown_core.spotify.spotify_top_panel import SpotifyTopPanel
 from countdown_core.store import keys, reader
 from countdown_core.store.location import StoredLocation
 from countdown_core.store.tfl_notices import StoredLineStatus, StoredStationDisruptions
-from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.tfl.models import Postcode
-from countdown_core.utils import utils
-from countdown_core.weather.weather_panel import WeatherPanel
+from countdown_renderer import render as render_module
+from countdown_renderer import rotation
+from countdown_renderer.glow.energy_panel import EnergyPanel
+from countdown_renderer.notices.notice import Notice, Severity
+from countdown_renderer.notices.notice_board_client import NoticeBoardClient
+from countdown_renderer.notices.notice_board_panel import NoticeBoardPanel
+from countdown_renderer.render import Outcome, Result, Stage
+from countdown_renderer.rendering import layout_for
+from countdown_renderer.rendering.layouts.classic import BaseLayout, GlowLayout
+from countdown_renderer.spotify.spotify_panel import SpotifyPanel
+from countdown_renderer.spotify.spotify_top_panel import SpotifyTopPanel
+from countdown_renderer.tfl.combined_arrival_panel import CombinedArrivalPanel
+from countdown_renderer.utils import utils
+from countdown_renderer.weather.weather_panel import WeatherPanel
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -81,11 +81,11 @@ def _put_stops(store, *stop_ids: str) -> None:
 
 def _put_energy(store) -> None:
     """Store the device's readings as countdown-server's glow-provider would: two hourly ones, at UTC (offset 0)."""
-    now = datetime.datetime.now(datetime.UTC)
+    now = dt.datetime.now(dt.UTC)
     hourly = {
         "data": [
-            [(now - datetime.timedelta(hours=4)).timestamp(), 1.5],
-            [(now - datetime.timedelta(hours=6)).timestamp(), 2.25],
+            [(now - dt.timedelta(hours=4)).timestamp(), 1.5],
+            [(now - dt.timedelta(hours=6)).timestamp(), 2.25],
         ]
     }
     stored = {"fetched_at": now.isoformat(), "device_id": DEVICE_ID, "offset": "0", "resource_id": "elec-id"}
@@ -103,7 +103,7 @@ def _put_music(store, queue: dict, top: dict | None = None) -> None:
 
     A track in the queue is playing, as of the pages' clock (rotation.now).
     """
-    fetched_at = datetime.datetime.now(datetime.UTC).isoformat()
+    fetched_at = dt.datetime.now(dt.UTC).isoformat()
     player = {"fetched_at": fetched_at, "spotify": queue}
     if track := queue["currently_playing"]:
         read_at = rotation.now().isoformat()
@@ -120,7 +120,7 @@ def _put_music(store, queue: dict, top: dict | None = None) -> None:
 
 def _put_forecast(store, forecast: dict, location: str = "London") -> None:
     """Store `location`'s forecast as the weather provider would."""
-    stored = {"fetched_at": datetime.datetime.now(datetime.UTC).isoformat(), "location": location, "forecast": forecast}
+    stored = {"fetched_at": dt.datetime.now(dt.UTC).isoformat(), "location": location, "forecast": forecast}
     store.set(keys.weather(location), json.dumps(stored))
 
 
@@ -174,10 +174,10 @@ def _render(store, config: ConfigResponse, *between: Callable[[], None], now=Non
     Every render is as of `now`, or else the time.
     """
     _put_config(store, config)
-    outcomes = [render_module.render(DEVICE_ID, now or datetime.datetime.now(datetime.UTC))]
+    outcomes = [render_module.render(DEVICE_ID, now or dt.datetime.now(dt.UTC))]
     for step in between:
         step()
-        outcomes.append(render_module.render(DEVICE_ID, now or datetime.datetime.now(datetime.UTC)))
+        outcomes.append(render_module.render(DEVICE_ID, now or dt.datetime.now(dt.UTC)))
     return outcomes
 
 
@@ -378,7 +378,7 @@ def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monke
     config.tfl.stop_ids = [BUS_STOP]
     _put_stops_and_energy(store, BUS_STOP)
     _put_cold_forecast(store, config)
-    expiry = datetime.datetime.fromisoformat("2026-09-25T21:00:00+01:00")
+    expiry = dt.datetime.fromisoformat("2026-09-25T21:00:00+01:00")
     notice_panel = NoticeBoardPanel(
         [
             Notice("Met Office", Severity.WARNING, "Wind until Fri", expiry, display_time=expiry),
@@ -387,7 +387,7 @@ def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monke
     )
     monkeypatch.setattr(NoticeBoardClient, "_update", lambda self: notice_panel)
     # The same moment for each render, as if each came at once (as a save's does): only the clock format differs.
-    stopped = datetime.datetime.now(datetime.UTC)
+    stopped = dt.datetime.now(dt.UTC)
     texts, frames = [], []
     original_text = ImageDraw.ImageDraw.text
     original_render = render_module.draw
@@ -494,7 +494,7 @@ def test_a_full_render_reaches_nothing_at_all(monkeypatch, store, no_network, pl
     _put_cold_forecast(store, config)
     _put_music(store, {"currently_playing": TRACK_JSON, "queue": []})
     store.set(keys.album_art("https://example.com/album.jpg"), _png_bytes())
-    now = datetime.datetime.now(datetime.UTC)
+    now = dt.datetime.now(dt.UTC)
     location = StoredLocation(fetched_at=now, postcode=place.postcode, found=True, location=place)
     store.set(keys.location(place.postcode), location.model_dump_json())  # as provider-locations placed it
     shown = _spy_on_frames(monkeypatch)
@@ -538,7 +538,7 @@ def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_do
     config.language, config.timezone = "nb", "Europe/Oslo"
     config.tfl.stop_ids = [BUS_STOP]
     _put_stops_and_energy(store, BUS_STOP)
-    now = datetime.datetime.now(datetime.UTC)
+    now = dt.datetime.now(dt.UTC)
     # The stop's disruptions, as the TfL notices provider keeps them on their own TTLs: all clear.
     store.set(
         keys.tfl_line_status(BUS_STOP), StoredLineStatus(fetched_at=now, stop_id=BUS_STOP, lines=[]).model_dump_json()
@@ -574,7 +574,7 @@ def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_do
     record = reader.binary_store().hgetall(keys.frame(DEVICE_ID))
     redis_down()
     with pytest.raises(RedisConnectionError):
-        render_module.render(DEVICE_ID, datetime.datetime.now(datetime.UTC))
+        render_module.render(DEVICE_ID, dt.datetime.now(dt.UTC))
 
     assert len(frames) == 2
     (first, first_texts, _), (expired, expired_texts, _) = frames

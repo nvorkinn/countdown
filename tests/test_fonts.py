@@ -3,7 +3,7 @@ import io
 
 import pytest
 
-from countdown_core.utils import utils
+from countdown_renderer.utils import utils
 
 PARTIAL = bytes(range(8))  # what a dropped connection got of the font
 

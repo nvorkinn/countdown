@@ -23,12 +23,11 @@ import responses
 from responses import matchers
 from test_utils import TEST_DEVICE_ID
 
-from countdown_core.core import log_format, moment
+from countdown_core.core import log_format
 from countdown_core.core.http_session import retrying_session
 from countdown_core.notices import location as location_module
 from countdown_core.notices.location import POSTCODES_URL
 from countdown_core.notices.norway_feed import ADDRESSES_URL
-from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
 from countdown_core.store.bank_holidays import StoredBankHolidays
 from countdown_core.store.floods import StoredFloods
@@ -40,6 +39,8 @@ from countdown_core.tfl.models import Postcode
 from countdown_providers.locations import main as locations_main
 from countdown_providers.locations.main import LOOKUP_EVERY, LocationsProvider
 from countdown_providers.runner import ProviderRunner
+from countdown_renderer import moment
+from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "locations.json").read_text(encoding="utf-8"))

@@ -16,14 +16,14 @@ import responses
 from test_utils import TEST_DEVICE_ID
 
 from countdown_core import i18n
-from countdown_core.core import moment
-from countdown_core.notices.calendar import NoStoredBankHolidaysError, StoredBankHolidaySource, bank_holiday_notices
-from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
 from countdown_core.store.bank_holidays import DIVISIONS, BankHoliday, StoredBankHolidays
 from countdown_providers.bank_holidays.main import BANK_HOLIDAYS_URL, UK, BankHolidaysProvider
 from countdown_providers.runner import ProviderRunner
+from countdown_renderer import moment
+from countdown_renderer.notices.calendar import NoStoredBankHolidaysError, StoredBankHolidaySource, bank_holiday_notices
+from countdown_renderer.notices.notice import Notice, Severity
+from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 
 GOV_UK = json.loads((Path(__file__).parent / "fixtures" / "bank_holidays.json").read_text(encoding="utf-8"))
 FETCHED_AT = datetime(2026, 10, 18, 6, 0, tzinfo=UTC)

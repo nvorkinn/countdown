@@ -20,9 +20,9 @@ from countdown_api import fixtures
 from countdown_core.store import keys
 from countdown_core.store.models import StoredForecast
 from countdown_core.weather.open_meteo import FORECAST_URL, GEOCODING_URL, PLACE_URL
-from countdown_core.weather.weather_forecast import weather_pages
 from countdown_providers.runner import ProviderRunner
 from countdown_providers.weather.main import WeatherProvider, place_id_of
+from countdown_renderer.weather.weather_forecast import weather_pages
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
 LONDON = "london-gb-2643743"

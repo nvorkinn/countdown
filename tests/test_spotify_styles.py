@@ -1,4 +1,4 @@
-import countdown_core  # noqa: F401, I001  (import order: see test_display_snapshots.py)
+import countdown_renderer  # noqa: F401, I001  (import order: see test_display_snapshots.py)
 from datetime import timedelta
 
 import pytest
@@ -6,7 +6,7 @@ from PIL import Image
 from test_utils import assert_text_inside_and_apart
 
 from countdown_core.spotify.models import Artist, Queue, Track
-from countdown_core.spotify.spotify_styles import STYLES, WIDE_ROWS, _length
+from countdown_renderer.spotify.spotify_styles import STYLES, WIDE_ROWS, _length
 
 STYLE_NAMES = list(STYLES)
 

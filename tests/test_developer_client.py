@@ -13,13 +13,13 @@ from config_factory import make_config
 from test_utils import TEST_DEVICE_ID
 
 from countdown_api import fixtures
-from countdown_core.core.api_registry import ApiRegistry, FailedClient
-from countdown_core.developer.developer_client import DeveloperClient, DeveloperSettings
-from countdown_core.developer.developer_panel import DeveloperPanel
 from countdown_core.developer.models import AiPlan, DeveloperSummary, Release
-from countdown_core.notices.notice import Severity
 from countdown_core.store import keys, reader
 from countdown_core.store.developer import NoStoredDeveloperError, StoredDeveloper
+from countdown_renderer.api_registry import ApiRegistry, FailedClient
+from countdown_renderer.developer.developer_client import DeveloperClient, DeveloperSettings
+from countdown_renderer.developer.developer_panel import DeveloperPanel
+from countdown_renderer.notices.notice import Severity
 
 FIXTURE = fixtures.load("developer.json")
 KEY = keys.developer("device-123")

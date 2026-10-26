@@ -37,5 +37,5 @@ exec docker run --rm ${SNAPSHOT_PLATFORM:+--platform "$SNAPSHOT_PLATFORM"} \
   --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -e PYTHONPATH="$src/api/src:$src/core/src:$src/renderer/src:$src/providers/src" \
   -v "$repo:/work" -w "$src" "$image" \
-  sh -c 'cp -n /opt/fonts/* core/src/countdown_core/fonts/ && exec pytest -p no:cacheprovider -n auto -m snapshot "$@"' \
+  sh -c 'cp -n /opt/fonts/* renderer/src/countdown_renderer/fonts/ && exec pytest -p no:cacheprovider -n auto -m snapshot "$@"' \
   sh $flags "$@"

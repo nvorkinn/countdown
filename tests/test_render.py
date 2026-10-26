@@ -33,11 +33,11 @@ from test_utils import put_departures
 from countdown_api import fixtures
 from countdown_api.models import ConfigResponse
 from countdown_core import i18n
-from countdown_core import render as render_module
-from countdown_core.core import moment, rotation
-from countdown_core.core.abstract_client import ClientStatus
-from countdown_core.render import Outcome, Result, Stage, render
 from countdown_core.store import frame_record, keys, reader
+from countdown_renderer import moment, rotation
+from countdown_renderer import render as render_module
+from countdown_renderer.abstract_client import ClientStatus
+from countdown_renderer.render import Outcome, Result, Stage, render
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "render_parity.json").read_text(encoding="utf-8"))
 CASES = FIXTURE["cases"]

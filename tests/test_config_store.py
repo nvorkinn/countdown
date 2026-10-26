@@ -19,7 +19,7 @@ from countdown_api import fixtures
 from countdown_api.models import ConfigResponse
 from countdown_core.store import config as stored_config
 from countdown_core.store import keys
-from countdown_core.weather.weather_client import location_key
+from countdown_renderer.weather.weather_client import location_key
 
 FIXTURE = fixtures.load("config_store.json")
 DEVICE_ID = FIXTURE["device_id"]

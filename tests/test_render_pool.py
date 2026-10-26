@@ -26,12 +26,12 @@ from test_utils import put_departures
 
 from countdown_api import fixtures
 from countdown_core import i18n
-from countdown_core import render as rendering
 from countdown_core.core import log_format
-from countdown_core.render import Result
 from countdown_core.store import keys, reader, render_queue
+from countdown_renderer import render as rendering
 from countdown_renderer import render_pool
 from countdown_renderer.pool_metrics import FAILED, UNCHANGED, WRITTEN, PoolMetrics
+from countdown_renderer.render import Result
 from countdown_renderer.render_pool import Ticker, Worker
 
 DEVICE, SLUG = "a1b2c3d4e5f6", "nvorkinn-test"

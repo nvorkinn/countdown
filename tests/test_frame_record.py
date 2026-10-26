@@ -16,9 +16,9 @@ from test_e2e_render_cycle import DEVICE_ID as E2E_DEVICE_ID
 from test_e2e_render_cycle import _make_config, _put_stops_and_energy
 
 from countdown_api import fixtures
-from countdown_core import render as render_module
-from countdown_core.render import Outcome, Result, render
 from countdown_core.store import frame_record, keys, reader
+from countdown_renderer import render as render_module
+from countdown_renderer.render import Outcome, Result, render
 
 FIXTURE = fixtures.load("frame_record.json")
 FIXTURE_FRAME = fixtures.read_bytes(FIXTURE["fields"]["frame"]["file"])

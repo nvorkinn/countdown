@@ -1,1 +1,1 @@
-"""The weather panel: a forecast carousel from Open-Meteo."""
+"""Open-Meteo's forecast client and models."""

@@ -1,4 +1,4 @@
-import countdown_core  # noqa: F401, I001  (import order: see test_display_snapshots.py)
+import countdown_renderer  # noqa: F401, I001  (import order: see test_display_snapshots.py)
 import io
 import logging
 from datetime import UTC, datetime, timedelta
@@ -7,10 +7,10 @@ import pytest
 from PIL import Image as PILImage
 
 from countdown_api import fixtures
-from countdown_core.spotify import spotify_panel
+from countdown_renderer.spotify import spotify_panel
 from countdown_core.spotify.models import Album, Image, Playback, Queue, Track
-from countdown_core.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel, _album_art, _paused
-from countdown_core.spotify.spotify_styles import APPLE_MUSIC_LABELS, STYLES
+from countdown_renderer.spotify.spotify_panel import HdSpotifyPanel, SpotifyPanel, _album_art, _paused
+from countdown_renderer.spotify.spotify_styles import APPLE_MUSIC_LABELS, STYLES
 from countdown_core.store.music import ART_SIZE, art_image
 
 ART = fixtures.read_bytes("music_art.jpg")

@@ -1,4 +1,4 @@
-import countdown_core  # noqa: I001 -- see test_display_snapshots.py for why this comes first
+import countdown_renderer  # noqa: I001 -- see test_display_snapshots.py for why this comes first
 import datetime as dt
 import itertools
 
@@ -18,33 +18,33 @@ from test_display_snapshots import (
 from test_hd_portrait_designs import _forecast_weather
 from tfl_factory import tfl_panel
 
-import countdown_core.glow.energy_panel
-from countdown_core.core import moment
-from countdown_core.core.api_registry import ClientClasses
-from countdown_core.departures.departures_client import DeparturesClient
-from countdown_core.developer.developer_panel import DeveloperPanel
-from countdown_core.glow.glow_client import GlowClient
-from countdown_core.newspaper.brief_panel import NewspaperBriefPanel, brief_items, developer_section, music_section
-from countdown_core.newspaper.energy_panel import NewspaperEnergyPanel
-from countdown_core.newspaper.masthead_panel import NewspaperMastheadPanel, edition
-from countdown_core.newspaper.stop_panel import NewspaperStopPanel, deck
-from countdown_core.newspaper.typesetting import serif, wrapped
-from countdown_core.newspaper.weather_panel import NewspaperWeatherPanel, later_rows, weather_readings
-from countdown_core.notices.notice import Notice, Severity
-from countdown_core.notices.notice_board_panel import NoticeBoardPanel
-from countdown_core.rendering.layouts import hd_landscape_newspaper
-from countdown_core.rendering.layouts.hd import SCALE, HdLayout
-from countdown_core.rendering.layouts.hd_landscape import HD_LANDSCAPE
-from countdown_core.rendering.layouts.hd_landscape_newspaper import (
+import countdown_renderer.glow.energy_panel
+from countdown_renderer import moment
+from countdown_renderer.api_registry import ClientClasses
+from countdown_renderer.departures.departures_client import DeparturesClient
+from countdown_renderer.developer.developer_panel import DeveloperPanel
+from countdown_renderer.glow.glow_client import GlowClient
+from countdown_renderer.newspaper.brief_panel import NewspaperBriefPanel, brief_items, developer_section, music_section
+from countdown_renderer.newspaper.energy_panel import NewspaperEnergyPanel
+from countdown_renderer.newspaper.masthead_panel import NewspaperMastheadPanel, edition
+from countdown_renderer.newspaper.stop_panel import NewspaperStopPanel, deck
+from countdown_renderer.newspaper.typesetting import serif, wrapped
+from countdown_renderer.newspaper.weather_panel import NewspaperWeatherPanel, later_rows, weather_readings
+from countdown_renderer.notices.notice import Notice, Severity
+from countdown_renderer.notices.notice_board_panel import NoticeBoardPanel
+from countdown_renderer.rendering.layouts import hd_landscape_newspaper
+from countdown_renderer.rendering.layouts.hd import SCALE, HdLayout
+from countdown_renderer.rendering.layouts.hd_landscape import HD_LANDSCAPE
+from countdown_renderer.rendering.layouts.hd_landscape_newspaper import (
     HD_LANDSCAPE_NEWSPAPER_LAYOUTS,
     HdLandscapeNewspaperLayout,
 )
-from countdown_core.spotify.spotify_client import SpotifyClient
-from countdown_core.spotify.spotify_panel import SpotifyPanel
-from countdown_core.tfl.combined_arrival_panel import CombinedArrivalPanel
+from countdown_renderer.spotify.spotify_client import SpotifyClient
+from countdown_renderer.spotify.spotify_panel import SpotifyPanel
+from countdown_renderer.tfl.combined_arrival_panel import CombinedArrivalPanel
 from countdown_core.tfl.models import TubeArrival
 from countdown_core.weather.models import WeatherPeriod
-from countdown_core.weather.weather_client import WeatherClient
+from countdown_renderer.weather.weather_client import WeatherClient
 
 SPOTIFY, GLOW, DEVELOPER = ClientClasses.SPOTIFY, ClientClasses.GLOWMARKT, ClientClasses.DEVELOPER
 # What each variant leaves out, and the start of its class's name.
@@ -60,7 +60,7 @@ class _FrozenDatetime(dt.datetime):
 
 @pytest.fixture(autouse=True)
 def _freeze_time(monkeypatch):
-    monkeypatch.setattr(countdown_core.glow.energy_panel, "datetime", _FrozenDatetime)
+    monkeypatch.setattr(countdown_renderer.glow.energy_panel, "datetime", _FrozenDatetime)
     with moment.drawing_at(_MOMENT):
         yield
 

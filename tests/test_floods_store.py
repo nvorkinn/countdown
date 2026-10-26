@@ -16,11 +16,11 @@ import responses
 from test_utils import TEST_DEVICE_ID
 
 from countdown_core import i18n
-from countdown_core.core import moment
-from countdown_core.notices.floods import NoStoredFloodsError, StoredFloodWarningsSource
-from countdown_core.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_core.store import keys, reader
 from countdown_core.store.floods import StoredFloods
+from countdown_renderer import moment
+from countdown_renderer.notices.floods import NoStoredFloodsError, StoredFloodWarningsSource
+from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = json.loads((FIXTURES / "floods.json").read_text())

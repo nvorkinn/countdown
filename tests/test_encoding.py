@@ -5,7 +5,7 @@ import io
 from PIL import Image
 
 from countdown_api.models import Screen
-from countdown_core.rendering.encoding import ENCODERS, encode
+from countdown_renderer.rendering.encoding import ENCODERS, encode
 
 
 def _screen(fmt: str) -> Screen:
