@@ -21,6 +21,7 @@ from countdown_renderer.rendering.layouts.hd_landscape_newspaper import HD_LANDS
 from countdown_renderer.rendering.layouts.hd_landscape_pages import HD_LANDSCAPE_PAGES_LAYOUTS
 from countdown_renderer.rendering.layouts.hd_portrait import HD_PORTRAIT_LAYOUTS
 from countdown_renderer.rendering.layouts.hd_portrait_designs import HD_PORTRAIT_DESIGNS
+from countdown_renderer.rendering.layouts.kerbside import KERBSIDE_LAYOUTS
 from countdown_renderer.rendering.registry import LayoutRegistry
 from countdown_renderer.rendering.screen import Canvas, canvas_for, native_size
 from countdown_renderer.spotify.spotify_panel import SpotifyPanel
@@ -37,12 +38,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Each canvas's first is its default: on the HD screen, the classic layout hung portrait and the sidebar hung
-# landscape, each before its other designs (in the order the config page offers them).
+# landscape, each before its other designs (in the order the config page offers them). The kerbside layouts draw on
+# both portrait canvases, after each one's own.
 LAYOUTS = LayoutRegistry(
     CLASSIC
     + CLASSIC_PORTRAIT
     + HD_PORTRAIT_LAYOUTS
     + HD_PORTRAIT_DESIGNS
+    + KERBSIDE_LAYOUTS
     + HD_LANDSCAPE_LAYOUTS
     + HD_LANDSCAPE_BOARD_LAYOUTS
     + HD_LANDSCAPE_COLUMN_LAYOUTS

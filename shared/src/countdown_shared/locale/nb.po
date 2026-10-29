@@ -493,6 +493,9 @@ msgstr "m"
 msgid "min"
 msgstr "min"
 
+msgid "now"
+msgstr "nå"
+
 #, python-brace-format
 msgid "on {day}"
 msgstr "på {day}"
