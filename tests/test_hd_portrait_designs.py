@@ -173,7 +173,9 @@ def test_the_developer_panel_makes_a_design_lay_out_spotifys_area():
 
 
 def test_the_hd_portrait_canvas_offers_the_classic_layout_first_then_the_six_designs_in_order():
-    assert LAYOUTS.layout_ids(HD_PORTRAIT) == ["classic", *(layout_id for layout_id, _design in DESIGNS)]
+    ids = LAYOUTS.layout_ids(HD_PORTRAIT)
+    assert ids[: 1 + len(DESIGNS)] == ["classic", *(layout_id for layout_id, _design in DESIGNS)]
+    assert ids[1 + len(DESIGNS) :] == ["track", "ledger", "queue"]  # the kerbside layouts, shared with 480x800
 
 
 def test_the_designs_draw_only_on_the_hd_portrait_canvas():
