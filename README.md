@@ -42,7 +42,10 @@ fails the render. One broken API never takes the others down.
 
 **Notice board** (`notice_board_client.py`, `notices/`). Reads TfL line and station status, Met Office warnings,
 Environment Agency flood warnings, TfL road incidents, bank holidays and clock changes from the store, plus Entur
-disruptions and, for a Norwegian postcode, MET Norway's warnings. Where a postcode is comes from `v1:location:<place>`
+disruptions and, for a Norwegian postcode, MET Norway's warnings. With `parcels.enabled` it also says when a parcel
+is out for delivery or expected today (`notices/parcels.py`, from `v1:parcels:<device id>`, written by the parcel provider
+in countdown-server): one notice for each, with the parcel's name or, for several, how many. "Today" is the screen's.
+There is no parcels panel. Where a postcode is comes from `v1:location:<place>`
 (`provider-locations`). Notices are ranked by severity, and planned works only fill leftover rows. An expired source
 adds nothing, and if every source has nothing the board says "Not available" rather than "All clear".
 

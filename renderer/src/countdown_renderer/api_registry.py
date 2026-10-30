@@ -61,6 +61,7 @@ def section_for(name: str, config: ConfigResponse) -> object:
             postcode=config.notice_board.postcode,
             country=config.notice_board.country,
             style=panel_style(config, config.notice_board.style),
+            parcels=config.parcels is not None and config.parcels.enabled,
         )
     if name == ClientClasses.SPOTIFY.api_name:
         return MusicSettings.from_config(config)

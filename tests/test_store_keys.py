@@ -32,6 +32,10 @@ def test_a_postcodes_flood_warnings_are_under_its_place(postcode):
     assert keys.floods(postcode) == "v1:notices:floods:SE173LL"
 
 
+def test_a_devices_parcels_are_under_its_id():
+    assert keys.parcels("abc") == "v1:parcels:abc"
+
+
 def test_the_pace_key_is_per_source_and_item():
     assert keys.pace("developer", "abc") == "v1:pace:developer:abc"
     assert keys.developer("abc") == "v1:developer:abc"
