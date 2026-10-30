@@ -18,7 +18,7 @@ from pydantic import TypeAdapter
 from countdown_api import fixtures, models, scripts
 from countdown_api import keys as contract_keys
 from countdown_providers.runner import PACE_TTL_S, ProviderRunner
-from countdown_shared.store import config, developer, frame_record, keys, pairing, reader, render_queue
+from countdown_shared.store import config, developer, frame_record, keys, pairing, parcels, reader, render_queue
 from countdown_shared.store.energy import StoredEnergy
 from countdown_shared.store.music import StoredPlayer, StoredTop
 
@@ -43,6 +43,7 @@ def test_the_keys_that_cross_are_the_contracts():
         "spotify_top",
         "album_art",
         "developer",
+        "parcels",
         "pace",
     ):
         assert getattr(keys, name) is getattr(contract_keys, name)
@@ -104,6 +105,12 @@ def test_the_renderers_read_the_broker_providers_data(client):
     top = reader.read(client, keys.spotify_top(device_id), StoredTop)
     assert set(top.spotify) == {"long_term", "short_term"}
     assert developer.read(client, device_id).github is not None
+
+    parcel_list = fixtures.load("parcels.json")
+    client.set(keys.parcels(device_id), json.dumps(parcel_list["value"]))
+    assert [p.status for p in parcels.read(client, device_id).parcels] == [
+        p["status"] for p in parcel_list["value"]["parcels"]
+    ]
 
 
 def test_the_spotify_area_reads_the_covers_by_their_urls_key():

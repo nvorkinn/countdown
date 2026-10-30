@@ -14,6 +14,7 @@ from countdown_renderer.notices.floods import StoredFloodWarningsSource
 from countdown_renderer.notices.met_office import StoredMetOfficeWarningsSource
 from countdown_renderer.notices.norway import NorwegianHolidaySource, StoredMetAlertsSource
 from countdown_renderer.notices.notice_board_panel import NoticeBoardPanel
+from countdown_renderer.notices.parcels import StoredParcelsSource
 from countdown_renderer.notices.tfl import StoredTflRoadSource
 from countdown_shared.i18n import N_, local_zone
 from countdown_shared.store import keys, reader
@@ -48,6 +49,8 @@ class NoticeBoardSettings:
     country: str | None = None
     # How the board is drawn (the config's style, see panel_style); hero if the broker sends neither.
     style: Style = "hero"
+    # Whether the config switches the parcel notices on (its `parcels.enabled`); off if the broker sends no section.
+    parcels: bool = False
 
 
 class NoticeBoardClient(AbstractClient[NoticeBoardSettings]):
@@ -68,6 +71,8 @@ class NoticeBoardClient(AbstractClient[NoticeBoardSettings]):
         self.sources: list[NoticeSource] = [ClockChangeSource(self.session)]
         if not config.postcode:
             self.sources.append(self._default_holidays())
+        if config.parcels:
+            self.sources.append(StoredParcelsSource(device_id))
         # The other clients' sources, given by the registry (use_client_sources).
         self.client_sources: list[NoticeSource] = []
         self.style = config.style

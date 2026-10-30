@@ -12,7 +12,7 @@ countdown_api.keys (its builders say what each holds, its TTL, and who writes an
   no TTL, and `v1:pairing:<device id>` (`pairing`), while the device has a code to show, with the code's own TTL. See
   store.config and store.pairing.
 - The broker's providers' data (read by the renderers): `energy`, `spotify`, `spotify_top`, `album_art` (an image's own
-  bytes, not JSON) and `developer`.
+  bytes, not JSON), `developer` and `parcels`.
 - Pace (written by any provider, with a short TTL, read by the broker): `pace`.
 - Frames (written by the render pool, read by countdown-server): `frame`, a hash. See store.frame_record.
 - The render queue's keys the broker writes too: RENDER_JOBS, RENDER_SCREENS and `render_queued`. See
@@ -33,6 +33,7 @@ from countdown_api.keys import (
     GLOW,
     PACE_TTL_S,
     PAIRING_TTL_S,
+    PARCELS_TTL_S,
     POSTCODE,
     PREFIX,
     RENDER_JOBS,
@@ -52,6 +53,7 @@ from countdown_api.keys import (
     frame,
     pace,
     pairing,
+    parcels,
     render_queued,
     spotify,
     spotify_top,
@@ -72,6 +74,7 @@ __all__ = [
     "LOCATION_CHANGED",
     "PACE_TTL_S",
     "PAIRING_TTL_S",
+    "PARCELS_TTL_S",
     "POSTCODE",
     "PREFIX",
     "RENDER_JOBS",
@@ -98,6 +101,7 @@ __all__ = [
     "metalerts",
     "pace",
     "pairing",
+    "parcels",
     "place",
     "render_again",
     "render_lease",

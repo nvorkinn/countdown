@@ -686,3 +686,26 @@ msgid "{lines} line"
 msgid_plural "{lines} lines"
 msgstr[0] "{lines}-linjen"
 msgstr[1] "{lines}-linjene"
+
+#, python-brace-format
+msgid "Out for delivery: {description}"
+msgstr "Ute for levering: {description}"
+
+#, python-brace-format
+msgid "{n} parcel out for delivery"
+msgid_plural "{n} parcels out for delivery"
+msgstr[0] "{n} pakke ute for levering"
+msgstr[1] "{n} pakker ute for levering"
+
+#, python-brace-format
+msgid "Parcel arriving today: {description}"
+msgstr "Pakke kommer i dag: {description}"
+
+#, python-brace-format
+msgid "{n} parcel arriving today"
+msgid_plural "{n} parcels arriving today"
+msgstr[0] "{n} pakke kommer i dag"
+msgstr[1] "{n} pakker kommer i dag"
+
+msgid "Parcels"
+msgstr "Pakker"
