@@ -66,7 +66,10 @@ class HdWeatherPanel(Panel):
 
 
 def _columns(d: ScaledDraw, panel: HdWeatherPanel, width: int, height: int, clock_format: ClockFormat) -> None:  # noqa: ARG001 -- every design is called alike
-    """Draw the conditions big on the left, and the readings in tiles on the right with the outlook under them."""
+    """Draw the conditions big on the left, and the readings in a grid on the right with the outlook under them.
+
+    Thin lines divide the grid's four readings, a cross between them, and a line runs under it above the outlook.
+    """
     w = panel.weather
     left = 298  # the conditions' column; the tabs only have it, so they're a little smaller
     _draw_tabs(d, w.period, (0, 4), left, 0.86)
@@ -81,10 +84,13 @@ def _columns(d: ScaledDraw, panel: HdWeatherPanel, width: int, height: int, cloc
     x0 = 304
     tile_width, tile_height, gap = (width - x0 - 10) // 2, 62, 10
     for i, (label, value) in enumerate(readings[:4]):
-        x, y = x0 + (i % 2) * (tile_width + gap), 4 + (i // 2) * (tile_height + gap)
-        d.rounded_rectangle((x, y, x + tile_width, y + tile_height), 8, outline="black", width=1)
-        _stat(d, (x + 10, y + 10), label, value, (LABEL, VALUE + 3), tile_width - 20)
+        # The left column's readings line up with the outlook under them; the right's sit clear of the line.
+        x, y = x0 + (i % 2) * (tile_width + gap + 10), 4 + (i // 2) * (tile_height + gap)
+        _stat(d, (x, y + 10), label, value, (LABEL, VALUE + 3), tile_width - 10)
     y = 4 + 2 * (tile_height + gap) + 4
+    middle_x, middle_y = x0 + tile_width + gap / 2, 4 + tile_height + gap / 2
+    d.line((middle_x, 4, middle_x, y - 8), fill="black", width=1)
+    d.line((x0, middle_y, width, middle_y), fill="black", width=1)
     d.line((x0, y, width, y), fill="black", width=1)
     cells = _outlook(w, clock_format)
     cell = (width - x0) / max(1, len(cells))
