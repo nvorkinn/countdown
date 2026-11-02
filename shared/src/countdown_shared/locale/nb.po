@@ -707,5 +707,65 @@ msgid_plural "{n} parcels arriving today"
 msgstr[0] "{n} pakke kommer i dag"
 msgstr[1] "{n} pakker kommer i dag"
 
+#, python-brace-format
+msgid "Parcel arriving tomorrow: {description}"
+msgstr "Pakke kommer i morgen: {description}"
+
+#, python-brace-format
+msgid "{n} parcel arriving tomorrow"
+msgid_plural "{n} parcels arriving tomorrow"
+msgstr[0] "{n} pakke kommer i morgen"
+msgstr[1] "{n} pakker kommer i morgen"
+
+#, python-brace-format
+msgid "Parcel arriving {day}: {description}"
+msgstr "Pakke kommer {day}: {description}"
+
+#, python-brace-format
+msgid "{n} parcel arriving {day}"
+msgid_plural "{n} parcels arriving {day}"
+msgstr[0] "{n} pakke kommer {day}"
+msgstr[1] "{n} pakker kommer {day}"
+
+#, python-brace-format
+msgid "Parcel needs attention: {description}"
+msgstr "Pakke trenger oppfølging: {description}"
+
+#, python-brace-format
+msgid "{n} parcel needs attention"
+msgid_plural "{n} parcels need attention"
+msgstr[0] "{n} pakke trenger oppfølging"
+msgstr[1] "{n} pakker trenger oppfølging"
+
+#, python-brace-format
+msgid "Parcel late: {description}"
+msgstr "Pakke forsinket: {description}"
+
+#, python-brace-format
+msgid "{n} parcel late"
+msgid_plural "{n} parcels late"
+msgstr[0] "{n} pakke forsinket"
+msgstr[1] "{n} pakker forsinket"
+
+#, python-brace-format
+msgid "Parcel on its way: {description}"
+msgstr "Pakke på vei: {description}"
+
+#, python-brace-format
+msgid "{n} parcel on its way"
+msgid_plural "{n} parcels on their way"
+msgstr[0] "{n} pakke på vei"
+msgstr[1] "{n} pakker på vei"
+
+#, python-brace-format
+msgid "Delivered: {description}"
+msgstr "Levert: {description}"
+
+#, python-brace-format
+msgid "{n} parcel delivered"
+msgid_plural "{n} parcels delivered"
+msgstr[0] "{n} pakke levert"
+msgstr[1] "{n} pakker levert"
+
 msgid "Parcels"
 msgstr "Pakker"

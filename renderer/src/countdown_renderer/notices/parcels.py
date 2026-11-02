@@ -8,34 +8,67 @@ from datetime import datetime, time, timedelta
 from typing import TYPE_CHECKING, override
 
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
-from countdown_shared.i18n import _, local_zone, ngettext
+from countdown_shared.i18n import _, format_date, local_zone, ngettext
 from countdown_shared.store import parcels, reader
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from countdown_api.models import Parcel, ParcelList
 
-# Not "arriving today": delivered ones stay in the list for a few hours, an exception needs the owner rather than a
-# reminder of when it's due, and one out for delivery has its own notice.
-NOT_DUE = frozenset({"delivered", "exception", "out_for_delivery"})
+# Each of these has its own notice, whatever day Parcel expects the parcel.
+NOT_BY_DAY = frozenset({"delivered", "exception", "out_for_delivery"})
 
 
-def _summary(group: list[Parcel], one: str, several: str) -> str:
+def _summary(group: list[Parcel], one: str, several: str, **values: str) -> str:
     """Return `one` with the parcel's description if there's just one, else `several` with how many."""
     if len(group) == 1:
-        return one.format(description=group[0].description)
-    return several.format(n=len(group))
+        return one.format(description=group[0].description, **values)
+    return several.format(n=len(group), **values)
+
+
+def _on_the_day(day: date, group: list[Parcel], today: date) -> str:
+    """Return the text for the `group` of parcels expected on `day`, today or later."""
+    if day == today:
+        return _summary(
+            group,
+            _("Parcel arriving today: {description}"),
+            ngettext("{n} parcel arriving today", "{n} parcels arriving today", len(group)),
+        )
+    if day == today + timedelta(days=1):
+        return _summary(
+            group,
+            _("Parcel arriving tomorrow: {description}"),
+            ngettext("{n} parcel arriving tomorrow", "{n} parcels arriving tomorrow", len(group)),
+        )
+    return _summary(
+        group,
+        _("Parcel arriving {day}: {description}"),
+        ngettext("{n} parcel arriving {day}", "{n} parcels arriving {day}", len(group)),
+        day=format_date(day, "EEE d MMM"),
+    )
 
 
 def parcel_notices(stored: ParcelList, now: datetime) -> list[Notice]:
-    """Return the notices for the parcels out for delivery, and those expected today (in the screen's time zone).
+    """Return the notices for every stored parcel; the provider has already left out those the screen's settings don't.
 
-    Several parcels in one state are one notice with their count, so a busy day doesn't fill the board. A parcel out for
-    delivery is in the first only, whatever day Parcel expects it.
+    Several parcels in one state, or expected on one day, are one notice with their count, so a busy day doesn't fill
+    the board. "Today" is the screen's, and a notice naming a day ends at its midnight, as that word changes.
     """
     zone = local_zone()
     today = now.astimezone(zone).date()
+    midnight = datetime.combine(today + timedelta(days=1), time.min, zone)
     out = [parcel for parcel in stored.parcels if parcel.status == "out_for_delivery"]
-    due = [parcel for parcel in stored.parcels if parcel.expected_date == today and parcel.status not in NOT_DUE]
+    held = [parcel for parcel in stored.parcels if parcel.status == "exception"]
+    delivered = [parcel for parcel in stored.parcels if parcel.status == "delivered"]
+    coming = [parcel for parcel in stored.parcels if parcel.status not in NOT_BY_DAY]
+    late = [parcel for parcel in coming if parcel.expected_date is not None and parcel.expected_date < today]
+    undated = [parcel for parcel in coming if parcel.expected_date is None]
+    by_day: dict[date, list[Parcel]] = {}
+    for parcel in coming:
+        if parcel.expected_date is not None and parcel.expected_date >= today:
+            by_day.setdefault(parcel.expected_date, []).append(parcel)
+
     notices = []
     if out:
         text = _summary(
@@ -44,19 +77,41 @@ def parcel_notices(stored: ParcelList, now: datetime) -> list[Notice]:
             ngettext("{n} parcel out for delivery", "{n} parcels out for delivery", len(out)),
         )
         notices.append(Notice(_("Parcels"), Severity.INFO, text))
-    if due:
+    if held:
         text = _summary(
-            due,
-            _("Parcel arriving today: {description}"),
-            ngettext("{n} parcel arriving today", "{n} parcels arriving today", len(due)),
+            held,
+            _("Parcel needs attention: {description}"),
+            ngettext("{n} parcel needs attention", "{n} parcels need attention", len(held)),
         )
-        midnight = datetime.combine(today + timedelta(days=1), time.min, zone)
-        notices.append(Notice(_("Parcels"), Severity.REMINDER, text, valid_until=midnight))
+        notices.append(Notice(_("Parcels"), Severity.INFO, text))
+    if late:
+        text = _summary(
+            late, _("Parcel late: {description}"), ngettext("{n} parcel late", "{n} parcels late", len(late))
+        )
+        notices.append(Notice(_("Parcels"), Severity.REMINDER, text))
+    notices += [
+        Notice(_("Parcels"), Severity.REMINDER, _on_the_day(day, by_day[day], today), valid_until=midnight)
+        for day in sorted(by_day)
+    ]
+    if undated:
+        text = _summary(
+            undated,
+            _("Parcel on its way: {description}"),
+            ngettext("{n} parcel on its way", "{n} parcels on their way", len(undated)),
+        )
+        notices.append(Notice(_("Parcels"), Severity.REMINDER, text))
+    if delivered:
+        text = _summary(
+            delivered,
+            _("Delivered: {description}"),
+            ngettext("{n} parcel delivered", "{n} parcels delivered", len(delivered)),
+        )
+        notices.append(Notice(_("Parcels"), Severity.REMINDER, text))
     return notices
 
 
 class StoredParcelsSource(NoticeSource):
-    """Parcels out for delivery, and parcels expected today, from the store.
+    """The parcels the screen's settings show, from the store.
 
     That's `v1:parcels:<device id>`, read each time the board asks: so it says what the store has now, and nothing once
     the key has lapsed.
