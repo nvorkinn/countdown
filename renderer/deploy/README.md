@@ -53,7 +53,7 @@ Set up once in the repo's settings (see also the [README](../../../README.md#one
   `approve-production` with the required reviewers.
 - In each of `dev-qa` and `production`, secrets `DEPLOY_USER`, `DEPLOY_HOST`, `ORACLE_SSH_TOKEN` (the private key) and
   `DEPLOY_SSH_KNOWN_HOSTS`, the same as countdown-server's for that host. The user must be in the `docker` group.
-- In Vaultwarden, items `countdown/<env>/REDIS_PASSWORD` and `countdown/<env>/TFL_APP_KEY` for each environment (`<env>` is `dev-qa`, and `prod` for production) (the value is the login password, or the notes).
+- In Vaultwarden, items `REDIS_PASSWORD` and `TFL_APP_KEY` in the collection `countdown/<env>` for each environment (`<env>` is `dev-qa`, and `prod` for production) (the value is the login password, or the notes).
   `REDIS_PASSWORD` must be the same as countdown-server's `secrets/<env>/redis.env` for that environment, or the pool and
   providers can't log in; a missing one fails the deploy. `fetch-secrets.sh` reads them with the Bitwarden CLI and
   exports them to the deploy step.
