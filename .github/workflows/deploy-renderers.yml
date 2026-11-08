@@ -65,12 +65,23 @@ jobs:
           # dial-stdio` for every container it starts or waits on, and that burst of logins can exceed the host's
           # sshd MaxStartups, which resets the excess (v1.28.0's deploy failed that way, with every container up).
           printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  ControlMaster auto\n  ControlPath ~/.ssh/cm-%%C\n  ControlPersist 10m\n  ServerAliveInterval 15\n' > ~/.ssh/config
+      - name: Install the Bitwarden CLI
+        run: npm install --global @bitwarden/cli@2026.10.0
+      - name: Fetch the secrets from Vaultwarden
+        env:
+          # How to reach the vault and read this environment's item (countdown/<environment>). The item holds the
+          # providers' and the render pool's secrets, REDIS_PASSWORD and TFL_APP_KEY, which the script exports to the
+          # next step. Only these four bootstrap values live in GitHub.
+          VW_SERVER_URL: ${{ vars.VW_SERVER_URL }}
+          VW_ITEM: countdown/${{ inputs.environment }}
+          BW_CLIENTID: ${{ secrets.BW_CLIENTID }}
+          BW_CLIENTSECRET: ${{ secrets.BW_CLIENTSECRET }}
+          BW_PASSWORD: ${{ secrets.BW_PASSWORD }}
+        run: bash renderer/deploy/fetch-secrets.sh
       - name: Deploy the renderers
         env:
-          # For the providers and the render pool: Redis's password (the same as countdown-server's secrets/<env>/redis.env
-          # for this environment) and TfL's app key.
-          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
-          TFL_APP_KEY: ${{ secrets.TFL_APP_KEY }}
+          # For the providers and the render pool, REDIS_PASSWORD (the same as countdown-server's
+          # secrets/<env>/redis.env for this environment) and TFL_APP_KEY come from the step above, through GITHUB_ENV.
           # What the pairing screen tells people to visit. The environment's variables (Settings > Environments); unset
           # means empty, and the compose file and the code then fall back to the production site's.
           COUNTDOWN_AUTH_HOST: ${{ vars.COUNTDOWN_AUTH_HOST }}
