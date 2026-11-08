@@ -53,13 +53,13 @@ Set up once in the repo's settings (see also the [README](../../../README.md#one
   `approve-production` with the required reviewers.
 - In each of `dev-qa` and `production`, secrets `DEPLOY_USER`, `DEPLOY_HOST`, `ORACLE_SSH_TOKEN` (the private key) and
   `DEPLOY_SSH_KNOWN_HOSTS`, the same as countdown-server's for that host. The user must be in the `docker` group.
-- In Vaultwarden, an item `countdown/<env>` for each environment, with custom fields `REDIS_PASSWORD` and `TFL_APP_KEY`.
+- In Vaultwarden, items `countdown/<env>/REDIS_PASSWORD` and `countdown/<env>/TFL_APP_KEY` for each environment (the value is the login password, or the notes).
   `REDIS_PASSWORD` must be the same as countdown-server's `secrets/<env>/redis.env` for that environment, or the pool and
   providers can't log in; a missing one fails the deploy. `fetch-secrets.sh` reads them with the Bitwarden CLI and
   exports them to the deploy step.
 - In each environment, so the deploy can reach the vault: variable `VW_SERVER_URL` (for example
   `https://vault.example.org`) and secrets `BW_CLIENTID` and `BW_CLIENTSECRET` (the API key) and `BW_PASSWORD` (the
-  master password) of an account that can read only that environment's item.
+  master password) of an account that can read only that environment's items.
 - Optionally in each, variables `COUNTDOWN_AUTH_HOST` and `COUNTDOWN_SITE_NAME`: the pairing screen's website and the
   host its QR code opens (`https://<COUNTDOWN_AUTH_HOST>/pair?code=...`). Unset, they are `auth.nikolaivorkinn.com` and
   `nikolaivorkinn.com`. Only the render workers read them.
