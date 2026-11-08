@@ -46,6 +46,9 @@ To roll back, promote an older tag. To redeploy a release to dev-qa, re-run its 
 
 Set up once in the repo's settings (see also the [README](../../../README.md#one-time-github-setup)):
 
+- dev-qa runs on the home server, which is reachable over Tailscale only: its environment also has secrets
+  `TAILSCALE_OAUTH_CLIENT_ID` and `TAILSCALE_OAUTH_SECRET`, and the deploy joins the tailnet (`tag:ci`) before it
+  connects. Production has neither and connects directly.
 - Environments `dev-qa` and `production` (restricted to `main` and `v*` tags), no reviewers on either, and
   `approve-production` with the required reviewers.
 - In each of `dev-qa` and `production`, secrets `DEPLOY_USER`, `DEPLOY_HOST`, `ORACLE_SSH_TOKEN` (the private key) and

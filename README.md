@@ -143,7 +143,8 @@ The host's Fluent Bit ships the containers' logs to VictoriaLogs, naming each st
 
 ## Releasing and promoting
 
-Two environments, each one host running [countdown-server](https://github.com/nvorkinn/countdown-server)'s stack (with
+Two environments, each one host (dev-qa is the home server, `nikolai-server`, reachable over Tailscale only; production is
+a public host) running [countdown-server](https://github.com/nvorkinn/countdown-server)'s stack (with
 the Redis this repository's render pool and providers use) and this repository's containers: **dev-qa** and
 **production**. A tag is built once and the same tag is promoted.
 
@@ -169,6 +170,10 @@ Settings > Environments:
 | `production` | none (the approval is `approve-production`'s) | `main` and `v*` tags only | the same six, for the production host | the same two, for production |
 | `approve-production` | required reviewers (you) | `main` | none | none |
 
+- dev-qa also has `TAILSCALE_OAUTH_CLIENT_ID` and `TAILSCALE_OAUTH_SECRET` (an OAuth client allowed to tag nodes
+  `tag:ci`), and `DEPLOY_HOST` is its tailnet name (`nikolai-server.tail7c722e.ts.net`, user `ansible`). The deploy
+  joins the tailnet first when the client id is non-empty; production has neither, so it connects directly. The tailnet's
+  ACL must let `tag:ci` reach the host on port 22. `ORACLE_SSH_TOKEN` keeps its name from when dev ran on Oracle.
 - `DEPLOY_*` and `ORACLE_SSH_TOKEN` are the host's, as for countdown-server; `DEPLOY_SSH_KNOWN_HOSTS` holds its host key.
 - `REDIS_PASSWORD` must equal that environment's countdown-server `secrets/<env>/redis.env`. A missing password fails
   the deploy rather than start anything unauthenticated.
