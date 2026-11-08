@@ -176,9 +176,9 @@ Settings > Environments:
   ACL must let `tag:ci` reach the host on port 22. `ORACLE_SSH_TOKEN` keeps its name from when dev ran on Oracle.
 - `DEPLOY_*` and `ORACLE_SSH_TOKEN` are the host's, as for countdown-server; `DEPLOY_SSH_KNOWN_HOSTS` holds its host key.
 - `REDIS_PASSWORD` and `TFL_APP_KEY` are not GitHub secrets: the deploy reads them from Vaultwarden
-  (`renderer/deploy/fetch-secrets.sh`), from the item `countdown/<environment>` (custom fields of those names).
+  (`renderer/deploy/fetch-secrets.sh`), from the vault items `countdown/<environment>/REDIS_PASSWORD` and `countdown/<environment>/TFL_APP_KEY` (the value is the login password, or the notes).
   `VW_SERVER_URL` is the vault's URL, and `BW_CLIENTID`, `BW_CLIENTSECRET` and `BW_PASSWORD` are the API key and master
-  password of an account that can read only that item. `REDIS_PASSWORD` must equal that environment's countdown-server
+  password of an account that can read only that environment's items. `REDIS_PASSWORD` must equal that environment's countdown-server
   `secrets/<env>/redis.env`. A missing password fails the deploy rather than start anything unauthenticated.
 - `COUNTDOWN_AUTH_HOST` and `COUNTDOWN_SITE_NAME` are what the pairing screen shows and its QR code opens: the
   environment's auth host (for example `auth.dev.example.org`) and website name. Leave them unset for
