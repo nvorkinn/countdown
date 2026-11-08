@@ -14,3 +14,12 @@ CVE-2025-47273 exp:2026-11-24
 CVE-2026-97687 exp:2026-11-24
 CVE-2026-97689 exp:2026-11-24
 CVE-2026-114613 exp:2026-11-24
+
+# python:3.14-slim (both images): Debian's zlib1g 1:1.3.dfsg+really1.3.1-1+b1. Debian has 1:1.3.dfsg+really1.3.1-1+deb13u1,
+# which the upstream base image does not ship yet. CVE-2026-85091 is a heap overflow in gz_vacate(), part of zlib's gzFile
+# API (gzopen, gzread, gzwrite). Python's zlib and gzip modules use the deflate/inflate streams (compressobj,
+# decompressobj), not that API, and nothing else in these images does either. CVE-2026-76844 is filed against
+# webpack-dev-middleware, a Trivy database mismatch on zlib1g; nothing in the images is JavaScript. Goes away with the next
+# python:3.14-slim that ships the fixed zlib.
+CVE-2026-85091 exp:2026-11-24
+CVE-2026-76844 exp:2026-11-24
