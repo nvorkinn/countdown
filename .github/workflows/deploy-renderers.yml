@@ -31,6 +31,9 @@ jobs:
     env:
       TAG: ${{ inputs.tag }}
       DOCKER_HOST: ssh://${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+      # Set only for a host reachable over Tailscale alone (dev-qa, on the home server). Empty (production, on a public
+      # host) skips joining the tailnet. A secret can't be read in a step's `if`, hence the env.
+      TAILSCALE_OAUTH_CLIENT_ID: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
     steps:
       - name: Check the tag
         run: |
@@ -42,6 +45,13 @@ jobs:
           ref: refs/tags/${{ inputs.tag }}
       - name: Pull latest API Contract submodule
         run: git submodule update --init --remote
+      - name: Join the tailnet
+        if: env.TAILSCALE_OAUTH_CLIENT_ID != ''
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: tag:ci
       - name: Set up SSH
         env:
           ORACLE_SSH_TOKEN: ${{ secrets.ORACLE_SSH_TOKEN }}
