@@ -83,7 +83,7 @@ jobs:
           # How to reach the vault and read this environment's items (countdown/<environment>/REDIS_PASSWORD and
           # .../TFL_APP_KEY), the providers' and the render pool's secrets, which the script exports to the next step. Only these four bootstrap values live in GitHub.
           VW_SERVER_URL: ${{ vars.VW_SERVER_URL }}
-          VW_ITEM_PREFIX: countdown/${{ inputs.environment == 'production' && 'prod' || inputs.environment }}
+          VW_COLLECTION: countdown/${{ inputs.environment == 'production' && 'prod' || inputs.environment }}
           BW_CLIENTID: ${{ secrets.BW_CLIENTID }}
           BW_CLIENTSECRET: ${{ secrets.BW_CLIENTSECRET }}
           BW_PASSWORD: ${{ secrets.BW_PASSWORD }}
