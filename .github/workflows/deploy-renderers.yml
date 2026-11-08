@@ -66,7 +66,18 @@ jobs:
           # sshd MaxStartups, which resets the excess (v1.28.0's deploy failed that way, with every container up).
           printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  ControlMaster auto\n  ControlPath ~/.ssh/cm-%%C\n  ControlPersist 10m\n  ServerAliveInterval 15\n' > ~/.ssh/config
       - name: Install the Bitwarden CLI
-        run: npm install --global @bitwarden/cli@2026.10.0
+        env:
+          BW_VERSION: 2026.10.0
+          BW_SHA256: 269b67559caab860d1737f7554b32bdb8be9285d5689fee55193c137a0df9973
+        run: |
+          # The release's single-file binary, checked against a pinned hash (not npm, which installs outside a lockfile).
+          curl -fsSL -o "$RUNNER_TEMP/bw.zip" "https://github.com/bitwarden/clients/releases/download/cli-v${BW_VERSION}/bw-linux-${BW_VERSION}.zip"
+          echo "${BW_SHA256}  $RUNNER_TEMP/bw.zip" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/bin"
+          unzip -q -o "$RUNNER_TEMP/bw.zip" -d "$RUNNER_TEMP/bin"
+          chmod +x "$RUNNER_TEMP/bin/bw"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bin/bw" --version
       - name: Fetch the secrets from Vaultwarden
         env:
           # How to reach the vault and read this environment's item (countdown/<environment>). The item holds the
