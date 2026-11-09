@@ -1,14 +1,14 @@
 name: Promote
 
-# Deploys a release that has been through dev-qa to production (the "Run workflow" button: Actions > Promote). A
+# Deploys a release that has been through dev to production (the "Run workflow" button: Actions > Promote). A
 # release never touches production; this is the only way a tag gets there. To roll back, promote an older tag.
 #
-# check (the tag is on main and was deployed) -> approve (a reviewer of approve-production) -> deploy (production).
+# check (the tag is on main and was deployed) -> approve (a reviewer of approve-prod) -> deploy (prod).
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: The release to put in production, e.g. v1.2.3 (it must be deployed to dev-qa already).
+        description: The release to put in production, e.g. v1.2.3 (it must be deployed to dev already).
         type: string
         required: true
 
@@ -61,9 +61,10 @@ jobs:
             return 1
           }
 
-          # dev-qa is the gate; production counts too, for a rollback to a tag that was in production.
+          # dev is the gate; production counts too, for a rollback to a tag that was in production.
           found=''
-          for environment in dev-qa production; do
+          # The old names (dev-qa, production) are the ones the releases before the rename were deployed to.
+          for environment in dev prod dev-qa production; do
             rc=0
             deployed "$environment" || rc=$?
             case "$rc" in
@@ -72,23 +73,27 @@ jobs:
               *) echo "Could not read $environment's deployments" >&2; exit 1 ;;
             esac
           done
-          [ -n "$found" ] || { echo "$TAG ($sha) has no successful dev-qa or production deployment" >&2; exit 1; }
+          [ -n "$found" ] || { echo "$TAG ($sha) has no successful dev or prod deployment" >&2; exit 1; }
           echo "$TAG ($sha) is on main and was deployed to $found"
 
-  # The one manual gate: the reviewers of approve-production (Settings > Environments). Not on `production`, so that
+  # The one manual gate: the reviewers of approve-prod (Settings > Environments). Not on `prod`, so that
   # environment can hold the host's secrets without asking again.
   approve:
     needs: check
     runs-on: ubuntu-latest
-    environment: approve-production
+    environment: approve-prod
     steps:
       - run: echo "Approved"
 
   deploy:
-    name: renderers (production)
+    name: renderers (prod)
     needs: [check, approve]
     uses: ./.github/workflows/deploy-renderers.yml
+    # The deploy job (below) asks for id-token: write, to join the tailnet with GitHub's OIDC token, so its caller grants it too.
+    permissions:
+      contents: read
+      id-token: write
     with:
-      environment: production
+      environment: prod
       tag: ${{ inputs.tag }}
     secrets: inherit

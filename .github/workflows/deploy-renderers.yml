@@ -1,14 +1,14 @@
 name: Deploy renderers
 
 # One environment's deploy of the providers and the render pool (renderer/deploy/docker-compose.*.yml), pinned
-# to one release's images. release.yml calls it for dev-qa, promote.yml for production. It runs entirely here: the
+# to one release's images. release.yml calls it for dev, promote.yml for production. It runs entirely here: the
 # runner drives the Docker host's daemon over ssh (DOCKER_HOST), so the host needs nothing installed but Docker.
 on:
   workflow_call:
     inputs:
       environment:
         description: The GitHub environment holding this host's secrets (DEPLOY_HOST and the rest) and settings, e.g.
-          dev-qa. It has no reviewers of its own; an approval, where one is wanted, is the caller's.
+          dev. It has no reviewers of its own; an approval, where one is wanted, is the caller's.
         type: string
         required: true
       tag:
@@ -24,6 +24,9 @@ jobs:
     name: deploy (${{ inputs.environment }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write # Tailscale's federated identity, below
     # One deploy at a time per host, whichever workflow asked for it.
     concurrency:
       group: deploy-renderers-${{ inputs.environment }}
@@ -31,9 +34,6 @@ jobs:
     env:
       TAG: ${{ inputs.tag }}
       DOCKER_HOST: ssh://${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
-      # Set only for a host reachable over Tailscale alone (dev-qa, on the home server). Empty (production, on a public
-      # host) skips joining the tailnet. A secret can't be read in a step's `if`, hence the env.
-      TAILSCALE_OAUTH_CLIENT_ID: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
     steps:
       - name: Check the tag
         run: |
@@ -46,11 +46,13 @@ jobs:
       - name: Pull latest API Contract submodule
         run: git submodule update --init --remote
       - name: Join the tailnet
-        if: env.TAILSCALE_OAUTH_CLIENT_ID != ''
+        # Only for a host reachable over Tailscale alone (dev, on the home server): the environment's variables are empty
+        # for prod, a public host. Federated identity: GitHub's OIDC token for this job's environment, no secret.
+        if: vars.TAILSCALE_CLIENT_ID != ''
         uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
         with:
-          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          oauth-client-id: ${{ vars.TAILSCALE_CLIENT_ID }}
+          audience: ${{ vars.TAILSCALE_AUDIENCE }}
           tags: tag:ci
       - name: Set up SSH
         env:
@@ -65,35 +67,21 @@ jobs:
           # dial-stdio` for every container it starts or waits on, and that burst of logins can exceed the host's
           # sshd MaxStartups, which resets the excess (v1.28.0's deploy failed that way, with every container up).
           printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  ControlMaster auto\n  ControlPath ~/.ssh/cm-%%C\n  ControlPersist 10m\n  ServerAliveInterval 15\n' > ~/.ssh/config
-      - name: Install the Bitwarden CLI
-        env:
-          BW_VERSION: 2026.10.0
-          BW_SHA256: 269b67559caab860d1737f7554b32bdb8be9285d5689fee55193c137a0df9973
-        run: |
-          # The release's single-file binary, checked against a pinned hash (not npm, which installs outside a lockfile).
-          curl -fsSL -o "$RUNNER_TEMP/bw.zip" "https://github.com/bitwarden/clients/releases/download/cli-v${BW_VERSION}/bw-linux-${BW_VERSION}.zip"
-          echo "${BW_SHA256}  $RUNNER_TEMP/bw.zip" | sha256sum --check --strict
-          mkdir -p "$RUNNER_TEMP/bin"
-          unzip -q -o "$RUNNER_TEMP/bw.zip" -d "$RUNNER_TEMP/bin"
-          chmod +x "$RUNNER_TEMP/bin/bw"
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/bin/bw" --version
+      # The shared action: renderer/deploy/secrets-map.json (the release's) says what this environment needs, and the items
+      # are in its collection. Only the four bootstrap values (the host's and the bot's API key) live in GitHub.
       - name: Fetch the secrets from Vaultwarden
-        env:
-          # How to reach the vault and read this environment's items (countdown/<environment>/REDIS_PASSWORD and
-          # .../TFL_APP_KEY), the providers' and the render pool's secrets, which the script exports to the next step. Only these four bootstrap values live in GitHub.
-          VW_SERVER_URL: ${{ vars.VW_SERVER_URL }}
-          VW_COLLECTION: countdown/${{ inputs.environment == 'production' && 'prod' || inputs.environment }}
-          BW_CLIENTID: ${{ secrets.BW_CLIENTID }}
-          BW_CLIENTSECRET: ${{ secrets.BW_CLIENTSECRET }}
-          BW_PASSWORD: ${{ secrets.BW_PASSWORD }}
-        run: bash renderer/deploy/fetch-secrets.sh
+        uses: nvorkinn/.github/actions/vaultwarden-secrets@1dd1e27d3a48afda7fe22ac98c3087cabfb7db20 # main
+        with:
+          map: renderer/deploy/secrets-map.json
+          target: ${{ inputs.environment }}
+          collection: countdown/${{ inputs.environment }}
+          bw-clientid: ${{ secrets.BW_CLIENTID }}
+          bw-clientsecret: ${{ secrets.BW_CLIENTSECRET }}
+          bw-password: ${{ secrets.BW_PASSWORD }}
       - name: Deploy the renderers
         env:
-          # For the providers and the render pool, REDIS_PASSWORD (the same as countdown-server's
-          # secrets/<env>/redis.env for this environment) and TFL_APP_KEY come from the step above, through GITHUB_ENV.
           # What the pairing screen tells people to visit. The environment's variables (Settings > Environments); unset
           # means empty, and the compose file and the code then fall back to the production site's.
           COUNTDOWN_AUTH_HOST: ${{ vars.COUNTDOWN_AUTH_HOST }}
           COUNTDOWN_SITE_NAME: ${{ vars.COUNTDOWN_SITE_NAME }}
-        run: bash renderer/deploy/deploy.sh "$TAG"
+        run: bash renderer/deploy/deploy.sh "$TAG" "$RUNNER_TEMP/secrets"

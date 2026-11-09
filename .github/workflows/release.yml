@@ -222,11 +222,15 @@ jobs:
     # Brings up the providers and the render pool (renderer/deploy/docker-compose.*.yml) on the dev/QA host,
     # pinned to this release's images. No approval: starting the release is the decision. A release never touches
     # production: promote.yml deploys a tag there.
-    name: renderers (dev-qa)
+    name: renderers (dev)
     needs: release
     uses: ./.github/workflows/deploy-renderers.yml
+    # The deploy job asks for id-token: write, to join the tailnet with GitHub's OIDC token, so its caller grants it too.
+    permissions:
+      contents: read
+      id-token: write
     with:
-      environment: dev-qa
+      environment: dev
       tag: ${{ github.ref_name }}
-    # The dev-qa environment's secrets (the host's) reach the deploy through this.
+    # The dev environment's secrets (the host's) reach the deploy through this.
     secrets: inherit
