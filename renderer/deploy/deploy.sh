@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Run by deploy-renderers.yml (release.yml calls it for dev-qa, promote.yml for production), on the runner, against
+# Run by deploy-renderers.yml (release.yml calls it for dev, promote.yml for prod), on the runner, against
 # the host's Docker daemon (DOCKER_HOST=ssh://...), so nothing is installed on the host. Pins the providers' and the
 # render pool's images to the release, brings them up, removes any per-screen renderer containers and volumes left on
 # the host, and drops older image tags. Run by hand it does the same to whatever daemon your docker talks to.
-# Usage: deploy.sh <tag>
+# Usage: deploy.sh <tag> <secrets dir>     (secrets dir: the vaultwarden-secrets action's output: redis.env and tfl.env)
 set -euo pipefail
 
 export COUNTDOWN_RENDERER_VERSION="$1"
+# Where the compose files read their env_file entries from, here on the runner, so no secret is written to the host.
+SECRETS_DIR="$(cd "$2" && pwd)"
+export SECRETS_DIR
 cd "$(dirname "$0")"
 
 # One compose project per file, so the containers are named providers-<service>-1 and renderer-<service>-1.

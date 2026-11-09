@@ -36,30 +36,30 @@ files are that release's.
 
 There are two environments, each its own host with its own countdown-server and Redis:
 
-- **dev-qa**: `release.yml` calls the deploy after it has built and published a release, with no approval. The release
+- **dev**: `release.yml` calls the deploy after it has built and published a release, with no approval. The release
   stays a pre-release.
-- **production**: only `promote.yml` (Actions > Promote > Run workflow, input `tag`) deploys there. It needs a tag that is
-  on `main` and deployed to dev-qa, waits for a reviewer of the `approve-production` environment, runs the same deploy,
+- **prod**: only `promote.yml` (Actions > Promote > Run workflow, input `tag`) deploys there. It needs a tag that is
+  on `main` and deployed to dev, waits for a reviewer of the `approve-prod` environment, runs the same deploy,
   and then marks the release as the latest.
 
-To roll back, promote an older tag. To redeploy a release to dev-qa, re-run its deploy job from the Actions tab.
+To roll back, promote an older tag. To redeploy a release to dev, re-run its deploy job from the Actions tab.
 
 Set up once in the repo's settings (see also the [README](../../../README.md#one-time-github-setup)):
 
-- dev-qa runs on the home server, which is reachable over Tailscale only: its environment also has secrets
-  `TAILSCALE_OAUTH_CLIENT_ID` and `TAILSCALE_OAUTH_SECRET`, and the deploy joins the tailnet (`tag:ci`) before it
+- dev runs on the home server, which is reachable over Tailscale only: its environment also has the variables
+  `TAILSCALE_CLIENT_ID` and `TAILSCALE_AUDIENCE` (a federated identity: GitHub's OIDC token, no secret), and the deploy joins the tailnet (`tag:ci`) before it
   connects. Production has neither and connects directly.
-- Environments `dev-qa` and `production` (restricted to `main` and `v*` tags), no reviewers on either, and
-  `approve-production` with the required reviewers.
-- In each of `dev-qa` and `production`, secrets `DEPLOY_USER`, `DEPLOY_HOST`, `ORACLE_SSH_TOKEN` (the private key) and
+- Environments `dev` and `prod` (restricted to `main` and `v*` tags), no reviewers on either, and
+  `approve-prod` with the required reviewers.
+- In each of `dev` and `prod`, secrets `DEPLOY_USER`, `DEPLOY_HOST`, `ORACLE_SSH_TOKEN` (the private key) and
   `DEPLOY_SSH_KNOWN_HOSTS`, the same as countdown-server's for that host. The user must be in the `docker` group.
-- In Vaultwarden, items `REDIS_PASSWORD` and `TFL_APP_KEY` in the collection `countdown/<env>` for each environment (`<env>` is `dev-qa`, and `prod` for production) (the value is the login password, or the notes).
-  `REDIS_PASSWORD` must be the same as countdown-server's `secrets/<env>/redis.env` for that environment, or the pool and
-  providers can't log in; a missing one fails the deploy. `fetch-secrets.sh` reads them with the Bitwarden CLI and
-  exports them to the deploy step.
-- In each environment, so the deploy can reach the vault: variable `VW_SERVER_URL` (for example
-  `https://vault.example.org`) and secrets `BW_CLIENTID` and `BW_CLIENTSECRET` (the API key) and `BW_PASSWORD` (the
-  master password) of an account that can read only that environment's items.
+- In Vaultwarden, items `REDIS_PASSWORD` and `TFL_APP_KEY` (the value is the login password) in the collection
+  `countdown/<env>` (`dev` or `prod`), as `secrets-map.json` lists them. `REDIS_PASSWORD` must be the same as
+  countdown-server's for that environment, or the pool and providers can't log in: it is one item, in both projects'
+  collections. A missing one fails the deploy. The shared action `nvorkinn/.github/actions/vaultwarden-secrets` reads
+  them with the Bitwarden CLI into `redis.env` and `tfl.env`, which the compose files list as `env_file`.
+- In each environment, so the deploy can reach the vault: secrets `BW_CLIENTID` and `BW_CLIENTSECRET` (the API key) and
+  `BW_PASSWORD` (the master password) of an account that can read only that environment's collections.
 - Optionally in each, variables `COUNTDOWN_AUTH_HOST` and `COUNTDOWN_SITE_NAME`: the pairing screen's website and the
   host its QR code opens (`https://<COUNTDOWN_AUTH_HOST>/pair?code=...`). Unset, they are `auth.nikolaivorkinn.com` and
   `nikolaivorkinn.com`. Only the render workers read them.

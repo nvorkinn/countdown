@@ -15,9 +15,11 @@ services:
     restart: unless-stopped
     network_mode: host
     mem_limit: 512m
+    # REDIS_PASSWORD, from the secrets the deploy fetched from Vaultwarden (secrets-map.json).
+    env_file:
+      - ${SECRETS_DIR:?set by deploy.sh}/redis.env
     environment: &render-pool-environment
       REDIS_URL: redis://127.0.0.1:6379/0
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
       # Names the worker in its logs and as its metrics' host.name; each screen is their `device` attribute.
       WORKER_NAME: render-worker-1
       # What the pairing screen sends people to (its QR code and its "Go to ..."): the environment's own site. Only the
@@ -50,9 +52,10 @@ services:
     pull_policy: always
     restart: unless-stopped
     network_mode: host
+    env_file:
+      - ${SECRETS_DIR:?set by deploy.sh}/redis.env
     environment:
       REDIS_URL: redis://127.0.0.1:6379/0
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis's password, from the deploy}
     logging:
       driver: json-file
       options:

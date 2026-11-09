@@ -143,19 +143,19 @@ The host's Fluent Bit ships the containers' logs to VictoriaLogs, naming each st
 
 ## Releasing and promoting
 
-Two environments, each one host (dev-qa is the home server, `nikolai-server`, reachable over Tailscale only; production is
+Two environments, each one host (dev is the home server, `nikolai-server`, reachable over Tailscale only; production is
 a public host) running [countdown-server](https://github.com/nvorkinn/countdown-server)'s stack (with
-the Redis this repository's render pool and providers use) and this repository's containers: **dev-qa** and
-**production**. A tag is built once and the same tag is promoted.
+the Redis this repository's render pool and providers use) and this repository's containers: **dev** and
+**prod**. A tag is built once and the same tag is promoted.
 
-- **Release** (dev-qa, no approval): push a `v*` tag on a commit that's on `main`.
-  `.github/workflows/release.yml` builds the wheels and images, creates the GitHub release and deploys the render pool and providers to dev-qa
+- **Release** (dev, no approval): push a `v*` tag on a commit that's on `main`.
+  `.github/workflows/release.yml` builds the wheels and images, creates the GitHub release and deploys the render pool and providers to dev
   (`.github/workflows/deploy-renderers.yml`). Starting a release is the decision to deploy it there. A release never
   touches production. The tag is the version: it's stamped into the wheels at build time, so the `version` in
   `pyproject.toml` is a placeholder.
-- **Promote** (production): once a release has been tried on dev-qa, run Actions > Promote > Run workflow with its tag
+- **Promote** (production): once a release has been tried on dev, run Actions > Promote > Run workflow with its tag
   (`vX.Y.Z`). `.github/workflows/promote.yml` checks that the tag's commit is on `main` and that the tag has a successful
-  dev-qa deployment, waits for a reviewer of the `approve-production` environment, deploys the same tag's images to
+  dev deployment, waits for a reviewer of the `approve-prod` environment, deploys the same tag's images to
   production. One promotion runs at a time.
 - **Roll back** by promoting an older tag the same way (a tag that was in production before passes the check too).
   The deploy takes the compose files from that tag.
@@ -166,20 +166,22 @@ Settings > Environments:
 
 | Environment | Reviewers | Deployment branches and tags | Secrets | Variables |
 | --- | --- | --- | --- | --- |
-| `dev-qa` | none | any (releases run from `v*` tags) | `DEPLOY_HOST`, `DEPLOY_USER`, `ORACLE_SSH_TOKEN`, `DEPLOY_SSH_KNOWN_HOSTS`, `BW_CLIENTID`, `BW_CLIENTSECRET`, `BW_PASSWORD` | `VW_SERVER_URL`, `COUNTDOWN_AUTH_HOST`, `COUNTDOWN_SITE_NAME` |
-| `production` | none (the approval is `approve-production`'s) | `main` and `v*` tags only | the same seven, for the production host | the same three, for production |
-| `approve-production` | required reviewers (you) | `main` | none | none |
+| `dev` | none | any (releases run from `v*` tags) | `DEPLOY_HOST`, `DEPLOY_USER`, `ORACLE_SSH_TOKEN`, `DEPLOY_SSH_KNOWN_HOSTS`, `BW_CLIENTID`, `BW_CLIENTSECRET`, `BW_PASSWORD` | `COUNTDOWN_AUTH_HOST`, `COUNTDOWN_SITE_NAME` |
+| `prod` | none (the approval is `approve-prod`'s) | `main` and `v*` tags only | the same six, for the production host | the same three, for production |
+| `approve-prod` | required reviewers (you) | `main` | none | none |
 
-- dev-qa also has `TAILSCALE_OAUTH_CLIENT_ID` and `TAILSCALE_OAUTH_SECRET` (an OAuth client allowed to tag nodes
-  `tag:ci`), and `DEPLOY_HOST` is its tailnet name (`nikolai-server.tail7c722e.ts.net`, user `ansible`). The deploy
-  joins the tailnet first when the client id is non-empty; production has neither, so it connects directly. The tailnet's
+- dev also has the variables `TAILSCALE_CLIENT_ID` and `TAILSCALE_AUDIENCE` (a Tailscale federated identity for GitHub
+  Actions OIDC, subject `repo:nvorkinn/countdown:environment:dev`, allowed to tag nodes `tag:ci`; no secret), and `DEPLOY_HOST` is its tailnet name (`nikolai-server.tail7c722e.ts.net`, user `ansible`). The deploy
+  joins the tailnet first when the client id variable is non-empty; production has neither, so it connects directly. The tailnet's
   ACL must let `tag:ci` reach the host on port 22. `ORACLE_SSH_TOKEN` keeps its name from when dev ran on Oracle.
 - `DEPLOY_*` and `ORACLE_SSH_TOKEN` are the host's, as for countdown-server; `DEPLOY_SSH_KNOWN_HOSTS` holds its host key.
-- `REDIS_PASSWORD` and `TFL_APP_KEY` are not GitHub secrets: the deploy reads them from Vaultwarden
-  (`renderer/deploy/fetch-secrets.sh`), from the vault items `countdown/<environment>/REDIS_PASSWORD` and `countdown/<environment>/TFL_APP_KEY` (`prod` for the `production` environment) (the value is the login password, or the notes).
-  `VW_SERVER_URL` is the vault's URL, and `BW_CLIENTID`, `BW_CLIENTSECRET` and `BW_PASSWORD` are the API key and master
-  password of an account that can read only that environment's items. `REDIS_PASSWORD` must equal that environment's countdown-server
-  `secrets/<env>/redis.env`. A missing password fails the deploy rather than start anything unauthenticated.
+- `REDIS_PASSWORD` and `TFL_APP_KEY` are not GitHub secrets: `renderer/deploy/secrets-map.json` lists them, and the deploy
+  reads them from Vaultwarden with the shared action `nvorkinn/.github/actions/vaultwarden-secrets` (the same one
+  countdown-server uses), from items of those names (the value is the login password) in the collection
+  `countdown/<environment>`. `BW_CLIENTID`, `BW_CLIENTSECRET` and `BW_PASSWORD` are the API key and master
+  password of an account that can read only that environment's collections. `REDIS_PASSWORD` is the same item as
+  countdown-server's: it is in both projects' collections. A missing or empty item fails the deploy rather than start
+  anything unauthenticated.
 - `COUNTDOWN_AUTH_HOST` and `COUNTDOWN_SITE_NAME` are what the pairing screen shows and its QR code opens: the
   environment's auth host (for example `auth.dev.example.org`) and website name. Leave them unset for
   `auth.nikolaivorkinn.com` and `nikolaivorkinn.com`.
