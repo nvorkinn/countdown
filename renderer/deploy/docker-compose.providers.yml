@@ -1,4 +1,4 @@
-# The providers, on the renderers' host (deploy.sh, run by deploy-renderers.yml); see README.md. Their containers are
+# The providers, on the renderers' host (deploy.sh, run by deploy.yml); see README.md. Their containers are
 # providers-<service>-1. Each logs under its `provider-<service>` tag, which names its stream in VictoriaLogs.
 name: providers
 

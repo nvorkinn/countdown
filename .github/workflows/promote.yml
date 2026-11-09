@@ -86,9 +86,9 @@ jobs:
       - run: echo "Approved"
 
   deploy:
-    name: renderers (prod)
+    name: deploy (prod)
     needs: [check, approve]
-    uses: ./.github/workflows/deploy-renderers.yml
+    uses: ./.github/workflows/deploy.yml
     # The deploy job (below) asks for id-token: write, to join the tailnet with GitHub's OIDC token, so its caller grants it too.
     permissions:
       contents: read
