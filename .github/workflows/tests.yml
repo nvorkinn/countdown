@@ -235,7 +235,11 @@ jobs:
             redis-server --bind 127.0.0.1 --port 6379 --requirepass ci --save ''
           rc() { docker exec redis redis-cli -a ci --no-auth-warning "$@"; }
           for _ in $(seq 30); do rc ping 2>/dev/null | grep -q PONG && break; sleep 1; done
-          services="$(COUNTDOWN_RENDERER_VERSION=ci REDIS_PASSWORD=ci \
+          # Stand-ins for the secrets files the deploy fetches from Vaultwarden (the compose files' env_file entries).
+          secrets="$(mktemp -d)"
+          echo REDIS_PASSWORD=ci > "$secrets/redis.env"
+          echo TFL_APP_KEY= > "$secrets/tfl.env"
+          services="$(COUNTDOWN_RENDERER_VERSION=ci SECRETS_DIR="$secrets" \
             docker compose -f renderer/deploy/docker-compose.renderer.yml config --format json \
             | jq -c '.services | to_entries[] | select(.value.image | startswith("ghcr.io/nvorkinn/countdown-renderer:"))
                      | select(.value.entrypoint != null)')"
@@ -319,12 +323,16 @@ jobs:
 
       - name: Smoke-test the image
         # Every provider renderer/deploy/docker-compose.providers.yml runs, with its own command and environment (stand-ins for
-        # the deploy's variables), not just the image's default: a console script that's missing, or that fails as it
+        # the deploy's secrets files), not just the image's default: a console script that's missing, or that fails as it
         # starts, would crash-loop on the host. Side by side and with no network, so no Redis and no API: each must
         # get as far as its loop ("Starting the ... provider") and keep going (not crash-loop), then stop cleanly: as
         # the container's PID 1 it must handle SIGTERM itself, or docker stop has to kill it.
         run: |
-          services="$(COUNTDOWN_RENDERER_VERSION=ci REDIS_PASSWORD=ci \
+          # Stand-ins for the secrets files the deploy fetches from Vaultwarden (the compose files' env_file entries).
+          secrets="$(mktemp -d)"
+          echo REDIS_PASSWORD=ci > "$secrets/redis.env"
+          echo TFL_APP_KEY= > "$secrets/tfl.env"
+          services="$(COUNTDOWN_RENDERER_VERSION=ci SECRETS_DIR="$secrets" \
             docker compose -f renderer/deploy/docker-compose.providers.yml config --format json \
             | jq -c '.services | to_entries[] | select(.value.image | startswith("ghcr.io/nvorkinn/countdown-providers:"))')"
           test -n "$services"
