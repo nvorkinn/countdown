@@ -26,7 +26,7 @@ draws it from the next minute on (at once after a config save).
 
 ## Deploying
 
-`.github/workflows/deploy-renderers.yml` runs `deploy.sh <tag>` on the runner against one environment's Docker daemon over
+`.github/workflows/deploy-providers-and-renderers.yml` runs `deploy.sh <tag>` on the runner against one environment's Docker daemon over
 ssh (`DOCKER_HOST`), so the host needs only Docker. The script pins the images to the release, brings each project up in
 turn with `--wait` (first taking down the old `countdown-renderers` project, which was both in one file), and removes
 leftover `renderer-<slug>` containers (label `countdown.managed=1`) and their `-data` and `-key` volumes. It then removes

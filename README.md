@@ -150,7 +150,7 @@ the Redis this repository's render pool and providers use) and this repository's
 
 - **Release** (dev, no approval): push a `v*` tag on a commit that's on `main`.
   `.github/workflows/release.yml` builds the wheels and images, creates the GitHub release and deploys the render pool and providers to dev
-  (`.github/workflows/deploy-renderers.yml`). Starting a release is the decision to deploy it there. A release never
+  (`.github/workflows/deploy-providers-and-renderers.yml`). Starting a release is the decision to deploy it there. A release never
   touches production. The tag is the version: it's stamped into the wheels at build time, so the `version` in
   `pyproject.toml` is a placeholder.
 - **Promote** (production): once a release has been tried on dev, run Actions > Promote > Run workflow with its tag

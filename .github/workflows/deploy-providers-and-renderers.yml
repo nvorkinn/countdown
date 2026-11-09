@@ -1,4 +1,4 @@
-name: Deploy renderers
+name: Deploy providers and renderers
 
 # One environment's deploy of the providers and the render pool (renderer/deploy/docker-compose.*.yml), pinned
 # to one release's images. release.yml calls it for dev, promote.yml for production. It runs entirely here: the
@@ -29,7 +29,7 @@ jobs:
       id-token: write # Tailscale's federated identity, below
     # One deploy at a time per host, whichever workflow asked for it.
     concurrency:
-      group: deploy-renderers-${{ inputs.environment }}
+      group: deploy-providers-and-renderers-${{ inputs.environment }}
       cancel-in-progress: false
     env:
       TAG: ${{ inputs.tag }}

@@ -218,13 +218,13 @@ jobs:
               --title "$GITHUB_REF_NAME" --generate-notes
           fi
 
-  deploy-renderers:
+  deploy-providers-and-renderers:
     # Brings up the providers and the render pool (renderer/deploy/docker-compose.*.yml) on the dev/QA host,
     # pinned to this release's images. No approval: starting the release is the decision. A release never touches
     # production: promote.yml deploys a tag there.
-    name: renderers (dev)
+    name: providers and renderers (dev)
     needs: release
-    uses: ./.github/workflows/deploy-renderers.yml
+    uses: ./.github/workflows/deploy-providers-and-renderers.yml
     # The deploy job asks for id-token: write, to join the tailnet with GitHub's OIDC token, so its caller grants it too.
     permissions:
       contents: read
