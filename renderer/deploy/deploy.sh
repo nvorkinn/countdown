@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run by deploy-providers-and-renderers.yml (release.yml calls it for dev, promote.yml for prod), on the runner, against
+# Run by deploy.yml (release.yml calls it for dev, promote.yml for prod), on the runner, against
 # the host's Docker daemon (DOCKER_HOST=ssh://...), so nothing is installed on the host. Pins the providers' and the
 # render pool's images to the release, brings them up, removes any per-screen renderer containers and volumes left on
 # the host, and drops older image tags. Run by hand it does the same to whatever daemon your docker talks to.
