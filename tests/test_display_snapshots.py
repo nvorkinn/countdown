@@ -347,7 +347,7 @@ def test_pairing_qr_code_opens_the_pairing_page_with_the_code_filled_in(monkeypa
 
     PairingCodePanel("C4FFEZ", "7218485b654f").render(*DEFAULT_CANVAS.size)
 
-    assert urls == ["https://auth.nikolaivorkinn.com/pair?code=C4FFEZ"]
+    assert urls == ["https://auth.countdown.run/pair?code=C4FFEZ"]
 
 
 def test_pairing_qr_code_and_words_follow_the_environment(monkeypatch):
@@ -378,8 +378,8 @@ def test_pairing_screen_falls_back_to_the_defaults_when_the_variables_are_empty(
     monkeypatch.setenv("COUNTDOWN_AUTH_HOST", value)
     monkeypatch.setenv("COUNTDOWN_SITE_NAME", value)
 
-    assert pairing_code_panel.auth_host() == "auth.nikolaivorkinn.com"
-    assert pairing_code_panel.site_name() == "nikolaivorkinn.com"
+    assert pairing_code_panel.auth_host() == "auth.countdown.run"
+    assert pairing_code_panel.site_name() == "countdown.run"
 
 
 PORTRAIT = (480, 800)
