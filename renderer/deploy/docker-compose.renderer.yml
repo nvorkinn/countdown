@@ -25,8 +25,8 @@ services:
       # What the pairing screen sends people to (its QR code and its "Go to ..."): the environment's own site. Only the
       # workers draw it, not the ticker. deploy.yml sets these from the environment's variables; unset or empty
       # (also running deploy.sh by hand) is production's.
-      COUNTDOWN_AUTH_HOST: ${COUNTDOWN_AUTH_HOST:-auth.nikolaivorkinn.com}
-      COUNTDOWN_SITE_NAME: ${COUNTDOWN_SITE_NAME:-nikolaivorkinn.com}
+      COUNTDOWN_AUTH_HOST: ${COUNTDOWN_AUTH_HOST:-auth.countdown.run}
+      COUNTDOWN_SITE_NAME: ${COUNTDOWN_SITE_NAME:-countdown.run}
     logging:
       driver: json-file
       options:

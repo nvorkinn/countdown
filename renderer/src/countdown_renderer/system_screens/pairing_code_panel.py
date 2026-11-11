@@ -28,8 +28,8 @@ GAP = 12
 # Scanning it opens the pairing page with the code already typed in. The host is the environment's: auth_host() reads
 # COUNTDOWN_AUTH_HOST when the screen is drawn, and the words name the site the same way (COUNTDOWN_SITE_NAME), so
 # dev/QA and production can each point at their own. Unset or empty, they are production's.
-DEFAULT_AUTH_HOST = "auth.nikolaivorkinn.com"
-DEFAULT_SITE_NAME = "nikolaivorkinn.com"
+DEFAULT_AUTH_HOST = "auth.countdown.run"
+DEFAULT_SITE_NAME = "countdown.run"
 PAIRING_URL = "https://{host}/pair?code={code}"
 QR_BORDER = 2  # modules of white round it, the QR spec's quiet zone being 4 but the screen's margin adding to it
 QR_SIDE = 340

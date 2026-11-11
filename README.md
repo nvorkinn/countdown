@@ -184,7 +184,7 @@ Settings > Environments:
   anything unauthenticated.
 - `COUNTDOWN_AUTH_HOST` and `COUNTDOWN_SITE_NAME` are what the pairing screen shows and its QR code opens: the
   environment's auth host (for example `auth.dev.example.org`) and website name. Leave them unset for
-  `auth.nikolaivorkinn.com` and `nikolaivorkinn.com`.
+  `auth.countdown.run` and `countdown.run`.
 - Deploy countdown-server to an environment **before** this repository's first deploy there: Redis lives with it, and
   the render pool and providers need it.
 - The old `deploy-renderers` environment is no longer used and can be deleted.
