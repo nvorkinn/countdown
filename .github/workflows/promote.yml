@@ -1,5 +1,8 @@
 name: Promote
 
+# Shown on the GitHub dashboard among the running releases.
+# dashboard: release
+
 # Deploys a release that has been through dev to production (the "Run workflow" button: Actions > Promote). A
 # release never touches production; this is the only way a tag gets there. To roll back, promote an older tag.
 #
