@@ -70,7 +70,7 @@ jobs:
       # The shared action: renderer/deploy/secrets-map.json (the release's) says what this environment needs, and the items
       # are in its collection. Only the four bootstrap values (the host's and the bot's API key) live in GitHub.
       - name: Fetch the secrets from Vaultwarden
-        uses: nvorkinn/.github/actions/vaultwarden-secrets@3a8653ca62d399f406a7f84302a7cb9dae7ec2be # main
+        uses: nvorkinn/.github/actions/vaultwarden-secrets@6796027a4711b904d27024c6b28d3b1d42c3bb68 # main
         with:
           map: renderer/deploy/secrets-map.json
           target: ${{ inputs.environment }}
