@@ -45,6 +45,11 @@ panel goes by `now`, so the same inputs draw the same frame.
 - `etag`: the frame's BLAKE2b hash in hex, which the broker uses as its ETag;
 - `rendered_at`: when the picture was first written, ISO 8601 in UTC.
 
+A render writes its frame only if `v1:config:<device id>` is still the text it drew from (checked and written in one
+transaction): a frame of a config the broker has replaced meanwhile is dropped (`superseded`), as the save queued a
+render of the new one. So the record never holds a picture older than the config, which the broker relies on when a
+screen is turned (it writes the config, then deletes the record).
+
 A render compares its hash with `etag` and writes only if it differs, so an unchanged frame costs one small read. The
 record has a TTL of a day that a skipped write doesn't renew: under the Redis `volatile-lru` policy only keys with a
 TTL can be evicted, and a frame is the biggest value in the store. A picture unchanged all day is therefore written
@@ -87,6 +92,6 @@ interval.
 ## Metrics and logs
 
 Workers send OTLP metrics (`renderer/src/countdown_renderer/pool_metrics.py`), each with `device` (the screen's slug):
-`countdown.render.duration`, `.count` (`outcome`: `written`, `unchanged` or `failed`), `.last_success` (the one to alert
+`countdown.render.duration`, `.count` (`outcome`: `written`, `unchanged`, `superseded` or `failed`), `.last_success` (the one to alert
 on for a stuck screen), `.expired_panels`, `.lag` and `.queued` (the pool's capacity signals). Logs are for what goes
 wrong only, with no line per frame, and nothing logged names a postcode, place or URL (`countdown_shared/core/log_format.py`).

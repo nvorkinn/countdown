@@ -233,10 +233,10 @@ def test_a_store_that_cant_be_written_is_tried_again_on_the_next_render(stored, 
     fail = SimpleNamespace(on=True)
     write = frame_record.write_if_changed
 
-    def flaky(client, device_id, frame_bytes):
+    def flaky(client, device_id, frame_bytes, **how):
         if fail.on:
             raise redis.ConnectionError
-        return write(client, device_id, frame_bytes)
+        return write(client, device_id, frame_bytes, **how)
 
     monkeypatch.setattr(frame_record, "write_if_changed", flaky)
     _patch_logger(monkeypatch)
@@ -273,8 +273,8 @@ def _count_writes(monkeypatch) -> list[bool]:
     seen: list[bool] = []
     write = frame_record.write_if_changed
 
-    def counting(client, device_id, frame_bytes):
-        seen.append(write(client, device_id, frame_bytes))
+    def counting(client, device_id, frame_bytes, **how):
+        seen.append(write(client, device_id, frame_bytes, **how))
         return seen[-1]
 
     monkeypatch.setattr(frame_record, "write_if_changed", counting)
@@ -306,3 +306,83 @@ def test_the_render_keeps_the_record_holding_what_it_drew(store, stored, symbols
     assert len(last.data) == FRAME_BYTES
     assert stored.hget(key, "frame") == last.data
     assert stored.hget(key, "etag") == frame_record.frame_etag(last.data).encode()
+
+
+# --- a frame drawn from a config the broker has since replaced ---------------------------------------------------
+
+CONFIG_KEY = keys.config(DEVICE_ID)
+
+
+def test_a_frame_drawn_from_the_stored_config_is_written(stored, clock):
+    stored.set(CONFIG_KEY, "as drawn")
+
+    assert frame_record.write_if_changed(stored, DEVICE_ID, bytes(FRAME_BYTES), drawn_from="as drawn") is True
+    assert stored.hget(KEY, "frame") == bytes(FRAME_BYTES)
+
+
+@pytest.mark.parametrize("now_stored", ["replaced", None])
+def test_a_frame_drawn_from_a_config_since_replaced_is_not_written(stored, clock, now_stored):
+    frame_record.write_if_changed(stored, DEVICE_ID, bytes(FRAME_BYTES))
+    if now_stored is not None:
+        stored.set(CONFIG_KEY, now_stored)
+
+    with pytest.raises(frame_record.SupersededError):
+        frame_record.write_if_changed(stored, DEVICE_ID, b"\xff" * FRAME_BYTES, drawn_from="as drawn")
+
+    assert stored.hget(KEY, "frame") == bytes(FRAME_BYTES)  # the record as it was
+
+
+def test_a_client_that_decodes_values_compares_the_config_too(store, stored, clock):
+    store.set(CONFIG_KEY, "as drawn: blåbær")
+
+    assert frame_record.write_if_changed(store, DEVICE_ID, bytes(FRAME_BYTES), drawn_from="as drawn: blåbær") is True
+    assert frame_record.write_if_changed(stored, DEVICE_ID, b"\xff" * FRAME_BYTES, drawn_from="as drawn: blåbær")
+
+
+def test_a_config_replaced_between_the_check_and_the_write_fails_the_write(stored, clock, monkeypatch):
+    stored.set(CONFIG_KEY, "as drawn")
+    pipeline = stored.pipeline
+
+    def racing_pipeline(**kwargs):
+        pipe = pipeline(**kwargs)
+        multi = pipe.multi
+
+        def replaced_just_before_the_write():
+            reader.store().set(CONFIG_KEY, "replaced")  # the broker, on a connection of its own
+            multi()
+
+        pipe.multi = replaced_just_before_the_write
+        return pipe
+
+    monkeypatch.setattr(stored, "pipeline", racing_pipeline)
+
+    with pytest.raises(frame_record.SupersededError):
+        frame_record.write_if_changed(stored, DEVICE_ID, bytes(FRAME_BYTES), drawn_from="as drawn")
+
+    assert not stored.exists(KEY)
+
+
+def test_a_render_overtaken_by_a_config_save_writes_nothing(store, stored, symbols_font, monkeypatch):
+    """The broker replaces the config while the screen is drawn: the frame is of the old one, and dropped."""
+    key = keys.frame(E2E_DEVICE_ID)
+    config = _make_config()
+    config.tfl.stop_ids = ["490000123W"]
+    _put_stops_and_energy(store, "490000123W")
+    store.set(keys.config(E2E_DEVICE_ID), config.model_dump_json())
+    turned = config.model_copy(deep=True)
+    turned.screen.orientation = "horizontal" if config.screen.orientation == "vertical" else "vertical"
+    encode = render_module.encode
+
+    def encode_as_the_config_is_saved(*args):
+        store.set(keys.config(E2E_DEVICE_ID), turned.model_dump_json())
+        return encode(*args)
+
+    monkeypatch.setattr(render_module, "encode", encode_as_the_config_is_saved)
+    overtaken = render(E2E_DEVICE_ID, datetime.now(UTC))
+    monkeypatch.setattr(render_module, "encode", encode)
+
+    assert overtaken.result is Result.SUPERSEDED
+    assert not stored.exists(key)
+    # The render the save queued draws the screen as it's now set.
+    assert render(E2E_DEVICE_ID, datetime.now(UTC)).result is Result.WRITTEN
+    assert stored.exists(key)

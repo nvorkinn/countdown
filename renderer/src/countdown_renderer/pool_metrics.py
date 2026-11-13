@@ -5,8 +5,9 @@ screen, so each screen is the `device` attribute, and each render's outcome, whe
 
 - `countdown.render.duration` (histogram, s): how long each render took, by `device` and `outcome`.
 - `countdown.render.count` (counter): renders by `device` and `outcome`, which is `written`, `unchanged` (skipped:
-  nothing changed) or `failed`.
-- `countdown.render.last_success` (gauge, Unix s): when the screen last got a good frame (`written` or `unchanged`).
+  nothing changed), `superseded` (left out: the config was replaced while it was drawn, and the render queued for the
+  new one follows) or `failed`.
+- `countdown.render.last_success` (gauge, Unix s): when the screen last had a render that didn't fail.
 - `countdown.render.expired_panels` (gauge): by `device` and `panel`, 1 if that panel was drawn "Not available" because
   its key had expired, else 0.
 - `countdown.render.lag` (histogram, s): how long each job waited in the queue, by `device`.
@@ -61,11 +62,14 @@ EXPORT_TIMEOUT_MS = 3_000
 # A client in either of these makes the screen's countdown.problem 1.
 UNHEALTHY = frozenset({ClientStatus.ERROR, ClientStatus.FATAL})
 
-# What countdown.render.count's `outcome` is: the frame written, or skipped because the record holds it, or neither.
+# What countdown.render.count's `outcome` is: the frame written, or skipped because the record holds it, or left out
+# because the config was replaced while it was drawn (the render queued for the new one writes the screen's), or none
+# of those.
 WRITTEN = "written"
 UNCHANGED = "unchanged"
+SUPERSEDED = "superseded"
 FAILED = "failed"
-GOOD = {Result.WRITTEN: WRITTEN, Result.UNCHANGED: UNCHANGED}
+GOOD = {Result.WRITTEN: WRITTEN, Result.UNCHANGED: UNCHANGED, Result.SUPERSEDED: SUPERSEDED}
 
 # Seconds. A warm render takes about 50 ms; the deadline is 20 s.
 DURATION_BUCKETS = (0.025, 0.05, 0.075, 0.1, 0.15, 0.25, 0.5, 1, 2.5, 5, 10, 20)
