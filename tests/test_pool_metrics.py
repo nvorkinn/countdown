@@ -6,7 +6,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 
 from countdown_renderer.abstract_client import ClientStatus
 from countdown_renderer.api_registry import API_NAMES
-from countdown_renderer.pool_metrics import FAILED, UNCHANGED, WRITTEN, PoolMetrics, outcome_of
+from countdown_renderer.pool_metrics import FAILED, SUPERSEDED, UNCHANGED, WRITTEN, PoolMetrics, outcome_of
 from countdown_renderer.render import Outcome, Result, Stage
 
 DEVICE, SLUG = "a1b2c3d4e5f6", "nvorkinn-test"
@@ -89,12 +89,13 @@ def drawn(result=Result.WRITTEN, *, expired=frozenset(), statuses=None, stage=St
     [
         (drawn(Result.WRITTEN), WRITTEN),
         (drawn(Result.UNCHANGED), UNCHANGED),
+        (drawn(Result.SUPERSEDED), SUPERSEDED),
         (drawn(Result.UNRECORDED), FAILED),
         (Outcome(Result.NO_CONFIG), FAILED),
         (None, FAILED),
     ],
 )
-def test_the_outcome_is_written_unchanged_or_failed(outcome, expected):
+def test_the_outcome_is_written_unchanged_superseded_or_failed(outcome, expected):
     assert outcome_of(outcome) == expected
 
 

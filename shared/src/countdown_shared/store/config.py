@@ -25,3 +25,18 @@ def read(client: redis.Redis, device_id: str) -> ConfigResponse | None:
     contract allows (a broker on a newer contract that tightened something).
     """
     return reader.read(client, keys.config(device_id), ConfigResponse)
+
+
+def read_text(client: redis.Redis, device_id: str) -> str | None:
+    """Return the device's config as the text the broker stored, or None if there's none for it.
+
+    For a render, which parses it (parse) and says which text its frame was drawn from (frame_record.write_if_changed).
+    Raises RedisError if Redis can't be asked.
+    """
+    value = client.get(keys.config(device_id))
+    return value.decode("utf-8") if isinstance(value, bytes) else value
+
+
+def parse(text: str) -> ConfigResponse:
+    """Return the config in `text` (read_text). Raises pydantic's ValidationError if it isn't one, as read() does."""
+    return ConfigResponse.model_validate_json(text)

@@ -64,6 +64,8 @@ class Result(StrEnum):
     UNCHANGED = auto()
     # Drawn, but not written: Redis wouldn't take it (logged).
     UNRECORDED = auto()
+    # Drawn, but not written: the broker replaced the config while it was drawn, and queued a render of the new one.
+    SUPERSEDED = auto()
     # Nothing to draw: the store has no config for the device (or there's no store: no REDIS_URL).
     NO_CONFIG = auto()
 
@@ -116,7 +118,10 @@ def render(device_id: str, now: datetime) -> Outcome:
     (Result.UNRECORDED).
     """
     with moment.drawing_at(now):
-        config = _live_pairing(device_id) or _stored_config(device_id)
+        pairing_config = _live_pairing(device_id)
+        # The stored config's own text, which the frame's record is written against: not if it has been replaced.
+        source = None if pairing_config else _stored_config_text(device_id)
+        config = pairing_config or (None if source is None else stored_config.parse(source))
         if config is None:
             return Outcome(Result.NO_CONFIG)
         _apply_locale(config)
@@ -141,7 +146,7 @@ def render(device_id: str, now: datetime) -> Outcome:
         frame = to_native(drawn, config.screen)
         data = encode(frame.image, config.screen)
         return Outcome(
-            _record(device_id, data),
+            _record(device_id, data, drawn_from=source),
             Stage.RUNNING,
             frame,
             data,
@@ -151,10 +156,10 @@ def render(device_id: str, now: datetime) -> Outcome:
         )
 
 
-def _stored_config(device_id: str) -> ConfigResponse | None:
-    """Return the device's config from the store; None if there's none, or no store to read it from."""
+def _stored_config_text(device_id: str) -> str | None:
+    """Return the device's config from the store, as its text; None if there's none, or no store to read it from."""
     client = reader.store()
-    return None if client is None else stored_config.read(client, device_id)
+    return None if client is None else stored_config.read_text(client, device_id)
 
 
 def _pairing_picture(pairing: PairingCodePanel, canvas: Canvas) -> Image.Image:
@@ -183,8 +188,11 @@ def _apply_locale(config: ConfigResponse) -> None:
         set_locale(config.language, FALLBACK_TIMEZONE)
 
 
-def _record(device_id: str, data: bytes) -> Result:
+def _record(device_id: str, data: bytes, *, drawn_from: str | None = None) -> Result:
     """Write `data` to the screen's record unless it holds that picture already, and say which it was.
+
+    `drawn_from` is the stored config the frame was drawn from: if the broker has replaced it since, the frame isn't
+    written (frame_record.SupersededError), as the render the save queued draws the screen as it's now set.
 
     A Redis that can't be asked is logged and left: the next render tries again. Nothing logged says what the frame
     shows.
@@ -193,7 +201,9 @@ def _record(device_id: str, data: bytes) -> Result:
     if client is None:
         return Result.UNRECORDED
     try:
-        written = frame_record.write_if_changed(client, device_id, data)
+        written = frame_record.write_if_changed(client, device_id, data, drawn_from=drawn_from)
+    except frame_record.SupersededError:
+        return Result.SUPERSEDED
     except RedisError as e:
         logger.warning("Couldn't write the frame to the store (%s)", type(e).__name__)
         return Result.UNRECORDED

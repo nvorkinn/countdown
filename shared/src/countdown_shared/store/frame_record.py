@@ -26,18 +26,22 @@ read and no write. The record has a TTL of TTL_S, a day, which a skipped write d
   the minute. Until then, as whenever there's no record (expired, evicted, Redis restarted), the broker has nothing new
   to serve, and the screen keeps the picture it has.
 
+A render can also say which config it drew the frame from (`drawn_from`, the text under keys.config as it read it).
+If the broker has replaced the config since, the frame is of settings the screen no longer has (hung the other way,
+say, which the broker's pages would show on its side), so it isn't written (SupersededError): the save queued a render
+of the new config, and that one's frame is the screen's. The check and the write are one transaction (WATCH), so a
+config replaced between them fails the write too.
+
 The store contract's `frame_record.json` (with the frame beside it, `frame_record.bin`; countdown_api.fixtures) is the
 canonical record, which countdown-server's tests read too.
 """
 
 from datetime import UTC, datetime
 from hashlib import blake2b
-from typing import TYPE_CHECKING
+
+import redis
 
 from countdown_shared.store import keys
-
-if TYPE_CHECKING:
-    import redis
 
 # How long a record lasts after it's written: a day (the store contract's). See the module's docstring.
 TTL_S = keys.FRAME_TTL_S
@@ -62,11 +66,20 @@ def frame_etag(frame: bytes) -> str:
     return blake2b(frame, digest_size=8).hexdigest()
 
 
-def write_if_changed(client: redis.Redis, device_id: str, frame: bytes) -> bool:
+class SupersededError(Exception):
+    """The frame was drawn from a config the broker has since replaced, so it wasn't written."""
+
+
+def write_if_changed(client: redis.Redis, device_id: str, frame: bytes, *, drawn_from: str | None = None) -> bool:
     """Make `frame` the screen's record, unless the record holds that picture already; return whether it was written.
 
-    `client` may decode values or not: this reads only the `etag`, which is ASCII. The record is replaced whole, its
-    fields and TTL in one transaction, so the broker never reads half of one. Raises RedisError if Redis can't be asked.
+    `drawn_from` is the screen's config as the render read it from the store (keys.config's text), or None for a frame
+    that isn't drawn from it (the pairing screen). A frame whose config the store no longer holds isn't written:
+    SupersededError.
+
+    `client` may decode values or not: this reads only the `etag`, which is ASCII, and the config, which is UTF-8. The
+    record is replaced whole, its fields and TTL in one transaction, so the broker never reads half of one. Raises
+    RedisError if Redis can't be asked.
     """
     key = keys.frame(device_id)
     etag = frame_etag(frame)
@@ -77,8 +90,21 @@ def write_if_changed(client: redis.Redis, device_id: str, frame: bytes) -> bool:
         return False
     rendered_at = now().astimezone(UTC).isoformat(timespec="milliseconds")
     with client.pipeline(transaction=True) as pipe:
+        if drawn_from is not None:
+            # Watched before it's read, so a config replaced after the read fails the transaction.
+            config_key = keys.config(device_id)
+            pipe.watch(config_key)
+            current = pipe.get(config_key)
+            if isinstance(current, bytes):
+                current = current.decode("utf-8", errors="replace")
+            if current != drawn_from:
+                raise SupersededError
+            pipe.multi()
         pipe.delete(key)
         pipe.hset(key, mapping={FRAME: frame, ETAG: etag, RENDERED_AT: rendered_at})
         pipe.expire(key, TTL_S)
-        pipe.execute()
+        try:
+            pipe.execute()
+        except redis.WatchError:
+            raise SupersededError from None
     return True
