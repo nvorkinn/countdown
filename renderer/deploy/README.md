@@ -60,8 +60,8 @@ Set up once in the repo's settings (see also the [README](../../../README.md#one
   them with the Bitwarden CLI into `redis.env` and `tfl.env`, which the compose files list as `env_file`.
 - In each environment, so the deploy can reach the vault: secrets `BW_CLIENTID` and `BW_CLIENTSECRET` (the API key) and
   `BW_PASSWORD` (the master password) of an account that can read only that environment's collections.
-- Optionally in each, variables `COUNTDOWN_AUTH_HOST` and `COUNTDOWN_SITE_NAME`: the pairing screen's website and the
-  host its QR code opens (`https://<COUNTDOWN_AUTH_HOST>/pair?code=...`). Unset, they are `auth.countdown.run` and
+- Optionally in each, variables `COUNTDOWN_APP_HOST` and `COUNTDOWN_SITE_NAME`: the pairing screen's website and the
+  host its QR code opens (`https://<COUNTDOWN_APP_HOST>/pair?code=...`). Unset, they are `app.countdown.run` and
   `countdown.run`. Only the render workers read them.
 - Deploy countdown-server to an environment first: Redis is deployed there, and this stack connects to it on
   `127.0.0.1:6379`.

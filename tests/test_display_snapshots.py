@@ -347,7 +347,7 @@ def test_pairing_qr_code_opens_the_pairing_page_with_the_code_filled_in(monkeypa
 
     PairingCodePanel("C4FFEZ", "7218485b654f").render(*DEFAULT_CANVAS.size)
 
-    assert urls == ["https://auth.countdown.run/pair?code=C4FFEZ"]
+    assert urls == ["https://app.countdown.run/pair?code=C4FFEZ"]
 
 
 def test_pairing_qr_code_and_words_follow_the_environment(monkeypatch):
@@ -364,21 +364,21 @@ def test_pairing_qr_code_and_words_follow_the_environment(monkeypatch):
         lambda self, xy, text, *a, **k: (words.append(text), draw_text(self, xy, text, *a, **k))[1],
     )
     # Set after import: read when the screen is drawn.
-    monkeypatch.setenv("COUNTDOWN_AUTH_HOST", "auth.dev.example.org")
+    monkeypatch.setenv("COUNTDOWN_APP_HOST", "app.dev.example.org")
     monkeypatch.setenv("COUNTDOWN_SITE_NAME", "dev.example.org")
 
     PairingCodePanel("C4FFEZ", "7218485b654f").render(*DEFAULT_CANVAS.size)
 
-    assert urls == ["https://auth.dev.example.org/pair?code=C4FFEZ"]
+    assert urls == ["https://app.dev.example.org/pair?code=C4FFEZ"]
     assert "Go to dev.example.org" in words
 
 
 @pytest.mark.parametrize("value", ["", "  "])
 def test_pairing_screen_falls_back_to_the_defaults_when_the_variables_are_empty(monkeypatch, value):
-    monkeypatch.setenv("COUNTDOWN_AUTH_HOST", value)
+    monkeypatch.setenv("COUNTDOWN_APP_HOST", value)
     monkeypatch.setenv("COUNTDOWN_SITE_NAME", value)
 
-    assert pairing_code_panel.auth_host() == "auth.countdown.run"
+    assert pairing_code_panel.app_host() == "app.countdown.run"
     assert pairing_code_panel.site_name() == "countdown.run"
 
 

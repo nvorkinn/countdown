@@ -25,10 +25,10 @@ MARGIN = 40
 MAX_SIDE = 104
 GAP = 12
 
-# Scanning it opens the pairing page with the code already typed in. The host is the environment's: auth_host() reads
-# COUNTDOWN_AUTH_HOST when the screen is drawn, and the words name the site the same way (COUNTDOWN_SITE_NAME), so
+# Scanning it opens the pairing page with the code already typed in. The host is the environment's: app_host() reads
+# COUNTDOWN_APP_HOST when the screen is drawn, and the words name the site the same way (COUNTDOWN_SITE_NAME), so
 # dev/QA and production can each point at their own. Unset or empty, they are production's.
-DEFAULT_AUTH_HOST = "auth.countdown.run"
+DEFAULT_APP_HOST = "app.countdown.run"
 DEFAULT_SITE_NAME = "countdown.run"
 PAIRING_URL = "https://{host}/pair?code={code}"
 QR_BORDER = 2  # modules of white round it, the QR spec's quiet zone being 4 but the screen's margin adding to it
@@ -43,9 +43,9 @@ TALL_SHIFT = 238
 QR_TOP_TALL = -28
 
 
-def auth_host() -> str:
-    """Return the pairing page's host (`COUNTDOWN_AUTH_HOST`), read now rather than at import."""
-    return os.environ.get("COUNTDOWN_AUTH_HOST", "").strip() or DEFAULT_AUTH_HOST
+def app_host() -> str:
+    """Return the pairing page's host (`COUNTDOWN_APP_HOST`), read now rather than at import."""
+    return os.environ.get("COUNTDOWN_APP_HOST", "").strip() or DEFAULT_APP_HOST
 
 
 def site_name() -> str:
@@ -105,7 +105,7 @@ class PairingCodePanel(Panel):
     def _qr_code(self, side: int) -> Image.Image:
         """Draw the QR code to the pairing page, code filled in, at most `side` pixels square, centred on white."""
         qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=QR_BORDER, box_size=1)
-        qr.add_data(PAIRING_URL.format(host=auth_host(), code=urllib.parse.quote(self.pairing_code)))
+        qr.add_data(PAIRING_URL.format(host=app_host(), code=urllib.parse.quote(self.pairing_code)))
         qr.make(fit=True)
         modules = qr.modules_count + 2 * QR_BORDER
         # Whole pixels per module keep the squares crisp.

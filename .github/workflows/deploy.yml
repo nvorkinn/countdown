@@ -82,6 +82,6 @@ jobs:
         env:
           # What the pairing screen tells people to visit. The environment's variables (Settings > Environments); unset
           # means empty, and the compose file and the code then fall back to the production site's.
-          COUNTDOWN_AUTH_HOST: ${{ vars.COUNTDOWN_AUTH_HOST }}
+          COUNTDOWN_APP_HOST: ${{ vars.COUNTDOWN_APP_HOST }}
           COUNTDOWN_SITE_NAME: ${{ vars.COUNTDOWN_SITE_NAME }}
         run: bash renderer/deploy/deploy.sh "$TAG" "$RUNNER_TEMP/secrets"
