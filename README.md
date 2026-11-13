@@ -166,7 +166,7 @@ Settings > Environments:
 
 | Environment | Reviewers | Deployment branches and tags | Secrets | Variables |
 | --- | --- | --- | --- | --- |
-| `dev` | none | any (releases run from `v*` tags) | `DEPLOY_HOST`, `DEPLOY_USER`, `ORACLE_SSH_TOKEN`, `DEPLOY_SSH_KNOWN_HOSTS`, `BW_CLIENTID`, `BW_CLIENTSECRET`, `BW_PASSWORD` | `COUNTDOWN_AUTH_HOST`, `COUNTDOWN_SITE_NAME` |
+| `dev` | none | any (releases run from `v*` tags) | `DEPLOY_HOST`, `DEPLOY_USER`, `ORACLE_SSH_TOKEN`, `DEPLOY_SSH_KNOWN_HOSTS`, `BW_CLIENTID`, `BW_CLIENTSECRET`, `BW_PASSWORD` | `COUNTDOWN_APP_HOST`, `COUNTDOWN_SITE_NAME` |
 | `prod` | none (the approval is `approve-prod`'s) | `main` and `v*` tags only | the same six, for the production host | the same three, for production |
 | `approve-prod` | required reviewers (you) | `main` | none | none |
 
@@ -182,9 +182,9 @@ Settings > Environments:
   password of an account that can read only that environment's collections. `REDIS_PASSWORD` is the same item as
   countdown-server's: it is in both projects' collections. A missing or empty item fails the deploy rather than start
   anything unauthenticated.
-- `COUNTDOWN_AUTH_HOST` and `COUNTDOWN_SITE_NAME` are what the pairing screen shows and its QR code opens: the
-  environment's auth host (for example `auth.dev.example.org`) and website name. Leave them unset for
-  `auth.countdown.run` and `countdown.run`.
+- `COUNTDOWN_APP_HOST` and `COUNTDOWN_SITE_NAME` are what the pairing screen shows and its QR code opens: the
+  environment's settings site host (for example `app.dev.example.org`) and website name. Leave them unset for
+  `app.countdown.run` and `countdown.run`.
 - Deploy countdown-server to an environment **before** this repository's first deploy there: Redis lives with it, and
   the render pool and providers need it.
 - The old `deploy-renderers` environment is no longer used and can be deleted.
