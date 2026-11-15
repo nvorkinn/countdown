@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 # The screen a client is built for, whose keys by device it reads.
-TEST_DEVICE_ID = "device-123"
+TEST_DEVICE_ID = "a1b2c3d4e5f6"
 
 
 def put_departures(  # noqa: PLR0913 -- a stop as a provider stores it, every field optional

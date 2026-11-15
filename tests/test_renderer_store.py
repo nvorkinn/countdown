@@ -14,7 +14,6 @@ from test_utils import TEST_DEVICE_ID
 from weather_factory import forecast_json
 
 from countdown_api.models import DepartureStop
-from countdown_api.models import Weather as WeatherSection
 from countdown_providers.entur.main import to_stop_departures as entur_stop_departures
 from countdown_providers.tfl.main import to_stop_departures
 from countdown_renderer.departures.departures_client import DeparturesClient, DeparturesSettings
@@ -22,7 +21,7 @@ from countdown_renderer.entur.entur_arrival_panel import EnturArrivalPanel
 from countdown_renderer.entur.stored_source import StoredEnturPanel, StoredEnturSource
 from countdown_renderer.tfl.abstract_arrival_panel import Departures
 from countdown_renderer.tfl.stored_source import NoStoredDeparturesError, StoredTflSource, stored_panel
-from countdown_renderer.weather.weather_client import NoStoredForecastError, WeatherClient
+from countdown_renderer.weather.weather_client import NoStoredForecastError, WeatherClient, WeatherSettings
 from countdown_renderer.weather.weather_forecast import weather_pages
 from countdown_shared.entur.entur_source import EnturSource
 from countdown_shared.store import keys, reader
@@ -290,7 +289,7 @@ def test_departures_client_draws_stored_entur_stops_without_asking_entur(store):
 
 
 def make_weather_client(location: str = "London") -> WeatherClient:
-    return WeatherClient(TEST_DEVICE_ID, WeatherSection(location=location))
+    return WeatherClient(TEST_DEVICE_ID, WeatherSettings(location=location))
 
 
 @responses.activate  # with nothing registered: any call to Open-Meteo fails the test

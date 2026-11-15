@@ -1,9 +1,9 @@
 """The weather panel's client: the forecast for the configured location, from the store."""
 
 import logging
-from typing import TYPE_CHECKING, override
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal, override
 
-from countdown_api.models import Weather as WeatherSection
 from countdown_renderer import rotation
 from countdown_renderer.abstract_client import AbstractClient
 from countdown_renderer.weather.weather_forecast import weather_pages
@@ -13,17 +13,39 @@ from countdown_shared.store import keys, reader
 from countdown_shared.store.models import StoredForecast
 
 if TYPE_CHECKING:
+    from countdown_api.models import EpaperConfig
     from countdown_renderer.panel import Panel
     from countdown_shared.weather.models import ForecastResponse
 
 logger = logging.getLogger(__name__)
 
 
+WeatherDesign = Literal["columns", "timeline", "overview", "poster"]
+
+
+@dataclass(frozen=True)
+class WeatherSettings:
+    """What the weather panel is configured with: the config's `weather` section, and its style's weather design.
+
+    The design is the HD screen's weather panel's (the style's `weather`); other screens ignore it. Compared by
+    value, so a change makes AbstractClient.needs_refresh rebuild it.
+    """
+
+    location: str
+    key: str | None = None
+    design: WeatherDesign = "columns"
+
+    @classmethod
+    def from_config(cls, config: EpaperConfig) -> WeatherSettings:
+        """Read the settings from the broker's config."""
+        return cls(location=config.weather.location, key=config.weather.key, design=config.style.weather)
+
+
 class NoStoredForecastError(reader.NoStoredDataError):
     """The store has no forecast for the location: the weather provider is down, or hasn't fetched it yet."""
 
 
-def location_key(config: WeatherSection) -> str:
+def location_key(config: WeatherSettings) -> str:
     """Return the key the broker subscribes the screen's weather under, e.g. "london-gb-2643743"; "" for none.
 
     That's the config's `key`: the picked place's name, country and Open-Meteo id. If it's null, the broker subscribes
@@ -32,7 +54,7 @@ def location_key(config: WeatherSection) -> str:
     return config.key or config.location
 
 
-class WeatherClient(AbstractClient[WeatherSection]):
+class WeatherClient(AbstractClient[WeatherSettings]):
     """A forecast carousel, read from the store under the location key the broker subscribes to.
 
     That's `v1:weather:<key>` (see location_key), written by the weather provider from Open-Meteo
@@ -43,7 +65,7 @@ class WeatherClient(AbstractClient[WeatherSection]):
 
     panel_title = N_("Weather")
 
-    def __init__(self, device_id: str, config: WeatherSection) -> None:
+    def __init__(self, device_id: str, config: WeatherSettings) -> None:
         """`config` is the broker's weather section: the place to forecast for. Raises without a store."""
         super().__init__(device_id, config)
         self.store = reader.require_store()
@@ -56,7 +78,7 @@ class WeatherClient(AbstractClient[WeatherSection]):
         pass
 
     @override
-    def needs_refresh(self, new_config: WeatherSection) -> bool:
+    def needs_refresh(self, new_config: WeatherSettings) -> bool:
         # The key changes with the place, and when a broker starts sending it; location too, as the forecast falls
         # back to it (see _stored_forecast). The design is the HD screen's weather panel's.
         return (self.key, self.location, self.design) != (

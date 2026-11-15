@@ -16,7 +16,6 @@ from weather_factory import forecast_json, make_weather
 
 # `countdown_renderer` must be imported before any of its panel modules, or it's a circular import.
 import countdown_renderer.glow.energy_panel
-from countdown_api.models import Screen
 from countdown_renderer import moment
 from countdown_renderer.api_registry import ClientClasses
 from countdown_renderer.departures.departures_client import DeparturesClient
@@ -29,7 +28,7 @@ from countdown_renderer.notices.notice_board_panel import NoticeBoardPanel
 from countdown_renderer.notices.notice_styles import STYLES as NOTICE_STYLES
 from countdown_renderer.render import _pairing_picture
 from countdown_renderer.rendering import render, stops_fitting
-from countdown_renderer.rendering.screen import DEFAULT_CANVAS, Canvas
+from countdown_renderer.rendering.screen import DEFAULT_CANVAS, Canvas, Screen
 from countdown_renderer.spotify.spotify_client import SpotifyClient
 from countdown_renderer.spotify.spotify_panel import SpotifyPanel
 from countdown_renderer.spotify.spotify_styles import APPLE_MUSIC_LABELS

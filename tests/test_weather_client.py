@@ -8,8 +8,12 @@ import pytest
 from test_utils import TEST_DEVICE_ID
 from weather_factory import forecast_json
 
-from countdown_api.models import Weather as WeatherSection
-from countdown_renderer.weather.weather_client import NoStoredForecastError, WeatherClient, location_key
+from countdown_renderer.weather.weather_client import (
+    NoStoredForecastError,
+    WeatherClient,
+    WeatherSettings,
+    location_key,
+)
 from countdown_shared.store import keys, reader
 from countdown_shared.weather.models import Upcoming, Weather, WeatherPeriod
 
@@ -21,9 +25,9 @@ def _forecast_at(time: str) -> dict:
     return {**FORECAST_JSON, "current": {**FORECAST_JSON["current"], "time": time}}
 
 
-def weather_section(location: str = "London", key: str | None = None) -> WeatherSection:
+def weather_section(location: str = "London", key: str | None = None) -> WeatherSettings:
     """Return the broker's weather section; with no key, as a broker that predates it sends it."""
-    return WeatherSection(location=location, key=key)
+    return WeatherSettings(location=location, key=key)
 
 
 def make_client(location: str = "London", key: str | None = None) -> WeatherClient:
@@ -274,10 +278,10 @@ def test_a_forecast_missing_at_first_is_read_on_the_next_cycle(store):
 
 
 def test_needs_refresh_only_when_the_location_changes():
-    client = WeatherClient(TEST_DEVICE_ID, WeatherSection(location="London"))
+    client = WeatherClient(TEST_DEVICE_ID, WeatherSettings(location="London"))
 
-    assert not client.needs_refresh(WeatherSection(location="London"))
-    assert client.needs_refresh(WeatherSection(location="Paris"))
+    assert not client.needs_refresh(WeatherSettings(location="London"))
+    assert client.needs_refresh(WeatherSettings(location="Paris"))
 
 
 def test_needs_refresh_when_the_key_changes_or_the_broker_starts_sending_one():
@@ -290,15 +294,15 @@ def test_needs_refresh_when_the_key_changes_or_the_broker_starts_sending_one():
 
 
 def test_needs_refresh_when_the_hd_screens_weather_design_changes():
-    client = WeatherClient(TEST_DEVICE_ID, WeatherSection(location="London", key=LONDON, design="columns"))
+    client = WeatherClient(TEST_DEVICE_ID, WeatherSettings(location="London", key=LONDON, design="columns"))
 
-    assert not client.needs_refresh(WeatherSection(location="London", key=LONDON, design="columns"))
-    assert client.needs_refresh(WeatherSection(location="London", key=LONDON, design="timeline"))
+    assert not client.needs_refresh(WeatherSettings(location="London", key=LONDON, design="columns"))
+    assert client.needs_refresh(WeatherSettings(location="London", key=LONDON, design="timeline"))
 
 
 def test_the_panel_carries_the_configs_design_and_every_page(store):
     put_forecast(store)
-    client = WeatherClient(TEST_DEVICE_ID, WeatherSection(location="London", key=LONDON, design="overview"))
+    client = WeatherClient(TEST_DEVICE_ID, WeatherSettings(location="London", key=LONDON, design="overview"))
 
     panel = asyncio.run(client.update())
 

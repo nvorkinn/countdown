@@ -4,9 +4,36 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from countdown_api.models import Screen
+    from countdown_api.models import EpaperConfig, Layout
 
 Orientation = Literal["horizontal", "vertical"]
+FrameFormat = Literal["mono-1bpp-packed", "png"]
+
+
+@dataclass(frozen=True)
+class Screen:
+    """The screen a frame is drawn for: its panel's size, which way it hangs, its frame format, and its layout.
+
+    Gathered from an e-paper screen's config (screen_of), where they're the flat `width`, `height` and `format` and
+    the style's `orientation` and `layout`.
+    """
+
+    orientation: Orientation
+    width: int
+    height: int
+    format: FrameFormat
+    layout: Layout | None = None
+
+
+def screen_of(config: EpaperConfig) -> Screen:
+    """Return the screen an e-paper screen's config describes."""
+    return Screen(
+        orientation=config.style.orientation,
+        width=config.width,
+        height=config.height,
+        format=config.format,
+        layout=config.style.layout,
+    )
 
 
 @dataclass(frozen=True)

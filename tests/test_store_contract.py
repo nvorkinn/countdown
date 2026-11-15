@@ -13,6 +13,7 @@ from datetime import datetime
 
 import fakeredis
 import pytest
+from config_factory import CONFIGS
 from pydantic import TypeAdapter
 
 from countdown_api import fixtures, models, scripts
@@ -66,7 +67,7 @@ def test_the_render_reads_the_config_the_broker_stores(client):
 
     stored = config.read(client, CONFIG["device_id"])
 
-    assert stored == models.ConfigResponse.model_validate(CONFIG["value"])
+    assert stored == CONFIGS.validate_python(CONFIG["value"])
     assert json.loads(stored.model_dump_json()) == CONFIG["value"]
 
 

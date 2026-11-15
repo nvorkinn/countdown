@@ -8,13 +8,12 @@ import logging
 
 import pytest
 import responses
-from config_factory import make_config, with_apple_music
+from config_factory import make_config, stops, with_apple_music
 from test_utils import TEST_DEVICE_ID
 from weather_factory import forecast_json
 
 from countdown_api import fixtures
 from countdown_api.models import Glowmarkt
-from countdown_api.models import Weather as WeatherSection
 from countdown_renderer.abstract_client import AbstractClient, ClientStatus
 from countdown_renderer.api_registry import (
     ApiRegistry,
@@ -35,7 +34,7 @@ from countdown_renderer.spotify.spotify_client import (
     SpotifyClient,
 )
 from countdown_renderer.system_screens.message_panel import MessagePanel
-from countdown_renderer.weather.weather_client import WeatherClient
+from countdown_renderer.weather.weather_client import WeatherClient, WeatherSettings
 from countdown_shared.store import keys, reader
 from countdown_shared.store.models import StoredForecast
 from countdown_shared.weather.models import ForecastResponse, WeatherPeriod
@@ -95,7 +94,7 @@ def test_weather_shows_the_tab_of_the_minute_it_is_polled_in(store, rotation_clo
     seen = []
     for _ in range(5):
         # A registry of its own each minute, as each render builds one.
-        registry = registry_with(weather=WeatherClient(TEST_DEVICE_ID, WeatherSection(location="London")))
+        registry = registry_with(weather=WeatherClient(TEST_DEVICE_ID, WeatherSettings(location="London")))
         seen.append(registry.poll()["weather"].weather.period)
         rotation_clock.advance()
 
@@ -113,7 +112,7 @@ def test_a_renderer_without_a_store_shows_the_panels_that_need_one_as_failing(mo
     """Not a crash: the notice board, which doesn't need one, still works (developer: test_developer_client)."""
     monkeypatch.setattr(reader, "store", lambda: None)
     config = make_config(
-        tfl={"stop_ids": ["490000123W"]},
+        arrivals=stops(*["490000123W"]),
         weather={"location": "London"},
         spotify={"enabled": True},
         glowmarkt={"enabled": True},
@@ -143,58 +142,39 @@ def messages(panels: dict) -> dict:
 
 
 def test_api_names_match_the_config_field_names():
-    """on_config_update looks each client's config up by name on the ConfigResponse."""
+    """on_config_update looks each client's config up by name on the config; the departures' is called arrivals."""
     config = make_config()
     for member in ClientClasses:
-        assert hasattr(config, member.api_name)
+        assert hasattr(config, "arrivals" if member is ClientClasses.TFL else member.api_name)
 
 
 def test_each_client_is_configured_with_its_section_of_the_config():
-    config = make_config(tfl={"stop_ids": ["940GZZLUKNG"]}, notice_board={"postcode": "SE17 3LL"})
+    config = make_config(arrivals=stops(*["940GZZLUKNG"]), notice_board={"postcode": "SE17 3LL"})
 
     assert section_for("tfl", config) == DeparturesSettings.from_config(config)
-    assert section_for("weather", config) is config.weather
+    assert section_for("weather", config) == WeatherSettings.from_config(config)
     assert section_for("spotify", config) == MusicSettings.from_config(config)
     assert section_for("glowmarkt", config) is config.glowmarkt
     assert section_for("notice_board", config) == NoticeBoardSettings(postcode="SE17 3LL")
 
 
 def test_every_panel_is_drawn_in_the_configs_one_style():
-    """The shared style wins over each panel's own, which the broker still sends for older screens."""
-    config = make_config(
-        style="card",
-        tfl={"style": "grouped"},
-        spotify={"enabled": True, "style": "airy"},
-        notice_board={"postcode": "SE17 3LL", "style": "hero"},
-    )
+    config = make_config(style={"drawing": "card"}, spotify={"enabled": True}, notice_board={"postcode": "SE17 3LL"})
 
     assert section_for("tfl", config).style == "card"
     assert section_for("spotify", config).style == "card"
     assert section_for("notice_board", config).style == "card"
+    assert section_for("developer", config).style == "card"
 
 
 def test_the_developer_panel_is_off_unless_the_broker_switches_it_on():
-    """A broker that predates it sends no developer section at all."""
     assert section_for("developer", make_config()) == DeveloperSettings(enabled=False, style="hero")
     assert not is_enabled(section_for("developer", make_config(developer={"enabled": False})))
 
-    switched_on = section_for("developer", make_config(style="airy", developer={"enabled": True}))
+    switched_on = section_for("developer", make_config(style={"drawing": "airy"}, developer={"enabled": True}))
 
     assert switched_on == DeveloperSettings(enabled=True, style="airy")
     assert is_enabled(switched_on)
-
-
-def test_a_broker_without_the_shared_style_leaves_each_panel_on_its_own():
-    """Their legacy names draw as the shared look nearest them: grouped as airy, boxed as card."""
-    config = make_config(
-        tfl={"style": "grouped"},
-        spotify={"enabled": True, "style": "classic"},
-        notice_board={"postcode": "SE17 3LL", "style": "boxed"},
-    )
-
-    assert section_for("tfl", config).style == "airy"
-    assert section_for("spotify", config).style == "hero"
-    assert section_for("notice_board", config).style == "card"
 
 
 def test_the_music_is_on_with_either_service():
@@ -270,7 +250,7 @@ def source_names(registry: ApiRegistry) -> list[str]:
 
 @responses.activate
 def test_the_notice_board_polls_the_departures_disruptions_for_their_stops():
-    config = make_config(departures={"stops": [{"source": "entur", "id": "NSR:StopPlace:58366"}]})
+    config = make_config(arrivals={"stops": [{"source": "entur", "id": "NSR:StopPlace:58366"}]})
 
     registry = ApiRegistry(TEST_DEVICE_ID, config)
 
@@ -282,8 +262,8 @@ def test_the_notice_board_polls_the_departures_disruptions_for_their_stops():
 def test_the_disruptions_follow_the_stops():
     """Norway's disruptions go with Norway's stops, London's with London's."""
     board = {"postcode": "SE17 3LL", "country": "GB"}
-    norway = make_config(notice_board=board, departures={"stops": [{"source": "entur", "id": "NSR:StopPlace:58366"}]})
-    london = make_config(notice_board=board, departures={"stops": [{"source": "tfl", "id": "940GZZLUKNG"}]})
+    norway = make_config(notice_board=board, arrivals={"stops": [{"source": "entur", "id": "NSR:StopPlace:58366"}]})
+    london = make_config(notice_board=board, arrivals={"stops": [{"source": "tfl", "id": "940GZZLUKNG"}]})
 
     assert source_names(ApiRegistry(TEST_DEVICE_ID, norway)) == ["StoredEnturSituationsSource"]
     assert source_names(ApiRegistry(TEST_DEVICE_ID, london)) == ["StoredTflLineStatusSource", "StoredTflStationSource"]
@@ -396,7 +376,7 @@ def _put_developer(store) -> str:
 
 STORED = {
     # The API, its client as the registry builds it, and how its provider fills its key (returning the key).
-    "weather": (lambda: WeatherClient(TEST_DEVICE_ID, WeatherSection(location="London")), _put_forecast),
+    "weather": (lambda: WeatherClient(TEST_DEVICE_ID, WeatherSettings(location="London")), _put_forecast),
     "developer": (
         lambda: DeveloperClient(TEST_DEVICE_ID, DeveloperSettings(enabled=True, style="hero")),
         _put_developer,
@@ -454,7 +434,7 @@ def test_an_expired_key_is_logged_without_a_traceback(store, caplog):
 
     [record] = caplog.records
     assert record.getMessage() == (
-        "DeveloperClient: No developer data in the store for device device-123; its panel says it's not available"
+        "DeveloperClient: No developer data in the store for device a1b2c3d4e5f6; its panel says it's not available"
     )
     assert record.exc_info is None
 
@@ -501,7 +481,7 @@ def test_available_is_the_built_clients_that_are_not_disabled():
     registry = registry_with(
         tfl=FakeClient(),
         glowmarkt=disabled,
-        weather=FailedClient(TEST_DEVICE_ID, WeatherSection(location=""), ValueError()),
+        weather=FailedClient(TEST_DEVICE_ID, WeatherSettings(location=""), ValueError()),
     )
 
     # A failing client keeps its area (to say so); a disabled or missing one doesn't.

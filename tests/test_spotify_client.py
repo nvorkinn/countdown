@@ -149,9 +149,8 @@ def test_update_raises_on_a_malformed_queue(store, client):
         asyncio.run(client.update())
 
 
-@pytest.mark.parametrize(("style", "drawn"), [("hero", "hero"), ("classic", "hero")], ids=["hero", "retired classic"])
-def test_the_configs_style_reaches_both_pages(store, style, drawn, rotation_clock):
-    """The broker may still send classic, which draws as hero."""
+@pytest.mark.parametrize("style", ["hero", "card"])
+def test_the_configs_style_reaches_both_pages(store, style, rotation_clock):
     client = SpotifyClient(TEST_DEVICE_ID, MusicSettings(spotify=True, style=style))
     put(store, spotify=QUEUE, spotify_top=SPOTIFY_TOP)
     now_playing = asyncio.run(client.update())
@@ -159,7 +158,7 @@ def test_the_configs_style_reaches_both_pages(store, style, drawn, rotation_cloc
     top_page = asyncio.run(client.update())
 
     assert isinstance(top_page, SpotifyTopPanel)
-    assert (now_playing.style, top_page.style) == (drawn, drawn)
+    assert (now_playing.style, top_page.style) == (style, style)
 
 
 def test_the_services_pick_the_client():

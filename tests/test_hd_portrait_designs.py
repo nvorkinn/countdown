@@ -7,7 +7,7 @@ from tfl_factory import tfl_panel
 from weather_factory import forecast_json, make_weather
 
 import countdown_renderer.glow.energy_panel
-from countdown_api.models import Screen
+from countdown_renderer.rendering.screen import Screen
 from countdown_renderer import moment
 from countdown_renderer.api_registry import ClientClasses
 from countdown_renderer.departures.departures_client import DeparturesClient
@@ -139,7 +139,7 @@ def test_no_layout_chosen_gives_the_classic_hd_portrait_layout(layout_id, unavai
     "screen",
     [
         _hd_screen("sidebar"),  # the landscape screen's
-        Screen.model_construct(orientation="vertical", width=1872, height=1404, format="png", layout="nonsense"),
+        Screen(orientation="vertical", width=1872, height=1404, format="png", layout="nonsense"),
     ],
     ids=["sidebar", "unknown"],
 )

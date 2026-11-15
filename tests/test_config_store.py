@@ -1,7 +1,8 @@
 """The screen's config from the store: countdown-server's copy of the device's settings, which the render reads.
 
 The broker writes `v1:config:<device id>` from its database on every save and as it starts, and the render reads it
-(store.config.read) with the contract's own ConfigResponse: it's the only way a config reaches the render.
+(store.config.read) with the contract's own ConfigResponse, an EpaperConfig or a TouchscreenConfig by its type:
+it's the only way a config reaches the render.
 The store contract's config_store.json (countdown_api.fixtures) is the stored shape, which the broker's tests read too.
 
 What the render accepts is the compatibility policy: the broker may add fields (ignored), but a value outside what the
@@ -9,17 +10,20 @@ contract lists is invalid, and so is a config missing a section.
 """
 
 import json
+from typing import TYPE_CHECKING
 
 import fakeredis
 import pytest
-from config_factory import broker_payload
+from config_factory import CONFIGS, broker_payload, stops
 from pydantic import ValidationError
 
 from countdown_api import fixtures
-from countdown_api.models import ConfigResponse
 from countdown_renderer.weather.weather_client import location_key
 from countdown_shared.store import config as stored_config
 from countdown_shared.store import keys
+
+if TYPE_CHECKING:
+    from countdown_api.models import ConfigResponse
 
 FIXTURE = fixtures.load("config_store.json")
 DEVICE_ID = FIXTURE["device_id"]
@@ -48,21 +52,21 @@ def test_the_broker_writes_where_the_render_reads():
 
 
 def test_the_stored_config_is_a_config_the_contract_allows():
-    config = ConfigResponse.model_validate(STORED)
+    config = CONFIGS.validate_python(STORED)
 
     assert config.device_id == DEVICE_ID
     assert config.pairing_code is None
     # No key of any kind: the weather provider calls Open-Meteo, which needs none, and TfL's providers have their own.
     assert "api_key" not in config.weather.model_dump()
     assert config.weather.key == "london-gb-2643743"
-    assert [stop.id for stop in config.departures.stops] == ["490000077E", "940GZZLUOVL", "NSR:StopPlace:58381"]
+    assert [stop.id for stop in config.arrivals.stops] == ["490000077E", "940GZZLUOVL", "NSR:StopPlace:58381"]
 
 
 # --- reading it ---------------------------------------------------------------------------------------------------
 
 
 def test_the_config_is_read_from_the_store(store):
-    assert _read(store, STORED) == ConfigResponse.model_validate(STORED)
+    assert _read(store, STORED) == CONFIGS.validate_python(STORED)
 
 
 def test_read_gives_none_for_a_device_with_nothing_stored(store):
@@ -72,13 +76,15 @@ def test_read_gives_none_for_a_device_with_nothing_stored(store):
 
 
 def test_a_full_config_reads_back_as_written(store):
-    sent = ConfigResponse.model_validate(
+    sent = CONFIGS.validate_python(
         broker_payload(
             interval=20,
-            screen={"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"},
+            width=800,
+            height=480,
+            style={"orientation": "horizontal", "drawing": "card", "weather": "timeline", "layout": None},
             weather={"location": "London", "key": "london-gb-2643743"},
             notice_board={"postcode": "SW1A 1AA"},
-            tfl={"stop_ids": ["940GZZLUKNG", "490000077E"]},
+            arrivals=stops(*["940GZZLUKNG", "490000077E"]),
             spotify={"enabled": True},
             glowmarkt={"enabled": True},
         )
@@ -90,11 +96,14 @@ def test_a_full_config_reads_back_as_written(store):
 def test_a_field_a_newer_broker_adds_is_ignored(store):
     """The broker may add fields, to the config or to a section: a render that predates them must not break."""
     weather = STORED["weather"] | {"units": "metric"}
+    style = STORED["style"] | {"contrast": "high"}
 
-    assert _read(store, STORED | {"brightness": 7, "weather": weather}) == ConfigResponse.model_validate(STORED)
+    newer = STORED | {"brightness": 7, "weather": weather, "style": style}
+
+    assert _read(store, newer) == CONFIGS.validate_python(STORED)
 
 
-def test_a_broker_that_still_sends_a_weather_api_key_has_it_dropped(store):
+def test_a_field_dropped_from_the_contract_is_not_read(store):
     weather = STORED["weather"] | {"api_key": "weather-key"}
 
     config = _read(store, STORED | {"weather": weather})
@@ -103,11 +112,8 @@ def test_a_broker_that_still_sends_a_weather_api_key_has_it_dropped(store):
     assert "weather-key" not in config.model_dump_json()
 
 
-def test_without_the_weathers_key_it_reads_under_the_location(store):
-    """An older broker subscribes the location's text, and sends no key, which parses as null."""
-    weather = {name: value for name, value in STORED["weather"].items() if name != "key"}
-
-    config = _read(store, STORED | {"weather": weather})
+def test_with_no_place_set_the_weather_has_no_key(store):
+    config = _read(store, STORED | {"weather": {"location": "", "key": None}})
 
     assert config.weather.key is None
     assert location_key(config.weather) == config.weather.location
@@ -116,7 +122,7 @@ def test_without_the_weathers_key_it_reads_under_the_location(store):
 def test_a_value_the_contract_does_not_list_is_invalid(store):
     """A third screen orientation: widening a list of values is a breaking change the broker makes deliberately."""
     with pytest.raises(ValidationError):
-        _read(store, STORED | {"screen": STORED["screen"] | {"orientation": "diagonal"}})
+        _read(store, STORED | {"style": STORED["style"] | {"orientation": "diagonal"}})
 
 
 @pytest.mark.parametrize("interval", [0, -1])
@@ -127,5 +133,5 @@ def test_an_interval_that_is_not_positive_is_invalid(store, interval):
 
 def test_a_config_missing_a_section_is_invalid(store):
     """Rather than read as an empty config, which would blank the screen: the render fails, and it keeps its frame."""
-    with pytest.raises(ValidationError, match="tfl"):
-        _read(store, {name: value for name, value in STORED.items() if name != "tfl"})
+    with pytest.raises(ValidationError, match="arrivals"):
+        _read(store, {name: value for name, value in STORED.items() if name != "arrivals"})

@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import fakeredis
 import pytest
 import redis
-from config_factory import make_config
+from config_factory import make_config, set_stops
 from test_e2e_render_cycle import DEVICE_ID as E2E_DEVICE_ID
 from test_e2e_render_cycle import _make_config, _put_stops_and_energy
 
@@ -23,7 +23,7 @@ from countdown_shared.store import frame_record, keys, reader
 FIXTURE = fixtures.load("frame_record.json")
 FIXTURE_FRAME = fixtures.read_bytes(FIXTURE["fields"]["frame"]["file"])
 
-DEVICE_ID = "device-123"
+DEVICE_ID = "a1b2c3d4e5f6"
 KEY = keys.frame(DEVICE_ID)
 FRAME_BYTES = 800 * 480 // 8
 AT = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
@@ -177,14 +177,14 @@ def test_each_screen_has_its_own(stored, clock):
 # --- through the render ------------------------------------------------------------------------------------------
 
 
-def _render(code: str = "ABC123", device_id: str = DEVICE_ID) -> Outcome:
+def _render(code: str = "ABC234", device_id: str = DEVICE_ID) -> Outcome:
     """Render a screen showing the pairing code `code`: a picture of its own for each code, read from nowhere else."""
     reader.store().set(keys.pairing(device_id), make_config(pairing_code=code).model_dump_json())
     return render(device_id, AT)
 
 
 def test_each_new_picture_is_written(stored, clock):
-    first = _render("ABC123")
+    first = _render("ABC234")
     clock.advance()
     second = _render("XYZ789")
 
@@ -258,7 +258,7 @@ def test_nothing_logged_says_what_the_frame_shows(store, clock, monkeypatch):
     for call in logged.method_calls:
         assert all(not isinstance(arg, bytes | bytearray) for arg in call.args)
         assert DEVICE_ID not in " ".join(str(arg) for arg in call.args)
-        assert "ABC123" not in " ".join(str(arg) for arg in call.args)
+        assert "ABC234" not in " ".join(str(arg) for arg in call.args)
 
 
 def _unreachable() -> fakeredis.FakeRedis:
@@ -294,7 +294,7 @@ def test_the_render_keeps_the_record_holding_what_it_drew(store, stored, symbols
     """The real clients reading the store and drawing a dashboard; the record lost between two renders comes back."""
     key = keys.frame(E2E_DEVICE_ID)
     config = _make_config()
-    config.tfl.stop_ids = ["490000123W"]
+    set_stops(config, ["490000123W"])
     _put_stops_and_energy(store, "490000123W")
     store.set(keys.config(E2E_DEVICE_ID), config.model_dump_json())
 
@@ -366,11 +366,11 @@ def test_a_render_overtaken_by_a_config_save_writes_nothing(store, stored, symbo
     """The broker replaces the config while the screen is drawn: the frame is of the old one, and dropped."""
     key = keys.frame(E2E_DEVICE_ID)
     config = _make_config()
-    config.tfl.stop_ids = ["490000123W"]
+    set_stops(config, ["490000123W"])
     _put_stops_and_energy(store, "490000123W")
     store.set(keys.config(E2E_DEVICE_ID), config.model_dump_json())
     turned = config.model_copy(deep=True)
-    turned.screen.orientation = "horizontal" if config.screen.orientation == "vertical" else "vertical"
+    turned.style.orientation = "horizontal" if config.style.orientation == "vertical" else "vertical"
     encode = render_module.encode
 
     def encode_as_the_config_is_saved(*args):

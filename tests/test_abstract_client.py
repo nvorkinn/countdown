@@ -4,7 +4,7 @@ import threading
 from datetime import datetime, timedelta
 
 import pytest
-from config_factory import make_config
+from config_factory import make_config, stops
 from test_utils import TEST_DEVICE_ID
 
 from countdown_renderer import abstract_client
@@ -63,12 +63,11 @@ def test_cache_and_compare_is_false_the_first_time_even_for_none():
 
 
 def test_needs_refresh_is_true_for_any_config_change_by_default():
-    tfl = make_config(tfl={"stop_ids": ["a"], "style": "hero"}).tfl
-    client = FakeClient(tfl)
+    arrivals = make_config(arrivals=stops("a")).arrivals
+    client = FakeClient(arrivals)
 
-    assert not client.needs_refresh(tfl.model_copy())
-    assert client.needs_refresh(tfl.model_copy(update={"stop_ids": ["a", "b"]}))
-    assert client.needs_refresh(tfl.model_copy(update={"style": "card"}))
+    assert not client.needs_refresh(arrivals.model_copy())
+    assert client.needs_refresh(make_config(arrivals=stops("a", "b")).arrivals)
 
 
 def test_initialise_marks_the_client_connected():

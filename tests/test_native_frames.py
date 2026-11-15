@@ -8,13 +8,12 @@ import pytest
 from PIL import Image
 
 import countdown_renderer.api_registry  # noqa: F401 -- before the panels: the import order the render has
-from countdown_api.models import Screen
 from countdown_renderer.api_registry import ClientClasses
 from countdown_renderer.notices.notice_board_panel import NoticeBoardPanel
 from countdown_renderer.panel import Panel
 from countdown_renderer.rendering import render, to_native
 from countdown_renderer.rendering.layout import Frame
-from countdown_renderer.rendering.screen import canvas_for
+from countdown_renderer.rendering.screen import Screen, canvas_for
 from countdown_renderer.system_screens.message_panel import MessagePanel
 from countdown_renderer.system_screens.pairing_code_panel import PairingCodePanel
 

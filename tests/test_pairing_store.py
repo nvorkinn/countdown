@@ -9,17 +9,20 @@ import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import redis
-from config_factory import make_config
+from config_factory import CONFIGS, make_config
 
 from countdown_api import fixtures
-from countdown_api.models import ConfigResponse
 from countdown_renderer.render import Outcome, Result, Stage, render
 from countdown_shared import i18n
 from countdown_shared.store import frame_record, keys, reader
 from countdown_shared.store import pairing as stored_pairing
+
+if TYPE_CHECKING:
+    from countdown_api.models import ConfigResponse
 
 FIXTURE = fixtures.load("pairing_key.json")
 DEVICE_ID = FIXTURE["device_id"]
@@ -58,7 +61,7 @@ def test_the_stored_code_reads_as_the_config_get_api_config_answers(store):
 
     stored = stored_pairing.read(store, DEVICE_ID)
 
-    assert stored == ConfigResponse.model_validate(FIXTURE["value"])
+    assert stored == CONFIGS.validate_python(FIXTURE["value"])
     assert stored.pairing_code == CODE
 
 

@@ -13,13 +13,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 import responses
-from config_factory import make_config
+from config_factory import make_config, set_stops, stops
 from PIL import Image, ImageDraw, ImageFont
 from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import put_departures
 from weather_factory import forecast_json
 
-from countdown_api.models import ConfigResponse, Screen
 from countdown_renderer import render as render_module
 from countdown_renderer import rotation
 from countdown_renderer.glow.energy_panel import EnergyPanel
@@ -42,6 +41,8 @@ from countdown_shared.tfl.models import Postcode
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
+
+    from countdown_api.models import ConfigResponse
 
 # Material Symbols stood in for (conftest), so every frame draws offline too: these are about what's drawn when.
 pytestmark = pytest.mark.usefixtures("symbols_font")
@@ -201,7 +202,7 @@ def _put_cold_forecast(store, config: ConfigResponse) -> None:
 @responses.activate
 def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch, store):
     config = _make_config()
-    config.tfl.stop_ids = [BUS_STOP, TUBE_STATION]
+    set_stops(config, [BUS_STOP, TUBE_STATION])
     _put_stops_and_energy(store, BUS_STOP, TUBE_STATION)
     _put_cold_forecast(store, config)
     shown = _spy_on_frames(monkeypatch)
@@ -224,7 +225,7 @@ def test_full_render_cycle_without_spotify_track(isolated_cwd, monkeypatch, stor
 def test_full_render_cycle_skips_glowmarkt_when_switched_off(isolated_cwd, monkeypatch, store, reads):
     """The common case: Glowmarkt never set up, so its readings are never even read."""
     config = make_config()
-    config.tfl.stop_ids = [BUS_STOP]
+    set_stops(config, [BUS_STOP])
     assert config.glowmarkt.enabled is False
     _put_stops_and_energy(store, BUS_STOP)
     shown = _spy_on_frames(monkeypatch)
@@ -240,7 +241,7 @@ def test_full_render_cycle_skips_glowmarkt_when_switched_off(isolated_cwd, monke
 @responses.activate
 def test_full_render_cycle_with_spotify_track(isolated_cwd, monkeypatch, store):
     config = _make_config()
-    config.tfl.stop_ids = [BUS_STOP]
+    set_stops(config, [BUS_STOP])
     config.spotify.enabled = True
     _put_stops_and_energy(store, BUS_STOP)
     _put_music(store, {"currently_playing": TRACK_JSON, "queue": []})
@@ -259,7 +260,7 @@ def test_full_render_cycle_with_spotify_track(isolated_cwd, monkeypatch, store):
 @responses.activate
 def test_full_render_cycle_when_nothing_is_playing(isolated_cwd, monkeypatch, store):
     config = _make_config()
-    config.tfl.stop_ids = [BUS_STOP]
+    set_stops(config, [BUS_STOP])
     config.spotify.enabled = True
     _put_stops_and_energy(store, BUS_STOP)
     top = {"tracks": {"items": []}, "artists": {"items": [{"name": "An Artist"}]}}
@@ -306,7 +307,7 @@ def test_full_render_cycle_reads_the_weather_under_the_brokers_place_key(isolate
 def test_one_provider_being_down_does_not_stop_the_others_reaching_the_screen(isolated_cwd, monkeypatch, store):
     """The TfL provider is down, so its stop's key has expired; the energy readings are still there."""
     config = _make_config()
-    config.tfl.stop_ids = [BUS_STOP]
+    set_stops(config, [BUS_STOP])
     _put_energy(store)
     shown = _spy_on_frames(monkeypatch)
 
@@ -322,7 +323,7 @@ def test_every_render_builds_its_clients_afresh_and_reads_the_store_again(isolat
     """Nothing is kept from one render to the next: each reads what it draws from the store."""
     config = _make_config()
     stops = [BUS_STOP, TUBE_STATION, "490000456X", "940GZZLUABC"]
-    config.tfl.stop_ids = stops
+    set_stops(config, stops)
     _put_stops_and_energy(store, *stops)
     shown = _spy_on_frames(monkeypatch)
 
@@ -340,7 +341,7 @@ def test_a_pairing_code_draws_the_pairing_screen_and_nothing_else(isolated_cwd, 
     _put_stops_and_energy(store, BUS_STOP)
     shown = _spy_on_frames(monkeypatch)
 
-    [outcome] = _render(store, make_config(pairing_code="ABC123", tfl={"stop_ids": [BUS_STOP]}))
+    [outcome] = _render(store, make_config(pairing_code="ABC234", arrivals=stops(*[BUS_STOP])))
 
     assert outcome.stage is Stage.PAIRING
     assert shown == []
@@ -350,7 +351,7 @@ def test_a_pairing_code_draws_the_pairing_screen_and_nothing_else(isolated_cwd, 
 
 @responses.activate
 def test_the_same_pairing_code_again_writes_nothing(isolated_cwd, store):
-    first, again = _render(store, make_config(pairing_code="ABC123"), lambda: None)
+    first, again = _render(store, make_config(pairing_code="ABC234"), lambda: None)
 
     assert (first.result, again.result) == (Result.WRITTEN, Result.UNCHANGED)
 
@@ -364,7 +365,7 @@ def test_config_changes_from_the_broker_reach_the_screen_on_the_next_render(isol
     _put_stops(store, BUS_STOP)
     shown = _spy_on_frames(monkeypatch)
 
-    _render(store, make_config(), lambda: _put_config(store, make_config(tfl={"stop_ids": [BUS_STOP]})))
+    _render(store, make_config(), lambda: _put_config(store, make_config(arrivals=stops(*[BUS_STOP]))))
 
     assert shown[0]["tfl"].message == "Needs configuring"
     assert len(shown[1]["tfl"].arrival_panels) == 1
@@ -374,8 +375,8 @@ def test_config_changes_from_the_broker_reach_the_screen_on_the_next_render(isol
 @pytest.mark.parametrize("orientation", ["horizontal", "vertical"])
 def test_clock_changes_reformat_the_panels_on_the_next_render(orientation, monkeypatch, store, reads):
     config = _make_config()
-    config.screen.orientation = orientation
-    config.tfl.stop_ids = [BUS_STOP]
+    config.style.orientation = orientation
+    set_stops(config, [BUS_STOP])
     _put_stops_and_energy(store, BUS_STOP)
     _put_cold_forecast(store, config)
     expiry = dt.datetime.fromisoformat("2026-09-25T21:00:00+01:00")
@@ -434,13 +435,13 @@ def test_the_layout_follows_what_the_config_lets_the_device_show(isolated_cwd, m
     neither). The screen is hung landscape: those are its layouts.
     """
     _put_energy(store)
-    landscape = {"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"}
+    landscape = {"width": 800, "height": 480, "style": {"orientation": "horizontal"}}
     config = _make_config()
-    config.screen = Screen.model_validate(landscape)
+    config.width, config.height, config.style.orientation = 800, 480, "horizontal"
     layouts: list[type] = []
     _spy_on_frames(monkeypatch, layouts)
 
-    _render(store, config, lambda: _put_config(store, make_config(screen=landscape)))
+    _render(store, config, lambda: _put_config(store, make_config(**landscape)))
 
     assert layouts == [GlowLayout, BaseLayout]
 
@@ -487,7 +488,7 @@ OSLO = Postcode(postcode="0150", latitude=59.9116, longitude=10.7505, country="N
 def test_a_full_render_reaches_nothing_at_all(monkeypatch, store, no_network, place, country):
     """Every panel and the notice board, its postcode placed too, read from the store: no upstream is asked anything."""
     config = _make_config()
-    config.tfl.stop_ids = [BUS_STOP, TUBE_STATION]
+    set_stops(config, [BUS_STOP, TUBE_STATION])
     config.spotify.enabled = True
     config.notice_board.postcode, config.notice_board.country = place.postcode, country
     _put_stops_and_energy(store, BUS_STOP, TUBE_STATION)
@@ -536,7 +537,7 @@ def test_an_expired_key_draws_not_available_in_the_screens_language_and_redis_do
     monkeypatch.setattr(i18n, "_timezone", i18n.local_zone())
     config = _make_config()
     config.language, config.timezone = "nb", "Europe/Oslo"
-    config.tfl.stop_ids = [BUS_STOP]
+    set_stops(config, [BUS_STOP])
     _put_stops_and_energy(store, BUS_STOP)
     now = dt.datetime.now(dt.UTC)
     # The stop's disruptions, as the TfL notices provider keeps them on their own TTLs: all clear.

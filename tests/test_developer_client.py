@@ -22,7 +22,7 @@ from countdown_shared.store import keys, reader
 from countdown_shared.store.developer import NoStoredDeveloperError, StoredDeveloper
 
 FIXTURE = fixtures.load("developer.json")
-KEY = keys.developer("device-123")
+KEY = keys.developer("a1b2c3d4e5f6")
 BROKER_URL = "https://broker.example.com"
 
 ANSWER = {

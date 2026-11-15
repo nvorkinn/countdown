@@ -1,11 +1,12 @@
 """The bytes a frame is encoded to, by the screen's format."""
 
 import io
+from typing import get_args
 
 from PIL import Image
 
-from countdown_api.models import Screen
 from countdown_renderer.rendering.encoding import ENCODERS, encode
+from countdown_renderer.rendering.screen import FrameFormat, Screen
 
 
 def _screen(fmt: str) -> Screen:
@@ -27,7 +28,7 @@ def test_png_decodes_to_the_same_picture():
 
 
 def test_every_format_the_api_allows_has_an_encoder():
-    assert set(ENCODERS) == set(Screen.model_fields["format"].annotation.__args__)
+    assert set(ENCODERS) == set(get_args(FrameFormat))
 
 
 def test_mono_1bpp_packed_sends_white_as_zero_bits_and_black_as_one():
