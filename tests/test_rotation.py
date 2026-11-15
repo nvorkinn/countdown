@@ -125,7 +125,9 @@ def _fill(store) -> None:
 
 def _config(stops: list[str] = STOPS):
     return make_config(
-        screen={"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"},
+        width=800,
+        height=480,
+        style={"orientation": "horizontal"},
         arrivals=stop_refs(*stops),
         weather={"location": "London"},
         glowmarkt={"enabled": True},

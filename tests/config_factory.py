@@ -32,6 +32,17 @@ def broker_payload(**overrides) -> dict:
         parcels=wire.Parcels(enabled=False),
         style=wire.EpaperStyle(orientation="vertical", drawing="hero", weather="columns", layout=None),
     ).model_dump(mode="json")
+    # The contract ignores fields it doesn't list, so a misspelt or retired one would be dropped without a word.
+    unknown = [name for name in overrides if name not in typical] + [
+        f"{name}.{field}"
+        for name, value in overrides.items()
+        if isinstance(value, dict) and isinstance(typical.get(name), dict)
+        for field in value
+        if field not in typical[name]
+    ]
+    if unknown:
+        msg = f"not in the config: {', '.join(unknown)}"
+        raise TypeError(msg)
     return typical | {
         name: typical[name] | value if isinstance(value, dict) and isinstance(typical.get(name), dict) else value
         for name, value in overrides.items()

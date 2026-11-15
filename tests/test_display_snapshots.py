@@ -4,6 +4,7 @@ Each scenario builds panels from representative data (no HTTP mocking -- see tes
 compares the render against a golden image in tests/images/. See the README for the workflow.
 """
 
+import dataclasses
 import datetime as dt
 import io
 from typing import TYPE_CHECKING
@@ -1232,7 +1233,7 @@ def test_each_other_layout_on_an_hd_portrait_screen(snapshot, rotation_clock, la
     rotation_clock.at_minute(minute)
     spotify = SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes())
     panels = _panels(_many_route_arrivals(), weather=_forecast_weather(), spotify=spotify, notices=FEW_NOTICES)
-    screen = HD_VERTICAL.model_copy(update={"layout": layout})
+    screen = dataclasses.replace(HD_VERTICAL, layout=layout)
     with moment.drawing_at((_FROZEN_NOW + dt.timedelta(minutes=minute)).replace(tzinfo=dt.UTC)):
         img = draw_screen(panels, screen, EVERYTHING)
     assert img.size == (1404, 1872)
