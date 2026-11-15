@@ -182,7 +182,7 @@ def _live_pairing(device_id: str) -> ConfigResponse | None:
     return None if client is None else stored_pairing.read(client, device_id)
 
 
-def _apply_locale(config: ConfigResponse) -> None:
+def _apply_locale(config: EpaperConfig) -> None:
     """Set the config's language and time zone: a module global, so a worker runs one render at a time."""
     try:
         set_locale(config.language, config.timezone)
