@@ -26,7 +26,8 @@ jobs:
           fi
 
   build-python:
-    needs: verify-tag
+    # Alongside verify-tag: it only builds the wheels into an artifact, so nothing leaves the run before the tag is
+    # checked. build-image, the first job that pushes anything, waits for both.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,7 +66,7 @@ jobs:
     # Each image for each platform on a runner of that platform, as emulating arm64 on an amd64 runner took
     # minutes. Pushed by digest only; publish-image tags them once both platforms are in.
     name: build ${{ matrix.image }} (${{ matrix.platform }})
-    needs: build-python
+    needs: [ verify-tag, build-python ]
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
