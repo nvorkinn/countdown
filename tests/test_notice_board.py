@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import requests
 import responses
-from config_factory import make_config
+from config_factory import make_config, stops
 from PIL import Image, ImageDraw
 from redis.exceptions import ConnectionError as RedisConnectionError
 from test_utils import TEST_DEVICE_ID
@@ -557,7 +557,7 @@ def test_board_asks_nothing_over_http_to_place_its_postcode(store, clock):
 
 
 def test_notice_board_gets_the_brokers_postcode():
-    config = make_config(tfl={"stop_ids": ["940GZZLUKNG"]}, notice_board={"postcode": "SE17 3LL"})
+    config = make_config(arrivals=stops(*["940GZZLUKNG"]), notice_board={"postcode": "SE17 3LL"})
 
     settings = section_for("notice_board", config)
 
@@ -572,9 +572,7 @@ def test_a_change_to_the_postcode_but_not_the_stops_changes_the_notice_boards_se
     """AbstractClient.needs_refresh compares them; the stops' disruptions come from the departures client instead."""
 
     def settings_for(stop_id: str, postcode: str) -> object:
-        return section_for(
-            "notice_board", make_config(tfl={"stop_ids": [stop_id]}, notice_board={"postcode": postcode})
-        )
+        return section_for("notice_board", make_config(arrivals=stops(*[stop_id]), notice_board={"postcode": postcode}))
 
     assert settings_for("a", "SE17 3LL") == settings_for("b", "SE17 3LL")
     assert settings_for("a", "SE17 3LL") != settings_for("a", "E1 6AN")

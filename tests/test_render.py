@@ -25,19 +25,23 @@ import threading
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
-from config_factory import make_config
+from config_factory import CONFIGS, make_config
+from config_factory import stops as stop_refs
 from test_utils import put_departures
 
 from countdown_api import fixtures
-from countdown_api.models import ConfigResponse
 from countdown_renderer import moment, rotation
 from countdown_renderer import render as render_module
 from countdown_renderer.abstract_client import ClientStatus
 from countdown_renderer.render import Outcome, Result, Stage, render
 from countdown_shared import i18n
 from countdown_shared.store import frame_record, keys, reader
+
+if TYPE_CHECKING:
+    from countdown_api.models import ConfigResponse
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "render_parity.json").read_text(encoding="utf-8"))
 CASES = FIXTURE["cases"]
@@ -76,7 +80,7 @@ def _put_config(store, config: ConfigResponse) -> None:
 
 
 def _config(case: dict) -> ConfigResponse:
-    return ConfigResponse.model_validate(case["config"])
+    return CONFIGS.validate_python(case["config"])
 
 
 def _now(case: dict) -> datetime:
@@ -218,8 +222,8 @@ def test_the_departures_get_as_many_stops_as_the_layout_has_room_for(store):
     stops = [f"49000000{i}" for i in range(6)]
     for stop in stops:
         put_departures(store, stop, [("N1", "Somewhere", 300)], now=_now(RICH))
-    landscape = {"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"}
-    _put_config(store, make_config(screen=landscape, tfl={"stop_ids": stops}))
+    landscape = {"width": 800, "height": 480, "style": {"orientation": "horizontal"}}
+    _put_config(store, make_config(**landscape, arrivals=stop_refs(*stops)))
 
     outcome = render(DEVICE_ID, _now(RICH))
 
@@ -232,8 +236,8 @@ def test_with_the_room_taken_by_the_notices_the_departures_are_one_row_of_stops(
     stops = [f"49000000{i}" for i in range(6)]
     for stop in stops:
         put_departures(store, stop, [("N1", "Somewhere", 300)], now=_now(RICH))
-    landscape = {"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"}
-    _put_config(store, make_config(screen=landscape, tfl={"stop_ids": stops}))
+    landscape = {"width": 800, "height": 480, "style": {"orientation": "horizontal"}}
+    _put_config(store, make_config(**landscape, arrivals=stop_refs(*stops)))
     monkeypatch.setattr(render_module, "stops_fitting", lambda panels, screen, available: 2)
 
     outcome = render(DEVICE_ID, _now(RICH))
@@ -243,8 +247,8 @@ def test_with_the_room_taken_by_the_notices_the_departures_are_one_row_of_stops(
 
 
 def _stop_config(stops=("490000123W",), **overrides) -> ConfigResponse:
-    landscape = {"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"}
-    return make_config(screen=landscape, tfl={"stop_ids": list(stops)}, **overrides)
+    landscape = {"width": 800, "height": 480, "style": {"orientation": "horizontal"}}
+    return make_config(**landscape, arrivals=stop_refs(*list(stops)), **overrides)
 
 
 def test_an_expired_key_is_not_available(store):

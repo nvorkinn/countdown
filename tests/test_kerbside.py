@@ -1,5 +1,6 @@
 """The kerbside layouts: the weather in brief over one stop, in the track, ledger and queue styles."""
 
+import dataclasses
 from typing import TYPE_CHECKING
 
 import pytest
@@ -39,13 +40,13 @@ from countdown_renderer.weather.weather_panel import WeatherPanel
 from countdown_shared.weather.models import WeatherPeriod
 
 if TYPE_CHECKING:
-    from countdown_api.models import Screen
+    from countdown_renderer.rendering.screen import Screen
 
 LAYOUT_CLASSES = {"track": TrackLayout, "ledger": LedgerLayout, "queue": QueueLayout}
 
 
 def _screen(layout: str, *, hd: bool = False) -> Screen:
-    return (HD_VERTICAL if hd else VERTICAL).model_copy(update={"layout": layout})
+    return dataclasses.replace(HD_VERTICAL if hd else VERTICAL, layout=layout)
 
 
 FIRST_OF_TWO = Rotation(0, 2)

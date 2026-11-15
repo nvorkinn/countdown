@@ -1,12 +1,23 @@
 import pytest
-from config_factory import broker_payload, make_config
+from config_factory import CONFIGS, broker_payload, make_config
 from pydantic import ValidationError
 
-from countdown_api.models import ConfigResponse
+from countdown_api.models import EpaperConfig
 
 # The `isolated_cwd` fixture used below is defined once, autouse, in tests/conftest.py.
 
-SECTIONS = ["interval", "tfl", "spotify", "weather", "glowmarkt", "notice_board", "pairing_code"]
+SECTIONS = [
+    "device_id",
+    "interval",
+    "clock_format",
+    "arrivals",
+    "spotify",
+    "weather",
+    "glowmarkt",
+    "notice_board",
+    "pairing_code",
+    "style",
+]
 
 
 def test_an_empty_config_cannot_be_conjured():
@@ -15,7 +26,7 @@ def test_an_empty_config_cannot_be_conjured():
     "No stops" must mean the broker said so, not that we never heard from it.
     """
     with pytest.raises(ValidationError) as error:
-        ConfigResponse()  # ty: ignore[missing-argument] -- what the test is about
+        EpaperConfig()  # ty: ignore[missing-argument] -- what the test is about
 
     missing = {e["loc"][0] for e in error.value.errors() if e["type"] == "missing"}
     assert set(SECTIONS) <= missing
@@ -31,27 +42,25 @@ def test_a_response_missing_any_section_is_rejected(section):
     del payload[section]
 
     with pytest.raises(ValidationError, match=section):
-        ConfigResponse.model_validate(payload)
+        CONFIGS.validate_python(payload)
 
 
 @pytest.mark.parametrize("interval", [0, -1])
 def test_an_interval_that_is_not_positive_is_rejected(interval):
     """The loop sleeps for it, so 0 would spin."""
     with pytest.raises(ValidationError, match="interval"):
-        ConfigResponse.model_validate(broker_payload(interval=interval))
+        CONFIGS.validate_python(broker_payload(interval=interval))
 
 
 def test_pairing_code_is_required_but_may_be_null():
     """Null is how the broker says "paired"; leaving the key out is a broken response."""
     assert make_config(pairing_code=None).pairing_code is None
-    assert make_config(pairing_code="ABC123").pairing_code == "ABC123"
+    assert make_config(pairing_code="ABC234").pairing_code == "ABC234"
 
 
-def test_missing_clock_preference_keeps_legacy_configs_on_24_hour_time():
-    payload = broker_payload()
-    del payload["clock_format"]
-
-    assert ConfigResponse.model_validate(payload).clock_format == "24h"
+def test_a_config_of_an_unknown_screen_type_is_rejected():
+    with pytest.raises(ValidationError, match="type"):
+        CONFIGS.validate_python(broker_payload(type="kindle"))
 
 
 @pytest.mark.parametrize("clock_format", ["12h", "24h"])
@@ -74,6 +83,6 @@ def test_config_ignores_env_vars(isolated_cwd, monkeypatch):
     monkeypatch.setenv("GLOWMARKT__ENABLED", "true")
     monkeypatch.setenv("INTERVAL", "99")
     config = make_config()
-    assert config.tfl.stop_ids == []
+    assert config.arrivals.stops == []
     assert config.glowmarkt.enabled is False
     assert config.interval == 15

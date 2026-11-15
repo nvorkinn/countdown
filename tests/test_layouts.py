@@ -6,7 +6,7 @@ import pytest
 from PIL import Image, ImageChops, ImageDraw, ImageOps
 from weather_factory import forecast_json, make_weather
 
-from countdown_api.models import Screen
+from countdown_renderer.rendering.screen import Screen
 from countdown_renderer.api_registry import ClientClasses
 from countdown_renderer.panel import Panel
 from countdown_renderer.glow.energy_panel import EnergyPanel

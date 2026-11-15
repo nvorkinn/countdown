@@ -111,37 +111,14 @@ def test_departures_leave_out_cancelled_terminating_and_gone_ones_soonest_first(
     ]
 
 
-def test_settings_from_an_older_broker_take_the_tfl_stops():
-    config = make_broker_config(tfl={"stop_ids": ["940GZZLUKNG"], "style": "hero"})
-    settings = DeparturesSettings.from_config(config)
-    assert settings.stops == (DepartureStop(source="tfl", id="940GZZLUKNG"),)
-    assert settings.style == "hero"
-
-
-def test_settings_prefer_departures_with_each_stops_source():
+def test_settings_take_the_arrivals_stops_with_each_stops_source():
     config = make_broker_config(
-        tfl={"stop_ids": ["940GZZLUKNG"]},
-        departures={
-            "stops": [{"source": "entur", "id": "NSR:Quay:7333"}, {"source": "tfl", "id": "940GZZLUKNG"}],
-            "style": "card",
-        },
+        arrivals={"stops": [{"source": "entur", "id": "NSR:Quay:7333"}, {"source": "tfl", "id": "940GZZLUKNG"}]},
+        style={"drawing": "card"},
     )
     settings = DeparturesSettings.from_config(config)
     assert [(s.source, s.id) for s in settings.stops] == [("entur", "NSR:Quay:7333"), ("tfl", "940GZZLUKNG")]
     assert (settings.style, settings.stop_ids("tfl")) == ("card", ["940GZZLUKNG"])
-
-
-@pytest.mark.parametrize(
-    "sections",
-    [
-        {"tfl": {"stop_ids": ["940GZZLUKNG"], "style": "classic"}},
-        {"tfl": {"stop_ids": []}, "departures": {"stops": [], "style": "classic"}},
-    ],
-    ids=["tfl", "departures"],
-)
-def test_the_retired_classic_style_is_drawn_as_hero(sections):
-    """The broker may still send classic, which draws as hero."""
-    assert DeparturesSettings.from_config(make_broker_config(**sections)).style == "hero"
 
 
 def test_london_and_oslo_stops_share_one_panel_in_the_owners_order(store):

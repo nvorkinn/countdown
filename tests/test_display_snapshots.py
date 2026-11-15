@@ -4,6 +4,7 @@ Each scenario builds panels from representative data (no HTTP mocking -- see tes
 compares the render against a golden image in tests/images/. See the README for the workflow.
 """
 
+import dataclasses
 import datetime as dt
 import io
 from typing import TYPE_CHECKING
@@ -16,7 +17,6 @@ from weather_factory import forecast_json, make_weather
 
 # `countdown_renderer` must be imported before any of its panel modules, or it's a circular import.
 import countdown_renderer.glow.energy_panel
-from countdown_api.models import Screen
 from countdown_renderer import moment
 from countdown_renderer.api_registry import ClientClasses
 from countdown_renderer.departures.departures_client import DeparturesClient
@@ -29,7 +29,7 @@ from countdown_renderer.notices.notice_board_panel import NoticeBoardPanel
 from countdown_renderer.notices.notice_styles import STYLES as NOTICE_STYLES
 from countdown_renderer.render import _pairing_picture
 from countdown_renderer.rendering import render, stops_fitting
-from countdown_renderer.rendering.screen import DEFAULT_CANVAS, Canvas
+from countdown_renderer.rendering.screen import DEFAULT_CANVAS, Canvas, Screen
 from countdown_renderer.spotify.spotify_client import SpotifyClient
 from countdown_renderer.spotify.spotify_panel import SpotifyPanel
 from countdown_renderer.spotify.spotify_styles import APPLE_MUSIC_LABELS
@@ -1233,7 +1233,7 @@ def test_each_other_layout_on_an_hd_portrait_screen(snapshot, rotation_clock, la
     rotation_clock.at_minute(minute)
     spotify = SpotifyPanel(SPOTIFY_QUEUE, art=_album_art_bytes())
     panels = _panels(_many_route_arrivals(), weather=_forecast_weather(), spotify=spotify, notices=FEW_NOTICES)
-    screen = HD_VERTICAL.model_copy(update={"layout": layout})
+    screen = dataclasses.replace(HD_VERTICAL, layout=layout)
     with moment.drawing_at((_FROZEN_NOW + dt.timedelta(minutes=minute)).replace(tzinfo=dt.UTC)):
         img = draw_screen(panels, screen, EVERYTHING)
     assert img.size == (1404, 1872)

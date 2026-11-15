@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from redis.exceptions import RedisError
 
-from countdown_api.models import ConfigResponse, Glowmarkt
+from countdown_api.models import EpaperConfig, Glowmarkt
 from countdown_renderer.abstract_client import AbstractClient, ClientStatus
 from countdown_renderer.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_renderer.developer.developer_client import DeveloperClient, DeveloperSettings
@@ -15,7 +15,7 @@ from countdown_renderer.glow.glow_client import GlowClient
 from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_renderer.spotify.spotify_client import MusicSettings, SpotifyClient, music_client_class
 from countdown_renderer.style import panel_style
-from countdown_renderer.weather.weather_client import WeatherClient
+from countdown_renderer.weather.weather_client import WeatherClient, WeatherSettings
 from countdown_shared.i18n import N_
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ class ClientClasses(Enum):
 
     NOTICE_BOARD = ("notice_board", NoticeBoardClient)
     GLOWMARKT = ("glowmarkt", GlowClient)
-    # Departures from every source; the name is that of the broker's `tfl` section, which the layouts go by.
+    # Departures from every source (the config's `arrivals`); the layouts know it as tfl.
     TFL = ("tfl", DeparturesClient)
     WEATHER = ("weather", WeatherClient)
     # Spotify, Apple Music or both; AppleMusicClient when it's only Apple Music (see client_class).
@@ -48,11 +48,11 @@ class ClientClasses(Enum):
 API_NAMES = [member.api_name for member in ClientClasses]
 
 
-def section_for(name: str, config: ConfigResponse) -> object:
+def section_for(name: str, config: EpaperConfig) -> object:
     """Return what the API `name` is configured with: its section of the broker's config.
 
-    The departures' is its `departures` section (or, from an older broker, `tfl`). Every panel that has a style gets
-    the config's shared one (see panel_style).
+    The departures' is its `arrivals` section. Every panel that has a style gets the config's (see panel_style), and
+    the weather its design, the style's `weather`.
     """
     if name == ClientClasses.TFL.api_name:
         return DeparturesSettings.from_config(config)
@@ -60,15 +60,15 @@ def section_for(name: str, config: ConfigResponse) -> object:
         return NoticeBoardSettings(
             postcode=config.notice_board.postcode,
             country=config.notice_board.country,
-            style=panel_style(config, config.notice_board.style),
-            parcels=config.parcels is not None and config.parcels.enabled,
+            style=panel_style(config),
+            parcels=config.parcels.enabled,
         )
     if name == ClientClasses.SPOTIFY.api_name:
         return MusicSettings.from_config(config)
     if name == ClientClasses.DEVELOPER.api_name:
-        # The section is optional, and the panel has no style of its own to fall back on.
-        enabled = config.developer is not None and config.developer.enabled
-        return DeveloperSettings(enabled=enabled, style=panel_style(config, "hero"))
+        return DeveloperSettings(enabled=config.developer.enabled, style=panel_style(config))
+    if name == ClientClasses.WEATHER.api_name:
+        return WeatherSettings.from_config(config)
     return getattr(config, name)
 
 
@@ -119,7 +119,7 @@ class ApiRegistry:
     the render's, and the next render builds its own.
     """
 
-    def __init__(self, device_id: str, config: ConfigResponse) -> None:
+    def __init__(self, device_id: str, config: EpaperConfig) -> None:
         """Build a client for every API `config` switches on, each with its section of the config.
 
         `device_id` is handed to every client: the device whose keys they read. A client whose constructor raises is

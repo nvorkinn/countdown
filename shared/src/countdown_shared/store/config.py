@@ -11,8 +11,10 @@ The value is self-contained: a fresh process can draw the screen from it and the
 
 from typing import TYPE_CHECKING
 
+from pydantic import TypeAdapter
+
 from countdown_api.models import ConfigResponse
-from countdown_shared.store import keys, reader
+from countdown_shared.store import keys
 
 if TYPE_CHECKING:
     import redis
@@ -24,7 +26,7 @@ def read(client: redis.Redis, device_id: str) -> ConfigResponse | None:
     Raises RedisError if Redis can't be asked, and pydantic's ValidationError if what's there isn't a config the
     contract allows (a broker on a newer contract that tightened something).
     """
-    return reader.read(client, keys.config(device_id), ConfigResponse)
+    return _parsed(client.get(keys.config(device_id)))
 
 
 def read_text(client: redis.Redis, device_id: str) -> str | None:
@@ -37,6 +39,14 @@ def read_text(client: redis.Redis, device_id: str) -> str | None:
     return value.decode("utf-8") if isinstance(value, bytes) else value
 
 
-def parse(text: str) -> ConfigResponse:
+def parse(text: str | bytes) -> ConfigResponse:
     """Return the config in `text` (read_text). Raises pydantic's ValidationError if it isn't one, as read() does."""
-    return ConfigResponse.model_validate_json(text)
+    return CONFIGS.validate_json(text)
+
+
+# ConfigResponse is a tagged union (an EpaperConfig or a TouchscreenConfig, by `type`), not a model of its own.
+CONFIGS: TypeAdapter[ConfigResponse] = TypeAdapter(ConfigResponse)
+
+
+def _parsed(value: str | bytes | None) -> ConfigResponse | None:
+    return None if value is None else parse(value)

@@ -14,11 +14,13 @@ Plaintext, by decision: any Redis reader on the host can see a live code. Nothin
 
 from typing import TYPE_CHECKING
 
-from countdown_api.models import ConfigResponse
-from countdown_shared.store import keys, reader
+from countdown_shared.store import keys
+from countdown_shared.store.config import parse
 
 if TYPE_CHECKING:
     import redis
+
+    from countdown_api.models import ConfigResponse
 
 
 def read(client: redis.Redis, device_id: str) -> ConfigResponse | None:
@@ -27,5 +29,6 @@ def read(client: redis.Redis, device_id: str) -> ConfigResponse | None:
     A stored config without a code is no code. Raises RedisError if Redis can't be asked, and pydantic's
     ValidationError if what's there isn't a config the contract allows.
     """
-    stored = reader.read(client, keys.pairing(device_id), ConfigResponse)
+    value = client.get(keys.pairing(device_id))
+    stored = None if value is None else parse(value)
     return stored if stored is not None and stored.pairing_code else None

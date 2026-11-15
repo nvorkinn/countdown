@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from PIL import Image
 
-    from countdown_api.models import Screen
+    from countdown_renderer.rendering.screen import Screen
 
 Encoder = Callable[["Image.Image"], bytes]
 

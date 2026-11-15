@@ -19,7 +19,7 @@ from countdown_renderer.abstract_client import AbstractClient
 from countdown_renderer.spotify.spotify_panel import SpotifyPanel
 from countdown_renderer.spotify.spotify_styles import APPLE_MUSIC_LABELS, SPOTIFY_LABELS
 from countdown_renderer.spotify.spotify_top_panel import SpotifyTopPanel
-from countdown_renderer.style import normalise, panel_style
+from countdown_renderer.style import panel_style
 from countdown_shared.i18n import N_
 from countdown_shared.store import keys, reader
 from countdown_shared.store.music import StoredPlayer, StoredTop, TopLists, art_image
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
 
-    from countdown_api.models import ConfigResponse
+    from countdown_api.models import EpaperConfig
     from countdown_renderer.panel import Panel
     from countdown_renderer.spotify.spotify_styles import Labels
     from countdown_renderer.style import Style
@@ -59,16 +59,15 @@ class MusicSettings:
 
     spotify: bool
     apple_music: bool = False
-    style: str = "hero"
+    style: Style = "hero"
 
     @classmethod
-    def from_config(cls, config: ConfigResponse) -> MusicSettings:
-        """Take the switches from the broker's config; Apple Music is off if the config has no section for it."""
-        apple_music = config.apple_music
+    def from_config(cls, config: EpaperConfig) -> MusicSettings:
+        """Take the switches from the broker's config, and its style."""
         return cls(
             spotify=config.spotify.enabled,
-            apple_music=apple_music is not None and apple_music.enabled,
-            style=panel_style(config, config.spotify.style),
+            apple_music=config.apple_music.enabled,
+            style=panel_style(config),
         )
 
     @property
@@ -152,8 +151,8 @@ class SpotifyClient(AbstractClient[MusicSettings]):
 
     @property
     def style(self) -> Style:
-        """The configured style, an older name (classic) mapped onto the shared ones."""
-        return normalise(self.config.style)
+        """The configured style."""
+        return self.config.style
 
     def _update(self) -> Panel:
         """While Spotify is playing, the player, with a short visit from a top list now and then (see TOP_EVERY_S).

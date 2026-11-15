@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any, Protocol, override
 
 from redis.exceptions import RedisError
 
-from countdown_api.models import ConfigResponse, DepartureStop
 from countdown_renderer import rotation
 from countdown_renderer.abstract_client import AbstractClient
 from countdown_renderer.entur.stored_source import StoredEnturSource
@@ -23,6 +22,7 @@ from countdown_shared.i18n import N_
 from countdown_shared.store import reader
 
 if TYPE_CHECKING:
+    from countdown_api.models import DepartureStop, EpaperConfig
     from countdown_renderer.notices.notice import NoticeSource
     from countdown_renderer.panel import Panel
     from countdown_renderer.style import Style
@@ -45,7 +45,7 @@ class StopSource[S](Protocol):
 class DeparturesSettings:
     """What the departures panel is configured with.
 
-    That's the broker's `departures` section, or its `tfl` one when there is none. Compared by value,
+    That's the broker's `arrivals` section, and the config's style. Compared by value,
     so a change makes AbstractClient.needs_refresh rebuild it.
     """
 
@@ -53,12 +53,9 @@ class DeparturesSettings:
     style: Style = "hero"
 
     @classmethod
-    def from_config(cls, config: ConfigResponse) -> DeparturesSettings:
-        """Read the settings from the broker's config, from whichever of its sections it has."""
-        if config.departures is not None:
-            return cls(tuple(config.departures.stops), panel_style(config, config.departures.style))
-        stops = tuple(DepartureStop(source="tfl", id=stop_id) for stop_id in config.tfl.stop_ids)
-        return cls(stops, panel_style(config, config.tfl.style))
+    def from_config(cls, config: EpaperConfig) -> DeparturesSettings:
+        """Read the settings from the broker's config: its arrivals, drawn in its style."""
+        return cls(tuple(config.arrivals.stops), panel_style(config))
 
     def stop_ids(self, source: str) -> list[str]:
         """Return the ids of the stops from one source, in order."""

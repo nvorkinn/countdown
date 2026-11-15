@@ -31,8 +31,8 @@ from countdown_renderer.system_screens.message_panel import MessagePanel
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from countdown_api.models import Screen
     from countdown_renderer.panel import Panel
+    from countdown_renderer.rendering.screen import Screen
     from countdown_renderer.utils.clock import ClockFormat
 
 logger = logging.getLogger(__name__)

@@ -19,13 +19,14 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from redis.exceptions import RedisError
 
+from countdown_api.models import EpaperConfig
 from countdown_renderer import moment
 from countdown_renderer.api_registry import ApiRegistry, ClientClasses
 from countdown_renderer.rendering import layout_for, stops_fitting, to_native
 from countdown_renderer.rendering import render as draw
 from countdown_renderer.rendering.encoding import encode
 from countdown_renderer.rendering.layout import Frame
-from countdown_renderer.rendering.screen import canvas_for
+from countdown_renderer.rendering.screen import canvas_for, screen_of
 from countdown_renderer.system_screens.pairing_code_panel import PairingCodePanel
 from countdown_renderer.utils.scaled_draw import drawing_at
 from countdown_shared.i18n import set_locale
@@ -122,29 +123,31 @@ def render(device_id: str, now: datetime) -> Outcome:
         # The stored config's own text, which the frame's record is written against: not if it has been replaced.
         source = None if pairing_config else _stored_config_text(device_id)
         config = pairing_config or (None if source is None else stored_config.parse(source))
-        if config is None:
+        # The pool draws only e-paper screens (v1:render:screens lists no touchscreen, which draws itself).
+        if not isinstance(config, EpaperConfig):
             return Outcome(Result.NO_CONFIG)
+        screen = screen_of(config)
         _apply_locale(config)
         if config.pairing_code:
             pairing = PairingCodePanel(config.pairing_code, device_id)
-            frame = to_native(Frame(_pairing_picture(pairing, canvas_for(config.screen))), config.screen)
-            data = encode(frame.image, config.screen)
+            frame = to_native(Frame(_pairing_picture(pairing, canvas_for(screen))), screen)
+            data = encode(frame.image, screen)
             return Outcome(_record(device_id, data), Stage.PAIRING, frame, data)
 
         # The clients only read the store, by the device's id: none of them calls the broker.
         registry = ApiRegistry(device_id, config)
         available = registry.available()
-        stops_shown = layout_for(config.screen, available)[0].stops_shown
+        stops_shown = layout_for(screen, available)[0].stops_shown
         registry.show_stops(stops_shown)
         polled = registry.poll()
-        fitting = stops_fitting(registry.panels(polled), config.screen, available)
+        fitting = stops_fitting(registry.panels(polled), screen, available)
         if fitting < stops_shown:
             # The notices took the second row's room: read this minute's page of stops again, a row of them.
             registry.show_stops(fitting)
             polled |= registry.poll(only=ClientClasses.TFL)
-        drawn = draw(registry.panels(polled), config.screen, available, clock_format=config.clock_format)
-        frame = to_native(drawn, config.screen)
-        data = encode(frame.image, config.screen)
+        drawn = draw(registry.panels(polled), screen, available, clock_format=config.clock_format)
+        frame = to_native(drawn, screen)
+        data = encode(frame.image, screen)
         return Outcome(
             _record(device_id, data, drawn_from=source),
             Stage.RUNNING,

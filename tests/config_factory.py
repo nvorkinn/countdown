@@ -1,37 +1,72 @@
+from pydantic import TypeAdapter
+
 from countdown_api import models as wire
+
+CONFIGS = TypeAdapter(wire.ConfigResponse)
 
 
 def broker_payload(**overrides) -> dict:
-    """Build what GET /api/config returns: complete and valid for the broker's contract.
+    """Build an e-paper screen's config as the broker stores it: complete and valid for the contract.
 
     It's built from the generated models, so it can't drift from them. A section given as a dict is merged into the
-    typical one, anything else replaces it, e.g. broker_payload(interval=20, tfl={"stop_ids": ["940GZZLUKNG"]}).
+    typical one, anything else replaces it, e.g. broker_payload(interval=20, arrivals={"stops": [...]}).
     """
-    typical = wire.ConfigResponse(
-        device_id="device-123",
-        interval=15,
-        screen=wire.Screen(orientation="vertical", width=480, height=800, format="mono-1bpp-packed"),
-        weather=wire.Weather(location=""),
-        notice_board=wire.NoticeBoard(postcode=None),
-        tfl=wire.Tfl(stop_ids=[]),
-        spotify=wire.Spotify(enabled=False),
-        glowmarkt=wire.Glowmarkt(enabled=False),
+    typical = wire.EpaperConfig(
+        device_id="a1b2c3d4e5f6",
+        type="epaper",
+        width=480,
+        height=800,
+        format="mono-1bpp-packed",
         pairing_code=None,
+        interval=15,
+        clock_format="24h",
+        language="en",
+        timezone="Europe/London",
+        arrivals=wire.Arrivals(stops=[]),
+        weather=wire.Weather(location="", key=None),
+        notice_board=wire.NoticeBoard(postcode=None, country=None),
+        spotify=wire.Spotify(enabled=False),
+        apple_music=wire.AppleMusic(enabled=False),
+        glowmarkt=wire.Glowmarkt(enabled=False),
+        developer=wire.Developer(enabled=False),
+        parcels=wire.Parcels(enabled=False),
+        style=wire.EpaperStyle(orientation="vertical", drawing="hero", weather="columns", layout=None),
     ).model_dump(mode="json")
+    # The contract ignores fields it doesn't list, so a misspelt or retired one would be dropped without a word.
+    unknown = [name for name in overrides if name not in typical] + [
+        f"{name}.{field}"
+        for name, value in overrides.items()
+        if isinstance(value, dict) and isinstance(typical.get(name), dict)
+        for field in value
+        if field not in typical[name]
+    ]
+    if unknown:
+        msg = f"not in the config: {', '.join(unknown)}"
+        raise TypeError(msg)
     return typical | {
         name: typical[name] | value if isinstance(value, dict) and isinstance(typical.get(name), dict) else value
         for name, value in overrides.items()
     }
 
 
-def make_config(**overrides) -> wire.ConfigResponse:
-    """Build a complete, typical config, as the app gets it from the broker.
+def make_config(**overrides) -> wire.EpaperConfig:
+    """Build a complete, typical e-paper screen's config, as the render pool reads it from the store.
 
-    Sections are overridden as for broker_payload, e.g. make_config(tfl={"stop_ids": ["940GZZLUKNG"]}).
+    Sections are overridden as for broker_payload, e.g. make_config(style={"orientation": "horizontal"}).
     """
-    return wire.ConfigResponse.model_validate(broker_payload(**overrides))
+    return wire.EpaperConfig.model_validate(broker_payload(**overrides))
 
 
-def with_apple_music(config: wire.ConfigResponse) -> wire.ConfigResponse:
+def stops(*ids: str) -> dict:
+    """Return an arrivals section of TfL stops (an NSR: id is Entur's), for make_config(arrivals=...)."""
+    return {"stops": [{"source": "entur" if id_.startswith("NSR:") else "tfl", "id": id_} for id_ in ids]}
+
+
+def with_apple_music(config: wire.EpaperConfig) -> wire.EpaperConfig:
     """Return `config` with Apple Music switched on too."""
     return config.model_copy(update={"apple_music": wire.AppleMusic(enabled=True)})
+
+
+def set_stops(config: wire.EpaperConfig, ids: list[str]) -> None:
+    """Set `config`'s arrivals to the stops `ids`, as stops() makes them."""
+    config.arrivals = wire.Arrivals.model_validate(stops(*ids))

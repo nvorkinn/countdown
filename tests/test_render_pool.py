@@ -40,8 +40,10 @@ NOW = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
 EVERY_PANEL = fixtures.load("config_store.json")["value"]
 STOP_CONFIG = {
     **EVERY_PANEL,
-    "screen": {"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"},
-    "tfl": {"stop_ids": ["490000123W"]},
+    "width": 800,
+    "height": 480,
+    "style": EVERY_PANEL["style"] | {"orientation": "horizontal"},
+    "arrivals": {"stops": [{"source": "tfl", "id": "490000123W"}]},
 }
 
 pytestmark = pytest.mark.usefixtures("symbols_font")
@@ -443,7 +445,7 @@ def test_the_worker_console_script_renders_a_pooled_screen_on_a_real_redis(redis
     client = redis.Redis.from_url(redis_server, password="pw", decode_responses=True)
     client.flushall()
     # Nothing set up but the clock: drawn with the fonts the package ships, so it needs no download.
-    client.set(keys.config(DEVICE), json.dumps({**EVERY_PANEL, "tfl": {"stop_ids": []}}))
+    client.set(keys.config(DEVICE), json.dumps({**EVERY_PANEL, "arrivals": {"stops": []}}))
     client.hset(keys.RENDER_SCREENS, DEVICE, SLUG)
     render_queue.enqueue(client, DEVICE)
     render_queue.enqueue(client, "0f9e8d7c6b5a")  # not pooled: dropped

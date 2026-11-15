@@ -9,6 +9,7 @@ import json
 
 import pytest
 from config_factory import make_config
+from config_factory import stops as stop_refs
 from conftest import ROTATION_START
 from test_utils import TEST_DEVICE_ID, put_departures
 from weather_factory import forecast_json
@@ -124,8 +125,10 @@ def _fill(store) -> None:
 
 def _config(stops: list[str] = STOPS):
     return make_config(
-        screen={"orientation": "horizontal", "width": 800, "height": 480, "format": "mono-1bpp-packed"},
-        tfl={"stop_ids": stops},
+        width=800,
+        height=480,
+        style={"orientation": "horizontal"},
+        arrivals=stop_refs(*stops),
         weather={"location": "London"},
         glowmarkt={"enabled": True},
         spotify={"enabled": True},
