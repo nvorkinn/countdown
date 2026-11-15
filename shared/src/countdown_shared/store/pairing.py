@@ -14,16 +14,15 @@ Plaintext, by decision: any Redis reader on the host can see a live code. Nothin
 
 from typing import TYPE_CHECKING
 
+from countdown_api.models import EpaperConfig
 from countdown_shared.store import keys
 from countdown_shared.store.config import parse
 
 if TYPE_CHECKING:
     import redis
 
-    from countdown_api.models import ConfigResponse
 
-
-def read(client: redis.Redis, device_id: str) -> ConfigResponse | None:
+def read(client: redis.Redis, device_id: str) -> EpaperConfig | None:
     """Return the device's config with the code it's to show, or None if it has no live code.
 
     A stored config without a code is no code. Raises RedisError if Redis can't be asked, and pydantic's
@@ -31,4 +30,5 @@ def read(client: redis.Redis, device_id: str) -> ConfigResponse | None:
     """
     value = client.get(keys.pairing(device_id))
     stored = None if value is None else parse(value)
-    return stored if stored is not None and stored.pairing_code else None
+    # Only an e-paper screen shows a code: a touchscreen is paired by token, and its config has no pairing_code.
+    return stored if isinstance(stored, EpaperConfig) and stored.pairing_code else None
