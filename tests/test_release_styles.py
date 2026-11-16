@@ -17,7 +17,7 @@ def _job(key, *needs, state="done"):
 
 def _release(state, *jobs):
     return Release(
-        repo="auth-broker",
+        repo="countdown-server",
         title="v1.27.0",
         state=state,
         started=NOW - timedelta(minutes=6),

@@ -353,7 +353,7 @@ def test_in_brief_has_the_song_and_whats_next_but_not_spotifys_message():
 def test_in_brief_has_the_pull_requests_and_the_builds():
     assert developer_section(DeveloperPanel(DEVELOPER_SUMMARY), 174) == (
         "At the workshop",
-        ["3 open PRs, 1 to review", "auth-broker failing"],
+        ["3 open PRs, 1 to review", "countdown-server failing"],
     )
     no_github = DeveloperPanel(DEVELOPER_SUMMARY.model_copy(update={"github": None}))
     heading, lines = developer_section(no_github, 174)

@@ -839,7 +839,7 @@ def test_clock_preference_does_not_leak_between_controllers_sharing_layouts_and_
 
 
 DEVELOPER_SUMMARY = DeveloperSummary(
-    github=GitHubSummary(login="nvorkinn", repos=9, open_prs=3, review_requests=1, failing=["auth-broker"]),
+    github=GitHubSummary(login="nvorkinn", repos=9, open_prs=3, review_requests=1, failing=["countdown-server"]),
     plans=[
         AiPlan(name="Copilot", plan="Pro", renews=dt.date(2026, 11, 1), used=212, limit=300),
         AiPlan(name="Claude", plan="Max", renews=dt.date(2026, 11, 3)),
@@ -964,7 +964,7 @@ def _release(name, state, minutes, jobs, *, finished=None):
 
 # countdown-server's Release four minutes in: the images building, deploy-authentik waiting for approval.
 AUTH_BROKER_RELEASE = _release(
-    "auth-broker v1.27.0",
+    "countdown-server v1.27.0",
     "running",
     4,
     [
@@ -1025,7 +1025,7 @@ def _release_panels(style):
     panel = DeveloperPanel(_with_releases(AUTH_BROKER_RELEASE), style, now=RELEASE_NOW)
     notices = NoticeBoardPanel(
         [
-            Notice("GitHub", Severity.REMINDER, "auth-broker v1.27.0: deploy-authentik waiting for your approval"),
+            Notice("GitHub", Severity.REMINDER, "countdown-server v1.27.0: deploy-authentik waiting for your approval"),
             FEW_NOTICES.notices[0],
         ],
         style,
