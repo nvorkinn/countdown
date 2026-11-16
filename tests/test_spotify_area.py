@@ -85,7 +85,7 @@ def test_the_developer_panel_alone_gets_the_layout_with_spotifys_area():
 def test_a_release_above_spotify_is_a_taller_strip():
     """Its jobs in a row, under its name."""
     release = Release(
-        repo="auth-broker",
+        repo="countdown-server",
         title="v1.27.0",
         state="running",
         started=dt.datetime(2026, 10, 17, 9, 0, tzinfo=dt.UTC),

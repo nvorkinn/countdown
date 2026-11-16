@@ -12,7 +12,8 @@ Four cases were re-recorded from render() when the music area began folding away
 the notices' place stopped taking all their room): the player's two cases now have Spotify's position, so the track is
 playing (with its progress bar); the top lists' case is on a minute they visit; the expired case has no music area.
 Two more (the Norwegian case and the portrait card strip) were re-recorded when the notices' bullets went, their
-rows became a table and the severity icon moved to the start of the text.
+rows became a table and the severity icon moved to the start of the text. The two cases with the developer panel were
+re-recorded when its failing repo took countdown-server's name, the old one being long gone.
 
 The rest: what an Outcome says, that a render sleeps, loops and threads not at all, and that a store that can't be read
 fails the render and writes nothing.

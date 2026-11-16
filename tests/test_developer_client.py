@@ -26,7 +26,7 @@ KEY = keys.developer("a1b2c3d4e5f6")
 BROKER_URL = "https://broker.example.com"
 
 ANSWER = {
-    "github": {"login": "nvorkinn", "repos": 9, "open_prs": 3, "review_requests": 1, "failing": ["auth-broker"]},
+    "github": {"login": "nvorkinn", "repos": 9, "open_prs": 3, "review_requests": 1, "failing": ["countdown-server"]},
     "plans": [
         {"name": "Copilot", "plan": "Pro", "renews": "2026-11-01", "used": 280, "limit": 300},
         {"name": "Claude", "plan": "Max", "renews": "2026-10-18", "used": None, "limit": None},
@@ -55,7 +55,7 @@ def test_update_draws_the_stored_panel_in_the_configured_style(client, store):
 
     assert isinstance(panel, DeveloperPanel)
     assert panel.style == "card"
-    assert panel.summary.github.failing == ["auth-broker"]
+    assert panel.summary.github.failing == ["countdown-server"]
     assert panel.summary.plans[0].renews == dt.date(2026, 11, 1)
     assert len(responses.calls) == 0
 
@@ -157,7 +157,7 @@ def test_notices_for_failing_builds_renewals_and_a_plan_nearly_used_up(client, s
     notices = [(n.source, n.severity, n.text) for n in source.fetch(NOW)]
 
     assert notices == [
-        ("GitHub", Severity.WARNING, "auth-broker: build failing"),
+        ("GitHub", Severity.WARNING, "countdown-server: build failing"),
         ("Copilot", Severity.INFO, "93% of Pro used"),
         ("Claude", Severity.REMINDER, "Max renews tomorrow"),
         ("Gemini", Severity.REMINDER, "AI Pro renews today"),
@@ -198,7 +198,7 @@ def test_share_used(used, limit, share):
 
 def _release(state="running", jobs=None, **fields):
     return {
-        "repo": "auth-broker",
+        "repo": "countdown-server",
         "title": "v1.27.0",
         "state": state,
         "started": "2026-10-17T10:56:00Z",
@@ -247,8 +247,8 @@ def test_notices_for_a_release_failed_and_one_waiting_for_approval(client, store
     notices = [(n.severity, n.text) for n in source.fetch(NOW) if n.source == "GitHub"]
 
     assert notices == [
-        (Severity.WARNING, "auth-broker: build failing"),
-        (Severity.REMINDER, "auth-broker v1.27.0: deploy-authentik waiting for your approval"),
+        (Severity.WARNING, "countdown-server: build failing"),
+        (Severity.REMINDER, "countdown-server v1.27.0: deploy-authentik waiting for your approval"),
         (Severity.WARNING, "countdown v2.14.0: release failed"),
     ]
 
