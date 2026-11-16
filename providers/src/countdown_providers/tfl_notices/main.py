@@ -56,7 +56,7 @@ class TflLineStatusProvider:
     """The status of the lines serving each TfL stop, from one request for every line the stops share."""
 
     name = keys.TFL
-    ttl_s = 10 * 60
+    ttl_s = keys.TFL_LINE_STATUS_TTL_S
     interval_s = 2 * 60
     batch_size = EVERY_ID
 
@@ -128,7 +128,7 @@ class TflStationProvider:
     """What's wrong at each TfL stop (lifts out of order, closed entrances...), a request per stop."""
 
     name = keys.TFL
-    ttl_s = 30 * 60
+    ttl_s = keys.TFL_STATIONS_TTL_S
     interval_s = 5 * 60
 
     def __init__(self, tfl: TflSource, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
@@ -161,7 +161,7 @@ class TflRoadProvider:
     """The serious and severe road disruptions near each UK postcode, from one request for all of London's."""
 
     name = keys.POSTCODE
-    ttl_s = 30 * 60
+    ttl_s = keys.TFL_ROADS_TTL_S
     interval_s = 5 * 60
     batch_size = EVERY_ID
     # A cycle as soon as provider-locations places a new postcode (or moves one), not at the next tick.

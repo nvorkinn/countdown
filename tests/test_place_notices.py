@@ -123,7 +123,7 @@ def run_cycle(redis, *providers) -> None:
 def board_shows(renderer, monkeypatch) -> dict:
     """Return what the notice board shows for each postcode, at NOW, with the other notices as when it was recorded."""
     gov_uk = json.loads((FIXTURES / "bank_holidays.json").read_text(encoding="utf-8"))
-    renderer.set(keys.bank_holidays(), StoredBankHolidays(fetched_at=NOW, divisions=gov_uk).model_dump_json())
+    renderer.set(keys.BANK_HOLIDAYS, StoredBankHolidays(fetched_at=NOW, divisions=gov_uk).model_dump_json())
     metalerts = json.loads((FIXTURES / "metalerts_current.json").read_text(encoding="utf-8"))
     renderer.set(keys.metalerts(), StoredMetAlerts.model_validate(metalerts).model_dump_json())
 

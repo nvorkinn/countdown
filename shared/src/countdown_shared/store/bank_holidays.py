@@ -1,4 +1,4 @@
-"""gov.uk's bank holidays in the store: the value of `v1:notices:bank-holidays` (keys.bank_holidays).
+"""gov.uk's bank holidays in the store: the value of `v1:notices:bank-holidays` (keys.BANK_HOLIDAYS).
 
 gov.uk publishes one small file for all of the UK (https://www.gov.uk/bank-holidays.json), every division's holidays
 from a few years back to a year or so ahead. The bank holidays provider (countdown-providers) downloads it a few times a

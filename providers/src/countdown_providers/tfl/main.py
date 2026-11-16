@@ -56,7 +56,7 @@ class TflProvider:
     """Departures for TfL stops. Each stop is looked up once (its name and kind don't change), then only polled."""
 
     name = keys.TFL
-    ttl_s = 120
+    ttl_s = keys.DEPARTURES_TTL_S
     interval_s = 30
 
     def __init__(self, source: TflSource, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:

@@ -476,7 +476,7 @@ def test_board_logs_that_it_placed_the_postcode_but_not_where(store, clock, capl
 
 def test_board_with_an_unknown_postcode_says_so(store, clock, caplog):
     put_location(store, "ZZ1 1ZZ", None)
-    store.set(keys.bank_holidays(), StoredBankHolidays(fetched_at=NOW, divisions=BANK_HOLIDAYS).model_dump_json())
+    store.set(keys.BANK_HOLIDAYS, StoredBankHolidays(fetched_at=NOW, divisions=BANK_HOLIDAYS).model_dump_json())
     client = NoticeBoardClient(TEST_DEVICE_ID, board_settings(postcode="ZZ1 1ZZ"))
 
     with caplog.at_level("WARNING", logger="countdown_renderer.notices.notice_board_client"):

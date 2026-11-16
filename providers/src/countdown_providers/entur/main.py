@@ -59,7 +59,7 @@ class EnturProvider:
     """Departures for Entur stops. Each stop is looked up once (its name and modes don't change), then only polled."""
 
     name = keys.ENTUR
-    ttl_s = 120
+    ttl_s = keys.DEPARTURES_TTL_S
     # As the TfL provider: well inside Entur's limits (see above), and twice as often as the pool draws a screen.
     interval_s = 30
 
