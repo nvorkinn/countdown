@@ -33,7 +33,7 @@ TUBE_STATION = MetroStopPoint.model_validate(
 )
 
 
-def bus(line, destination, seconds):
+def bus(line, destination, seconds, vehicle_id=None):
     return BusArrival.model_validate(
         {
             "naptanId": BUS_STOP.naptan_id,
@@ -41,11 +41,12 @@ def bus(line, destination, seconds):
             "timeToStation": seconds,
             "modeName": "bus",
             "destinationName": destination,
+            "vehicleId": vehicle_id,
         }
     )
 
 
-def train(towards, seconds, destination_naptan_id=None):
+def train(towards, seconds, destination_naptan_id=None, vehicle_id=None, platform_name=None):
     return TubeArrival.model_validate(
         {
             "naptanId": TUBE_STATION.naptan_id,
@@ -54,6 +55,8 @@ def train(towards, seconds, destination_naptan_id=None):
             "modeName": "tube",
             "towards": towards,
             "destinationNaptanId": destination_naptan_id,
+            "vehicleId": vehicle_id,
+            "platformName": platform_name,
         }
     )
 
@@ -67,7 +70,9 @@ def make_provider(stops):
 
 def test_bus_stop_maps_to_stop_departures_soonest_first():
     stored = to_stop_departures(
-        BUS_STOP, [bus("12", "Oxford Circus, Regent Street", 300), bus("171", "Elephant & Castle", 60)], NOW
+        BUS_STOP,
+        [bus("12", "Oxford Circus, Regent Street", 300, "LX11AVC"), bus("171", "Elephant & Castle", 60, "LTZ1234")],
+        NOW,
     )
     assert stored == StopDepartures(
         fetched_at=NOW,
@@ -76,9 +81,19 @@ def test_bus_stop_maps_to_stop_departures_soonest_first():
         mode="bus",
         stop_letter="W",
         departures=[
-            Departure(line="171", destination="Elephant & Castle", expected_at=NOW + timedelta(seconds=60)),
-            # TfL's model has already trimmed the destination at the comma.
-            Departure(line="12", destination="Oxford Circus", expected_at=NOW + timedelta(seconds=300)),
+            Departure(
+                line="171",
+                destination="Elephant & Castle",
+                expected_at=NOW + timedelta(seconds=60),
+                vehicle_id="LTZ1234",
+            ),
+            # TfL's model has already trimmed the destination at the comma. A bus has no platform.
+            Departure(
+                line="12",
+                destination="Oxford Circus",
+                expected_at=NOW + timedelta(seconds=300),
+                vehicle_id="LX11AVC",
+            ),
         ],
     )
 
@@ -92,6 +107,18 @@ def test_tube_station_uses_towards_and_drops_trains_terminating_there():
     assert stored.mode == "tube"
     assert stored.stop_letter is None
     assert [(d.destination, d.time_to_station(NOW)) for d in stored.departures] == [("Morden", 120)]
+
+
+def test_a_train_keeps_its_platform_and_vehicle_and_a_missing_id_is_none():
+    stored = to_stop_departures(
+        TUBE_STATION,
+        [
+            train("Morden", 120, vehicle_id="031", platform_name="Southbound - Platform 2"),
+            train("Edgware via Bank", 240, vehicle_id=""),
+        ],
+        NOW,
+    )
+    assert [(d.vehicle_id, d.platform) for d in stored.departures] == [("031", "Southbound - Platform 2"), (None, None)]
 
 
 def test_stop_with_nothing_due_still_maps():
