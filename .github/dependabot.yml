@@ -44,8 +44,9 @@ updates:
     directory: "/renderer/deploy"
     schedule:
       interval: "weekly"
-  # api: a new commit of the store contract shows up as a PR.
+  # api: a new commit of the store contract shows up as a PR. Daily, as CI and the release use only the commit `api`
+  # records, so this PR is how a new contract arrives.
   - package-ecosystem: "gitsubmodule"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "daily"

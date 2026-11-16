@@ -43,8 +43,9 @@ jobs:
         with:
           # The release's own compose files and deploy.sh, whatever ref asked for the deploy (a promotion runs from main).
           ref: refs/tags/${{ inputs.tag }}
-      - name: Pull latest API Contract submodule
-        run: git submodule update --init --remote
+      # The store contract at the commit this one records, not countdown-api's main: what's tested is what's released.
+      - name: Check out the API contract submodule
+        run: git submodule update --init
       - name: Join the tailnet
         # Only for a host reachable over Tailscale alone (dev, on the home server): the environment's variables are empty
         # for prod, a public host. Federated identity: GitHub's OIDC token for this job's environment, no secret.
