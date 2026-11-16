@@ -89,8 +89,9 @@ git submodule update --remote api
 git add api && git commit
 ```
 
-A fresh checkout gets the recorded commit. CI and the release run `git submodule update --init --remote` first, so they
-use countdown-api's `main`. A release stamps its version on every workspace package, countdown-api included, and the
+A fresh checkout gets the recorded commit, and so do CI, the release and the deploy (`git submodule update --init`):
+what a PR's tests ran against is what ships, and a new contract arrives as a PR that moves `api` (Dependabot's, daily),
+whose tests say whether this side keeps up with it. A release stamps its version on every workspace package, countdown-api included, and the
 images install only these wheels, never an index.
 
 ## Running a worker in development
