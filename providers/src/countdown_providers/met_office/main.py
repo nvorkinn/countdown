@@ -69,7 +69,7 @@ class MetOfficeProvider:
 
     name = keys.POSTCODE
     # Six cycles: a provider that's down shows as missing warnings within half an hour, not as old ones.
-    ttl_s = 30 * 60
+    ttl_s = keys.MET_OFFICE_TTL_S
     # Warnings are issued hours ahead and change rarely.
     interval_s = 5 * 60
     # A cycle as soon as provider-locations places a new postcode (or moves one), not at the next tick.

@@ -77,7 +77,7 @@ def bank_holiday_notices(events: Iterable[BankHoliday], now: datetime) -> list[N
 class StoredBankHolidaySource(NoticeSource):
     """The next bank holiday for the device's part of the UK, once it's less than a month away, from the store.
 
-    England and Wales unless the postcode says otherwise. gov.uk's list is in the store (keys.bank_holidays, written by
+    England and Wales unless the postcode says otherwise. gov.uk's list is in the store (keys.BANK_HOLIDAYS, written by
     the bank holidays provider for all of the UK); each poll reads it and works the notice out afresh, so "Tomorrow",
     the date and the translations are as of drawing.
     """
@@ -97,7 +97,7 @@ class StoredBankHolidaySource(NoticeSource):
         StoreNotConfiguredError without a store. The store is asked for here, not when the board is built, so a
         renderer without one still has its board.
         """
-        stored = reader.read(reader.require_store(), keys.bank_holidays(), StoredBankHolidays)
+        stored = reader.read(reader.require_store(), keys.BANK_HOLIDAYS, StoredBankHolidays)
         division = stored.divisions.get(self.division) if stored is not None else None
         if division is None:
             msg = f"The store has no bank holidays for {self.division} (is provider-bank-holidays running?)"

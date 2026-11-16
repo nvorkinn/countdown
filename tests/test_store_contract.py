@@ -13,15 +13,29 @@ from datetime import datetime
 
 import fakeredis
 import pytest
+import requests
 from config_factory import CONFIGS
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
 from countdown_api import fixtures, models, scripts
 from countdown_api import keys as contract_keys
+from countdown_providers.bank_holidays.main import BankHolidaysProvider
+from countdown_providers.entur.main import EnturProvider
+from countdown_providers.locations.reader import LocationReader
+from countdown_providers.met_office.main import MetOfficeProvider
 from countdown_providers.runner import PACE_TTL_S, ProviderRunner
+from countdown_providers.tfl.main import TflProvider
+from countdown_providers.tfl_notices.main import TflLineStatusProvider, TflRoadProvider, TflStationProvider
+from countdown_providers.weather.main import WeatherProvider
+from countdown_shared.entur.entur_source import EnturSource
 from countdown_shared.store import config, developer, frame_record, keys, pairing, parcels, reader, render_queue
+from countdown_shared.store.bank_holidays import StoredBankHolidays
 from countdown_shared.store.energy import StoredEnergy
+from countdown_shared.store.met_office import StoredMetOfficeWarnings
+from countdown_shared.store.models import StopDepartures, StoredForecast
 from countdown_shared.store.music import StoredPlayer, StoredTop
+from countdown_shared.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
+from countdown_shared.tfl.tfl_client import TflSource
 
 CONFIG = fixtures.load("config_store.json")
 PAIRING = fixtures.load("pairing_key.json")
@@ -46,8 +60,15 @@ def test_the_keys_that_cross_are_the_contracts():
         "developer",
         "parcels",
         "pace",
+        "departures",
+        "weather",
+        "tfl_line_status",
+        "tfl_stations",
+        "tfl_roads",
+        "met_office",
     ):
         assert getattr(keys, name) is getattr(contract_keys, name)
+    assert keys.BANK_HOLIDAYS == contract_keys.BANK_HOLIDAYS
     assert (keys.SUB_CHANGED, keys.RENDER_JOBS, keys.RENDER_SCREENS) == (
         contract_keys.SUB_CHANGED,
         contract_keys.RENDER_JOBS,
@@ -200,3 +221,76 @@ def test_a_provider_writes_its_pace_as_the_broker_reads_it():
     key = contract_keys.pace(keys.DEVELOPER, device_id)
     assert asyncio.run(redis.get(key)) == "20"
     assert 0 < asyncio.run(redis.ttl(key)) <= contract_keys.PACE_TTL_S
+
+
+# --- what this side's providers write, read by the broker --------------------------------------------------------
+#
+# countdown's own models are richer than the contract's (methods, TfL's and Open-Meteo's typed models), so they aren't
+# the contract's; but each reads the contract's example and dumps it back unchanged, so what a provider writes is
+# exactly what the example shows. And each provider writes it under the example's key, with its TTL.
+
+SESSION = requests.Session()
+LOCATIONS = LocationReader(fakeredis.FakeAsyncRedis())
+TFL = TflProvider(TflSource(SESSION))
+ENTUR = EnturProvider(EnturSource(SESSION))
+DEPARTURES = fixtures.load("departures.json")
+WEATHER = fixtures.load("weather.json")
+TFL_NOTICES = fixtures.load("tfl_notices.json")
+MET_OFFICE = fixtures.load("met_office.json")
+BANK_HOLIDAYS = fixtures.load("bank_holidays.json")
+
+
+def assert_round_trips[M: BaseModel](model: type[M], value: dict) -> M:
+    """Read the example's `value` as `model`, and check it dumps back to the same JSON."""
+    stored = model.model_validate_json(json.dumps(value))
+    assert json.loads(stored.model_dump_json()) == value
+    return stored
+
+
+@pytest.mark.parametrize("stop", DEPARTURES["stops"], ids=[stop["key"] for stop in DEPARTURES["stops"]])
+def test_the_departures_providers_write_the_contracts_departures(stop):
+    stored = assert_round_trips(StopDepartures, stop["value"])
+
+    provider = ENTUR if stored.stop_id.startswith("NSR:") else TFL
+    assert provider.output_key(stored.stop_id) == stop["key"]
+    assert provider.ttl_s == DEPARTURES["ttl_s"]
+
+
+def test_the_weather_provider_writes_the_contracts_forecast():
+    assert_round_trips(StoredForecast, WEATHER["value"])
+
+    provider = WeatherProvider(SESSION, LOCATIONS)
+    assert provider.output_key(WEATHER["weather_key"]) == WEATHER["key"]
+    assert provider.ttl_s == WEATHER["ttl_s"]
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "provider", "item"),
+    [
+        ("lines", StoredLineStatus, TflLineStatusProvider(TflSource(SESSION)), "stop_id"),
+        ("stations", StoredStationDisruptions, TflStationProvider(TflSource(SESSION)), "stop_id"),
+        ("roads", StoredRoadDisruptions, TflRoadProvider(TflSource(SESSION), LOCATIONS), "postcode"),
+    ],
+)
+def test_the_tfl_notices_providers_write_the_contracts_notices(name, model, provider, item):
+    example = TFL_NOTICES[name]
+    assert_round_trips(model, example["value"])
+
+    assert provider.output_key(TFL_NOTICES[item]) == example["key"]
+    assert provider.ttl_s == example["ttl_s"]
+
+
+def test_the_met_office_provider_writes_the_contracts_warnings():
+    assert_round_trips(StoredMetOfficeWarnings, MET_OFFICE["value"])
+
+    provider = MetOfficeProvider(SESSION, LOCATIONS)
+    assert provider.output_key(MET_OFFICE["postcode"]) == MET_OFFICE["key"]
+    assert provider.ttl_s == MET_OFFICE["ttl_s"]
+
+
+def test_the_bank_holidays_provider_writes_the_contracts_bank_holidays():
+    assert_round_trips(StoredBankHolidays, BANK_HOLIDAYS["value"])
+
+    provider = BankHolidaysProvider(SESSION)
+    assert provider.output_key(provider.fixed_ids[0]) == BANK_HOLIDAYS["key"]
+    assert provider.ttl_s == BANK_HOLIDAYS["ttl_s"]

@@ -42,7 +42,7 @@ class BankHolidaysProvider:
     name = "bank-holidays"
     fixed_ids = (UK,)
     # A week: the list runs a year or so ahead, so a copy days old shows the same notices as a new one.
-    ttl_s = 7 * 24 * 60 * 60
+    ttl_s = keys.BANK_HOLIDAYS_TTL_S
     # A few times a day, for a file that changes a few times a year (next year's dates, a one-off holiday).
     interval_s = 6 * 60 * 60
 
@@ -53,7 +53,7 @@ class BankHolidaysProvider:
 
     def output_key(self, item_id: str) -> str:  # noqa: ARG002 -- one key for its one id
         """Write to `v1:notices:bank-holidays`."""
-        return keys.bank_holidays()
+        return keys.BANK_HOLIDAYS
 
     async def fetch(self, ids: list[str]) -> dict[str, StoredBankHolidays]:
         """Fetch gov.uk's file, if `ids` has UK. Raises if gov.uk can't be reached or read, keeping the stored one."""

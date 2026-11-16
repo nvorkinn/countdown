@@ -54,14 +54,14 @@ def provide(server, *, status: int = 200, answer: dict = GOV_UK) -> int:
 
 
 def stored(server) -> StoredBankHolidays | None:
-    return reader.read(fakeredis.FakeRedis(server=server), keys.bank_holidays(), StoredBankHolidays)
+    return reader.read(fakeredis.FakeRedis(server=server), keys.BANK_HOLIDAYS, StoredBankHolidays)
 
 
 # --- The provider -----------------------------------------------------------------------------------------------------
 
 
 def test_the_key_is_one_for_all_of_the_uk():
-    assert keys.bank_holidays() == "v1:notices:bank-holidays"
+    assert keys.BANK_HOLIDAYS == "v1:notices:bank-holidays"
     assert BankHolidaysProvider(requests.Session()).output_key(UK) == "v1:notices:bank-holidays"
 
 
@@ -93,7 +93,7 @@ def test_the_runner_writes_it_with_nothing_subscribed_and_keeps_it_for_days(serv
     redis = fakeredis.FakeRedis(server=server)
     assert redis.keys(f"{keys.PREFIX}:sub:*") == []  # nothing asked for it
     assert stored(server).fetched_at == FETCHED_AT
-    assert timedelta(days=2) < timedelta(seconds=redis.ttl(keys.bank_holidays())) <= timedelta(seconds=provider.ttl_s)
+    assert timedelta(days=2) < timedelta(seconds=redis.ttl(keys.BANK_HOLIDAYS)) <= timedelta(seconds=provider.ttl_s)
     # A few times a day, and kept through many failed fetches in a row.
     assert 2 <= timedelta(days=1) / timedelta(seconds=provider.interval_s) <= 6
     assert provider.ttl_s >= 10 * provider.interval_s
@@ -101,21 +101,21 @@ def test_the_runner_writes_it_with_nothing_subscribed_and_keeps_it_for_days(serv
 
 def test_a_gov_uk_outage_keeps_the_stored_holidays(server, caplog):
     provide(server)
-    before = fakeredis.FakeRedis(server=server).get(keys.bank_holidays())
+    before = fakeredis.FakeRedis(server=server).get(keys.BANK_HOLIDAYS)
 
     assert provide(server, status=503) == 0
 
-    assert fakeredis.FakeRedis(server=server).get(keys.bank_holidays()) == before
+    assert fakeredis.FakeRedis(server=server).get(keys.BANK_HOLIDAYS) == before
     assert "bank-holidays: couldn't fetch 1 ids" in caplog.text
 
 
 def test_an_answer_missing_a_division_is_not_stored(server):
     provide(server)
-    before = fakeredis.FakeRedis(server=server).get(keys.bank_holidays())
+    before = fakeredis.FakeRedis(server=server).get(keys.BANK_HOLIDAYS)
 
     assert provide(server, answer={"england-and-wales": GOV_UK["england-and-wales"]}) == 0
 
-    assert fakeredis.FakeRedis(server=server).get(keys.bank_holidays()) == before
+    assert fakeredis.FakeRedis(server=server).get(keys.BANK_HOLIDAYS) == before
 
 
 # --- The board's source ---------------------------------------------
@@ -218,7 +218,7 @@ def test_no_stored_holidays_is_a_no_stored_data_error_so_the_board_leaves_them_o
 
 def test_stored_holidays_without_the_division_are_a_lookup_error(server):
     holidays = StoredBankHolidays(fetched_at=FETCHED_AT, divisions={"scotland": GOV_UK["scotland"]})
-    fakeredis.FakeRedis(server=server).set(keys.bank_holidays(), holidays.model_dump_json())
+    fakeredis.FakeRedis(server=server).set(keys.BANK_HOLIDAYS, holidays.model_dump_json())
 
     with pytest.raises(NoStoredBankHolidaysError, match="england-and-wales"):
         StoredBankHolidaySource().fetch(datetime(2026, 12, 24, 12, tzinfo=UTC))
@@ -249,7 +249,7 @@ def test_the_board_drops_the_bank_holiday_once_its_key_has_expired(server, monke
     [notice] = asyncio.run(client.update()).notices
     assert notice.text == "Tomorrow: Christmas Day"
 
-    fakeredis.FakeRedis(server=server).delete(keys.bank_holidays())  # the provider's been down for a week
+    fakeredis.FakeRedis(server=server).delete(keys.BANK_HOLIDAYS)  # the provider's been down for a week
     now += timedelta(minutes=1)
 
     # Its only source with data to read has none, so "All clear" would be a guess.

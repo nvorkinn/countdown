@@ -390,7 +390,7 @@ def test_urllib3s_retry_warnings_which_quote_the_postcodes_url_are_kept_out(
 def fill_notices(store, postcode: str, now: datetime) -> None:
     """Store the notices the providers would have, as when locations_board.json was recorded."""
     gov_uk = json.loads((FIXTURES / "bank_holidays.json").read_text(encoding="utf-8"))
-    store.set(keys.bank_holidays(), StoredBankHolidays(fetched_at=now, divisions=gov_uk).model_dump_json())
+    store.set(keys.BANK_HOLIDAYS, StoredBankHolidays(fetched_at=now, divisions=gov_uk).model_dump_json())
     metalerts = json.loads((FIXTURES / "metalerts_current.json").read_text(encoding="utf-8"))
     store.set(keys.metalerts(), StoredMetAlerts.model_validate(metalerts).model_dump_json())
     warnings = json.loads((FIXTURES / "met_office_warnings.json").read_text(encoding="utf-8"))
