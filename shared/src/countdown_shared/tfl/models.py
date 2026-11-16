@@ -23,6 +23,9 @@ class Arrival(BaseModel, ABC):
     naptan_id: str = Field(alias="naptanId")
     line: str = Field(alias="lineName")
     time_to_station: int = Field(alias="timeToStation")
+    # A bus's registration or a train's set number: the same from one fetch to the next, so a screen can follow the
+    # vehicle as predictions reorder. TfL sometimes leaves it out (a train it hasn't matched to a set yet).
+    vehicle_id: str | None = Field(alias="vehicleId", default=None)
 
 
 class TubeArrival(Arrival):
@@ -31,6 +34,8 @@ class TubeArrival(Arrival):
     mode_name: Literal[Mode.TUBE] = Field(alias="modeName")
     towards: str
     destination_naptan_id: str | None = Field(alias="destinationNaptanId", default=None)
+    # "Northbound - Platform 1".
+    platform_name: str | None = Field(alias="platformName", default=None)
 
 
 class BusArrival(Arrival):

@@ -32,11 +32,15 @@ class Departure(BaseModel):
     destination: str
     # When it's due, rather than TfL's seconds-to-go: a stored value is read some time after it's fetched.
     expected_at: AwareDatetime
-    # The platform or stop pole, when the source says (Entur's quay code); None from TfL.
+    # The platform or stop pole, when the source says: Entur's quay code, TfL's platformName for a Tube train; None for
+    # a TfL bus.
     platform: str | None = None
     # How this departure travels, by the source's mode name, where a stop can serve several (Entur's "metro" or
     # "tram" at Majorstuen), so each row can say; None from TfL, whose stops serve one (the stop's `mode`).
     mode: str | None = None
+    # The source's id for the vehicle, the same from one fetch to the next (TfL's vehicleId), so a screen can follow it
+    # as predictions reorder; None where the source has none (Entur).
+    vehicle_id: str | None = None
 
     def time_to_station(self, now: datetime) -> int:
         """Return the seconds until it's due, counted from `now` (aware), and never below 0."""

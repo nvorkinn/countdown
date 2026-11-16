@@ -37,6 +37,8 @@ def to_stop_departures(stop: TflStop, arrivals: list[BusArrival | TubeArrival], 
             line=arrival.line,
             destination=arrival.towards if isinstance(arrival, TubeArrival) else arrival.destination,
             expected_at=fetched_at + timedelta(seconds=arrival.time_to_station),
+            platform=arrival.platform_name if isinstance(arrival, TubeArrival) else None,
+            vehicle_id=arrival.vehicle_id or None,
         )
         for arrival in sorted(arrivals, key=lambda a: a.time_to_station)
         # A train ending its journey here isn't a departure, so the station's panel never shows it.
