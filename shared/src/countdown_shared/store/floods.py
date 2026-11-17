@@ -2,7 +2,7 @@
 
 The Environment Agency's own answer: the items of its /flood-monitoring/id/floods for the flood areas near the
 postcode, in the EA's names, with `fetched_at` beside it. The renderer makes the board's notices from it as it reads
-it (countdown_renderer.notices.floods), so their text is in the screen's language of the moment.
+it (countdown_shared.notices.wording.floods), so their text is in the screen's language of the moment.
 tests/fixtures/floods.json is an example, from the EA's answers to the stored value.
 """
 

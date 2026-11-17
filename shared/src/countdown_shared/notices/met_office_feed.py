@@ -1,6 +1,6 @@
 """Which of the Met Office's warnings feeds a UK postcode is in, for provider-met-office: its region, by where it is.
 
-The notices are made from the feed's items by the board as it draws (notices/met_office.py).
+The notices are made from the feed's items by the board as it draws (notices/wording/met_office.py).
 """
 
 import logging

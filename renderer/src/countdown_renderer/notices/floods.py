@@ -1,12 +1,13 @@
 """Flood warnings near the screen: the Environment Agency's, from the store (written by the floods provider).
 
 The renderer never asks the EA itself; the provider fetches each postcode's warnings once for every screen there.
+Their wording is countdown_shared's (notices/wording/floods.py).
 """
 
 from typing import TYPE_CHECKING, override
 
-from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
-from countdown_shared.i18n import N_, _
+from countdown_renderer.notices.notice import Notice, NoticeSource
+from countdown_shared.notices.wording.floods import flood_notices
 from countdown_shared.store import keys, reader
 from countdown_shared.store.floods import StoredFloods
 
@@ -15,31 +16,9 @@ if TYPE_CHECKING:
 
     import requests
 
-    from countdown_shared.notices.models import FloodWarningsResponse
-
-# severityLevel 4 is "warning no longer in force", which isn't worth showing.
-SEVERITY_BY_LEVEL = {
-    1: (Severity.SEVERE, N_("Severe flood warning")),
-    2: (Severity.WARNING, N_("Flood warning")),
-    3: (Severity.INFO, N_("Flood alert")),
-}
-
 
 class NoStoredFloodsError(reader.NoStoredDataError):
     """The store has no flood warnings for the postcode: the floods provider is down, or hasn't fetched them yet."""
-
-
-def flood_notices(floods: FloodWarningsResponse) -> list[Notice]:
-    """Return the board's notices for the EA's warnings, in the screen's language, leaving out those no longer in force.
-
-    In the EA's order: the board ranks them.
-    """
-    notices = []
-    for warning in floods.items:
-        if warning.severity_level in SEVERITY_BY_LEVEL:
-            severity, label = SEVERITY_BY_LEVEL[warning.severity_level]
-            notices.append(Notice(_("Floods"), severity, f"{_(label)}: {warning.description}"))
-    return notices
 
 
 class StoredFloodWarningsSource(NoticeSource):

@@ -1,6 +1,6 @@
 """The TfL notices provider's cut of TfL's road disruptions: the severities worth a notice, and which are near.
 
-The notices themselves are made by the board as it draws (notices/tfl.py).
+The notices themselves are made by the board as it draws (notices/wording/tfl.py).
 """
 
 import json

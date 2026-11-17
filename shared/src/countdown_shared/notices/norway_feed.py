@@ -1,7 +1,7 @@
 """Where the providers fetch a Norwegian screen's data from: Kartverket for its place, MET Norway for its warnings.
 
 provider-locations asks Kartverket (lookup_norwegian_postcode); the MetAlerts provider asks MET (METALERTS_URL). The
-notice board reads both answers from the store (notices/norway.py), and asks neither.
+notice board reads both answers from the store (the renderer's notices/norway.py), and asks neither.
 """
 
 from typing import TYPE_CHECKING

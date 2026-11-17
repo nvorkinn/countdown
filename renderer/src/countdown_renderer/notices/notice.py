@@ -1,37 +1,20 @@
-"""What the notice board shows (Notices) and where it gets them from (NoticeSources)."""
+"""Where the notice board gets its notices from (NoticeSources).
+
+What a Notice is, and its Severity, are countdown_shared's (notices/wording/notice.py), so a provider can make them
+too; both are still importable from here.
+"""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from enum import IntEnum
 from typing import TYPE_CHECKING
+
+from countdown_shared.notices.wording.notice import Notice, Severity
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     import requests
 
-
-class Severity(IntEnum):
-    """Lower sorts first on the notice board."""
-
-    SEVERE = 0  # red weather warning, severe flood warning, line suspended
-    WARNING = 1  # amber weather warning, flood warning, severe delays, part suspended
-    INFO = 2  # yellow weather warning, flood alert, issues reported, station notices
-    REMINDER = 3  # coming up soon: a bank holiday, the clocks changing
-    # Planned engineering works: shown only in rows the others leave free, and never
-    # counted in the board's "+N more".
-    PLANNED = 4
-
-
-@dataclass(frozen=True)
-class Notice:
-    """One line on the notice board."""
-
-    source: str  # shown as a tag in front of the text: "Met Office", "TfL", ...
-    severity: Severity
-    text: str  # one line; the panel truncates whatever doesn't fit
-    valid_until: datetime | None = None  # dropped from the board after this, if known
-    display_time: datetime | None = None  # a generated clock appended to text at render time, not necessarily expiry
+__all__ = ["Notice", "NoticeSource", "Severity"]
 
 
 class NoticeSource(ABC):

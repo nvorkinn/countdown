@@ -1,6 +1,6 @@
 """What provider-entur-situations asks Entur: the situations at a stop and on the next lines leaving it, every language.
 
-The board picks the screen's language and makes the notices as it draws (notices/entur.py).
+The board picks the screen's language and makes the notices as it draws (notices/wording/entur.py).
 """
 
 from typing import TYPE_CHECKING, Any

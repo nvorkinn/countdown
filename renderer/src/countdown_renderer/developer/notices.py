@@ -1,18 +1,18 @@
-"""The developer panel's notices, from what the developer provider stored."""
+"""The developer panel's notices, from what the developer provider stored.
+
+Their wording is countdown_shared's (notices/wording/developer.py).
+"""
 
 from typing import TYPE_CHECKING, override
 
-from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
-from countdown_shared.i18n import _, local_zone
+from countdown_renderer.notices.notice import Notice, NoticeSource
+from countdown_shared.notices.wording.developer import developer_notices
 from countdown_shared.store import developer
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     import redis
-
-# A plan this far used up gets a notice.
-NEARLY_USED_UP = 0.9
 
 
 class DeveloperNoticeSource(NoticeSource):
@@ -33,34 +33,4 @@ class DeveloperNoticeSource(NoticeSource):
     @override
     def fetch(self, now: datetime) -> list[Notice]:
         """Make the notices from what's stored: NoStoredDeveloperError if there's none, RedisError if it can't ask."""
-        summary = developer.read(self.store, self.device_id)
-        notices = []
-        if summary.github is not None:
-            notices.extend(
-                Notice("GitHub", Severity.WARNING, _("{repo}: build failing").format(repo=repo))
-                for repo in summary.github.failing
-            )
-        for release in summary.releases:
-            name = f"{release.repo} {release.title}"
-            if release.state == "failed":
-                notices.append(Notice("GitHub", Severity.WARNING, _("{release}: release failed").format(release=name)))
-            notices.extend(
-                Notice(
-                    "GitHub",
-                    Severity.REMINDER,
-                    _("{release}: {job} waiting for your approval").format(release=name, job=job),
-                )
-                for job in release.waiting
-            )
-        today = now.astimezone(local_zone()).date()
-        for plan in summary.plans:
-            days = (plan.renews - today).days
-            if days == 0:
-                notices.append(Notice(plan.name, Severity.REMINDER, _("{plan} renews today").format(plan=plan.plan)))
-            elif days == 1:
-                notices.append(Notice(plan.name, Severity.REMINDER, _("{plan} renews tomorrow").format(plan=plan.plan)))
-            share = plan.share_used
-            if share is not None and share >= NEARLY_USED_UP:
-                text = _("{percent}% of {plan} used").format(percent=round(100 * share), plan=plan.plan)
-                notices.append(Notice(plan.name, Severity.INFO, text))
-        return notices
+        return developer_notices(developer.read(self.store, self.device_id), now)
