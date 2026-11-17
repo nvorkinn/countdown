@@ -70,6 +70,10 @@ class TflSource:
         """Fetch the lines' statuses (/Line/{ids}/Status), in TfL's order; raises if TfL can't be asked."""
         return Lines.validate_json(self._get(f"/Line/{','.join(line_ids)}/Status"))
 
+    def mode_status(self, modes: Iterable[str]) -> list[Line]:
+        """Fetch every line of `modes` with its status (/Line/Mode/{modes}/Status), in TfL's order; raises on error."""
+        return Lines.validate_json(self._get(f"/Line/Mode/{','.join(modes)}/Status"))
+
     def stop_disruptions(self, stop_id: str) -> list[DisruptedPoint]:
         """Fetch what's wrong at a stop (/StopPoint/{id}/Disruption), such as a lift; raises if TfL can't be asked."""
         return DisruptedPoints.validate_json(self._get(f"/StopPoint/{stop_id}/Disruption"))

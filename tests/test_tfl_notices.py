@@ -19,6 +19,7 @@ import requests
 import responses
 from location_factory import FakeLocations
 
+from countdown_api import fixtures
 from countdown_providers import runner as runner_module
 from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import ProviderRunner
@@ -26,7 +27,9 @@ from countdown_providers.tfl_notices import main as provider_module
 from countdown_providers.tfl_notices.main import (
     EVERY_ID,
     LINES_LOOKUP_EVERY,
+    NETWORK_MODES,
     TflLineStatusProvider,
+    TflNetworkStatusProvider,
     TflRoadProvider,
     TflStationProvider,
 )
@@ -43,7 +46,12 @@ from countdown_renderer.notices.tfl import (
 from countdown_shared import i18n
 from countdown_shared.notices.tfl_feed import is_near
 from countdown_shared.store import keys, reader
-from countdown_shared.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
+from countdown_shared.store.tfl_notices import (
+    StoredLineStatus,
+    StoredNetworkStatus,
+    StoredRoadDisruptions,
+    StoredStationDisruptions,
+)
 from countdown_shared.tfl.models import PostcodeResponse
 from countdown_shared.tfl.tfl_client import TFL_URL, DisruptedPoints, Lines, RoadDisruptions, TflSource
 
@@ -60,6 +68,8 @@ POSTCODE = FIXTURE["postcode"]
 # Where it is, as provider-locations stores it.
 PLACE = PostcodeResponse.model_validate(FIXTURE["postcodes_io"]).result
 NORWEGIAN = "0150"
+# What the network provider stores: the contract's example, whose lines are TfL's answer.
+NETWORK = fixtures.load("tfl_network.json")
 
 
 def as_json(notices: list[Notice]) -> list[dict]:
@@ -93,6 +103,8 @@ class FakeTfl:
 
     @staticmethod
     def _answer(path: str) -> object:
+        if path == f"/Line/Mode/{','.join(NETWORK_MODES)}/Status":
+            return NETWORK["value"]["lines"]
         if match := re.fullmatch(r"/Line/([^/]+)/Status", path):
             # Each line asked for, in the order asked.
             by_id = {line["id"]: line for line in FIXTURE["line_status"]}
@@ -436,11 +448,35 @@ def test_each_kind_is_written_under_its_key_with_its_ttl(api, tfl, located, redi
 
 
 def test_each_provider_outlives_its_interval():
-    for provider in make_providers():
+    for provider in (*make_providers(), TflNetworkStatusProvider(TflSource(requests.Session()))):
         assert provider.ttl_s >= 3 * provider.interval_s
 
 
-def test_the_process_runs_the_three_side_by_side_on_one_connection_which_the_roads_read_locations_on(monkeypatch):
+# --- The network -------------------------------------------------------------------
+
+
+def test_network_asks_tfl_once_for_every_tube_line_and_the_elizabeth_line_with_nothing_subscribed(api, tfl, redis):
+    network = TflNetworkStatusProvider(TflSource(requests.Session()), now=lambda: NOW)
+    asyncio.run(ProviderRunner(network, redis).run_cycle())
+
+    assert paths(api, "/Line/") == ["/Line/Mode/tube,elizabeth-line/Status"]
+    stored = StoredNetworkStatus.model_validate_json(asyncio.run(redis.get(keys.TFL_NETWORK)))
+    assert stored.fetched_at == NOW
+    # TfL's answer as TfL sent it, in its order: the contract's example.
+    assert json.loads(stored.model_dump_json())["lines"] == NETWORK["value"]["lines"]
+    assert 0 < asyncio.run(redis.ttl(keys.TFL_NETWORK)) <= network.ttl_s
+
+
+def test_network_keeps_the_stored_lines_while_tfl_cant_be_asked(api, tfl, redis):
+    network = TflNetworkStatusProvider(TflSource(requests.Session()), now=lambda: NOW)
+    asyncio.run(ProviderRunner(network, redis).run_cycle())
+    tfl.failures["/Line/Mode/tube,elizabeth-line/Status"] = 500
+    asyncio.run(ProviderRunner(network, redis).run_cycle())
+
+    assert StoredNetworkStatus.model_validate_json(asyncio.run(redis.get(keys.TFL_NETWORK))).fetched_at == NOW
+
+
+def test_the_process_runs_the_four_side_by_side_on_one_connection_which_the_roads_read_locations_on(monkeypatch):
     """Through main(), as the container starts it: one Redis client for the runners and the roads' locations."""
     ran = []
 
@@ -465,13 +501,14 @@ def test_the_process_runs_the_three_side_by_side_on_one_connection_which_the_roa
         ("tfl", "TflLineStatusProvider"),
         ("tfl", "TflStationProvider"),
         ("postcode", "TflRoadProvider"),
+        ("tfl-network", "TflNetworkStatusProvider"),
     ]
     [redis] = {id(redis): redis for _, redis in ran}.values()
     roads = ran[2][0]
     assert roads.locations.redis is redis
 
 
-def test_main_serves_the_three_with_the_app_key_and_the_store_from_the_environment(monkeypatch):
+def test_main_serves_the_four_with_the_app_key_and_the_store_from_the_environment(monkeypatch):
     served = []
 
     async def fake_serve_all(serving, settings, *, redis):
@@ -485,9 +522,14 @@ def test_main_serves_the_three_with_the_app_key_and_the_store_from_the_environme
     provider_module.main()
 
     [(serving, settings, redis)] = served
-    assert [type(p) for p in serving] == [TflLineStatusProvider, TflStationProvider, TflRoadProvider]
+    assert [type(p) for p in serving] == [
+        TflLineStatusProvider,
+        TflStationProvider,
+        TflRoadProvider,
+        TflNetworkStatusProvider,
+    ]
     assert all(p.tfl.params == {"app_key": "key"} for p in serving)
-    assert len({id(p.tfl.session) for p in serving}) == 3  # a session per thread
+    assert len({id(p.tfl.session) for p in serving}) == 4  # a session per thread
     assert settings.redis_url == "redis://redis.example:6379/0"
     # The roads read where the postcodes are on the runners' own client.
     assert isinstance(serving[2].locations, LocationReader)

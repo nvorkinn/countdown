@@ -1,6 +1,7 @@
 """The TfL notices provider: TfL's disruptions for the notice boards, written to the `v1:notices:tfl-*` keys.
 
-Three providers in one process (runner.serve_all), one for each kind of TfL disruption the notice board shows:
+Four providers in one process (runner.serve_all), one for each kind of TfL disruption the notice board shows, and one
+for the network as a whole:
 
 - Line status, for the stops in `v1:sub:tfl`: each stop's lines are looked up once a day (TfL's /StopPoint/{id}),
   and every two minutes TfL is asked about every line any stop needs at once (/Line/{ids}/Status, a request per
@@ -12,6 +13,9 @@ Three providers in one process (runner.serve_all), one for each kind of TfL disr
   `v1:notices:tfl-roads:<place>`. Where a postcode is comes from the store, as provider-locations placed it
   (`v1:location:<place>`, read each cycle by locations.reader.LocationReader, on the process's one Redis client); one
   it hasn't placed, or that doesn't exist, is left out until it has.
+- The network, with no subscription (fixed_ids, like the bank holidays): every Tube line and the Elizabeth line
+  (/Line/Mode/tube,elizabeth-line/Status) every two minutes, at `v1:notices:tfl-network`, for a touchscreen's Tube
+  status panel, which shows them all when its notice board has nothing to say.
 
 What's stored is TfL's own answers (store/tfl_notices.py); the render pool makes the notices from them as it draws. The
 requests are countdown-shared's (TflSource), which are synchronous (requests), so each batch runs in a worker thread
@@ -33,7 +37,12 @@ from countdown_shared.core.log_format import configure_logging, error_reason
 from countdown_shared.notices.location import FULL_POSTCODE
 from countdown_shared.notices.tfl_feed import ROAD_SEVERITIES, is_near
 from countdown_shared.store import keys
-from countdown_shared.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
+from countdown_shared.store.tfl_notices import (
+    StoredLineStatus,
+    StoredNetworkStatus,
+    StoredRoadDisruptions,
+    StoredStationDisruptions,
+)
 from countdown_shared.tfl.tfl_client import TflSource
 
 if TYPE_CHECKING:
@@ -50,6 +59,8 @@ EVERY_ID = 10_000
 LINES_PER_REQUEST = 50
 # How long a stop's lines are taken as they were: bus routes change now and then, not from minute to minute.
 LINES_LOOKUP_EVERY = timedelta(days=1)
+# The modes the network's status covers: TfL's names, as /Line/Mode/{modes}/Status takes them.
+NETWORK_MODES = ("tube", "elizabeth-line")
 
 
 class TflLineStatusProvider:
@@ -208,10 +219,40 @@ class TflRoadProvider:
         }
 
 
+class TflNetworkStatusProvider:
+    """Every Tube line's status and the Elizabeth line's, for every London touchscreen, from one request."""
+
+    # Not a subscription source (it has fixed_ids): only its name in the logs.
+    name = "tfl-network"
+    # Its one id: the network, the same for every screen.
+    fixed_ids = ("london",)
+    ttl_s = keys.TFL_NETWORK_TTL_S
+    interval_s = 2 * 60
+
+    def __init__(self, tfl: TflSource, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
+        """Ask TfL through `tfl`; `now` stamps fetched_at (a parameter for the tests)."""
+        self.tfl = tfl
+        self.now = now
+
+    def output_key(self, item_id: str) -> str:  # noqa: ARG002 -- one key for its one id
+        """Write to `v1:notices:tfl-network`."""
+        return keys.TFL_NETWORK
+
+    async def fetch(self, ids: list[str]) -> dict[str, StoredNetworkStatus]:
+        """Fetch the network's lines. Raises if TfL can't be asked, keeping the stored ones until they expire."""
+        if self.fixed_ids[0] not in ids:
+            return {}
+        return {self.fixed_ids[0]: await asyncio.to_thread(self._fetch_blocking)}
+
+    def _fetch_blocking(self) -> StoredNetworkStatus:
+        fetched_at = self.now()
+        return StoredNetworkStatus(fetched_at=fetched_at, lines=self.tfl.mode_status(NETWORK_MODES))
+
+
 def providers(
     locations: LocationReader, app_key: str = ""
-) -> list[TflLineStatusProvider | TflStationProvider | TflRoadProvider]:
-    """Make the three providers, each with a session of its own (they run in threads side by side).
+) -> list[TflLineStatusProvider | TflStationProvider | TflRoadProvider | TflNetworkStatusProvider]:
+    """Make the four providers, each with a session of its own (they run in threads side by side).
 
     The road provider reads where the postcodes are through `locations`.
     """
@@ -220,6 +261,7 @@ def providers(
         TflLineStatusProvider(TflSource(retrying_session(), app_key)),
         TflStationProvider(TflSource(retrying_session(), app_key)),
         TflRoadProvider(TflSource(retrying_session(), app_key), locations),
+        TflNetworkStatusProvider(TflSource(retrying_session(), app_key)),
     ]
 
 
@@ -227,7 +269,7 @@ def main() -> None:
     """Run the `countdown-provider-tfl-notices` console script. TFL_APP_KEY is optional (TfL rate-limits harder)."""
     configure_logging()
     settings = Settings.from_env()
-    # One client for the three runners and the locations the roads read.
+    # One client for the four runners and the locations the roads read.
     redis = settings.redis()
     serving = providers(LocationReader(redis), os.environ.get("TFL_APP_KEY", ""))
     asyncio.run(serve_all(serving, settings, redis=redis))

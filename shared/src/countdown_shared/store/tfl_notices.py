@@ -8,6 +8,7 @@ language and what's current is judged as of drawing, not of fetching:
     v1:notices:tfl-lines:<stop id>     {"fetched_at": ..., "stop_id": "940GZZLUKNG", "lines": [<TfL's Line>, ...]}
     v1:notices:tfl-stations:<stop id>  {"fetched_at": ..., "stop_id": "940GZZLUKNG", "disruptions": [<DisruptedPoint>]}
     v1:notices:tfl-roads:<place>       {"fetched_at": ..., "postcode": "SE17 3LL", "disruptions": [<RoadDisruption>]}
+    v1:notices:tfl-network             {"fetched_at": ..., "lines": [<TfL's Line>, ...]}
 
 `tests/fixtures/tfl_notices.json` is a set of TfL answers, and `tfl_notices_expected.json` the notices the renderer
 must make from them.
@@ -30,6 +31,16 @@ class StoredLineStatus(Stored):
     """
 
     stop_id: str
+    lines: list[Line]
+
+
+class StoredNetworkStatus(Stored):
+    """Every Tube line and the Elizabeth line, with their statuses: the value of `v1:notices:tfl-network`.
+
+    TfL's /Line/Mode/tube,elizabeth-line/Status answer, in TfL's order, every status included (Good Service too). Only
+    countdown-server reads it, for a touchscreen's Tube status panel; the e-paper notice board shows its stops' lines.
+    """
+
     lines: list[Line]
 
 

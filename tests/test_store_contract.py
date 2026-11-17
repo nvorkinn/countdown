@@ -25,7 +25,12 @@ from countdown_providers.locations.reader import LocationReader
 from countdown_providers.met_office.main import MetOfficeProvider
 from countdown_providers.runner import PACE_TTL_S, ProviderRunner
 from countdown_providers.tfl.main import TflProvider
-from countdown_providers.tfl_notices.main import TflLineStatusProvider, TflRoadProvider, TflStationProvider
+from countdown_providers.tfl_notices.main import (
+    TflLineStatusProvider,
+    TflNetworkStatusProvider,
+    TflRoadProvider,
+    TflStationProvider,
+)
 from countdown_providers.weather.main import WeatherProvider
 from countdown_shared.entur.entur_source import EnturSource
 from countdown_shared.store import config, developer, frame_record, keys, pairing, parcels, reader, render_queue
@@ -34,7 +39,12 @@ from countdown_shared.store.energy import StoredEnergy
 from countdown_shared.store.met_office import StoredMetOfficeWarnings
 from countdown_shared.store.models import StopDepartures, StoredForecast
 from countdown_shared.store.music import StoredPlayer, StoredTop
-from countdown_shared.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
+from countdown_shared.store.tfl_notices import (
+    StoredLineStatus,
+    StoredNetworkStatus,
+    StoredRoadDisruptions,
+    StoredStationDisruptions,
+)
 from countdown_shared.tfl.tfl_client import TflSource
 
 CONFIG = fixtures.load("config_store.json")
@@ -69,6 +79,7 @@ def test_the_keys_that_cross_are_the_contracts():
     ):
         assert getattr(keys, name) is getattr(contract_keys, name)
     assert keys.BANK_HOLIDAYS == contract_keys.BANK_HOLIDAYS
+    assert keys.TFL_NETWORK == contract_keys.TFL_NETWORK
     assert (keys.SUB_CHANGED, keys.RENDER_JOBS, keys.RENDER_SCREENS) == (
         contract_keys.SUB_CHANGED,
         contract_keys.RENDER_JOBS,
@@ -294,3 +305,12 @@ def test_the_bank_holidays_provider_writes_the_contracts_bank_holidays():
     provider = BankHolidaysProvider(SESSION)
     assert provider.output_key(provider.fixed_ids[0]) == BANK_HOLIDAYS["key"]
     assert provider.ttl_s == BANK_HOLIDAYS["ttl_s"]
+
+
+def test_the_tfl_network_provider_writes_the_contracts_network():
+    example = fixtures.load("tfl_network.json")
+    assert_round_trips(StoredNetworkStatus, example["value"])
+
+    provider = TflNetworkStatusProvider(TflSource(SESSION))
+    assert provider.output_key(provider.fixed_ids[0]) == example["key"]
+    assert provider.ttl_s == example["ttl_s"]

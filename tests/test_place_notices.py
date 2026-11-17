@@ -457,12 +457,14 @@ def test_a_new_postcodes_notices_are_written_as_soon_as_provider_locations_has_p
 
 def test_only_the_providers_that_read_places_wake_on_them_and_only_provider_locations_announces_them():
     redis = fakeredis.FakeAsyncRedis(decode_responses=True)
-    lines, stations, roads = tfl_notices_main.providers(LocationReader(redis))
+    lines, stations, roads, network = tfl_notices_main.providers(LocationReader(redis))
     met_office, floods, _ = place_providers(redis)
 
     for provider in (met_office, floods, roads):
         assert ProviderRunner(provider, redis).wakes_on == (keys.SUB_CHANGED, keys.LOCATION_CHANGED)
     for provider in (lines, stations):
         assert ProviderRunner(provider, redis).wakes_on == (keys.SUB_CHANGED,)
+    # The network reads no subscription and no place: nothing wakes it early.
+    assert ProviderRunner(network, redis).wakes_on == ()
     assert LocationsProvider(requests.Session()).announces == keys.LOCATION_CHANGED
-    assert not any(hasattr(provider, "announces") for provider in (met_office, floods, lines, stations, roads))
+    assert not any(hasattr(provider, "announces") for provider in (met_office, floods, lines, stations, roads, network))
