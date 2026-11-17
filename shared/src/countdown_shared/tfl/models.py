@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator
 
 
 class Mode(StrEnum):
@@ -90,37 +90,34 @@ class Identifier(BaseModel):
 
 
 class StopPoint(BaseModel):
-    """A place in TfL's stop hierarchy (a station, a stop, an entrance...), with the ones inside it."""
+    """A place in TfL's stop hierarchy (a station, a stop, an entrance...), with the ones inside it.
+
+    A stop is found inside the tree TfL answers for it, which for a big interchange (Heathrow's) has places of every
+    kind beside it: an airport, the Elizabeth line's station, bus stops with no letter. So nothing here is narrower
+    than it must be to find the stop: a mode or a kind of place this doesn't know mustn't fail the whole lookup.
+    """
 
     naptan_id: str = Field(alias="naptanId")
     common_name: str = Field(alias="commonName")
-    modes: list[Mode]
-    additional_properties: list[AdditionalProperty] = Field(alias="additionalProperties")
+    # TfL's names for them, whatever they are ("tube", "elizabeth-line", "plane"...): more than Mode has.
+    modes: list[str] = []
+    additional_properties: list[AdditionalProperty] = Field(alias="additionalProperties", default=[])
     children: list[StopPointUnion] = []
 
 
 class OtherStopPoint(StopPoint):
-    """A stop point that has no departures of its own to show: a cluster, an entrance, a platform..."""
+    """A stop point that has no departures of its own to show: a cluster, an entrance, a platform, an airport..."""
 
-    stop_type: Literal[
-        StopType.NAPTAN_ONSTREET_BUS_COACH_STOP_PAIR,
-        StopType.TRANSPORT_INTERCHANGE,
-        StopType.NAPTAN_ONSTREET_BUS_COACH_STOP_CLUSTER,
-        StopType.NAPTAN_RAIL_STATION,
-        StopType.NAPTAN_RAIL_ENTRANCE,
-        StopType.NAPTAN_RAIL_ACCESS_AREA,
-        StopType.NAPTAN_METRO_ENTRANCE,
-        StopType.NAPTAN_METRO_ACCESS_AREA,
-        StopType.NAPTAN_METRO_PLATFORM,
-        StopType.NAPTAN_BUS_COACH_STATION,
-    ] = Field(alias="stopType")
+    # Any of StopType's but the two below, and any TfL has that StopType doesn't.
+    stop_type: str = Field(alias="stopType")
 
 
 class SingleStopPoint(StopPoint):
-    """A single bus or tram stop, with the letter on its flag."""
+    """A single bus or tram stop, with the letter on its flag if it has one."""
 
     stop_type: Literal[StopType.NAPTAN_PUBLIC_BUS_COACH_TRAM] = Field(alias="stopType")
-    stop_letter: str = Field(alias="stopLetter")
+    # Missing for a stop with no letter (a coach stop at an airport's terminal).
+    stop_letter: str | None = Field(alias="stopLetter", default=None)
     lines: list[Identifier] = []
 
 
@@ -131,7 +128,22 @@ class MetroStopPoint(StopPoint):
     lines: list[Identifier] = []
 
 
-StopPointUnion = Annotated[OtherStopPoint | SingleStopPoint | MetroStopPoint, Field(discriminator="stop_type")]
+def _kind_of_stop(stop: object) -> str:
+    """Return which of the three models reads a stop point: by its stopType, anything unknown being an "other"."""
+    stop_type = stop.get("stopType") if isinstance(stop, dict) else getattr(stop, "stop_type", None)
+    if stop_type == StopType.NAPTAN_PUBLIC_BUS_COACH_TRAM:
+        return "single"
+    if stop_type == StopType.NAPTAN_METRO_STATION:
+        return "metro"
+    return "other"
+
+
+StopPointUnion = Annotated[
+    Annotated[OtherStopPoint, Tag("other")]
+    | Annotated[SingleStopPoint, Tag("single")]
+    | Annotated[MetroStopPoint, Tag("metro")],
+    Discriminator(_kind_of_stop),
+]
 
 
 class StopPointResponse(BaseModel):
