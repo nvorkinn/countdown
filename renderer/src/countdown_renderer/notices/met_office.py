@@ -2,7 +2,8 @@
 
 provider-met-office fetches the feed of each subscribed postcode's region (met_office_feed.region_for) and stores its
 items under the postcode (countdown_shared.store.met_office); the notice board reads them from there
-(StoredMetOfficeWarningsSource) and makes its notices from them when it draws (warning_notices).
+(StoredMetOfficeWarningsSource) and makes its notices from them when it draws (warning_notices), worded from
+countdown-api's messages (notices.messages), as a touchscreen's are.
 """
 
 import re
@@ -10,8 +11,9 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
+from countdown_renderer.notices.messages import say
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
-from countdown_shared.i18n import N_, _, format_date
+from countdown_shared.i18n import format_date
 from countdown_shared.notices.met_office_feed import region_for
 from countdown_shared.store import keys, reader
 from countdown_shared.store.met_office import StoredMetOfficeWarnings
@@ -28,11 +30,6 @@ if TYPE_CHECKING:
 UK_TIME = ZoneInfo("Europe/London")
 
 SEVERITY_BY_COLOUR = {"red": Severity.SEVERE, "amber": Severity.WARNING, "yellow": Severity.INFO}
-WARNING_BY_COLOUR = {
-    "red": N_("Red warning: {hazard}"),
-    "amber": N_("Amber warning: {hazard}"),
-    "yellow": N_("Yellow warning: {hazard}"),
-}
 TITLE_PATTERN = re.compile(r"^(Red|Amber|Yellow) warning of (.+?) affecting", re.IGNORECASE)
 # e.g. "valid from 0600 Wed 25 Sep to 2100 Wed 25 Sep"
 VALID_TO_PATTERN = re.compile(r"\bto (\d{4}) \w{3} (\d{1,2}) (\w{3})\b")
@@ -75,13 +72,13 @@ def warning_notices(items: Iterable[FeedItem], now: datetime) -> list[Notice]:
         match = TITLE_PATTERN.match(title)
         if match:
             colour, hazard = match.group(1).lower(), match.group(2).lower()
-            text = _(WARNING_BY_COLOUR[colour]).format(hazard=hazard)
+            text = say("notice.weather.warning", colour=colour, hazard=hazard)
             severity = SEVERITY_BY_COLOUR[colour]
         else:
             text, severity = title, Severity.WARNING
         if valid_until is not None:
             # The board adds the time, in the screen's clock format: "until Fri 21:00".
-            text += " " + _("until {day}").format(day=format_date(valid_until.date(), "EEE"))
+            text += " " + say("notice.until", when=format_date(valid_until.date(), "EEE"))
         notices.append(Notice("Met Office", severity, text, valid_until, display_time=valid_until))
     return notices
 

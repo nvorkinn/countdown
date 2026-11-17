@@ -7,6 +7,9 @@ the next frame. Mark a text with `_()` where it's drawn, or with `N_()` where it
 `_()` it there). The translations are gettext catalogues, locale/<language>.po, read as they are, so editing one
 needs no build step; anything not translated yet is drawn in English. `sh dev/update_translations.sh` gathers the
 texts and brings the catalogues in line with them (see the README).
+
+The few texts a touchscreen's app says too aren't here: they're countdown-api's messages, which the renderer formats
+for this language (countdown_renderer.notices.messages).
 """
 
 from functools import cache

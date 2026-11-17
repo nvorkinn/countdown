@@ -179,6 +179,7 @@ dev = [
     { name = "jsonschema" },
     { name = "openapi-codegen", extra = ["yaml"] },
     { name = "pre-commit" },
+    { name = "pyicumessageformat" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -191,6 +192,7 @@ dev = [
     { name = "jsonschema", specifier = ">=4.25" },
     { name = "openapi-codegen", extras = ["yaml"], url = "https://github.com/nvorkinn/openapi-codegen/releases/download/v2.1.0/openapi_codegen-2.1.0-py3-none-any.whl" },
     { name = "pre-commit" },
+    { name = "pyicumessageformat", specifier = ">=1.0.0" },
     { name = "pytest", specifier = ">=8.4" },
     { name = "ruff" },
 ]
@@ -221,6 +223,7 @@ source = { editable = "renderer" }
 dependencies = [
     { name = "countdown-api" },
     { name = "countdown-shared" },
+    { name = "icu4py" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
@@ -233,6 +236,7 @@ dependencies = [
 requires-dist = [
     { name = "countdown-api", editable = "api" },
     { name = "countdown-shared", editable = "shared" },
+    { name = "icu4py" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
@@ -411,6 +415,49 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/8d/2b/6ce81972d5c8cab9705fddce3153be63222d9e12fd96f8baba5038a744dd/googleapis_common_protos-1.75.5.tar.gz", hash = "sha256:c7a866fc34ed29a3b10af627a4b9b1dc2433313ca6e959f0ae4feb132047ed72", size = 156513, upload-time = "2026-09-29T19:26:14.863Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/65/b9/6b29500a1c581ff4d77fd83c6568d068bee06f1b139fb6eb0a4f2d4bce8a/googleapis_common_protos-1.75.5-py3-none-any.whl", hash = "sha256:d7285525c23039db98f2463e6d5a4f9b958b94d497f03a844ece3259c4e72d5d", size = 307737, upload-time = "2026-09-29T19:25:48.735Z" },
+]
+
+[[package]]
+name = "icu4py"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ec/36/8a64fd99cae5404f7e7eae79515a8fe99dbeae5076d43b0b20b56f2e1a74/icu4py-1.2.0.tar.gz", hash = "sha256:80f09b57ef22acd568e3a619afb4ea5528d05a634749012c8e8e2deef95b3a07", size = 13949, upload-time = "2026-10-20T22:25:12.847Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/89/f0f95e7ac36789be9e0cb447faccb17eb30d6ecd4a1bb8f51cd65f63a603/icu4py-1.2.0-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:d909c4c4f34fd3052c9db2c810fa3b971278e3107fd4d8b5f5ef5b60233580ea", size = 15838749, upload-time = "2026-10-20T22:23:35.9Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/7c/1b9dd5cd1ba61b6b0747cd0480f232616b233c94582516c586a35cd053e1/icu4py-1.2.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:ac046e8d1ea02d88ba9d62c4b3b385f615063fa91618d9fd92ec319e3881a529", size = 15477670, upload-time = "2026-10-20T22:23:39.522Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/0c/91a5208f4307c144a5800cae4423f57c35133c975d41216dd51b671ad1ec/icu4py-1.2.0-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:7c375f02431e4bfb23a8f5c166a9ace5f3c74b679a8bd1130207f4dbd8f9608f", size = 15820372, upload-time = "2026-10-20T22:23:42.641Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/96/6dea734ae44a85ac370ab5b8a520e768be84bd1e7685846ee9f7b1cc355a/icu4py-1.2.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ab5ca345fed85e9bdc429cd5ce73820961301c0b7edc91a34957eab952c67fe9", size = 15953514, upload-time = "2026-10-20T22:23:46.015Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/c8/f2ed56206e59d590489593f2cd97b1f46ca4650c7cfe4693ade1475bef64/icu4py-1.2.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:b63c1e1fdf9685ae1f388f9d858b13d9a6e868bcd04ccf123063c558b1456849", size = 16852169, upload-time = "2026-10-20T22:23:49.46Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/bb/2004ce36fad851b541905dece1785558349f342a265109dd7d9e38dc0c3d/icu4py-1.2.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:6b07d181ff61a16d0dd9f323a8a102cab58df538112d979cf1c2edb33cac3c1d", size = 17001601, upload-time = "2026-10-20T22:23:52.486Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/53/2c81db0c268f98a2bcf4168b730e299e15c312002601ddb009b0a481434f/icu4py-1.2.0-cp314-cp314-win_amd64.whl", hash = "sha256:282894be7fc4533410107482a19845f00a9f2162f96b19a54e91d1a5d0d5f4a6", size = 15880876, upload-time = "2026-10-20T22:23:55.584Z" },
+    { url = "https://files.pythonhosted.org/packages/31/e9/d641efcdb105145f1027d1bd42c9548ac7a73bee62fcfb130b6447f48fd3/icu4py-1.2.0-cp314-cp314-win_arm64.whl", hash = "sha256:ed4375ae2897ae8cc91a175235fcefe01d019052fea63996b0c83411b27666e1", size = 15838262, upload-time = "2026-10-20T22:23:58.597Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/99/572221ed919f1372130fdfe329e8688720e6eb497fa796c89f0a1bd87586/icu4py-1.2.0-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:28637a646f7a9b1dcb6a15a6c3133c2ef139f298a2a168a4fc85c57241a96f6b", size = 15840025, upload-time = "2026-10-20T22:24:01.768Z" },
+    { url = "https://files.pythonhosted.org/packages/71/bc/e2ad67c8d2adbb4ad5cb4e7461609ccc0c5fba3aaf32d714557b223876b6/icu4py-1.2.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:b415ab51e60ee928ced8066bac60997a153834894db14862bb53ccf95a966d95", size = 15478911, upload-time = "2026-10-20T22:24:04.968Z" },
+    { url = "https://files.pythonhosted.org/packages/11/74/86c0fbb0efbf86d688fa726ec3b0012912749024b7de2ab909fed1990b50/icu4py-1.2.0-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d78472e462f4b8fd8176f868ddf89c5bc6ac74df3a83dd1ea5ed1a4902549f8e", size = 15833137, upload-time = "2026-10-20T22:24:07.977Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/23/230ef4ebb6678190a9c6e89ff795066302c9ddf40c24506f5813c452493e/icu4py-1.2.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:30ba67eb844179bdd5eba87b3d60af88af18451c739e66ca2f64d639a442eb67", size = 15965511, upload-time = "2026-10-20T22:24:11.02Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/c7/fe545effd87896c81c8f861872cb027e9e74d7403f99724c423bec9e368c/icu4py-1.2.0-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:6c6b842469d840f37b3c32fd1cbc907ac03e6c81688147ccb9e9257d84bec2a5", size = 16864294, upload-time = "2026-10-20T22:24:13.964Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/55/a4c8e17590e30524571199bcbb742146417c23b14b877a57fed109eb35b1/icu4py-1.2.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:e0dfec7b190a63d424714db3c5a733a58331b87324860ce01254247c15901da1", size = 17012844, upload-time = "2026-10-20T22:24:16.875Z" },
+    { url = "https://files.pythonhosted.org/packages/48/41/427fb23d5eb26d10a732452ca8037af3fa28b3c4bb752d377cab8f7823e9/icu4py-1.2.0-cp314-cp314t-win_amd64.whl", hash = "sha256:8bc292ad3b9644672e09615c900c2e31f2d1b537db1d79179e992708d76864d8", size = 15882081, upload-time = "2026-10-20T22:24:19.832Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/a1/8631c61da7246a57746212d77954ef141fe4617f5aaa64d37aeedffe549e/icu4py-1.2.0-cp314-cp314t-win_arm64.whl", hash = "sha256:569bdfb63f57c85ece1483520e012f8a6eb6abc1a4007db970bf5837a784b5de", size = 15839373, upload-time = "2026-10-20T22:24:23.132Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/69/83f868056dc3e94c7dd17ca75d2d9ecd2411f0aa558a5d40f1393df2c48f/icu4py-1.2.0-cp315-cp315-macosx_10_15_x86_64.whl", hash = "sha256:b0a7398824ce88beb6c166a907be26d5f46aeb7d1ae69abdef838c1a234aeab9", size = 15838745, upload-time = "2026-10-20T22:24:26.037Z" },
+    { url = "https://files.pythonhosted.org/packages/2f/2d/e3c2d96556bed9a450329ec91861b8b2d024d568da160e64680ba40855bd/icu4py-1.2.0-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:2b6e56c69139dcad2e933153fc5af605060f4566b1730894ba8e5cd8c5d926a1", size = 15477659, upload-time = "2026-10-20T22:24:28.974Z" },
+    { url = "https://files.pythonhosted.org/packages/00/2b/23d92e3a08ad3ac8f61342cea1a0bd2906491beb394f28ad94f6fddf82bd/icu4py-1.2.0-cp315-cp315-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:af548560ae8a24b97c32c98060cf57951795856128ee42f0893a261c832e0490", size = 15821041, upload-time = "2026-10-20T22:24:32.258Z" },
+    { url = "https://files.pythonhosted.org/packages/99/29/3bb089076bbbeabcea869927c8813f1b05b892ec0ed4b1422e0a97d80a73/icu4py-1.2.0-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7d97ab0630e82e340fb58adc9cc2ef2a0230117f409a735f4ea21a04d4541da8", size = 15954207, upload-time = "2026-10-20T22:24:35.363Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/0b/bd73fd88233a919540f9b127b4eda39a14fa6b3bfbcdcea061f3ab2a3e08/icu4py-1.2.0-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:0deab6726886904159238fc6805e9a49f0858797ffb52ace16328f11c00885fc", size = 16852833, upload-time = "2026-10-20T22:24:38.775Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/23/a12619a5f16c8d2e544bd51e1bc937a9dc14d942049e4ea41e9f0f970067/icu4py-1.2.0-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:3150c794c0e49c56af91bf688f7a0e4400561344077a69f28c8d52019b152f2e", size = 17002348, upload-time = "2026-10-20T22:24:41.734Z" },
+    { url = "https://files.pythonhosted.org/packages/15/3b/276309ff1c0b0758500df53b30368f31a82a5521fd24c1060321ccf7fe25/icu4py-1.2.0-cp315-cp315-win_amd64.whl", hash = "sha256:4e76c7e9425629daf5e86611f6a8d4b71a8346a5e3fcb684bd8bbf3cc2f4ddb2", size = 15880895, upload-time = "2026-10-20T22:24:44.401Z" },
+    { url = "https://files.pythonhosted.org/packages/09/fa/aae1b3339a5f95a8433e339a943aff930d48005d63fda6edaf77c4fbd506/icu4py-1.2.0-cp315-cp315-win_arm64.whl", hash = "sha256:2bfdd4c29a346f7c3efb74dea4d3cc20d6b1cea89b6a372feee439ac8599b0fc", size = 15838239, upload-time = "2026-10-20T22:24:46.933Z" },
+    { url = "https://files.pythonhosted.org/packages/08/f9/b185f4b202949e61d20b79331794bdd38aa4a67d09128a3b0b4009a38953/icu4py-1.2.0-cp315-cp315t-macosx_10_15_x86_64.whl", hash = "sha256:97732ac7adc93ec8b981ae7b9a2010db73c6c9937243b1e0c727c0928364c1a4", size = 15840037, upload-time = "2026-10-20T22:24:49.963Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/33/0225150c4f5245d7aabdcc823db34df39a625d0c001ee5fe270aed1fe0cd/icu4py-1.2.0-cp315-cp315t-macosx_11_0_arm64.whl", hash = "sha256:9e15ed5b128bc5216bdfe53c3db8adac6893d99b68ae3f3213d00dc56bc89796", size = 15478896, upload-time = "2026-10-20T22:24:52.795Z" },
+    { url = "https://files.pythonhosted.org/packages/ab/99/89487ccb1936381ca39a895645eb9f9aa3170788c79291604c458d9159ac/icu4py-1.2.0-cp315-cp315t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9623feb95399b91690d33486e23ed43a351f7e4aa2c43931a151060bc8ec4e62", size = 15833111, upload-time = "2026-10-20T22:24:55.427Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/0e/61723b6dc39a6afaf7ec2db5c4fe8d3512ba60e1c9a32918351e77afbbf2/icu4py-1.2.0-cp315-cp315t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:620b9db146811ced961b071fc4fdd87d33453ae796578e3a79ae6add8676d757", size = 15965581, upload-time = "2026-10-20T22:24:58.181Z" },
+    { url = "https://files.pythonhosted.org/packages/59/70/e97518ab69435692108f0a90b701c55e615812685f10b612b158b9da8441/icu4py-1.2.0-cp315-cp315t-musllinux_1_2_aarch64.whl", hash = "sha256:c62dde59c8e30620a32f2e4ea624249782ac4cdf9e635a1244a3e80655bd08f7", size = 16864524, upload-time = "2026-10-20T22:25:01.174Z" },
+    { url = "https://files.pythonhosted.org/packages/54/fe/8bf890c559ba03d7a28fa40dc74e15575f23dac3826e21acfd818c5e4e18/icu4py-1.2.0-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:b6e426981f4ac6b0007e484f46d2bb496b4f1c901e32cb6dd98703c8e38598bb", size = 17012920, upload-time = "2026-10-20T22:25:04.219Z" },
+    { url = "https://files.pythonhosted.org/packages/26/ef/5efb501f9b7bd3043dfd76d1bef143082b561edb810517b6f0f7e04ab7d6/icu4py-1.2.0-cp315-cp315t-win_amd64.whl", hash = "sha256:7821f3554b013a01abbd8a195c8fdfc1ccb856eb8756c07e0a5c6a99537f1a29", size = 15882061, upload-time = "2026-10-20T22:25:07.195Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/14/1ea5e4b803c6ce6ff74a2760ddb28f418b8ca0461363959aa05d79ec0bab/icu4py-1.2.0-cp315-cp315t-win_arm64.whl", hash = "sha256:222255fca9797257704e18d7a637ad266e7ac7946803baa2a59c23a7acf2a760", size = 15839344, upload-time = "2026-10-20T22:25:10.118Z" },
 ]
 
 [[package]]
@@ -871,6 +918,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/c3/b2/bc9c9196916376152d655522fdcebac55e66de6603a76a02bca1b6414f6c/pygments-2.20.0.tar.gz", hash = "sha256:6757cd03768053ff99f3039c1a36d6c0aa0b263438fcab17520b30a303a82b5f", size = 4955991, upload-time = "2026-03-29T13:29:33.898Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl", hash = "sha256:81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176", size = 1231151, upload-time = "2026-03-29T13:29:30.038Z" },
+]
+
+[[package]]
+name = "pyicumessageformat"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/2a/2f12fd041d92adc361ba413df5abfb1d3e5adf62e3ec00e9e4fac04674cc/pyicumessageformat-1.0.0.tar.gz", hash = "sha256:b3e97c0ed10c2b103f0f3a701aa6529700ea0ab66e0f3b23dc8e4aee181fc840", size = 15045, upload-time = "2021-09-22T17:37:00.426Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/79/203ddd6612584d279494b22ed3bbb677357a1db6d0adcfec0c75f551c4a3/pyicumessageformat-1.0.0-py3-none-any.whl", hash = "sha256:d8f8f42edd0aae596d61d05c2a04bdd2795e97b1f5e9fb7f99cf69a732061ea7", size = 8936, upload-time = "2021-09-22T17:36:59.33Z" },
 ]
 
 [[package]]

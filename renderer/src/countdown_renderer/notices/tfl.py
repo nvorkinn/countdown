@@ -3,12 +3,14 @@
 TfL is asked once for every screen, by the TfL notices provider (countdown_providers.tfl_notices), which stores its
 answers (store/tfl_notices.py): by stop, the status of the lines serving it and what's wrong at it; by place, the road
 incidents near it. These sources read them and make the notices as the board polls, so the tags are in the screen's
-language and what's current is judged as of drawing.
+language and what's current is judged as of drawing. A bus route's tag is worded from countdown-api's messages
+(notices.messages), as a touchscreen's is.
 """
 
 import re
 from typing import TYPE_CHECKING, override
 
+from countdown_renderer.notices.messages import say
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
 from countdown_shared.i18n import _
 from countdown_shared.notices.tfl_feed import ROAD_SEVERITIES
@@ -136,7 +138,7 @@ def line_status_notices(lines: Iterable[Line], now: datetime) -> list[Notice]:
             current = [p for p in status.validity_periods if p.from_date <= now <= p.to_date]
             if status.validity_periods and not current:
                 continue  # e.g. a planned closure later this week
-            tag = _("Bus {route}").format(route=line.name) if line.mode_name == "bus" else line.name
+            tag = say("notice.line.tag", mode="bus", count=1, line=line.name) if line.mode_name == "bus" else line.name
             headline = _headline(status.reason, line.name)
             text = headline or status.description
             key = headline or (tag, status.description)
@@ -149,7 +151,9 @@ def line_status_notices(lines: Iterable[Line], now: datetime) -> list[Notice]:
                 else:
                     valid_until = None
                 if seen.source != tag:
-                    tag = _("Buses") if line.mode_name == "bus" else "TfL"
+                    # Several routes with the one notice: "Buses". The message takes a line and says none of them.
+                    several = say("notice.line.tag", mode="bus", count=2, line=line.name)
+                    tag = several if line.mode_name == "bus" else "TfL"
             notices[key] = Notice(tag, severity, text, valid_until)
     return list(notices.values())
 

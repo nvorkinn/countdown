@@ -70,9 +70,12 @@ server always sends the whole frame.
 **Language, time zone and clock.** The config's `language` (`en` or `nb`), `timezone` and `clock_format` (`24h` or
 `12h`) apply per screen. Every drawn text is English in the code, marked `_()` (or `N_()`), and translated from
 `shared/src/countdown_shared/locale/<language>.po`; an untranslated text stays English. After adding or changing a text,
-run `sh dev/update_translations.sh` from the repository root. Dates go through Babel (`i18n.format_date`). A Norwegian
-postcode (`notice_board.country` is `NO`) gets Norway's notices: public holidays are worked out here and the rest comes
-from the store.
+run `sh dev/update_translations.sh` from the repository root. Dates go through Babel (`i18n.format_date`). The
+exception is what a touchscreen's app says too (the notice board's bus tags, Met Office warnings and bank holidays):
+those strings are [countdown-api's messages](https://github.com/nvorkinn/countdown-api#readme), ICU MessageFormat by
+id in each language, which the renderer formats with ICU (`notices/messages.py`, `say()`); change one there, not in
+the `.po`. A Norwegian postcode (`notice_board.country` is `NO`) gets Norway's notices: public holidays are worked out
+here and the rest comes from the store.
 
 ## The store contract
 
