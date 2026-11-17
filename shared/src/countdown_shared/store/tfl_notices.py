@@ -14,12 +14,27 @@ language and what's current is judged as of drawing, not of fetching:
 must make from them.
 """
 
+from pydantic import BaseModel, Field
+
 from countdown_shared.store.models import Stored
 from countdown_shared.tfl.models import (  # noqa: TC001 -- pydantic reads the annotations at runtime
     DisruptedPoint,
     Line,
     RoadDisruption,
 )
+
+
+class NoticeShort(BaseModel):
+    """TfL's own prose and the short form a model made of it: the store contract's NoticeShort.
+
+    Stored beside the text it shortens, so whatever shows a notice finds its short line by the text and asks no
+    model. It is TfL's words made fewer, so it's data like the text itself.
+    """
+
+    # The text it shortens, each run of whitespace one space (countdown_shared.notices.shortening.squash).
+    text: str
+    title: str
+    summary: str
 
 
 class StoredLineStatus(Stored):
@@ -32,6 +47,9 @@ class StoredLineStatus(Stored):
 
     stop_id: str
     lines: list[Line]
+    # The short forms made so far of the reasons of the statuses worth a notice; left out of the JSON while there are
+    # none (no model, or none answered yet), so a value without any reads and writes as it always did.
+    shorts: list[NoticeShort] = Field(default_factory=list, exclude_if=lambda shorts: not shorts)
 
 
 class StoredNetworkStatus(Stored):

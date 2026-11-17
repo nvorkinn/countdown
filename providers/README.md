@@ -52,7 +52,10 @@ makes the notices when it draws, in the screen's language:
   geocoded by name; a UK postcode or district slug (`sw1a-1aa`, `se17`) is placed by `locations` instead.
 - **TfL notices.** One process, three providers (`runner.serve_all`): line status (each stop's lines are looked up once
   a day, then every line is asked about in one request), station disruptions, and `/Road/all/Disruption` fetched once
-  and cut to 3 km around each UK postcode.
+  and cut to 3 km around each UK postcode. A line status's reason is TfL's prose, too long for a touchscreen's row:
+  those worth a notice are stored with a short form beside them (`shorts`), made by OpenAI's text model
+  (`OPENAI_API_KEY`, `OPENAI_TEXT_MODEL`) once per text and kept by the text's hash (`v1:notice-short:<sha256>`, a
+  week, renewed while the text is still fetched; at most five new texts a cycle). Without a key there are none.
 - **Met Office, floods, MetAlerts.** The Met Office feed is fetched once per region per cycle and written under each
   UK postcode in it. Floods fetches the Environment Agency's list once and gives each UK postcode the warnings for flood
   areas within 5 km. MetAlerts is one key for all of Norway, fetched only while a Norwegian (four-digit) postcode is

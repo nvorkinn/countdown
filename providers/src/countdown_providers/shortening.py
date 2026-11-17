@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
     from redis.asyncio import Redis
 
-    from countdown_shared.notices.shortening import Kind
+    from countdown_shared.notices.shortening import Kind, Short
     from countdown_shared.openai.text import OpenAIText
 
 logger = logging.getLogger(__name__)
@@ -68,6 +68,28 @@ class Shortener:
         except RedisError as error:
             logger.warning("Couldn't keep %d notices' short forms in the store: %s", len(wanted), error_reason(error))
             return 0
+
+    async def shorts(self, kind: Kind, texts: Iterable[str]) -> dict[str, Short]:
+        """Return the short form of each of `texts` that has one, by the text squashed, asking for new ones first.
+
+        What a provider stores beside its texts. A text with none (not asked about yet, refused, or no model at all)
+        is left out. Never raises.
+        """
+        wanted = {shortening.digest(kind, text): shortening.squash(text) for text in texts if text.strip()}
+        if self.model is None or not wanted:
+            return {}
+        await self.ensure(kind, wanted.values())
+        try:
+            stored = await self.redis.mget([keys.notice_short(digest) for digest in wanted])
+        except RedisError as error:
+            logger.warning("Couldn't read %d notices' short forms from the store: %s", len(wanted), error_reason(error))
+            return {}
+        found: dict[str, Short] = {}
+        for text, value in zip(wanted.values(), stored, strict=True):
+            short = _short(value)
+            if short is not None:
+                found[text] = short
+        return found
 
     async def _ensure(self, kind: Kind, wanted: dict[str, str]) -> int:
         digests = list(wanted)
@@ -119,9 +141,16 @@ class Shortener:
         return StoredShort(title=short.title, summary=short.summary, model=model.name, made_at=self.now())
 
 
+def _short(value: str | bytes | None) -> Short | None:
+    """Return a stored value's short form; None for none stored, one that failed, or another version's."""
+    if value is None:
+        return None
+    try:
+        return StoredShort.model_validate_json(value).short()
+    except ValueError:
+        return None
+
+
 def _is_short(value: str | bytes) -> bool:
     """Whether a stored value is a short form to keep: not one that failed, nor another version's (left to lapse)."""
-    try:
-        return not StoredShort.model_validate_json(value).failed
-    except ValueError:
-        return False
+    return _short(value) is not None
