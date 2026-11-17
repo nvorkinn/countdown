@@ -111,6 +111,8 @@ __all__ = [
     "GLOW",
     "LOCATION_CHANGED",
     "MET_OFFICE_TTL_S",
+    "NOTICE_SHORT_FAILED_TTL_S",
+    "NOTICE_SHORT_TTL_S",
     "PACE_TTL_S",
     "PAIRING_TTL_S",
     "PARCELS_TTL_S",
@@ -146,6 +148,7 @@ __all__ = [
     "location",
     "met_office",
     "metalerts",
+    "notice_short",
     "pace",
     "pairing",
     "parcels",
@@ -235,3 +238,22 @@ def metalerts() -> str:
     countdown_shared.store.metalerts.StoredMetAlerts.
     """
     return f"{PREFIX}:notices:metalerts"
+
+
+def notice_short(digest: str) -> str:
+    """Return the key of a notice text's short form, by the text's hash, e.g. `v1:notice-short:8c36...c3a9`.
+
+    The hash is countdown_shared.notices.shortening.digest's (a SHA-256, in hex): of a provider's own prose (TfL's,
+    Entur's), which a model shortened to a title and a line. Written by the provider that fetched the text
+    (countdown_providers.shortening), once for however many screens show it; holds a
+    countdown_shared.notices.shortening.StoredShort. Read by whoever words the notice.
+    """
+    return f"{PREFIX}:notice-short:{digest}"
+
+
+# A week, renewed each cycle its text is still being fetched: a notice that comes back every weekend is asked about
+# once.
+NOTICE_SHORT_TTL_S = 7 * 24 * 60 * 60
+# An hour for a text the model gave no short form (it refused, or its answer wasn't fit to show): not asked about again
+# every cycle, but tried again the same day.
+NOTICE_SHORT_FAILED_TTL_S = 60 * 60
