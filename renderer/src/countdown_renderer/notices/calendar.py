@@ -2,13 +2,15 @@
 
 The bank holidays are gov.uk's, which the bank holidays provider (countdown-providers) writes to the store for all of
 the UK (`v1:notices:bank-holidays`); the board reads them from there and picks its division. The clocks changing is
-worked out here, with no network at all.
+worked out here, with no network at all. A bank holiday's words, and "Today" and "Tomorrow", are countdown-api's
+messages (notices.messages), as a touchscreen's are.
 """
 
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
+from countdown_renderer.notices.messages import say
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
 from countdown_shared.i18n import N_, _, format_date, local_zone
 from countdown_shared.store import keys, reader
@@ -46,9 +48,9 @@ def _one_month_after(day: date) -> date:
 def when(day: date, today: date) -> str:
     """Say `day` as "Today", "Tomorrow", or the date, e.g. "Fri 16 Oct", in the screen's language."""
     if day == today:
-        return _("Today")
+        return say("notice.day.today")
     if day == today + timedelta(days=1):
-        return _("Tomorrow")
+        return say("notice.day.tomorrow")
     # Translators: a CLDR date pattern (EEE weekday, d day, MMM month), e.g. "Fri 16 Oct". Norwegian: "EEE d. MMM".
     return format_date(day, _("EEE d MMM"))
 
@@ -67,11 +69,13 @@ def bank_holiday_notices(events: Iterable[BankHoliday], now: datetime) -> list[N
     if not upcoming:
         return []
     holiday = min(upcoming, key=lambda e: e.date)
-    text = f"{when(holiday.date, today)}: {holiday.title}"
+    day = when(holiday.date, today)
     if holiday.notes:
-        text += f" ({holiday.notes.lower()})"
+        text = say("notice.holiday.text_with_notes", when=day, name=holiday.title, notes=holiday.notes.lower())
+    else:
+        text = say("notice.holiday.text", when=day, name=holiday.title)
     ends = datetime.combine(holiday.date + timedelta(days=1), time(), tzinfo=UK_TIME)
-    return [Notice(_("Bank holiday"), Severity.REMINDER, text, ends)]
+    return [Notice(say("notice.holiday.tag"), Severity.REMINDER, text, ends)]
 
 
 class StoredBankHolidaySource(NoticeSource):

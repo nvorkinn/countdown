@@ -5,6 +5,8 @@ requires-python = ">=3.14"
 dependencies = [
     "countdown-api",
     "countdown-shared",
+    # Formats countdown-api's messages (notices/messages.py): ICU's own MessageFormat, with ICU inside its wheels.
+    "icu4py",
     # The render pool's metrics (pool_metrics.py), exported over OTLP/HTTP.
     "opentelemetry-api",
     "opentelemetry-exporter-otlp-proto-http",

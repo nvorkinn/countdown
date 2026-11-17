@@ -48,10 +48,6 @@ msgstr "Legg inn et GitHub-token på innstillingssiden"
 msgid "All builds passing"
 msgstr "Alle bygg er grønne"
 
-#, python-brace-format
-msgid "Amber warning: {hazard}"
-msgstr "Oransje farevarsel: {hazard}"
-
 msgid "Apple Music"
 msgstr "Apple Music"
 
@@ -61,15 +57,8 @@ msgstr "Ankomster"
 msgid "Ascension Day"
 msgstr "Kristi himmelfartsdag"
 
-msgid "Bank holiday"
-msgstr "Offentlig fridag"
-
 msgid "Boxing Day"
 msgstr "2. juledag"
-
-#, python-brace-format
-msgid "Bus {route}"
-msgstr "{route}-bussen"
 
 msgid "Buses"
 msgstr "Busser"
@@ -417,9 +406,6 @@ msgstr "Tordenvær med kraftig hagl"
 
 msgid "Thunderstorm with slight hail"
 msgstr "Tordenvær med lett hagl"
-
-msgid "Today"
-msgstr "I dag"
 
 msgid "Tomorrow"
 msgstr "I morgen"
