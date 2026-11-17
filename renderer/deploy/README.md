@@ -53,11 +53,11 @@ Set up once in the repo's settings (see also the [README](../../../README.md#one
   `approve-prod` with the required reviewers.
 - In each of `dev` and `prod`, secrets `DEPLOY_USER`, `DEPLOY_HOST`, `ORACLE_SSH_TOKEN` (the private key) and
   `DEPLOY_SSH_KNOWN_HOSTS`, the same as countdown-server's for that host. The user must be in the `docker` group.
-- In Vaultwarden, items `REDIS_PASSWORD` and `TFL_APP_KEY` (the value is the login password) in the collection
+- In Vaultwarden, items `REDIS_PASSWORD`, `TFL_APP_KEY` and `OPENAI_API_KEY` (the value is the login password) in the collection
   `countdown/<env>` (`dev` or `prod`), as `secrets-map.json` lists them. `REDIS_PASSWORD` must be the same as
   countdown-server's for that environment, or the pool and providers can't log in: it is one item, in both projects'
   collections. A missing one fails the deploy. The shared action `nvorkinn/.github/actions/vaultwarden-secrets` reads
-  them with the Bitwarden CLI into `redis.env` and `tfl.env`, which the compose files list as `env_file`.
+  them with the Bitwarden CLI into `redis.env`, `tfl.env` and `openai.env`, which the compose files list as `env_file`.
 - In each environment, so the deploy can reach the vault: secrets `BW_CLIENTID` and `BW_CLIENTSECRET` (the API key) and
   `BW_PASSWORD` (the master password) of an account that can read only that environment's collections.
 - Optionally in each, variables `COUNTDOWN_APP_HOST` and `COUNTDOWN_SITE_NAME`: the pairing screen's website and the
@@ -69,7 +69,7 @@ Set up once in the repo's settings (see also the [README](../../../README.md#one
 ## Providers
 
 One service per provider: `tfl`, `tfl-notices`, `entur`, `entur-situations`, `weather`, `met-office`,
-`bank-holidays`, `floods`, `metalerts` and `locations`. The pool reads what they write, so a panel has nothing to draw until its provider has written.
+`bank-holidays`, `floods`, `metalerts`, `locations` and `background`. The pool reads what they write, so a panel has nothing to draw until its provider has written.
 Providers fetch as they start, so that takes seconds. See [the providers](../../providers/README.md) for what each
 writes and how to check.
 

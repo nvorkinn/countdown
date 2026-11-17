@@ -321,6 +321,45 @@ def test_stop_finishes_the_current_cycle(redis):
     assert len(provider.calls) == 1
 
 
+def test_stop_is_noticed_between_batches(redis):
+    """A provider whose batches are slow (a background's picture takes a minute) stops after the one it's in."""
+    subscribe(redis, "a", "b", "c")
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class Slow(FakeProvider):
+        batch_size = 1
+
+        async def fetch(self, ids):
+            started.set()
+            await release.wait()
+            return await super().fetch(ids)
+
+    provider = Slow()
+    runner = ProviderRunner(provider, redis)
+
+    async def scenario():
+        task = asyncio.create_task(runner.run())
+        await asyncio.wait_for(started.wait(), WAIT_S)
+        runner.stop()
+        release.set()
+        await asyncio.wait_for(task, WAIT_S)
+
+    asyncio.run(scenario())
+    # The batch it was in was written; the others wait for the next start.
+    assert provider.calls == [["a"]]
+    assert asyncio.run(redis.exists(keys.departures("a"))) == 1
+    assert asyncio.run(redis.exists(keys.departures("b"))) == 0
+
+
+def test_settings_make_a_client_that_decodes_unless_asked_not_to():
+    settings = Settings("redis://example:1/2", "pw")
+    for decodes, client in ((True, settings.redis()), (False, settings.redis(decode_responses=False))):
+        kwargs = client.connection_pool.connection_kwargs
+        assert (kwargs["decode_responses"], kwargs["password"]) == (decodes, "pw")
+    assert Settings().redis(decode_responses=False).connection_pool.connection_kwargs["decode_responses"] is False
+
+
 def test_written_value_is_the_models_json(redis):
     subscribe(redis, "a")
     asyncio.run(ProviderRunner(FakeProvider(), redis).run_cycle())

@@ -6,8 +6,8 @@ services:
   # The providers (see ../../providers/README.md): one per API, all from the one image, each picking its provider by
   # `command`. They fetch what the broker's subscriptions in Redis ask for and write it back there, on the host's Redis
   # (host networking). Every deploy starts and upgrades them; REDIS_PASSWORD (redis.env, and TFL_APP_KEY in tfl.env for the
-  # TfL providers) is in the secrets files the deploy fetched from Vaultwarden (secrets-map.json), and a missing one fails
-  # the deploy rather than start them unauthenticated.
+  # TfL providers, OPENAI_API_KEY in openai.env for the backgrounds) is in the secrets files the deploy fetched from
+  # Vaultwarden (secrets-map.json), and a missing one fails the deploy rather than start them unauthenticated.
   tfl:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-tfl
@@ -168,5 +168,29 @@ services:
       driver: json-file
       options:
         tag: provider-locations
+        max-size: 10m
+        max-file: "3"
+
+  # The weather panel's AI-made backgrounds for the places the paired touchscreens show (v1:sub:background), one per
+  # part of each place's day, from OpenAI's image model (OPENAI_API_KEY, in openai.env). A picture takes about a
+  # minute, so it gets longer than the default 10 s to finish the one it's making when it's stopped.
+  background:
+    image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
+    command: countdown-provider-background
+    pull_policy: always
+    restart: unless-stopped
+    network_mode: host
+    stop_grace_period: 90s
+    environment:
+      # The model that makes the pictures, and how carefully (low, medium or high).
+      OPENAI_IMAGE_MODEL: gpt-image-2.6-sunburst
+      OPENAI_IMAGE_QUALITY: medium
+    env_file:
+      - ${SECRETS_DIR:?set by deploy.sh}/redis.env
+      - ${SECRETS_DIR:?set by deploy.sh}/openai.env
+    logging:
+      driver: json-file
+      options:
+        tag: provider-background
         max-size: 10m
         max-file: "3"

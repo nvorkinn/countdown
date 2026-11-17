@@ -2,7 +2,7 @@
 
 One long-running process per API (TfL, Entur, weather...) that fetches what the screens want and writes it to the
 shared Redis store, which the render pool reads. Ten screens watching one bus stop cost one TfL call, not ten.
-countdown-server's own providers write the energy, music and developer panels' keys; see its
+countdown-server's own providers write the energy, music, developer and parcels panels' keys; see its
 [README](https://github.com/nvorkinn/countdown-server#readme). The keys and their models are the store contract, listed in
 [countdown-api](https://github.com/nvorkinn/countdown-api#readme).
 
@@ -38,6 +38,7 @@ Each has a console script `countdown-provider-<name>` and a compose service `<na
 | `metalerts` | `v1:sub:postcode` | `v1:notices:metalerts` (30 min) | 5 min |
 | `bank-holidays` | nothing (`fixed_ids`) | `v1:notices:bank-holidays` (7 days) | 6 h |
 | `locations` | `v1:sub:postcode`, `v1:sub:weather` | `v1:location:<place>` (7 days) | 5 min |
+| `background` | `v1:sub:background`, `v1:background-place:<key>`, `v1:weather:<key>` | `v1:background:<key>` and `v1:background-image:<sha256>` (2 days) | 5 min |
 
 `<place>` is `keys.place(postcode)`, e.g. `SE173LL`. What each stores, as it came from upstream, so the render pool
 makes the notices when it draws, in the screen's language:
@@ -58,6 +59,12 @@ makes the notices when it draws, in the screen's language:
   subscribed, with `If-Modified-Since` and MET's required `User-Agent`.
 - **Bank holidays.** gov.uk's one file for every division, kept a week; an answer missing a division isn't written
   over a good one.
+- **Backgrounds.** The weather panel's AI-made photos for the places the paired touchscreens show, one per part of the
+  day (dawn, day, dusk, night), each made 45 minutes before it starts from the stored forecast: dawn new, the rest
+  relit from the one before. The broker says which places (`v1:sub:background`) and what to call each
+  (`v1:background-place:<key>`). OpenAI's image model makes them (`OPENAI_API_KEY`; `countdown_shared/openai`); without
+  a key, or when it fails, the picture is a curated one from the package (`background/fallbacks`), tried again after
+  half an hour. The pictures' bytes are written by the provider itself, the day's list by the runner after.
 - **Locations.** The one process that looks postcodes up (postcodes.io for UK, Kartverket for Norway), so every other
   reader places a postcode only from the store, via `locations/reader.py`'s `LocationReader`. Each postcode is looked up
   once a day and a new one at once; one neither service knows is written as not found. A place that is new or has moved

@@ -2,7 +2,7 @@
 
 A cycle runs at once on start, then on every epoch-aligned tick of the provider's interval_s. A message on
 `v1:sub:changed` (the broker saved a config), or on a channel in the provider's `wakes_on` (provider-locations placed a
-new postcode: `v1:location:changed`), runs one early, and SIGINT/SIGTERM let the current cycle finish and then stop. A
+new postcode: `v1:location:changed`), runs one early, and SIGINT/SIGTERM let the current batch finish and then stop. A
 provider that `announces` publishes on that channel after writing a batch it says has news in it (see
 provider.Provider).
 
@@ -91,7 +91,7 @@ class ProviderRunner:
         self._nudged = asyncio.Event()
 
     def stop(self) -> None:
-        """Ask the loop to stop once the current cycle (if any) is done. Safe to call from a signal handler."""
+        """Ask the loop to stop once the current batch (if any) is written. Safe to call from a signal handler."""
         self._stopping.set()
 
     async def run(self) -> None:
@@ -125,6 +125,10 @@ class ProviderRunner:
         mine = sorted(item_id for item_id in wanted if self.shard.owns(item_id))
         written = 0
         for batch in batched(mine, self.batch_size, strict=False):
+            # Asked to stop: what's written stands, and the rest waits for the next start. Only a provider whose
+            # batches are slow (a background's picture takes a minute) is ever stopped between two.
+            if self._stopping.is_set():
+                break
             try:
                 results = await self.provider.fetch(list(batch))
             except Exception as e:

@@ -176,7 +176,7 @@ Settings > Environments:
   joins the tailnet first when the client id variable is non-empty; production has neither, so it connects directly. The tailnet's
   ACL must let `tag:ci` reach the host on port 22. `ORACLE_SSH_TOKEN` keeps its name from when dev ran on Oracle.
 - `DEPLOY_*` and `ORACLE_SSH_TOKEN` are the host's, as for countdown-server; `DEPLOY_SSH_KNOWN_HOSTS` holds its host key.
-- `REDIS_PASSWORD` and `TFL_APP_KEY` are not GitHub secrets: `renderer/deploy/secrets-map.json` lists them, and the deploy
+- `REDIS_PASSWORD`, `TFL_APP_KEY` and `OPENAI_API_KEY` (the background provider's) are not GitHub secrets: `renderer/deploy/secrets-map.json` lists them, and the deploy
   reads them from Vaultwarden with the shared action `nvorkinn/.github/actions/vaultwarden-secrets` (the same one
   countdown-server uses), from items of those names (the value is the login password) in the collection
   `countdown/<environment>`. `BW_CLIENTID`, `BW_CLIENTSECRET` and `BW_PASSWORD` are the API key and master
