@@ -200,6 +200,7 @@ name = "countdown-providers"
 version = "0.0.0.dev0"
 source = { editable = "providers" }
 dependencies = [
+    { name = "countdown-api" },
     { name = "countdown-shared" },
     { name = "pydantic" },
     { name = "redis" },
@@ -207,6 +208,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "countdown-api", editable = "api" },
     { name = "countdown-shared", editable = "shared" },
     { name = "pydantic" },
     { name = "redis" },

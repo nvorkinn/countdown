@@ -22,6 +22,9 @@ countdown_api.keys (its builders say what each holds, its TTL, and who writes an
   `tfl_stations`), TfL road disruptions and Met Office warnings by postcode (`tfl_roads`, `met_office`, by `place`),
   gov.uk's bank holidays (BANK_HOLIDAYS) and every Tube line's status (TFL_NETWORK). Each has its TTL beside it
   (DEPARTURES_TTL_S, WEATHER_TTL_S...).
+- The weather panel's backgrounds (written by the background provider, read by countdown-server): a place's day of
+  them by weather key (`background`) and each picture's own bytes by its SHA-256 (`background_image`, not JSON), for
+  the places in `v1:sub:background` (BACKGROUND), each with what the broker says of it beside it (`background_place`).
 - The render queue's keys the broker writes too: RENDER_JOBS, RENDER_SCREENS and `render_queued`. See
   store.render_queue.
 
@@ -32,6 +35,9 @@ follow-up flag.
 
 from countdown_api.keys import (
     ALBUM_ART_TTL_S,
+    BACKGROUND,
+    BACKGROUND_IMAGE_TTL_S,
+    BACKGROUND_TTL_S,
     BANK_HOLIDAYS,
     BANK_HOLIDAYS_TTL_S,
     DEPARTURES_TTL_S,
@@ -64,6 +70,9 @@ from countdown_api.keys import (
     WEATHER,
     WEATHER_TTL_S,
     album_art,
+    background,
+    background_image,
+    background_place,
     config,
     departures,
     developer,
@@ -88,6 +97,9 @@ from countdown_api.keys import (
 # are defined below.
 __all__ = [
     "ALBUM_ART_TTL_S",
+    "BACKGROUND",
+    "BACKGROUND_IMAGE_TTL_S",
+    "BACKGROUND_TTL_S",
     "BANK_HOLIDAYS",
     "BANK_HOLIDAYS_TTL_S",
     "DEPARTURES_TTL_S",
@@ -121,6 +133,9 @@ __all__ = [
     "WEATHER",
     "WEATHER_TTL_S",
     "album_art",
+    "background",
+    "background_image",
+    "background_place",
     "config",
     "departures",
     "developer",

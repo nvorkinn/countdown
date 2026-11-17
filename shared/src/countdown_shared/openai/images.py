@@ -1,0 +1,98 @@
+"""The image model that makes the weather panel's backgrounds: OpenAI's.
+
+It makes a picture from a prompt, or relights one it's given (the same view with other light and weather), and answers
+its JPEG's bytes. A picture takes about a minute either way. A failure of any kind is an ImageModelError, with nothing
+of the request in its text but the model's status: the key goes in a header, and the prompt can name the device's place.
+"""
+
+import base64
+import os
+from typing import Protocol
+
+import requests
+
+from countdown_shared.openai.http import OPENAI_URL, authorized, error_code
+
+IMAGES_URL = f"{OPENAI_URL}/images"
+# The bigger touchscreen's own size (16:10), which gpt-image-2 makes as asked; the 1024x600 one crops it to cover.
+OPENAI_SIZE = "1280x800"
+# A JPEG this compressed is a few hundred KB at that size, which the screens load over Wi-Fi.
+OPENAI_COMPRESSION = 85
+# gpt-image-2 took 65 s for one at high quality, 2.6-sunburst about 35 s at medium: well inside this.
+OPENAI_TIMEOUT_S = 300
+
+
+class ImageModelError(Exception):
+    """The model made no picture: it refused, failed, timed out or couldn't be reached."""
+
+
+class ImageModel(Protocol):
+    """Makes a background: from a prompt, or by relighting `reference` (a JPEG) as the prompt says."""
+
+    name: str
+
+    def make(self, prompt: str, reference: bytes | None = None) -> bytes:
+        """Return the picture's JPEG. Raises ImageModelError."""
+        ...
+
+
+class OpenAIImages:
+    """OpenAI's image API: generations for a new picture, edits to relight one."""
+
+    def __init__(self, api_key: str, model: str, quality: str, session: requests.Session | None = None) -> None:
+        """`model` is OPENAI_IMAGE_MODEL's (gpt-image-2), `quality` OPENAI_IMAGE_QUALITY's (low, medium or high)."""
+        self.name = model
+        self._quality = quality
+        self._session = authorized(api_key, session)
+
+    def make(self, prompt: str, reference: bytes | None = None) -> bytes:
+        """Return the picture's JPEG. Raises ImageModelError."""
+        fields = {
+            "model": self.name,
+            "prompt": prompt,
+            "size": OPENAI_SIZE,
+            "quality": self._quality,
+            "output_format": "jpeg",
+            "output_compression": OPENAI_COMPRESSION,
+            "n": 1,
+        }
+        try:
+            if reference is None:
+                response = self._session.post(f"{IMAGES_URL}/generations", json=fields, timeout=OPENAI_TIMEOUT_S)
+            else:
+                response = self._session.post(
+                    f"{IMAGES_URL}/edits",
+                    data={name: str(value) for name, value in fields.items()},
+                    files={"image[]": ("reference.jpg", reference, "image/jpeg")},
+                    timeout=OPENAI_TIMEOUT_S,
+                )
+        except requests.RequestException as error:
+            msg = f"OpenAI couldn't be reached ({type(error).__name__})"
+            raise ImageModelError(msg) from None
+        if not response.ok:
+            msg = f"OpenAI answered {response.status_code}: {error_code(response)}"
+            raise ImageModelError(msg)
+        try:
+            return base64.b64decode(response.json()["data"][0]["b64_json"])
+        except ValueError, KeyError, IndexError, TypeError:
+            msg = "OpenAI's answer had no picture"
+            raise ImageModelError(msg) from None
+
+
+# The settings (the background service's environment) and their defaults.
+DEFAULT_OPENAI_MODEL = "gpt-image-2.6-sunburst"
+DEFAULT_OPENAI_QUALITY = "medium"
+
+
+def configured() -> list[ImageModel]:
+    """Return the models to try, in order: OpenAI's, if the environment has its key (OPENAI_API_KEY); none without."""
+    models: list[ImageModel] = []
+    if key := os.environ.get("OPENAI_API_KEY"):
+        models.append(
+            OpenAIImages(
+                key,
+                os.environ.get("OPENAI_IMAGE_MODEL") or DEFAULT_OPENAI_MODEL,
+                os.environ.get("OPENAI_IMAGE_QUALITY") or DEFAULT_OPENAI_QUALITY,
+            )
+        )
+    return models

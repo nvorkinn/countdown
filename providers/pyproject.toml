@@ -3,12 +3,14 @@ name = "countdown-providers"
 version = "0.0.0-dev"
 requires-python = ">=3.14"
 dependencies = [
+    "countdown-api",
     "countdown-shared",
     "pydantic",
     "redis",
 ]
 
 [project.scripts]
+countdown-provider-background = "countdown_providers.background.main:main"
 countdown-provider-bank-holidays = "countdown_providers.bank_holidays.main:main"
 countdown-provider-entur = "countdown_providers.entur.main:main"
 countdown-provider-entur-situations = "countdown_providers.entur_situations.main:main"
@@ -21,6 +23,7 @@ countdown-provider-tfl-notices = "countdown_providers.tfl_notices.main:main"
 countdown-provider-weather = "countdown_providers.weather.main:main"
 
 [tool.uv.sources]
+countdown-api = { workspace = true }
 countdown-shared = { workspace = true }
 
 [build-system]

@@ -6,6 +6,7 @@ import sys
 import pytest
 
 PROVIDERS = [
+    "background",
     "bank_holidays",
     "entur",
     "entur_situations",

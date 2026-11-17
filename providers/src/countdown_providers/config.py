@@ -33,10 +33,14 @@ class Settings:
             shard=Shard(int(env.get("SHARD_INDEX") or 0), int(env.get("SHARD_COUNT") or 1)),
         )
 
-    def redis(self) -> Redis:
-        """Make a Redis client. It connects on first use, so this never fails for an unreachable Redis."""
+    def redis(self, *, decode_responses: bool = True) -> Redis:
+        """Make a Redis client. It connects on first use, so this never fails for an unreachable Redis.
+
+        By default it decodes what it reads (ids and keys come back as str, not bytes), as the runner needs;
+        `decode_responses=False` makes one that answers a value's own bytes, for a provider that stores a file's (the
+        backgrounds' pictures).
+        """
         # Only pass the password if there is one: password=None would override one in the URL.
-        # decode_responses: ids and keys come back as str, not bytes.
         if self.redis_password:
-            return Redis.from_url(self.redis_url, decode_responses=True, password=self.redis_password)
-        return Redis.from_url(self.redis_url, decode_responses=True)
+            return Redis.from_url(self.redis_url, decode_responses=decode_responses, password=self.redis_password)
+        return Redis.from_url(self.redis_url, decode_responses=decode_responses)
