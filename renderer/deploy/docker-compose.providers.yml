@@ -25,16 +25,21 @@ services:
         max-size: 10m
         max-file: "3"
 
-  # TfL's disruptions for the notice boards: the lines and stations at the stops, the roads near the postcodes.
+  # TfL's disruptions for the notice boards: the lines and stations at the stops, the roads near the postcodes. A
+  # line status's reason is stored with a short form a model made of it, for a touchscreen's row.
   tfl-notices:
     image: ghcr.io/nvorkinn/countdown-providers:${COUNTDOWN_RENDERER_VERSION:?set by deploy.sh}
     command: countdown-provider-tfl-notices
     pull_policy: always
     restart: unless-stopped
     network_mode: host
+    environment:
+      # The model that shortens a line status's reason to a touchscreen's row (OPENAI_API_KEY, in openai.env).
+      OPENAI_TEXT_MODEL: gpt-6-luna
     env_file:
       - ${SECRETS_DIR:?set by deploy.sh}/redis.env
       - ${SECRETS_DIR:?set by deploy.sh}/tfl.env
+      - ${SECRETS_DIR:?set by deploy.sh}/openai.env
     logging:
       driver: json-file
       options:

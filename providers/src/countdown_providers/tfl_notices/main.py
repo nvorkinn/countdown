@@ -17,7 +17,9 @@ for the network as a whole:
   (/Line/Mode/tube,elizabeth-line/Status) every two minutes, at `v1:notices:tfl-network`, for a touchscreen's Tube
   status panel, which shows them all when its notice board has nothing to say.
 
-What's stored is TfL's own answers (store/tfl_notices.py); the render pool makes the notices from them as it draws. The
+What's stored is TfL's own answers (store/tfl_notices.py); whatever shows a notice makes it from them as it draws.
+A line status's reason is TfL's prose, too long for a touchscreen's row, so those worth a notice are stored with a
+model's short form beside them (`shorts`; shortening.Shortener asks once per text and keeps the answer). The
 requests are countdown-shared's (TflSource), which are synchronous (requests), so each batch runs in a worker thread
 (asyncio.to_thread), with a session of its own.
 """
@@ -32,12 +34,16 @@ from typing import TYPE_CHECKING
 from countdown_providers.config import Settings
 from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import serve_all
+from countdown_providers.shortening import Shortener
 from countdown_shared.core.http_session import retrying_session
 from countdown_shared.core.log_format import configure_logging, error_reason
 from countdown_shared.notices.location import FULL_POSTCODE
-from countdown_shared.notices.tfl_feed import ROAD_SEVERITIES, is_near
+from countdown_shared.notices.shortening import SUMMARY_MAX, squash
+from countdown_shared.notices.tfl_feed import LINE_STATUSES, ROAD_SEVERITIES, is_near
+from countdown_shared.openai import text as text_model
 from countdown_shared.store import keys
 from countdown_shared.store.tfl_notices import (
+    NoticeShort,
     StoredLineStatus,
     StoredNetworkStatus,
     StoredRoadDisruptions,
@@ -71,10 +77,20 @@ class TflLineStatusProvider:
     interval_s = 2 * 60
     batch_size = EVERY_ID
 
-    def __init__(self, tfl: TflSource, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
-        """Ask TfL through `tfl`; `now` stamps fetched_at and dates the stops' lines (a parameter for the tests)."""
+    def __init__(
+        self,
+        tfl: TflSource,
+        now: Callable[[], datetime] = lambda: datetime.now(UTC),
+        shortener: Shortener | None = None,
+    ) -> None:
+        """Ask TfL through `tfl`; `now` stamps fetched_at and dates the stops' lines (a parameter for the tests).
+
+        With a `shortener`, the reasons too long for a touchscreen's row are stored with a model's short form beside
+        them (`shorts`); without one, as TfL wrote them alone.
+        """
         self.tfl = tfl
         self.now = now
+        self.shortener = shortener
         # NaPTAN id -> when its lines were looked up, and their ids in TfL's order.
         self.stop_lines: dict[str, tuple[datetime, list[str]]] = {}
 
@@ -84,7 +100,24 @@ class TflLineStatusProvider:
 
     async def fetch(self, ids: list[str]) -> dict[str, StoredLineStatus]:
         """Fetch the stops' lines' statuses, leaving out (and logging) a stop whose lines couldn't be asked about."""
-        return await asyncio.to_thread(self._fetch_blocking, ids)
+        fetched = await asyncio.to_thread(self._fetch_blocking, ids)
+        await self._shorten(fetched)
+        return fetched
+
+    async def _shorten(self, fetched: dict[str, StoredLineStatus]) -> None:
+        """Put beside each stop's lines the short forms of their reasons, of those that have one (see _long_reasons)."""
+        if self.shortener is None:
+            return
+        reasons = {stop_id: _long_reasons(stored.lines, self.now()) for stop_id, stored in fetched.items()}
+        # Each reason once, however many stops' lines have it; in a stable order, so the same few are asked about
+        # first whichever stop comes first.
+        shorts = await self.shortener.shorts("line", sorted({reason for found in reasons.values() for reason in found}))
+        for stop_id, stored in fetched.items():
+            stored.shorts = [
+                NoticeShort(text=reason, title=shorts[reason].title, summary=shorts[reason].summary)
+                for reason in reasons[stop_id]
+                if reason in shorts
+            ]
 
     def _fetch_blocking(self, ids: list[str]) -> dict[str, StoredLineStatus]:
         stop_lines: dict[str, list[str]] = {}
@@ -133,6 +166,22 @@ class TflLineStatusProvider:
         line_ids = [] if stop is None else list(dict.fromkeys(line.id for line in stop.lines))
         self.stop_lines[stop_id] = (now, line_ids)
         return line_ids
+
+
+def _long_reasons(lines: list[Line], now: datetime) -> list[str]:
+    """Return the reasons worth shortening among the lines' statuses, squashed, each once, in the lines' order.
+
+    Those of the statuses worth a notice (tfl_feed.LINE_STATUSES) that haven't ended, and are too long to be the line
+    under a notice's title as they are.
+    """
+    reasons: dict[str, None] = {}
+    for line in lines:
+        for status in line.line_statuses:
+            reason = squash(status.reason or "")
+            over = status.validity_periods and all(period.to_date < now for period in status.validity_periods)
+            if status.description in LINE_STATUSES and len(reason) > SUMMARY_MAX and not over:
+                reasons[reason] = None
+    return list(reasons)
 
 
 class TflStationProvider:
@@ -250,15 +299,16 @@ class TflNetworkStatusProvider:
 
 
 def providers(
-    locations: LocationReader, app_key: str = ""
+    locations: LocationReader, app_key: str = "", shortener: Shortener | None = None
 ) -> list[TflLineStatusProvider | TflStationProvider | TflRoadProvider | TflNetworkStatusProvider]:
     """Make the four providers, each with a session of its own (they run in threads side by side).
 
-    The road provider reads where the postcodes are through `locations`.
+    The road provider reads where the postcodes are through `locations`; the line statuses' reasons are shortened
+    through `shortener`, if there is one.
     """
     # countdown_shared's retrying session: retries connection errors and 502/503/504 with backoff.
     return [
-        TflLineStatusProvider(TflSource(retrying_session(), app_key)),
+        TflLineStatusProvider(TflSource(retrying_session(), app_key), shortener=shortener),
         TflStationProvider(TflSource(retrying_session(), app_key)),
         TflRoadProvider(TflSource(retrying_session(), app_key), locations),
         TflNetworkStatusProvider(TflSource(retrying_session(), app_key)),
@@ -266,12 +316,19 @@ def providers(
 
 
 def main() -> None:
-    """Run the `countdown-provider-tfl-notices` console script. TFL_APP_KEY is optional (TfL rate-limits harder)."""
+    """Run the `countdown-provider-tfl-notices` console script.
+
+    TFL_APP_KEY is optional (TfL rate-limits harder), and so is OPENAI_API_KEY (the reasons go unshortened).
+    """
     configure_logging()
     settings = Settings.from_env()
-    # One client for the four runners and the locations the roads read.
+    # One client for the four runners, the locations the roads read and the short forms the line statuses keep.
     redis = settings.redis()
-    serving = providers(LocationReader(redis), os.environ.get("TFL_APP_KEY", ""))
+    model = text_model.configured()
+    if model is None:
+        logger.warning("No OPENAI_API_KEY: the line statuses' reasons are stored without short forms")
+    shortener = Shortener(redis, model)
+    serving = providers(LocationReader(redis), os.environ.get("TFL_APP_KEY", ""), shortener)
     asyncio.run(serve_all(serving, settings, redis=redis))
 
 

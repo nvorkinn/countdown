@@ -23,6 +23,7 @@ from countdown_api import fixtures
 from countdown_providers import runner as runner_module
 from countdown_providers.locations.reader import LocationReader
 from countdown_providers.runner import ProviderRunner
+from countdown_providers.shortening import Shortener
 from countdown_providers.tfl_notices import main as provider_module
 from countdown_providers.tfl_notices.main import (
     EVERY_ID,
@@ -33,6 +34,7 @@ from countdown_providers.tfl_notices.main import (
     TflRoadProvider,
     TflStationProvider,
 )
+from countdown_renderer.notices import tfl as renderer_tfl
 from countdown_renderer.notices.notice import Notice, Severity
 from countdown_renderer.notices.tfl import (
     NoStoredTflNoticesError,
@@ -44,6 +46,7 @@ from countdown_renderer.notices.tfl import (
     station_notices,
 )
 from countdown_shared import i18n
+from countdown_shared.notices import tfl_feed
 from countdown_shared.notices.tfl_feed import is_near
 from countdown_shared.store import keys, reader
 from countdown_shared.store.tfl_notices import (
@@ -450,6 +453,86 @@ def test_each_kind_is_written_under_its_key_with_its_ttl(api, tfl, located, redi
 def test_each_provider_outlives_its_interval():
     for provider in (*make_providers(), TflNetworkStatusProvider(TflSource(requests.Session()))):
         assert provider.ttl_s >= 3 * provider.interval_s
+
+
+# --- The reasons' short forms ---------------------------------------------------------
+
+
+class FakeTextModel:
+    """A fake text model: a short form that says which reason it's of, and a record of what it was asked."""
+
+    name = "fake-model"
+
+    def __init__(self):
+        self.asked: list[str] = []
+
+    def answer(self, instructions, text, schema_name, schema):
+        self.asked.append(text)
+        return {"title": f"Title {len(self.asked)}", "summary": f"Summary of {len(text)} characters"}
+
+
+def _reasoned(description, reason, *, ends=None):
+    periods = [{"fromDate": "2026-09-20T12:00:00Z", "toDate": ends}] if ends else []
+    return {"statusSeverity": 6, "statusSeverityDescription": description, "reason": reason, "validityPeriods": periods}
+
+
+def test_the_statuses_worth_shortening_are_the_ones_the_board_makes_notices_of():
+    assert set(renderer_tfl.CURRENT_STATUSES) | renderer_tfl.PLANNED_STATUSES == tfl_feed.LINE_STATUSES
+
+
+def test_only_long_reasons_of_notices_that_havent_ended_are_shortened():
+    long = "Northern Line: Severe delays between Kennington and Morden due to an earlier signal failure. "
+    lines = Lines.validate_python(
+        [
+            {
+                "id": "northern",
+                "name": "Northern",
+                "modeName": "tube",
+                "lineStatuses": [
+                    _reasoned("Severe Delays", f"{long}\n  One."),
+                    _reasoned("Severe Delays", f"{long} One."),  # the same, spaced otherwise
+                    _reasoned("Minor Delays", f"{long} Not worth a notice."),
+                    _reasoned("Part Closure", f"{long} Over.", ends="2026-09-01T00:00:00Z"),
+                    _reasoned("Part Closure", f"{long} Still on.", ends="2026-12-01T00:00:00Z"),
+                    _reasoned("Suspended", "Short enough as it is."),
+                    _reasoned("Suspended", None),
+                ],
+            }
+        ]
+    )
+
+    assert provider_module._long_reasons(lines, NOW) == [f"{long.strip()} One.", f"{long.strip()} Still on."]
+
+
+def test_a_long_reason_is_stored_with_its_short_form_and_asked_about_once(api, tfl, redis):
+    model = FakeTextModel()
+    lines = TflLineStatusProvider(TflSource(requests.Session()), now=lambda: NOW, shortener=Shortener(redis, model))
+
+    run_cycles(redis, lines)
+    first = len(model.asked)
+    run_cycles(redis, lines)
+
+    # Each long reason once, however many stops' lines have it and however many cycles.
+    assert first > 0
+    assert len(model.asked) == first == len(set(model.asked))
+    for stop in STOPS:
+        value = json.loads(asyncio.run(redis.get(keys.tfl_line_status(stop))))
+        stored = StoredLineStatus.model_validate(value)
+        reasons = {" ".join((status.reason or "").split()) for line in stored.lines for status in line.line_statuses}
+        assert {short.text for short in stored.shorts} <= reasons
+        for short in stored.shorts:
+            assert short.summary == f"Summary of {len(short.text)} characters"
+            assert len(short.text) > 64
+    stored = [json.loads(asyncio.run(redis.get(keys.tfl_line_status(stop)))) for stop in STOPS]
+    assert any(value.get("shorts") for value in stored)
+
+
+def test_without_a_model_the_stored_value_is_as_it_always_was(api, tfl, redis):
+    for shortener in (None, Shortener(redis, None)):
+        lines = TflLineStatusProvider(TflSource(requests.Session()), now=lambda: NOW, shortener=shortener)
+        run_cycles(redis, lines)
+        for stop in STOPS:
+            assert "shorts" not in json.loads(asyncio.run(redis.get(keys.tfl_line_status(stop))))
 
 
 # --- The network -------------------------------------------------------------------
