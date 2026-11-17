@@ -20,7 +20,8 @@ countdown_api.keys (its builders say what each holds, its TTL, and who writes an
   hasn't got to it yet). Departures, by stop (`departures`, TfL's and Entur's alike); weather, by weather key
   (`weather`); and the notice board's TfL line status and station disruptions by stop (`tfl_line_status`,
   `tfl_stations`), TfL road disruptions and Met Office warnings by postcode (`tfl_roads`, `met_office`, by `place`),
-  and gov.uk's bank holidays (BANK_HOLIDAYS). Each has its TTL beside it (DEPARTURES_TTL_S, WEATHER_TTL_S...).
+  gov.uk's bank holidays (BANK_HOLIDAYS) and every Tube line's status (TFL_NETWORK). Each has its TTL beside it
+  (DEPARTURES_TTL_S, WEATHER_TTL_S...).
 - The render queue's keys the broker writes too: RENDER_JOBS, RENDER_SCREENS and `render_queued`. See
   store.render_queue.
 
@@ -56,6 +57,8 @@ from countdown_api.keys import (
     SUB_CHANGED,
     TFL,
     TFL_LINE_STATUS_TTL_S,
+    TFL_NETWORK,
+    TFL_NETWORK_TTL_S,
     TFL_ROADS_TTL_S,
     TFL_STATIONS_TTL_S,
     WEATHER,
@@ -111,6 +114,8 @@ __all__ = [
     "SUB_CHANGED",
     "TFL",
     "TFL_LINE_STATUS_TTL_S",
+    "TFL_NETWORK",
+    "TFL_NETWORK_TTL_S",
     "TFL_ROADS_TTL_S",
     "TFL_STATIONS_TTL_S",
     "WEATHER",
