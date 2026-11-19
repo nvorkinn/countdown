@@ -70,7 +70,7 @@ class LocationsProvider:
     name = keys.POSTCODE
     # A week: a provider that's down for days doesn't unplace any board, and a postcode no screen has any more is gone
     # within a week of the last screen dropping it.
-    ttl_s = 7 * 24 * 60 * 60
+    ttl_s = keys.LOCATION_TTL_S
     # Only a postcode new to the set, due again (LOOKUP_EVERY) or whose last lookup failed is asked about; a new one
     # is asked about at once anyway, as the broker's nudge runs a cycle when a config is saved.
     interval_s = 5 * 60

@@ -78,7 +78,7 @@ class FloodsProvider:
     """Flood warnings near the subscribed UK postcodes, from the Environment Agency (keyless, so no API key)."""
 
     name = keys.POSTCODE
-    ttl_s = 30 * 60
+    ttl_s = keys.FLOODS_TTL_S
     # The EA updates its warnings every 15 minutes; asking every 5 shows a change within 5 minutes of it.
     interval_s = 5 * 60
     # A cycle as soon as provider-locations places a new postcode (or moves one), not at the next tick.

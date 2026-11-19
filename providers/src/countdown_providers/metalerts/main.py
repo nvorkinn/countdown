@@ -82,7 +82,7 @@ class MetAlertsProvider:
 
     name = keys.POSTCODE
     # Six cycles: a few failed ones don't take the warnings off the boards, a provider that's down soon does.
-    ttl_s = 30 * 60
+    ttl_s = keys.METALERTS_TTL_S
     # Warnings are issued hours ahead, and most answers are a 304 within MET's Expires.
     interval_s = 5 * 60
 

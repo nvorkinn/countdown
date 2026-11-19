@@ -21,8 +21,11 @@ from countdown_api import fixtures, models, scripts
 from countdown_api import keys as contract_keys
 from countdown_providers.bank_holidays.main import BankHolidaysProvider
 from countdown_providers.entur.main import EnturProvider
+from countdown_providers.floods.main import FloodsProvider
+from countdown_providers.locations.main import LocationsProvider
 from countdown_providers.locations.reader import LocationReader
 from countdown_providers.met_office.main import MetOfficeProvider
+from countdown_providers.metalerts.main import MetAlertsProvider
 from countdown_providers.runner import PACE_TTL_S, ProviderRunner
 from countdown_providers.tfl.main import TflProvider
 from countdown_providers.tfl_notices.main import (
@@ -36,7 +39,10 @@ from countdown_shared.entur.entur_source import EnturSource
 from countdown_shared.store import config, developer, frame_record, keys, pairing, parcels, reader, render_queue
 from countdown_shared.store.bank_holidays import StoredBankHolidays
 from countdown_shared.store.energy import StoredEnergy
+from countdown_shared.store.floods import StoredFloods
+from countdown_shared.store.location import StoredLocation
 from countdown_shared.store.met_office import StoredMetOfficeWarnings
+from countdown_shared.store.metalerts import StoredMetAlerts
 from countdown_shared.store.models import StopDepartures, StoredForecast
 from countdown_shared.store.music import StoredPlayer, StoredTop
 from countdown_shared.store.tfl_notices import (
@@ -252,6 +258,9 @@ WEATHER = fixtures.load("weather.json")
 TFL_NOTICES = fixtures.load("tfl_notices.json")
 MET_OFFICE = fixtures.load("met_office.json")
 BANK_HOLIDAYS = fixtures.load("bank_holidays.json")
+LOCATION = fixtures.load("location.json")
+FLOODS = fixtures.load("floods.json")
+METALERTS = fixtures.load("metalerts.json")
 
 
 def assert_round_trips[M: BaseModel](model: type[M], value: dict) -> M:
@@ -308,6 +317,33 @@ def test_the_bank_holidays_provider_writes_the_contracts_bank_holidays():
     provider = BankHolidaysProvider(SESSION)
     assert provider.output_key(provider.fixed_ids[0]) == BANK_HOLIDAYS["key"]
     assert provider.ttl_s == BANK_HOLIDAYS["ttl_s"]
+
+
+@pytest.mark.parametrize("example", LOCATION["locations"], ids=[example["postcode"] for example in LOCATION["locations"]])
+def test_the_locations_provider_writes_the_contracts_locations(example):
+    stored = assert_round_trips(StoredLocation, example["value"])
+    assert stored.found == (stored.location is not None)
+
+    provider = LocationsProvider(SESSION)
+    assert provider.output_key(example["postcode"]) == example["key"]
+    assert provider.ttl_s == LOCATION["ttl_s"]
+
+
+@pytest.mark.parametrize("example", FLOODS["places"], ids=[example["postcode"] for example in FLOODS["places"]])
+def test_the_floods_provider_writes_the_contracts_flood_warnings(example):
+    assert_round_trips(StoredFloods, example["value"])
+
+    provider = FloodsProvider(SESSION, LOCATIONS)
+    assert provider.output_key(example["postcode"]) == example["key"]
+    assert provider.ttl_s == FLOODS["ttl_s"]
+
+
+def test_the_metalerts_provider_writes_the_contracts_warnings():
+    assert_round_trips(StoredMetAlerts, METALERTS["value"])
+
+    provider = MetAlertsProvider(SESSION)
+    assert provider.output_key("0150") == METALERTS["key"]
+    assert provider.ttl_s == METALERTS["ttl_s"]
 
 
 def test_the_tfl_network_provider_writes_the_contracts_network():
