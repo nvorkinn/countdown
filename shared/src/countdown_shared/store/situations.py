@@ -1,5 +1,7 @@
 """The disruptions at an Entur stop in the store: the value of `v1:notices:entur:<stop id>`.
 
+It is the store contract's StoredEnturSituations, which countdown-server reads for the touchscreens' Dashboard.
+
 Written by provider-entur-situations: Entur's own answer to the situations query (notices/entur_feed.py's
 SITUATIONS_QUERY, or QUAY_SITUATIONS_QUERY for a quay), its GraphQL `data` exactly as it came, so the renderer makes
 the notices from it as it draws (StoredEnturSituationsSource): each summary in the screen's language, "Line 5"
@@ -7,11 +9,16 @@ translated, and the situations that have ended since left out.
 
     {"fetched_at": "2026-10-16T12:00:00+00:00", "stop_id": "NSR:StopPlace:58381",
      "data": {"stopPlace": {"name": "Majorstuen", "situations": [<situation>, ...],
-                            "estimatedCalls": [{"serviceJourney": {"line": {"publicCode": "5"}},
+                            "quays": [{"lines": [{"id": "RUT:Line:5", "publicCode": "5", "transportMode": "metro",
+                                                  "situations": [<situation>, ...]}, ...]}, ...],
+                            "estimatedCalls": [{"serviceJourney": {"line": {"id": "RUT:Line:5", "publicCode": "5",
+                                                                            "transportMode": "metro"}},
                                                 "situations": [<situation>, ...]}, ...]}}}
 
-where a situation is {"summary": [{"value": "Buss for T-bane", "language": "no"}, ...], "validityPeriod":
-{"endTime": "2026-10-20T00:00:00+02:00"}, "severity": "severe"}. A quay's answer is under "quay" instead. A stop Entur
+where a situation is {"id": "RUT:SituationNumber:1234", "summary": [{"value": "Buss for T-bane", "language": "no"},
+...], "description": [...], "validityPeriod": {"startTime": "2026-10-18T04:00:00+02:00", "endTime":
+"2026-10-20T00:00:00+02:00"}, "severity": "severe", "reportType": "incident"}. A quay's answer is under "quay" instead,
+with its "lines" directly under it. A stop Entur
 doesn't know is written too, as Entur answers it ({"stopPlace": null}), so it isn't mistaken for a missing key.
 """
 
