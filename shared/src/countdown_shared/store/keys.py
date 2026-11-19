@@ -20,8 +20,8 @@ countdown_api.keys (its builders say what each holds, its TTL, and who writes an
   hasn't got to it yet). Departures, by stop (`departures`, TfL's and Entur's alike); weather, by weather key
   (`weather`); and the notice board's TfL line status and station disruptions by stop (`tfl_line_status`,
   `tfl_stations`), TfL road disruptions and Met Office warnings by postcode (`tfl_roads`, `met_office`, by `place`),
-  gov.uk's bank holidays (BANK_HOLIDAYS) and every Tube line's status (TFL_NETWORK). Each has its TTL beside it
-  (DEPARTURES_TTL_S, WEATHER_TTL_S...).
+  gov.uk's bank holidays (BANK_HOLIDAYS), every Tube line's status (TFL_NETWORK) and Entur's situations at a stop
+  (`entur_situations`). Each has its TTL beside it (DEPARTURES_TTL_S, WEATHER_TTL_S...).
 - The weather panel's backgrounds (written by the background provider, read by countdown-server): a place's day of
   them by weather key (`background`) and each picture's own bytes by its SHA-256 (`background_image`, not JSON), for
   the places in `v1:sub:background` (BACKGROUND), each with what the broker says of it beside it (`background_place`).
@@ -29,7 +29,7 @@ countdown_api.keys (its builders say what each holds, its TTL, and who writes an
   store.render_queue.
 
 Defined here are the keys only this repository writes and reads: where a postcode is (`location`, LOCATION_CHANGED), the
-notices countdown-server doesn't read (`floods`, `entur_situations`, `metalerts`), a TfL stop's coming timetabled
+notices countdown-server doesn't read (`floods`, `metalerts`), a TfL stop's coming timetabled
 departures (`timetable`), and the render pool's own lease and follow-up flag.
 """
 
@@ -45,6 +45,7 @@ from countdown_api.keys import (
     DEVELOPER_TTL_S,
     ENERGY_TTL_S,
     ENTUR,
+    ENTUR_SITUATIONS_TTL_S,
     FRAME_TTL_S,
     GLOW,
     MET_OFFICE_TTL_S,
@@ -77,6 +78,7 @@ from countdown_api.keys import (
     departures,
     developer,
     energy,
+    entur_situations,
     frame,
     met_office,
     pace,
@@ -107,6 +109,7 @@ __all__ = [
     "DEVELOPER_TTL_S",
     "ENERGY_TTL_S",
     "ENTUR",
+    "ENTUR_SITUATIONS_TTL_S",
     "FRAME_TTL_S",
     "GLOW",
     "LOCATION_CHANGED",
@@ -211,17 +214,7 @@ def render_again(device_id: str) -> str:
 
 
 # The notice board's sources only this side reads, one key per source and what it's fetched for (the TfL, Met Office
-# and bank holidays keys are the contract's). Keys by place use `place`.
-
-
-def entur_situations(stop_id: str) -> str:
-    """Return the key of the disruptions at an Entur stop, by its id from `v1:sub:entur`.
-
-    For example `v1:notices:entur:NSR:StopPlace:58381` or `v1:notices:entur:NSR:Quay:7333`: Entur's situations on the
-    stop and on the lines leaving it. Written by provider-entur-situations; holds a
-    countdown_shared.store.situations.StoredSituations.
-    """
-    return f"{PREFIX}:notices:entur:{stop_id}"
+# and bank holidays keys and Entur's situations are the contract's). Keys by place use `place`.
 
 
 def floods(postcode: str) -> str:

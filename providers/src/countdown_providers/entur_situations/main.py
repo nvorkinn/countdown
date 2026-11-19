@@ -1,8 +1,11 @@
-"""The Entur situations provider: `v1:sub:entur`'s NSR stop ids to `v1:notices:entur:<stop id>`, for the notice board.
+"""The Entur situations provider: `v1:sub:entur`'s NSR stop ids to `v1:notices:entur:<stop id>`.
+
+For the notice board and the touchscreens' Dashboard.
 
 Each stop's value is Entur's own answer to countdown_shared.notices.entur_feed's situations query (with the same
-ET-Client-Name header as the departures): the situations on the stop and on the next 20 lines leaving it. The render
-pool makes the notices from it as it draws (StoredEnturSituationsSource).
+ET-Client-Name header as the departures): the situations on the stop, on the lines serving it and on the next 20
+departures leaving it. The render pool makes the notices from it as it draws (StoredEnturSituationsSource);
+countdown-server hands it to the touchscreens (getNotices), whose Dashboard shows the incidents on the stop's lines.
 
 Its own process rather than part of the Entur departures provider, though both read `v1:sub:entur`: situations change
 far less often than departures, so this asks every five minutes where that asks every 30 seconds,
@@ -53,7 +56,7 @@ class EnturSituationsProvider:
 
     name = keys.ENTUR
     # Three cycles: a missed one or two don't empty the board, and a provider that's down shows within a quarter hour.
-    ttl_s = 15 * 60
+    ttl_s = keys.ENTUR_SITUATIONS_TTL_S
     # A disruption is rarely news to the minute.
     interval_s = 5 * 60
 

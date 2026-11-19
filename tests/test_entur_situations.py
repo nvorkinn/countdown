@@ -19,13 +19,14 @@ import requests
 import responses
 from test_utils import TEST_DEVICE_ID
 
-from countdown_api.models import DepartureStop
+from countdown_api import fixtures as api_fixtures
+from countdown_api.models import DepartureStop, StoredEnturSituations
 from countdown_providers.entur_situations.main import QUOTA_BACKOFF, EnturSituationsProvider
 from countdown_providers.runner import ProviderRunner
 from countdown_renderer import moment
 from countdown_renderer.departures.departures_client import DeparturesClient, DeparturesSettings
 from countdown_renderer.notices import notice_board_client as board_module
-from countdown_renderer.notices.entur import NoStoredSituationsError, StoredEnturSituationsSource
+from countdown_renderer.notices.entur import NoStoredSituationsError, StoredEnturSituationsSource, situation_notices
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
 from countdown_renderer.notices.notice_board_client import NoticeBoardClient, NoticeBoardSettings
 from countdown_shared import i18n
@@ -177,6 +178,29 @@ def test_the_situations_key_is_in_the_notices_namespace_by_stop_id():
     assert keys.entur_situations(QUAY_ID) == "v1:notices:entur:NSR:Quay:7333"
     assert make_provider().output_key(MAJORSTUEN_ID) == "v1:notices:entur:NSR:StopPlace:58381"
     assert make_provider().name == keys.ENTUR
+    assert make_provider().ttl_s == keys.ENTUR_SITUATIONS_TTL_S == 900
+
+
+def test_the_stored_value_is_the_contracts_and_the_board_reads_its_example():
+    """countdown-server hands the same value to the touchscreens: the contract's example is what this stores."""
+    example = api_fixtures.load("entur_situations.json")
+    stored = StoredSituations.model_validate(example["value"])
+    assert StoredEnturSituations.model_validate(stored.model_dump(mode="json")).stop_id == stored.stop_id
+    assert example["key"] == make_provider().output_key(stored.stop_id)
+    stop = stored.stop()
+    assert stop is not None
+    # The lines serving the stop are asked for, with their own situations: a closed line has no departures to show them.
+    assert "lines {" in SITUATIONS_QUERY.split("estimatedCalls")[0]
+    assert "lines {" in QUAY_SITUATIONS_QUERY.split("estimatedCalls")[0]
+    for field in ("startTime", "reportType", "transportMode"):
+        assert field in SITUATIONS_QUERY
+    assert stop["quays"][0]["lines"][0]["situations"][0]["reportType"] == "incident"
+    i18n.set_locale("en", "Europe/Oslo")
+    try:
+        notices = situation_notices([stored], datetime(2026, 11, 19, 8, 30, tzinfo=UTC))
+    finally:
+        i18n.set_locale("en", "Europe/London")
+    assert [notice.text for notice in notices] == ["Delays on line 74"]
 
 
 # --- The board, from the store ------------------------------------------------------

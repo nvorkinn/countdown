@@ -1,6 +1,11 @@
-"""What provider-entur-situations asks Entur: the situations at a stop and on the next lines leaving it, every language.
+"""What provider-entur-situations asks Entur: the situations at a stop, its lines and its next departures.
 
-The board picks the screen's language and makes the notices as it draws (notices/entur.py).
+Every language, on the stop itself, on the lines serving it and on the next ones leaving it.
+
+The board picks the screen's language and makes the notices as it draws (notices/entur.py); the touchscreens' Dashboard
+reads the same answer through countdown-server (countdown_api's StoredEnturSituations) and shows the incidents on the
+lines serving the stop, which is why the lines' own situations (a closure has no departures to hang them on) and each
+situation's id, start and report type are asked for too.
 """
 
 from typing import TYPE_CHECKING, Any
@@ -11,29 +16,38 @@ if TYPE_CHECKING:
     from countdown_shared.entur.entur_client import EnturClient
 
 _SITUATION = """
+      id
       summary { value language }
-      validityPeriod { endTime }
+      description { value language }
+      validityPeriod { startTime endTime }
       severity
+      reportType
 """
+
+_LINE = "id publicCode transportMode"
 
 # Every summary's every language, so the renderer can pick the screen's as it draws.
 SITUATIONS_QUERY = f"""
 query StopSituations($id: String!) {{
-  stopPlace(id: $id) {{ name situations {{ {_SITUATION} }} estimatedCalls(numberOfDepartures: 20) {{
-    serviceJourney {{ line {{ publicCode }} }} situations {{ {_SITUATION} }} }} }}
+  stopPlace(id: $id) {{ name situations {{ {_SITUATION} }}
+    quays {{ lines {{ {_LINE} situations {{ {_SITUATION} }} }} }}
+    estimatedCalls(numberOfDepartures: 20) {{
+      serviceJourney {{ line {{ {_LINE} }} }} situations {{ {_SITUATION} }} }} }}
 }}
 """
 
 QUAY_SITUATIONS_QUERY = f"""
 query QuaySituations($id: String!) {{
-  quay(id: $id) {{ name situations {{ {_SITUATION} }} estimatedCalls(numberOfDepartures: 20) {{
-    serviceJourney {{ line {{ publicCode }} }} situations {{ {_SITUATION} }} }} }}
+  quay(id: $id) {{ name situations {{ {_SITUATION} }}
+    lines {{ {_LINE} situations {{ {_SITUATION} }} }}
+    estimatedCalls(numberOfDepartures: 20) {{
+      serviceJourney {{ line {{ {_LINE} }} }} situations {{ {_SITUATION} }} }} }}
 }}
 """
 
 
 def query_situations(client: EnturClient, stop_id: str) -> dict[str, Any]:
-    """Ask Entur for the situations at a stop place or quay and on the next 20 lines leaving it.
+    """Ask Entur for the situations at a stop place or quay, on the lines serving it and on the next 20 leaving it.
 
     `stop_id` is as `v1:sub:entur` has it, with or without its NSR prefix. Returns Entur's GraphQL `data` as it came
     (`{"stopPlace": None}` for a stop it doesn't know); raises on an HTTP error or a GraphQL one.
