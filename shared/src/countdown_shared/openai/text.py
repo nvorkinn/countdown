@@ -4,6 +4,10 @@ One question, one answer: instructions, the text they are about, and the schema 
 any kind is a TextModelError with nothing of the request in its text but the model's status and error code: the key
 goes in a header, and the text asked about is the caller's to keep out of the logs. A refusal is its own error
 (TextRefusedError), as asking again would be refused again.
+
+Each call is logged with what was sent and what the model answered, word for word (countdown_shared.openai.http.
+authorized). So neither the instructions nor the text may say where a screen is, as the logs may not
+(countdown_shared.core.log_format).
 """
 
 import json
@@ -35,7 +39,7 @@ class OpenAIText:
     def __init__(self, api_key: str, model: str, session: requests.Session | None = None) -> None:
         """`model` is OPENAI_TEXT_MODEL's."""
         self.name = model
-        self._session = authorized(api_key, session)
+        self._session = authorized(api_key, session, bodies=True)
 
     def answer(self, instructions: str, text: str, schema_name: str, schema: dict[str, Any]) -> dict[str, Any]:
         """Return the model's answer about `text`, as the object `schema` describes. Raises TextModelError.

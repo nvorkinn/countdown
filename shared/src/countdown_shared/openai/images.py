@@ -3,6 +3,7 @@
 It makes a picture from a prompt, or relights one it's given (the same view with other light and weather), and answers
 its JPEG's bytes. A picture takes about a minute either way. A failure of any kind is an ImageModelError, with nothing
 of the request in its text but the model's status: the key goes in a header, and the prompt can name the device's place.
+Each call is logged (countdown_shared.openai.http.authorized), without its prompt for the same reason.
 """
 
 import base64

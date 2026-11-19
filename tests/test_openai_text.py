@@ -116,3 +116,36 @@ def test_the_configured_model_is_openais_when_it_has_a_key(monkeypatch):
     model = text.configured()
     assert model is not None
     assert model.name == "another"
+
+
+@responses.activate
+def test_it_logs_the_call_with_what_was_sent_and_answered_but_not_the_key(caplog):
+    responses.post(RESPONSES_URL, json=_answer(_text({"title": "Severe delays"})))
+
+    with caplog.at_level("INFO", logger="countdown_shared.openai"):
+        _ask()
+
+    call, sent, answered = caplog.messages
+    assert call.startswith("Called OpenAI's responses: answered 200 in ")
+    assert sent.startswith("Sent to OpenAI's responses: {")
+    assert "Shorten it." in sent
+    assert "Kennington and Morden" in sent
+    assert answered.startswith("OpenAI's responses answered: {")
+    assert "Severe delays" in answered
+    assert "sk-test" not in caplog.text
+
+
+@responses.activate
+def test_it_logs_a_refusal_and_a_failure_as_openai_answered_them(caplog):
+    responses.post(RESPONSES_URL, json=_answer({"type": "refusal", "refusal": "I can't help with that"}))
+    responses.post(RESPONSES_URL, status=429, json={"error": {"code": "rate_limit_exceeded", "message": "Slow down"}})
+
+    with caplog.at_level("INFO", logger="countdown_shared.openai"):
+        with pytest.raises(TextRefusedError):
+            _ask()
+        with pytest.raises(TextModelError):
+            _ask()
+
+    assert "I can't help with that" in caplog.messages[2]
+    assert caplog.messages[3].startswith("Called OpenAI's responses: answered 429 (rate_limit_exceeded) in ")
+    assert "Slow down" in caplog.messages[5]
