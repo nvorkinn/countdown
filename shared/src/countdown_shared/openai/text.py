@@ -4,15 +4,22 @@ One question, one answer: instructions, the text they are about, and the schema 
 any kind is a TextModelError with nothing of the request in its text but the model's status and error code: the key
 goes in a header, and the text asked about is the caller's to keep out of the logs. A refusal is its own error
 (TextRefusedError), as asking again would be refused again.
+
+Each call is logged (countdown_shared.openai.http.post), and so is what the model answered, word for word: its text
+or its refusal. So the answer mustn't be asked to say where a screen is, as the logs may not (countdown_shared.core.
+log_format).
 """
 
 import json
+import logging
 import os
 from typing import Any
 
 import requests
 
-from countdown_shared.openai.http import OPENAI_URL, authorized, error_code
+from countdown_shared.openai.http import OPENAI_URL, authorized, error_code, post
+
+logger = logging.getLogger(__name__)
 
 RESPONSES_URL = f"{OPENAI_URL}/responses"
 # A short answer takes a second or two; a provider's cycle waits on it.
@@ -54,18 +61,21 @@ class OpenAIText:
             "text": {"format": {"type": "json_schema", "name": schema_name, "strict": True, "schema": schema}},
         }
         try:
-            response = self._session.post(RESPONSES_URL, json=body, timeout=OPENAI_TIMEOUT_S)
+            response = post(self._session, RESPONSES_URL, self.name, json=body, timeout=OPENAI_TIMEOUT_S)
         except requests.RequestException as error:
             msg = f"OpenAI couldn't be reached ({type(error).__name__})"
             raise TextModelError(msg) from None
         if not response.ok:
             msg = f"OpenAI answered {response.status_code}: {error_code(response)}"
             raise TextModelError(msg)
-        return _answer(response)
+        return _answer(response, self.name)
 
 
-def _answer(response: requests.Response) -> dict[str, Any]:
-    """Return the object in the answer's output text. Raises TextRefusedError for a refusal, TextModelError else."""
+def _answer(response: requests.Response, model: str) -> dict[str, Any]:
+    """Return the object in the answer's output text, logging the text (or refusal) as `model` gave it.
+
+    Raises TextRefusedError for a refusal, TextModelError else.
+    """
     try:
         answered = response.json()
         if answered.get("status") == "incomplete":
@@ -73,6 +83,11 @@ def _answer(response: requests.Response) -> dict[str, Any]:
             msg = f"OpenAI's answer was cut short ({reason})"
             raise TextModelError(msg)
         parts = [part for item in answered["output"] if item.get("type") == "message" for part in item["content"]]
+        for part in parts:
+            if part.get("type") == "refusal":
+                logger.info("%s refused: %s", model, part.get("refusal"))
+            elif part.get("type") == "output_text":
+                logger.info("%s answered: %s", model, part.get("text"))
         if any(part.get("type") == "refusal" for part in parts):
             msg = "OpenAI refused the text"
             raise TextRefusedError(msg)

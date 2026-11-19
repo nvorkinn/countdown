@@ -92,3 +92,19 @@ def test_an_openai_that_cant_be_reached_names_the_failure_not_the_url():
     with pytest.raises(ImageModelError, match=r"couldn't be reached \(ConnectionError\)") as error:
         OpenAIImages("sk-test", "gpt-image-2", "high").make("a prompt")
     assert "api.openai.com" not in str(error.value)
+
+
+@responses.activate
+def test_openai_logs_each_call_without_its_prompt(caplog):
+    responses.post(f"{IMAGES_URL}/generations", json=_openai_answer())
+    responses.post(f"{IMAGES_URL}/edits", json=_openai_answer())
+    model = OpenAIImages("sk-test", "gpt-image-2", "high")
+
+    with caplog.at_level("INFO", logger="countdown_shared.openai"):
+        model.make("Kennington at dusk")
+        model.make("Kennington at dusk", JPEG)
+
+    made, relit = caplog.messages
+    assert made.startswith("Called OpenAI's images/generations with gpt-image-2: answered 200 in ")
+    assert relit.startswith("Called OpenAI's images/edits with gpt-image-2: answered 200 in ")
+    assert "Kennington" not in caplog.text

@@ -8,8 +8,9 @@ board cuts the text itself meanwhile. A text the model refuses, or answers unfit
 an hour, so it isn't paid for again every cycle; when the model can't be reached, or fails, the cycle asks no more and
 nothing is remembered.
 
-ensure() never raises: a notice without its short form is still a notice. Nothing logged has a text in it, only how
-many, the model's status and an error's type.
+ensure() never raises: a notice without its short form is still a notice. Nothing logged here has a text in it, only
+how many, the model's status and an error's type; the model's client logs each call and what the model answered
+(countdown_shared.openai.text), a short form of a notice published to everyone.
 """
 
 import asyncio

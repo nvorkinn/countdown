@@ -116,3 +116,49 @@ def test_the_configured_model_is_openais_when_it_has_a_key(monkeypatch):
     model = text.configured()
     assert model is not None
     assert model.name == "another"
+
+
+@responses.activate
+def test_it_logs_the_call_and_the_answer_but_not_what_was_sent(caplog):
+    responses.post(RESPONSES_URL, json=_answer(_text({"title": "Severe delays"})))
+
+    with caplog.at_level("INFO", logger="countdown_shared.openai"):
+        _ask()
+
+    call, answer = caplog.messages
+    assert call.startswith("Called OpenAI's responses with gpt-6-luna: answered 200 in ")
+    assert answer == 'gpt-6-luna answered: {"title": "Severe delays"}'
+    assert "Kennington" not in caplog.text
+    assert "sk-test" not in caplog.text
+
+
+@responses.activate
+def test_it_logs_a_refusal_as_the_model_worded_it(caplog):
+    responses.post(RESPONSES_URL, json=_answer({"type": "refusal", "refusal": "I can't help with that"}))
+
+    with caplog.at_level("INFO", logger="countdown_shared.openai"), pytest.raises(TextRefusedError):
+        _ask()
+
+    assert caplog.messages[1] == "gpt-6-luna refused: I can't help with that"
+
+
+@responses.activate
+def test_it_logs_a_failed_call_by_its_status_and_code_and_an_unanswered_one_by_its_type(caplog):
+    responses.post(
+        RESPONSES_URL,
+        status=429,
+        json={"error": {"code": "rate_limit_exceeded", "message": "Too many requests about Kennington"}},
+    )
+
+    with caplog.at_level("INFO", logger="countdown_shared.openai"):
+        with pytest.raises(TextModelError):
+            _ask()
+        responses.reset()
+        with pytest.raises(TextModelError):
+            _ask()
+
+    failed, unanswered = caplog.messages
+    assert failed.startswith("Called OpenAI's responses with gpt-6-luna: answered 429 (rate_limit_exceeded) in ")
+    assert unanswered.startswith("Called OpenAI's responses with gpt-6-luna: ConnectionError after ")
+    assert "Kennington" not in caplog.text
+    assert "api.openai.com" not in caplog.text
