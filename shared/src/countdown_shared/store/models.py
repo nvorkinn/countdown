@@ -41,6 +41,10 @@ class Departure(BaseModel):
     # The source's id for the vehicle, the same from one fetch to the next (TfL's vehicleId), so a screen can follow it
     # as predictions reorder; None where the source has none (Entur).
     vehicle_id: str | None = None
+    # Whether expected_at is only the timetable's time, with no live prediction behind it: an Entur call with
+    # `realtime` false, or a TfL train or bus the TfL provider added from the line's timetable (store.timetable) while
+    # TfL predicted nothing for that line at the stop, such as the first trains of the morning.
+    scheduled: bool = False
 
     def time_to_station(self, now: datetime) -> int:
         """Return the seconds until it's due, counted from `now` (aware), and never below 0."""

@@ -4,9 +4,12 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
-from countdown_providers.tfl.main import TflProvider, to_stop_departures
+import fakeredis
+
+from countdown_providers.tfl.main import TflProvider, TimetableReader, to_stop_departures
 from countdown_shared.store import keys
 from countdown_shared.store.models import Departure, StopDepartures
+from countdown_shared.store.timetable import StoredTimetable, TimetabledDeparture
 from countdown_shared.tfl.models import BusArrival, MetroStopPoint, SingleStopPoint, TubeArrival
 from countdown_shared.tfl.tfl_client import TflSource
 
@@ -178,3 +181,64 @@ def test_an_unresolvable_stop_is_asked_again_next_time():
     asyncio.run(provider.fetch(["not-a-stop"]))
     asyncio.run(provider.fetch(["not-a-stop"]))
     assert source.resolve.call_count == 2
+
+
+def timed(line, destination, minutes):
+    return TimetabledDeparture(
+        line=line, line_id=line.lower(), destination=destination, departs_at=NOW + timedelta(minutes=minutes)
+    )
+
+
+def timetable(*departures):
+    return StoredTimetable(fetched_at=NOW, stop_id=TUBE_STATION.naptan_id, departures=list(departures))
+
+
+def test_a_line_tfl_predicts_nothing_for_gets_its_timetabled_departures_marked_scheduled():
+    stored = to_stop_departures(
+        TUBE_STATION,
+        [],
+        NOW,
+        timetable(
+            timed("Northern", "Morden", -5), timed("Northern", "Morden", 102), timed("Northern", "High Barnet", 98)
+        ),
+    )
+    # Not one that has gone already.
+    assert [(d.destination, d.expected_at, d.scheduled) for d in stored.departures] == [
+        ("High Barnet", NOW + timedelta(minutes=98), True),
+        ("Morden", NOW + timedelta(minutes=102), True),
+    ]
+
+
+def test_a_line_tfl_predicts_keeps_only_its_predictions_and_the_others_are_merged_soonest_first():
+    stored = to_stop_departures(
+        TUBE_STATION,
+        [train("Morden", 120)],
+        NOW,
+        timetable(timed("Northern", "Morden", 1), timed("Victoria", "Brixton", 1), timed("Victoria", "Brixton", 30)),
+    )
+    assert [(d.line, d.time_to_station(NOW), d.scheduled) for d in stored.departures] == [
+        ("Victoria", 60, True),
+        ("Northern", 120, False),
+        ("Victoria", 1800, True),
+    ]
+
+
+def test_fetch_reads_the_stops_timetables_from_the_store():
+    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    source = MagicMock(spec=TflSource)
+    source.resolve.side_effect = {TUBE_STATION.naptan_id: TUBE_STATION, BUS_STOP.naptan_id: BUS_STOP}.get
+    source.arrivals.return_value = []
+    provider = TflProvider(source, TimetableReader(redis), now=lambda: NOW)
+
+    async def cycle():
+        await redis.set(
+            keys.timetable(TUBE_STATION.naptan_id), timetable(timed("Northern", "Morden", 90)).model_dump_json()
+        )
+        await redis.set(keys.timetable(BUS_STOP.naptan_id), "not a timetable")
+        return await provider.fetch([TUBE_STATION.naptan_id, BUS_STOP.naptan_id])
+
+    results = asyncio.run(cycle())
+
+    assert [d.scheduled for d in results[TUBE_STATION.naptan_id].departures] == [True]
+    # An unreadable timetable leaves just the predictions.
+    assert results[BUS_STOP.naptan_id].departures == []
