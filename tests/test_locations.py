@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import fakeredis
+import pydantic
 import pytest
 import requests
 import responses
@@ -137,6 +138,15 @@ def test_the_fixtures_stored_values_are_stored_locations():
     assert stored["0150"].location == Postcode(
         postcode="0150", latitude=59.9116, longitude=10.7505, country="Norway", admin_district="Oslo"
     )
+
+
+OSLO = {"postcode": "0150", "latitude": 59.9, "longitude": 10.7, "country": "Norway"}
+
+
+@pytest.mark.parametrize(("found", "location"), [(True, None), (False, OSLO)])
+def test_a_found_postcode_has_a_location_and_one_not_found_has_none(found, location):
+    with pytest.raises(pydantic.ValidationError):
+        StoredLocation(fetched_at=FETCHED_AT, postcode="0150", found=found, location=location)
 
 
 def test_kartverket_is_asked_for_one_address_with_the_postcode_in_plain_latitude_and_longitude(api, clock):

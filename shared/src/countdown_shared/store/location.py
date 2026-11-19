@@ -19,15 +19,28 @@ weather provider reads where it is from here rather than ask postcodes.io.
 A district's key (`v1:location:SE17`) holds its centre, with the district for its postcode.
 
 The value is the store contract's StoredLocation (countdown-api's store.yaml: `location`), with its Postcode, as
-countdown-server reads it too (for MetAlerts' place in a touchscreen's notices), re-exported here. The contract's
-location.json (countdown_api.fixtures) is an example. A found postcode has a location and one that wasn't found has
-none: provider-locations writes them so.
+countdown-server reads it too (for MetAlerts' place in a touchscreen's notices). The contract's location.json
+(countdown_api.fixtures) is an example. StoredLocation here is the contract's, checking too what its schema only
+describes: a found postcode has a location, and one that wasn't found has none.
 """
 
-from countdown_api.models import StoredLocation
+from typing import Self
+
+from pydantic import model_validator
+
+from countdown_api import models
 from countdown_shared.notices.location import FULL_POSTCODE, OUTCODE
 
-__all__ = ["StoredLocation", "weather_postcode"]
+
+class StoredLocation(models.StoredLocation):
+    """Where a postcode is, as looked up at `fetched_at`; or that it isn't one postcodes.io or Kartverket know."""
+
+    @model_validator(mode="after")
+    def _found_has_a_location(self) -> Self:
+        if self.found != (self.location is not None):
+            msg = "a found postcode has a location, and one that wasn't found has none"
+            raise ValueError(msg)
+        return self
 
 
 def weather_postcode(key: str) -> str | None:

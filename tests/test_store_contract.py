@@ -341,7 +341,12 @@ def test_the_floods_provider_writes_the_contracts_flood_warnings(example):
 
 
 def test_the_metalerts_provider_writes_the_contracts_warnings():
-    assert_round_trips(StoredMetAlerts, METALERTS["value"])
+    # The example's fetched_at is written "+00:00", which pydantic writes back as "Z": the same time, so it's compared
+    # as a value rather than as text. MET's answers (`no`, `en`) are kept as they came.
+    stored = StoredMetAlerts.model_validate(METALERTS["value"])
+    written = json.loads(stored.model_dump_json())
+    assert datetime.fromisoformat(written.pop("fetched_at")) == stored.fetched_at
+    assert written == {key: value for key, value in METALERTS["value"].items() if key != "fetched_at"}
 
     provider = MetAlertsProvider(SESSION)
     assert provider.output_key("0150") == METALERTS["key"]
