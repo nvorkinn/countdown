@@ -146,6 +146,74 @@ StopPointUnion = Annotated[
 ]
 
 
+class KnownJourney(BaseModel):
+    """One timetabled departure from the timetable's stop, at hour:minute of its schedule's day.
+
+    The hour runs past 23 for a journey after midnight that belongs to the day before (25:10 is 01:10 the next day).
+    """
+
+    hour: int
+    minute: int
+    # Which of the route's station intervals (StationInterval.id) the journey runs: so where it ends.
+    interval_id: int = Field(alias="intervalId")
+
+
+class Schedule(BaseModel):
+    """The journeys on the days the schedule's name says ("Monday - Thursday", "Saturday (also Good Friday)")."""
+
+    name: str
+    known_journeys: list[KnownJourney] = Field(alias="knownJourneys", default=[])
+
+
+class Interval(BaseModel):
+    """A stop a journey calls at after the timetable's stop."""
+
+    stop_id: str = Field(alias="stopId")
+
+
+class StationInterval(BaseModel):
+    """One way the route's journeys run on from the timetable's stop: its stops in order, the last where they end."""
+
+    id: int
+    intervals: list[Interval] = []
+
+
+class TimetableRoute(BaseModel):
+    """A route of the line through the stop, with its schedules."""
+
+    station_intervals: list[StationInterval] = Field(alias="stationIntervals", default=[])
+    schedules: list[Schedule] = []
+
+
+class Timetable(BaseModel):
+    """The line's timetable from one stop in one direction."""
+
+    # The stop the times are at: not always the one asked for, as TfL answers a stop the line doesn't serve that way
+    # with another's.
+    departure_stop_id: str | None = Field(alias="departureStopId", default=None)
+    routes: list[TimetableRoute] = []
+
+
+class TimetableStop(BaseModel):
+    """A stop the timetable names."""
+
+    id: str
+    name: str
+
+
+class TimetableResponse(BaseModel):
+    """TfL's /Line/{id}/Timetable/{stop id}?direction=... answer.
+
+    With no direction it answers with a disambiguation instead, and no timetable; so does a direction the line doesn't
+    run from the stop.
+    """
+
+    line_id: str | None = Field(alias="lineId", default=None)
+    line_name: str | None = Field(alias="lineName", default=None)
+    stops: list[TimetableStop] = []
+    timetable: Timetable | None = None
+
+
 class StopPointResponse(BaseModel):
     """Stop points wrapped in a stopPoints list, as some TfL endpoints return them."""
 

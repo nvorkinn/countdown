@@ -254,6 +254,29 @@ def test_an_unknown_stop_is_asked_again_next_time():
 # --- Through the runner -------------------------------------------------------------
 
 
+def test_a_departure_entur_has_no_realtime_for_is_scheduled():
+    stop = EnturStop(id=MAJORSTUEN_ID, name="Majorstuen", transport_modes=[TransportMode.METRO])
+    departures = [
+        EnturDeparture(
+            line="5",
+            destination="Vestli",
+            mode=TransportMode.METRO,
+            expected_departure_time=NOW + timedelta(minutes=90),
+            time_to_station=5400,
+            realtime=False,
+        ),
+        EnturDeparture(
+            line="4",
+            destination="Bergkrystallen",
+            mode=TransportMode.METRO,
+            expected_departure_time=NOW + timedelta(minutes=3),
+            time_to_station=180,
+        ),
+    ]
+    stored = to_stop_departures(stop, departures, NOW)
+    assert [(d.line, d.scheduled) for d in stored.departures] == [("4", False), ("5", True)]
+
+
 @responses.activate
 def test_runner_writes_the_stops_departures_under_its_key_with_the_ttl():
     mock_entur()

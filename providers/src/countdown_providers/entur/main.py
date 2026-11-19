@@ -49,6 +49,7 @@ def to_stop_departures(stop: EnturStop, departures: list[EnturDeparture], fetche
                 expected_at=departure.expected_departure_time,
                 platform=departure.quay_code,
                 mode=departure.mode.value,
+                scheduled=not departure.realtime,
             )
             for departure in sorted(departures, key=lambda d: d.time_to_station)
         ],

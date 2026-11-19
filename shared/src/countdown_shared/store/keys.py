@@ -29,8 +29,8 @@ countdown_api.keys (its builders say what each holds, its TTL, and who writes an
   store.render_queue.
 
 Defined here are the keys only this repository writes and reads: where a postcode is (`location`, LOCATION_CHANGED), the
-notices countdown-server doesn't read (`floods`, `entur_situations`, `metalerts`), and the render pool's own lease and
-follow-up flag.
+notices countdown-server doesn't read (`floods`, `entur_situations`, `metalerts`), a TfL stop's coming timetabled
+departures (`timetable`), and the render pool's own lease and follow-up flag.
 """
 
 from countdown_api.keys import (
@@ -132,6 +132,7 @@ __all__ = [
     "TFL_NETWORK_TTL_S",
     "TFL_ROADS_TTL_S",
     "TFL_STATIONS_TTL_S",
+    "TIMETABLE_TTL_S",
     "WEATHER",
     "WEATHER_TTL_S",
     "album_art",
@@ -162,6 +163,7 @@ __all__ = [
     "tfl_line_status",
     "tfl_roads",
     "tfl_stations",
+    "timetable",
     "weather",
 ]
 
@@ -257,3 +259,18 @@ NOTICE_SHORT_TTL_S = 7 * 24 * 60 * 60
 # An hour for a text the model gave no short form (it refused, or its answer wasn't fit to show): not asked about again
 # every cycle, but tried again the same day.
 NOTICE_SHORT_FAILED_TTL_S = 60 * 60
+
+
+def timetable(stop_id: str) -> str:
+    """Return the key of a TfL stop's timetabled departures, e.g. `v1:timetable:940GZZLUKNG`.
+
+    Written by the TfL timetable provider (countdown_providers.tfl_timetable) for every stop in `v1:sub:tfl`, with a
+    TTL of TIMETABLE_TTL_S; holds a countdown_shared.store.timetable.StoredTimetable. Read by the TfL provider, which
+    adds a line's next timetabled departures to the stop's departures, marked `scheduled`, while TfL predicts nothing
+    for that line there (the Tube overnight).
+    """
+    return f"{PREFIX}:timetable:{stop_id}"
+
+
+# A few of the timetable provider's cycles (every 15 minutes): one or two failing leave the first trains showing.
+TIMETABLE_TTL_S = 2 * 60 * 60

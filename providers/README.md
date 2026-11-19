@@ -28,7 +28,7 @@ Each has a console script `countdown-provider-<name>` and a compose service `<na
 
 | Provider | Reads | Writes (TTL) | Every |
 |---|---|---|---|
-| `tfl` | `v1:sub:tfl` | `v1:departures:<stop>` (2 min) | 30 s |
+| `tfl` | `v1:sub:tfl` | `v1:departures:<stop>` (2 min), and `v1:timetable:<stop>` (2 h) | 30 s, 15 min |
 | `entur` | `v1:sub:entur` | `v1:departures:<stop>` (2 min) | 30 s |
 | `weather` | `v1:sub:weather` | `v1:weather:<key>` (30 min) | 10 min |
 | `tfl-notices` | `v1:sub:tfl`, `v1:sub:postcode` | `v1:notices:tfl-lines:<stop>` (10 min), `tfl-stations:<stop>` and `tfl-roads:<place>` (30 min) | 2 min, 5 min |
@@ -47,6 +47,12 @@ makes the notices when it draws, in the screen's language:
   departure's `mode` and `platform`. Entur needs no key, only the `ET-Client-Name` header, and allows 1000 non-trip
   requests a minute to a named client, shared by `entur` and `entur-situations`; after a 429 the latter pauses for a
   minute.
+- **Timetables.** TfL's Arrivals only predicts about half an hour ahead, so a shut Tube station has none. The `tfl`
+  process runs a second provider beside the departures (`tfl_timetable`): each stop's lines' timetables, fetched once
+  a day, give its next departures (bank holidays run Sunday's, Christmas Day none; a line with a planned closure in
+  the next 12 hours none), stored as `v1:timetable:<stop>`. A line TfL predicts nothing for at the stop gets those,
+  marked `scheduled`, in its departures until TfL predicts it. Entur's departures with no real-time data are marked
+  `scheduled` too.
 - **Weather.** The broker subscribes each screen's place as `<name>-<country>-<GeoNames id>` (the config's
   `weather.key`), so screens sharing a place share one Open-Meteo forecast. A key without an id is typed text,
   geocoded by name; a UK postcode or district slug (`sw1a-1aa`, `se17`) is placed by `locations` instead.

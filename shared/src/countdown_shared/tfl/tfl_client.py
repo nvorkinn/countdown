@@ -16,11 +16,13 @@ from countdown_shared.tfl.models import (
     SingleStopPoint,
     StopPoint,
     StopPointUnion,
+    TimetableResponse,
     TubeArrival,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from datetime import datetime
 
     import requests
 
@@ -69,6 +71,23 @@ class TflSource:
     def line_status(self, line_ids: Iterable[str]) -> list[Line]:
         """Fetch the lines' statuses (/Line/{ids}/Status), in TfL's order; raises if TfL can't be asked."""
         return Lines.validate_json(self._get(f"/Line/{','.join(line_ids)}/Status"))
+
+    def line_status_between(self, line_ids: Iterable[str], start: datetime, end: datetime) -> list[Line]:
+        """Fetch the lines' statuses from `start` to `end`, London time; raises if TfL can't be asked.
+
+        /Line/{ids}/Status/{start}/to/{end}: closures ahead, which the plain status only says once they've begun.
+        """
+        dates = f"{start.strftime('%Y-%m-%dT%H:%M:%S')}/to/{end.strftime('%Y-%m-%dT%H:%M:%S')}"
+        return Lines.validate_json(self._get(f"/Line/{','.join(line_ids)}/Status/{dates}"))
+
+    def timetable(self, line_id: str, stop_id: str, direction: str) -> TimetableResponse:
+        """Fetch the line's timetable from the stop going `direction` (inbound or outbound); raises on error.
+
+        Its `timetable` is None where the line doesn't run that way from the stop.
+        """
+        return TimetableResponse.model_validate_json(
+            self._get(f"/Line/{line_id}/Timetable/{stop_id}", direction=direction)
+        )
 
     def mode_status(self, modes: Iterable[str]) -> list[Line]:
         """Fetch every line of `modes` with its status (/Line/Mode/{modes}/Status), in TfL's order; raises on error."""
