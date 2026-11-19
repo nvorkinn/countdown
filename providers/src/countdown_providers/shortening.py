@@ -9,8 +9,8 @@ an hour, so it isn't paid for again every cycle; when the model can't be reached
 nothing is remembered.
 
 ensure() never raises: a notice without its short form is still a notice. Nothing logged here has a text in it, only
-how many, the model's status and an error's type; the model's client logs each call and what the model answered
-(countdown_shared.openai.text), a short form of a notice published to everyone.
+how many, the model's status and an error's type; the model's client logs each call, with the notice sent and what
+the model answered (countdown_shared.openai.text): a notice published to everyone, and its short form.
 """
 
 import asyncio

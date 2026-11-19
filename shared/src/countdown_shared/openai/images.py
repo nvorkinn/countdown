@@ -3,7 +3,7 @@
 It makes a picture from a prompt, or relights one it's given (the same view with other light and weather), and answers
 its JPEG's bytes. A picture takes about a minute either way. A failure of any kind is an ImageModelError, with nothing
 of the request in its text but the model's status: the key goes in a header, and the prompt can name the device's place.
-Each call is logged (countdown_shared.openai.http.post), without its prompt for the same reason.
+Each call is logged (countdown_shared.openai.http.authorized), without its prompt for the same reason.
 """
 
 import base64
@@ -12,7 +12,7 @@ from typing import Protocol
 
 import requests
 
-from countdown_shared.openai.http import OPENAI_URL, authorized, error_code, post
+from countdown_shared.openai.http import OPENAI_URL, authorized, error_code
 
 IMAGES_URL = f"{OPENAI_URL}/images"
 # The bigger touchscreen's own size (16:10), which gpt-image-2 makes as asked; the 1024x600 one crops it to cover.
@@ -59,14 +59,10 @@ class OpenAIImages:
         }
         try:
             if reference is None:
-                response = post(
-                    self._session, f"{IMAGES_URL}/generations", self.name, json=fields, timeout=OPENAI_TIMEOUT_S
-                )
+                response = self._session.post(f"{IMAGES_URL}/generations", json=fields, timeout=OPENAI_TIMEOUT_S)
             else:
-                response = post(
-                    self._session,
+                response = self._session.post(
                     f"{IMAGES_URL}/edits",
-                    self.name,
                     data={name: str(value) for name, value in fields.items()},
                     files={"image[]": ("reference.jpg", reference, "image/jpeg")},
                     timeout=OPENAI_TIMEOUT_S,
