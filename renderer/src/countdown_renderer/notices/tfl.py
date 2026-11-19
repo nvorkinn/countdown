@@ -3,8 +3,8 @@
 TfL is asked once for every screen, by the TfL notices provider (countdown_providers.tfl_notices), which stores its
 answers (store/tfl_notices.py): by stop, the status of the lines serving it and what's wrong at it; by place, the road
 incidents near it. These sources read them and make the notices as the board polls, so the tags are in the screen's
-language and what's current is judged as of drawing. A bus route's tag is worded from countdown-api's messages
-(notices.messages), as a touchscreen's is.
+language and what's current is judged as of drawing. A bus route's tag, a station's notice and a road's are worded from
+countdown-api's messages (notices.messages), as a touchscreen's are.
 """
 
 import re
@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, override
 
 from countdown_renderer.notices.messages import say
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
-from countdown_shared.i18n import _
 from countdown_shared.notices.tfl_feed import ROAD_SEVERITIES
 from countdown_shared.store import keys, reader
 from countdown_shared.store.tfl_notices import StoredLineStatus, StoredRoadDisruptions, StoredStationDisruptions
@@ -169,7 +168,7 @@ def station_notices(points: Iterable[DisruptedPoint], now: datetime) -> list[Not
         # it for a short one that reads better.
         _, colon, rest = point.description.partition(":")
         detail = rest.strip() if colon else point.description.strip()
-        text = f"{_short_station_name(point.common_name)}: {detail}"
+        text = say("notice.station.text", station=_short_station_name(point.common_name), detail=detail)
         # TfL often lists the same notice more than once, for different dates.
         if text not in seen:
             seen.add(text)
@@ -180,7 +179,12 @@ def station_notices(points: Iterable[DisruptedPoint], now: datetime) -> list[Not
 def road_notices(disruptions: Iterable[RoadDisruption]) -> list[Notice]:
     """Make the notices for the serious and severe road disruptions among `disruptions` (already the nearby ones)."""
     return [
-        Notice(_("Roads"), ROAD_SEVERITY[d.severity], f"{d.category}: {d.comments}", d.end_date_time)
+        Notice(
+            say("notice.road.tag"),
+            ROAD_SEVERITY[d.severity],
+            say("notice.road.text", category=d.category, comments=d.comments),
+            d.end_date_time,
+        )
         for d in disruptions
         if d.severity in ROAD_SEVERITY
     ]

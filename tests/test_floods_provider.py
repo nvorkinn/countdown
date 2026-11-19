@@ -342,7 +342,7 @@ def test_urllib3s_retry_warnings_which_quote_the_coordinates_are_kept_out(
     session.trust_env = False  # straight to the closed port, not through a proxy
     located.put(place_of("SE17 3LL"))
     provider = FloodsProvider(session, located.reader, now=clock)
-    provider.in_force = (clock.now, FloodWarningsResponse())  # only the flood areas are asked for
+    provider.in_force = (clock.now, FloodWarningsResponse(items=[]))  # only the flood areas are asked for
     caplog.set_level(logging.DEBUG)
 
     assert asyncio.run(provider.fetch(["SE17 3LL"])) == {}

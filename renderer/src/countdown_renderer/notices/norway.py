@@ -1,7 +1,8 @@
 """The notice board's sources for a Norwegian postcode: its public holidays (worked out here) and weather warnings.
 
 The warnings are MET Norway's MetAlerts, from the store: the MetAlerts provider fetches them for all of Norway, and the
-board picks out its place's. What the providers ask MET and Kartverket, and where, is norway_feed's.
+board picks out its place's. What the providers ask MET and Kartverket, and where, is norway_feed's. Both are worded
+from countdown-api's messages (notices.messages), as a touchscreen's are.
 """
 
 import itertools
@@ -11,8 +12,9 @@ from typing import TYPE_CHECKING, override
 from zoneinfo import ZoneInfo
 
 from countdown_renderer.notices.calendar import when
+from countdown_renderer.notices.messages import say
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
-from countdown_shared.i18n import N_, _, format_date, language
+from countdown_shared.i18n import format_date, language
 from countdown_shared.store import keys, reader
 from countdown_shared.store.metalerts import StoredMetAlerts
 
@@ -43,22 +45,22 @@ def _easter(year: int) -> date:
 def norwegian_holidays(year: int) -> list[tuple[date, str]]:
     """List Norway's public holidays (helligdager and the two statutory days, 1 and 17 May), in date order.
 
-    Their English names are marked for translation.
+    Each by its key in notice.holiday.name, which words it.
     """
     easter = _easter(year)
     holidays = [
-        (date(year, 1, 1), N_("New Year's Day")),
-        (easter - timedelta(days=3), N_("Maundy Thursday")),
-        (easter - timedelta(days=2), N_("Good Friday")),
-        (easter, N_("Easter Sunday")),
-        (easter + timedelta(days=1), N_("Easter Monday")),
-        (date(year, 5, 1), N_("Labour Day")),
-        (date(year, 5, 17), N_("Constitution Day")),
-        (easter + timedelta(days=39), N_("Ascension Day")),
-        (easter + timedelta(days=49), N_("Whit Sunday")),
-        (easter + timedelta(days=50), N_("Whit Monday")),
-        (date(year, 12, 25), N_("Christmas Day")),
-        (date(year, 12, 26), N_("Boxing Day")),
+        (date(year, 1, 1), "new_year"),
+        (easter - timedelta(days=3), "maundy_thursday"),
+        (easter - timedelta(days=2), "good_friday"),
+        (easter, "easter_sunday"),
+        (easter + timedelta(days=1), "easter_monday"),
+        (date(year, 5, 1), "labour_day"),
+        (date(year, 5, 17), "constitution_day"),
+        (easter + timedelta(days=39), "ascension_day"),
+        (easter + timedelta(days=49), "whit_sunday"),
+        (easter + timedelta(days=50), "whit_monday"),
+        (date(year, 12, 25), "christmas_day"),
+        (date(year, 12, 26), "boxing_day"),
     ]
     return sorted(holidays)
 
@@ -85,15 +87,12 @@ class NorwegianHolidaySource(NoticeSource):
             return []
         day, name = upcoming[0]
         ends = datetime.combine(day + timedelta(days=1), time(), tzinfo=NORWAY_TIME)
-        return [Notice(_("Public holiday"), Severity.REMINDER, f"{when(day, today)}: {_(name)}", ends)]
+        text = say("notice.holiday.text", when=when(day, today), name=say("notice.holiday.name", holiday=name))
+        return [Notice(say("notice.holiday.public_tag"), Severity.REMINDER, text, ends)]
 
 
+# By MetAlerts' colour, which notice.weather.warning words too.
 SEVERITY_BY_COLOUR = {"red": Severity.SEVERE, "orange": Severity.WARNING, "yellow": Severity.INFO}
-WARNING_BY_COLOUR = {
-    "red": N_("Red warning: {hazard}"),
-    "orange": N_("Orange warning: {hazard}"),
-    "yellow": N_("Yellow warning: {hazard}"),
-}
 
 
 def _colour(properties: dict) -> str | None:
@@ -121,11 +120,11 @@ def parse_metalerts(payload: dict, now: datetime) -> list[Notice]:
         valid_until = datetime.fromisoformat(interval[-1]) if interval else None
         if valid_until is not None and valid_until < now:
             continue
-        text = _(WARNING_BY_COLOUR[colour]).format(hazard=hazard.lower())
+        text = say("notice.weather.warning", colour=colour, hazard=hazard.lower())
         local = valid_until.astimezone(NORWAY_TIME) if valid_until is not None else None
         if local is not None:
             # Like the Met Office's: "until Fri 21:00", the board adding the time in the screen's clock format.
-            text += " " + _("until {day}").format(day=format_date(local.date(), "EEE"))
+            text += " " + say("notice.until", when=format_date(local.date(), "EEE"))
         notices.append(Notice("MET", SEVERITY_BY_COLOUR[colour], text, valid_until, display_time=local))
     return notices
 

@@ -17,25 +17,23 @@ provider-locations places the UK postcodes, and postcode districts, that weather
 (weather_postcode): a screen whose weather is a typed postcode is subscribed as its slug (`sw1a-1aa`), and the
 weather provider reads where it is from here rather than ask postcodes.io.
 A district's key (`v1:location:SE17`) holds its centre, with the district for its postcode.
+
+The value is the store contract's StoredLocation (countdown-api's store.yaml: `location`), with its Postcode, as
+countdown-server reads it too (for MetAlerts' place in a touchscreen's notices). The contract's location.json
+(countdown_api.fixtures) is an example. StoredLocation here is the contract's, checking too what its schema only
+describes: a found postcode has a location, and one that wasn't found has none.
 """
 
 from typing import Self
 
 from pydantic import model_validator
 
+from countdown_api import models
 from countdown_shared.notices.location import FULL_POSTCODE, OUTCODE
-from countdown_shared.store.models import Stored
-from countdown_shared.tfl.models import Postcode  # noqa: TC001 -- pydantic needs it at runtime
 
 
-class StoredLocation(Stored):
+class StoredLocation(models.StoredLocation):
     """Where a postcode is, as looked up at `fetched_at`; or that it isn't one postcodes.io or Kartverket know."""
-
-    # As `v1:sub:postcode` has it ("SE17 3LL", "0150"); for a weather key's, as weather_postcode() gives it ("SE17").
-    postcode: str
-    # False for a postcode that doesn't exist (a typo, or one that's been terminated): it has no location.
-    found: bool
-    location: Postcode | None = None
 
     @model_validator(mode="after")
     def _found_has_a_location(self) -> Self:

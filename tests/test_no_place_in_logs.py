@@ -404,7 +404,8 @@ def place_provider(kind: str, located: FakeLocations, session: requests.Session)
         return MetOfficeProvider(session, located.reader, now=lambda: NOW)
     if kind == "floods":
         floods = FloodsProvider(session, located.reader, now=lambda: NOW)
-        floods.in_force = (NOW, FloodWarningsResponse())  # asked for already: then the flood areas near each place
+        # Asked for already: then the flood areas near each place.
+        floods.in_force = (NOW, FloodWarningsResponse(items=[]))
         return floods
     return TflRoadProvider(TflSource(session), located.reader, now=lambda: NOW)
 

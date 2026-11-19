@@ -7,6 +7,11 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator
 
+# Where a postcode is, in the fields the notice board uses, is the store contract's (countdown-api's Postcode, which the
+# value of `v1:location:<place>` holds), imported from there: postcodes.io's answer is read straight into it, and the
+# notice board's callers name it from here.
+from countdown_api.models import Postcode
+
 
 class Mode(StrEnum):
     """A TfL mode of transport, as its modeName."""
@@ -278,19 +283,6 @@ class RoadDisruption(TflDisruptionModel):
     # "[lon,lat]" as a string.
     point: str | None = None
     end_date_time: datetime | None = Field(alias="endDateTime", default=None)
-
-
-class Postcode(BaseModel):
-    """The parts of postcodes.io's /postcodes/{postcode} the notice board uses."""
-
-    postcode: str
-    latitude: float
-    longitude: float
-    country: str
-    # English region ("London", "South East", ...); null outside England.
-    region: str | None = None
-    # Local authority, e.g. "Southwark" or, in Scotland, the council area.
-    admin_district: str | None = None
 
 
 class PostcodeResponse(BaseModel):

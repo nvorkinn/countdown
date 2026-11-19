@@ -64,13 +64,13 @@ def test_a_postcode_kartverket_has_no_address_for_is_unknown(api):
 def test_the_holidays_follow_easter():
     holidays = norwegian_holidays(2027)  # Easter Sunday is 28 March 2027
     for day, name in [
-        (date(2027, 3, 25), "Maundy Thursday"),
-        (date(2027, 3, 29), "Easter Monday"),
-        (date(2027, 5, 6), "Ascension Day"),
-        (date(2027, 5, 16), "Whit Sunday"),
+        (date(2027, 3, 25), "maundy_thursday"),
+        (date(2027, 3, 29), "easter_monday"),
+        (date(2027, 5, 6), "ascension_day"),
+        (date(2027, 5, 16), "whit_sunday"),
         # Whit Monday falls on Constitution Day this year: both are there.
-        (date(2027, 5, 17), "Constitution Day"),
-        (date(2027, 5, 17), "Whit Monday"),
+        (date(2027, 5, 17), "constitution_day"),
+        (date(2027, 5, 17), "whit_monday"),
     ]:
         assert (day, name) in holidays
 
@@ -88,7 +88,7 @@ def test_the_next_holiday_is_mentioned_once_less_than_a_month_away():
 
 def test_the_new_year_is_found_across_the_year_end():
     [notice] = NorwegianHolidaySource(requests.Session()).fetch(datetime(2026, 12, 31, 12, tzinfo=UTC))
-    assert notice.text == "Tomorrow: New Year's Day"
+    assert notice.text == "Tomorrow: New Year’s Day"  # noqa: RUF001 -- the catalogue's apostrophe
 
 
 METALERTS = {

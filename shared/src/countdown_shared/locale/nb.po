@@ -54,39 +54,14 @@ msgstr "Apple Music"
 msgid "Arrivals"
 msgstr "Ankomster"
 
-msgid "Ascension Day"
-msgstr "Kristi himmelfartsdag"
-
-msgid "Boxing Day"
-msgstr "2. juledag"
-
 msgid "Buses"
 msgstr "Busser"
 
 msgid "CURRENT CONDITIONS"
 msgstr "VÆRET NÅ"
 
-msgid "Christmas Day"
-msgstr "1. juledag"
-
 msgid "Clear sky"
 msgstr "Skyfritt"
-
-msgid "Clocks"
-msgstr "Klokker"
-
-#, python-brace-format
-msgid "Clocks go back an hour {when}, at"
-msgstr "Klokken stilles tilbake en time {when}, kl."
-
-#. Translators: {when} is "tonight" or "on Sun 25 Oct". The screen adds the
-#. time after it ("01:00" or "1:00 AM").
-#, python-brace-format
-msgid "Clocks go forward an hour {when}, at"
-msgstr "Klokken stilles frem en time {when}, kl."
-
-msgid "Constitution Day"
-msgstr "Grunnlovsdag"
 
 msgid "Could not connect"
 msgstr "Tilkobling feilet"
@@ -133,12 +108,6 @@ msgstr "EEEE d. MMMM"
 msgid "Earlier"
 msgstr "Tidligere"
 
-msgid "Easter Monday"
-msgstr "2. påskedag"
-
-msgid "Easter Sunday"
-msgstr "1. påskedag"
-
 msgid "Energy"
 msgstr "Energi"
 
@@ -148,24 +117,12 @@ msgstr "FEIL"
 msgid "Feels like"
 msgstr "Føles som"
 
-msgid "Flood alert"
-msgstr "Flomvarsel"
-
-msgid "Flood warning"
-msgstr "Flomfare"
-
-msgid "Floods"
-msgstr "Flom"
-
 msgid "Fog"
 msgstr "Tåke"
 
 #, python-brace-format
 msgid "Go to {site}"
 msgstr "Gå til {site}"
-
-msgid "Good Friday"
-msgstr "Langfredag"
 
 msgid "HIGH"
 msgstr "HØY"
@@ -198,9 +155,6 @@ msgstr "SISTE {period}"
 msgid "LOW"
 msgstr "LAV"
 
-msgid "Labour Day"
-msgstr "Arbeidernes dag"
-
 msgid "Last 24 hours (kWh)"
 msgstr "Siste 24 timer (kWh)"
 
@@ -231,9 +185,6 @@ msgstr "Lavest"
 
 msgid "Mainly clear"
 msgstr "Stort sett klart"
-
-msgid "Maundy Thursday"
-msgstr "Skjærtorsdag"
 
 msgid "Mixed skies"
 msgstr "Varierende skydekke"
@@ -276,9 +227,6 @@ msgstr "NV"
 msgid "Needs configuring"
 msgstr "Må konfigureres"
 
-msgid "New Year's Day"
-msgstr "Første nyttårsdag"
-
 msgid "No plans"
 msgstr "Ingen abonnement"
 
@@ -312,10 +260,6 @@ msgstr "NATTEN"
 msgid "OVERNIGHT LOW"
 msgstr "LAVESTE NATTEMPERATUR"
 
-#, python-brace-format
-msgid "Orange warning: {hazard}"
-msgstr "Oransje farevarsel: {hazard}"
-
 msgid "Overcast"
 msgstr "Overskyet"
 
@@ -326,21 +270,11 @@ msgstr "Delvis overskyet"
 msgid "Platform {letter}"
 msgstr "Plattform {letter}"
 
-msgid "Public holiday"
-msgstr "Helligdag"
-
 msgid "RAIN"
 msgstr "REGN"
 
 msgid "Rain"
 msgstr "Regn"
-
-#, python-brace-format
-msgid "Red warning: {hazard}"
-msgstr "Rødt farevarsel: {hazard}"
-
-msgid "Roads"
-msgstr "Veier"
 
 msgid "S"
 msgstr "S"
@@ -353,9 +287,6 @@ msgstr "SV"
 
 msgid "Set up this display"
 msgstr "Sett opp denne skjermen"
-
-msgid "Severe flood warning"
-msgstr "Alvorlig flomfare"
 
 msgid "Slight rain"
 msgstr "Lett regn"
@@ -443,18 +374,8 @@ msgstr "Været"
 msgid "Weekend"
 msgstr "Helg"
 
-msgid "Whit Monday"
-msgstr "Andre pinsedag"
-
-msgid "Whit Sunday"
-msgstr "Første pinsedag"
-
 msgid "Wind"
 msgstr "Vind"
-
-#, python-brace-format
-msgid "Yellow warning: {hazard}"
-msgstr "Gult farevarsel: {hazard}"
 
 msgid "and enter this code:"
 msgstr "og skriv inn denne koden:"
@@ -482,10 +403,6 @@ msgstr "min"
 msgid "now"
 msgstr "nå"
 
-#, python-brace-format
-msgid "on {day}"
-msgstr "på {day}"
-
 msgid "open PRs"
 msgstr "åpne PR-er"
 
@@ -499,13 +416,6 @@ msgstr "deretter {times} min"
 
 msgid "to review"
 msgstr "til gjennomgang"
-
-msgid "tonight"
-msgstr "i kveld"
-
-#, python-brace-format
-msgid "until {day}"
-msgstr "til {day}"
 
 #, python-brace-format
 msgid "{line} line"

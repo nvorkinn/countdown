@@ -21,16 +21,20 @@ countdown_api.keys (its builders say what each holds, its TTL, and who writes an
   (`weather`); and the notice board's TfL line status and station disruptions by stop (`tfl_line_status`,
   `tfl_stations`), TfL road disruptions and Met Office warnings by postcode (`tfl_roads`, `met_office`, by `place`),
   gov.uk's bank holidays (BANK_HOLIDAYS), every Tube line's status (TFL_NETWORK) and Entur's situations at a stop
-  (`entur_situations`). Each has its TTL beside it (DEPARTURES_TTL_S, WEATHER_TTL_S...).
+  (`entur_situations`), and, for the notice board of a place, where its postcode is (`location`, by `place`), the
+  Environment Agency's flood warnings near a UK one (`floods`, by `place`) and MET Norway's weather warnings for all of
+  Norway (METALERTS, through `metalerts`). Each has its TTL beside it (DEPARTURES_TTL_S, WEATHER_TTL_S, LOCATION_TTL_S,
+  FLOODS_TTL_S, METALERTS_TTL_S...).
 - The weather panel's backgrounds (written by the background provider, read by countdown-server): a place's day of
   them by weather key (`background`) and each picture's own bytes by its SHA-256 (`background_image`, not JSON), for
   the places in `v1:sub:background` (BACKGROUND), each with what the broker says of it beside it (`background_place`).
 - The render queue's keys the broker writes too: RENDER_JOBS, RENDER_SCREENS and `render_queued`. See
   store.render_queue.
 
-Defined here are the keys only this repository writes and reads: where a postcode is (`location`, LOCATION_CHANGED), the
-notices countdown-server doesn't read (`floods`, `metalerts`), a TfL stop's coming timetabled
-departures (`timetable`), and the render pool's own lease and follow-up flag.
+Defined here are the keys only this repository writes and reads: the channel provider-locations nudges when a postcode's
+place is new or has moved (LOCATION_CHANGED), a notice text's short form (`notice_short`), a TfL stop's coming
+timetabled departures (`timetable`), and the render pool's own lease and follow-up flag; and `place`, the id the keys by
+postcode use, and `metalerts`, METALERTS's key as a call, as its callers name it.
 """
 
 from countdown_api.keys import (
@@ -46,9 +50,13 @@ from countdown_api.keys import (
     ENERGY_TTL_S,
     ENTUR,
     ENTUR_SITUATIONS_TTL_S,
+    FLOODS_TTL_S,
     FRAME_TTL_S,
     GLOW,
+    LOCATION_TTL_S,
     MET_OFFICE_TTL_S,
+    METALERTS,
+    METALERTS_TTL_S,
     PACE_TTL_S,
     PAIRING_TTL_S,
     PARCELS_TTL_S,
@@ -79,7 +87,9 @@ from countdown_api.keys import (
     developer,
     energy,
     entur_situations,
+    floods,
     frame,
+    location,
     met_office,
     pace,
     pairing,
@@ -110,9 +120,13 @@ __all__ = [
     "ENERGY_TTL_S",
     "ENTUR",
     "ENTUR_SITUATIONS_TTL_S",
+    "FLOODS_TTL_S",
     "FRAME_TTL_S",
     "GLOW",
     "LOCATION_CHANGED",
+    "LOCATION_TTL_S",
+    "METALERTS",
+    "METALERTS_TTL_S",
     "MET_OFFICE_TTL_S",
     "NOTICE_SHORT_FAILED_TTL_S",
     "NOTICE_SHORT_TTL_S",
@@ -176,18 +190,6 @@ def place(postcode: str) -> str:
     return postcode.replace(" ", "").upper()
 
 
-def location(postcode: str) -> str:
-    """Return the key of where a postcode from `v1:sub:postcode` is, e.g. `v1:location:SE173LL`, `v1:location:0150`.
-
-    Written by provider-locations, the one process that looks postcodes up (postcodes.io, Kartverket), with a TTL of
-    days; holds a countdown_shared.store.location.StoredLocation, which says so when the postcode doesn't exist. The
-    notice board, and the providers of notices about a place (Met Office, floods, TfL roads), read it rather than look
-    a postcode up themselves; so does the weather provider, for a weather key that's a typed postcode's slug
-    (store.location.weather_postcode), which provider-locations places too.
-    """
-    return f"{PREFIX}:location:{place(postcode)}"
-
-
 # The channel provider-locations publishes on (empty payload) after writing a postcode's place that's new or has
 # moved, so the providers that read `v1:location:` keys run a cycle then rather than at their next tick.
 LOCATION_CHANGED = f"{PREFIX}:location:changed"
@@ -213,26 +215,12 @@ def render_again(device_id: str) -> str:
     return f"{PREFIX}:render:again:{device_id}"
 
 
-# The notice board's sources only this side reads, one key per source and what it's fetched for (the TfL, Met Office
-# and bank holidays keys and Entur's situations are the contract's). Keys by place use `place`.
-
-
-def floods(postcode: str) -> str:
-    """Return the key of the Environment Agency's flood warnings near a UK postcode, e.g. `v1:notices:floods:SE173LL`.
-
-    Written by provider-floods; holds a countdown_shared.store.floods.StoredFloods.
-    """
-    return f"{PREFIX}:notices:floods:{place(postcode)}"
-
-
 def metalerts() -> str:
-    """Return the key of MET Norway's current weather warnings, for all of Norway: `v1:notices:metalerts`.
+    """Return the key of MET Norway's current weather warnings, for all of Norway: METALERTS, `v1:notices:metalerts`.
 
-    One key, not one per place: MetAlerts answers for the whole country at once, and each notice board picks out the
-    warnings whose area covers its postcode. Written by provider-metalerts; holds a
-    countdown_shared.store.metalerts.StoredMetAlerts.
+    The store contract's (countdown_api.keys.METALERTS), which says what it holds; a call, as its callers here name it.
     """
-    return f"{PREFIX}:notices:metalerts"
+    return METALERTS
 
 
 def notice_short(digest: str) -> str:

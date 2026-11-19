@@ -2,7 +2,8 @@
 
 The strings are countdown-api's (countdown_api.messages), formatted by ICU's MessageFormat (icu4py). What `say` must
 return for each id the renderer uses is what gettext returned for the text it replaced, in English and in Norwegian,
-so nothing drawn changed when the words moved.
+so nothing drawn changed when the words moved (but for the English New Year's Day's apostrophe, now the typographic
+one, as the catalogue has it).
 """
 
 import ast
@@ -28,6 +29,61 @@ SAID = [
         "Oransje farevarsel: rain",
     ),
     ("notice.weather.warning", {"colour": "yellow", "hazard": "ice"}, "Yellow warning: ice", "Gult farevarsel: ice"),
+    (
+        "notice.weather.warning",
+        {"colour": "orange", "hazard": "kraftig vind"},
+        "Orange warning: kraftig vind",
+        "Oransje farevarsel: kraftig vind",
+    ),
+    (
+        "notice.station.text",
+        {"station": "Elephant & Castle", "detail": "No step-free access"},
+        *["Elephant & Castle: No step-free access"] * 2,
+    ),
+    ("notice.road.tag", {}, "Roads", "Veier"),
+    (
+        "notice.road.text",
+        {"category": "Collisions", "comments": "[A2] Old Kent Road"},
+        *["Collisions: [A2] Old Kent Road"] * 2,
+    ),
+    ("notice.flood.tag", {}, "Floods", "Flom"),
+    ("notice.flood.title", {"level": "severe"}, "Severe flood warning", "Alvorlig flomfare"),
+    ("notice.flood.title", {"level": "warning"}, "Flood warning", "Flomfare"),
+    ("notice.flood.title", {"level": "alert"}, "Flood alert", "Flomvarsel"),
+    (
+        "notice.flood.text",
+        {"title": "Flood alert", "area": "Lower River Effra"},
+        *["Flood alert: Lower River Effra"] * 2,
+    ),
+    ("notice.clock.tag", {}, "Clocks", "Klokker"),
+    ("notice.clock.tonight", {}, "tonight", "i kveld"),
+    ("notice.clock.on", {"day": "Sun 25 Oct"}, "on Sun 25 Oct", "på Sun 25 Oct"),
+    (
+        "notice.clock.text",
+        {"direction": "forward", "when": "tonight"},
+        "Clocks go forward an hour tonight, at",
+        "Klokken stilles frem en time tonight, kl.",
+    ),
+    (
+        "notice.clock.text",
+        {"direction": "back", "when": "tonight"},
+        "Clocks go back an hour tonight, at",
+        "Klokken stilles tilbake en time tonight, kl.",
+    ),
+    ("notice.holiday.public_tag", {}, "Public holiday", "Helligdag"),
+    # The catalogue's apostrophe.
+    ("notice.holiday.name", {"holiday": "new_year"}, "New Year’s Day", "Første nyttårsdag"),  # noqa: RUF001
+    ("notice.holiday.name", {"holiday": "maundy_thursday"}, "Maundy Thursday", "Skjærtorsdag"),
+    ("notice.holiday.name", {"holiday": "good_friday"}, "Good Friday", "Langfredag"),
+    ("notice.holiday.name", {"holiday": "easter_sunday"}, "Easter Sunday", "1. påskedag"),
+    ("notice.holiday.name", {"holiday": "easter_monday"}, "Easter Monday", "2. påskedag"),
+    ("notice.holiday.name", {"holiday": "labour_day"}, "Labour Day", "Arbeidernes dag"),
+    ("notice.holiday.name", {"holiday": "constitution_day"}, "Constitution Day", "Grunnlovsdag"),
+    ("notice.holiday.name", {"holiday": "ascension_day"}, "Ascension Day", "Kristi himmelfartsdag"),
+    ("notice.holiday.name", {"holiday": "whit_sunday"}, "Whit Sunday", "Første pinsedag"),
+    ("notice.holiday.name", {"holiday": "whit_monday"}, "Whit Monday", "Andre pinsedag"),
+    ("notice.holiday.name", {"holiday": "christmas_day"}, "Christmas Day", "1. juledag"),
+    ("notice.holiday.name", {"holiday": "boxing_day"}, "Boxing Day", "2. juledag"),
     ("notice.until", {"when": "Fri"}, "until Fri", "til Fri"),
     ("notice.holiday.tag", {}, "Bank holiday", "Offentlig fridag"),
     ("notice.holiday.text", {"when": "Fri 25 Dec", "name": "Christmas Day"}, *["Fri 25 Dec: Christmas Day"] * 2),

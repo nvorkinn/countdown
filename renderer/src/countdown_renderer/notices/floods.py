@@ -1,12 +1,13 @@
 """Flood warnings near the screen: the Environment Agency's, from the store (written by the floods provider).
 
-The renderer never asks the EA itself; the provider fetches each postcode's warnings once for every screen there.
+The renderer never asks the EA itself; the provider fetches each postcode's warnings once for every screen there. Their
+words are countdown-api's messages (notices.messages), as a touchscreen's are.
 """
 
 from typing import TYPE_CHECKING, override
 
+from countdown_renderer.notices.messages import say
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
-from countdown_shared.i18n import N_, _
 from countdown_shared.store import keys, reader
 from countdown_shared.store.floods import StoredFloods
 
@@ -17,11 +18,12 @@ if TYPE_CHECKING:
 
     from countdown_shared.notices.models import FloodWarningsResponse
 
-# severityLevel 4 is "warning no longer in force", which isn't worth showing.
+# By the EA's severityLevel: the notice's severity, and the level notice.flood.title words. 4 is "warning no longer in
+# force", which isn't worth showing.
 SEVERITY_BY_LEVEL = {
-    1: (Severity.SEVERE, N_("Severe flood warning")),
-    2: (Severity.WARNING, N_("Flood warning")),
-    3: (Severity.INFO, N_("Flood alert")),
+    1: (Severity.SEVERE, "severe"),
+    2: (Severity.WARNING, "warning"),
+    3: (Severity.INFO, "alert"),
 }
 
 
@@ -37,8 +39,9 @@ def flood_notices(floods: FloodWarningsResponse) -> list[Notice]:
     notices = []
     for warning in floods.items:
         if warning.severity_level in SEVERITY_BY_LEVEL:
-            severity, label = SEVERITY_BY_LEVEL[warning.severity_level]
-            notices.append(Notice(_("Floods"), severity, f"{_(label)}: {warning.description}"))
+            severity, level = SEVERITY_BY_LEVEL[warning.severity_level]
+            text = say("notice.flood.text", title=say("notice.flood.title", level=level), area=warning.description)
+            notices.append(Notice(say("notice.flood.tag"), severity, text))
     return notices
 
 
