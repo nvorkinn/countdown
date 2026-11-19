@@ -319,7 +319,9 @@ def test_the_bank_holidays_provider_writes_the_contracts_bank_holidays():
     assert provider.ttl_s == BANK_HOLIDAYS["ttl_s"]
 
 
-@pytest.mark.parametrize("example", LOCATION["locations"], ids=[example["postcode"] for example in LOCATION["locations"]])
+@pytest.mark.parametrize(
+    "example", LOCATION["locations"], ids=[example["postcode"] for example in LOCATION["locations"]]
+)
 def test_the_locations_provider_writes_the_contracts_locations(example):
     stored = assert_round_trips(StoredLocation, example["value"])
     assert stored.found == (stored.location is not None)

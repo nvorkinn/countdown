@@ -2,8 +2,8 @@
 
 The bank holidays are gov.uk's, which the bank holidays provider (countdown-providers) writes to the store for all of
 the UK (`v1:notices:bank-holidays`); the board reads them from there and picks its division. The clocks changing is
-worked out here, with no network at all. A bank holiday's words, and "Today" and "Tomorrow", are countdown-api's
-messages (notices.messages), as a touchscreen's are.
+worked out here, with no network at all. Their words, and "Today" and "Tomorrow", are countdown-api's messages
+(notices.messages), as a touchscreen's are.
 """
 
 from datetime import date, datetime, time, timedelta
@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 from countdown_renderer.notices.messages import say
 from countdown_renderer.notices.notice import Notice, NoticeSource, Severity
-from countdown_shared.i18n import N_, _, format_date, local_zone
+from countdown_shared.i18n import _, format_date, local_zone
 from countdown_shared.store import keys, reader
 from countdown_shared.store.bank_holidays import StoredBankHolidays
 
@@ -123,14 +123,6 @@ def next_clock_change(now: datetime, zone: ZoneInfo) -> datetime | None:
     return None
 
 
-# Separate texts for each direction, so a translation can word them differently.
-CLOCKS_GO = {
-    # Translators: {when} is "tonight" or "on Sun 25 Oct". The screen adds the time after it ("01:00" or "1:00 AM").
-    "forward": N_("Clocks go forward an hour {when}, at"),
-    "back": N_("Clocks go back an hour {when}, at"),
-}
-
-
 class ClockChangeSource(NoticeSource):
     """A reminder in the week before the clocks go forward or back, in the screen's time zone. Needs no network."""
 
@@ -154,6 +146,8 @@ class ClockChangeSource(NoticeSource):
         at = change.astimezone(zone) - (after_offset - before_offset)
         today = now.astimezone(zone).date()
         day = before.date()
-        on = _("tonight") if day in (today, today + timedelta(days=1)) else _("on {day}").format(day=when(day, today))
-        text = _(CLOCKS_GO[direction]).format(when=on)
-        return [Notice(_("Clocks"), Severity.REMINDER, text, change, display_time=at)]
+        soon = day in (today, today + timedelta(days=1))
+        on = say("notice.clock.tonight") if soon else say("notice.clock.on", day=when(day, today))
+        # It ends on "at": the board adds the time.
+        text = say("notice.clock.text", direction=direction, when=on)
+        return [Notice(say("notice.clock.tag"), Severity.REMINDER, text, change, display_time=at)]
