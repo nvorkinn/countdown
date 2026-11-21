@@ -17,8 +17,8 @@ updates:
     directory: "/"
     patterns: ["*"]
     multi-ecosystem-group: "dependencies"
-  # .pre-commit-config.yaml's hook revs. Ruff is pinned in both this file and uv.lock; with both entries in the one
-  # group, their bumps land in the same PR and stay in step. ty is not duplicated: the hook runs the one in uv.lock.
+  # .pre-commit-config.yaml's hook revs. Ruff and ty are local hooks that run the uv.lock versions, so the uv entry
+  # bumps those.
   - package-ecosystem: "pre-commit"
     directory: "/"
     patterns: ["*"]

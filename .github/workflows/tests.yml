@@ -41,8 +41,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Restore only: this job installs just the lint group, so it must not save a cache the test jobs would use.
       - name: Set up uv
         uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          save-cache: false
 
       # The hooks' environments, keyed on the config that pins them.
       - name: Cache pre-commit environments
@@ -52,7 +55,7 @@ jobs:
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Run pre-commit
-        run: uvx pre-commit run --all-files --show-diff-on-failure
+        run: uv run --frozen --only-group lint pre-commit run --all-files --show-diff-on-failure
 
   # Type checking, with the ty uv.lock pins. ty resolves imports from the installed dependencies, so this
   # installs what the test job does (from the same uv cache), but none of its system packages.
