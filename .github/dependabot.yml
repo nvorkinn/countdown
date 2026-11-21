@@ -1,30 +1,40 @@
 version: 2
+
+# One daily PR for the whole project: every entry below feeds the `dependencies` multi-ecosystem group, which sets the
+# schedule and the commit message for all of them, and `patterns: ["*"]` puts each of an entry's dependencies in it,
+# major updates included. Security updates are opened separately by GitHub and are not affected by the schedule.
+multi-ecosystem-groups:
+  dependencies:
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore(deps)"
+
 updates:
   # pyproject.toml and uv.lock: the workspace's one lockfile, covering all four member packages (api, core,
   # renderer, providers); api is also a submodule, whose own pyproject and lockfile are not scanned.
   - package-ecosystem: "uv"
     directory: "/"
-    schedule:
-      interval: "daily"
-  # .pre-commit-config.yaml's hook revs. Ruff is pinned in both this file and uv.lock, and Dependabot bumps
-  # each separately (a group can't span ecosystems): merge the two PRs together to keep them in step. ty is not
-  # duplicated: the hook runs the one in uv.lock.
+    patterns: ["*"]
+    multi-ecosystem-group: "dependencies"
+  # .pre-commit-config.yaml's hook revs. Ruff is pinned in both this file and uv.lock; with both entries in the one
+  # group, their bumps land in the same PR and stay in step. ty is not duplicated: the hook runs the one in uv.lock.
   - package-ecosystem: "pre-commit"
     directory: "/"
-    schedule:
-      interval: "weekly"
+    patterns: ["*"]
+    multi-ecosystem-group: "dependencies"
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule:
-      interval: "weekly"
+    patterns: ["*"]
+    multi-ecosystem-group: "dependencies"
   # The render pool's and the providers' images. Their Python follows .python-version, by hand: a newer one
   # than the tests run on goes untested, and can lack wheels.
   - package-ecosystem: "docker"
     directories:
       - "/renderer"
       - "/providers"
-    schedule:
-      interval: "weekly"
+    patterns: ["*"]
+    multi-ecosystem-group: "dependencies"
     ignore:
       - dependency-name: "python"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
@@ -33,8 +43,8 @@ updates:
   # the goldens (see README.md). uv and the other images are left to Dependabot.
   - package-ecosystem: "docker"
     directory: "/dev"
-    schedule:
-      interval: "weekly"
+    patterns: ["*"]
+    multi-ecosystem-group: "dependencies"
     ignore:
       - dependency-name: "python"
   # renderer/deploy/docker-compose.*.yml only reference this project's own images
@@ -42,5 +52,5 @@ updates:
   # Dependabot to bump today; the entry picks up any third-party image added later.
   - package-ecosystem: "docker-compose"
     directory: "/renderer/deploy"
-    schedule:
-      interval: "weekly"
+    patterns: ["*"]
+    multi-ecosystem-group: "dependencies"
