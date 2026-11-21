@@ -30,3 +30,5 @@ rules:
       # leave-alone "# main" comment records that. Only the online audit notices, since it asks GitHub for the tags.
       - all-checks.yml
       - create_global_pr_status.yml
+      # The same for the shared vaultwarden-secrets action, pinned to a commit on nvorkinn/.github's main.
+      - deploy.yml
