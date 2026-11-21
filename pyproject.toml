@@ -16,6 +16,8 @@ dependencies = [
 
 [tool.uv]
 package = false
+# `uv sync` installs the lint tools too, so pre-commit and the lint commands work locally.
+default-groups = ["dev", "lint"]
 
 [tool.uv.sources]
 countdown-api = { workspace = true }
@@ -43,7 +45,16 @@ dev = [
     "pyyaml",
     "responses",
     "ruff",
-    "ty==0.0.91",
+    "ty",
+]
+# The lint jobs' tools (lint.yml, and the file hygiene hooks in tests.yml), run from uv.lock like everything else.
+# CI installs only this group for them (`uv run --only-group lint`).
+lint = [
+    # The shellcheck and hadolint binaries, as wheels.
+    "hadolint-py",
+    "pre-commit",
+    "shellcheck-py",
+    "zizmor",
 ]
 
 [tool.uv.workspace]

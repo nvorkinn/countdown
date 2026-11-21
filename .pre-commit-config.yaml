@@ -18,12 +18,21 @@ repos:
     rev: v8.30.1
     hooks:
       - id: gitleaks
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.5
+  # Ruff from uv.lock, so commits are checked by the same version as CI and Dependabot's uv updates bump it.
+  - repo: local
     hooks:
       - id: ruff-check
-        args: [--fix]
+        name: ruff check
+        entry: uv run --frozen ruff check --force-exclude --fix
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
       - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
   # The whole project at once (not just the files committed), with the ty that uv.lock pins and against the
   # workspace's installed dependencies. A local hook rather than astral-sh/ty-pre-commit: that runs `uv check`, which
   # checks only the workspace root's own package (here, none), so it passes without looking at anything.
