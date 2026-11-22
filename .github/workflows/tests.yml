@@ -249,6 +249,7 @@ jobs:
           echo REDIS_PASSWORD=ci > "$secrets/redis.env"
           echo TFL_APP_KEY= > "$secrets/tfl.env"
           echo OPENAI_API_KEY= > "$secrets/openai.env"
+          echo BINABLE_API_KEY= > "$secrets/binable.env"
           services="$(COUNTDOWN_RENDERER_VERSION=ci SECRETS_DIR="$secrets" \
             docker compose -f renderer/deploy/docker-compose.renderer.yml config --format json \
             | jq -c '.services | to_entries[] | select(.value.image | startswith("ghcr.io/nvorkinn/countdown-renderer:"))
@@ -344,6 +345,7 @@ jobs:
           echo REDIS_PASSWORD=ci > "$secrets/redis.env"
           echo TFL_APP_KEY= > "$secrets/tfl.env"
           echo OPENAI_API_KEY= > "$secrets/openai.env"
+          echo BINABLE_API_KEY= > "$secrets/binable.env"
           services="$(COUNTDOWN_RENDERER_VERSION=ci SECRETS_DIR="$secrets" \
             docker compose -f renderer/deploy/docker-compose.providers.yml config --format json \
             | jq -c '.services | to_entries[] | select(.value.image | startswith("ghcr.io/nvorkinn/countdown-providers:"))')"

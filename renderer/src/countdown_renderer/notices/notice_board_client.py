@@ -9,6 +9,7 @@ from redis.exceptions import RedisError
 
 from countdown_renderer import moment
 from countdown_renderer.abstract_client import NOT_AVAILABLE, AbstractClient
+from countdown_renderer.notices.bins import StoredBinCollectionSource
 from countdown_renderer.notices.calendar import ClockChangeSource, StoredBankHolidaySource
 from countdown_renderer.notices.floods import StoredFloodWarningsSource
 from countdown_renderer.notices.met_office import StoredMetOfficeWarningsSource
@@ -51,6 +52,8 @@ class NoticeBoardSettings:
     style: Style = "hero"
     # Whether the config switches the parcel notices on (its `parcels.enabled`); off if the broker sends no section.
     parcels: bool = False
+    # The household's address as its v1:sub:address member, for its bin collection days; None with none set.
+    address: str | None = None
 
 
 class NoticeBoardClient(AbstractClient[NoticeBoardSettings]):
@@ -68,6 +71,7 @@ class NoticeBoardClient(AbstractClient[NoticeBoardSettings]):
         super().__init__(device_id, config)
         self.postcode = config.postcode
         self.norwegian = config.country == "NO"
+        self.address = config.address
         self.sources: list[NoticeSource] = [ClockChangeSource(self.session)]
         if not config.postcode:
             self.sources.append(self._default_holidays())
@@ -138,6 +142,8 @@ class NoticeBoardClient(AbstractClient[NoticeBoardSettings]):
         self.location = location
         if self.norwegian:
             self.sources += [NorwegianHolidaySource(self.session), StoredMetAlertsSource(self.session, location)]
+            if self.address:
+                self.sources.append(StoredBinCollectionSource(self.session, self.address))
         else:
             self.sources += [
                 StoredBankHolidaySource(location.country),

@@ -686,6 +686,23 @@ def test_oslo_screen_in_norwegian(snapshot):
     snapshot.assert_matches("screen_oslo_norwegian", img)
 
 
+def test_oslo_screen_with_the_bins_going_out_tomorrow(snapshot):
+    """A Norwegian board with its household's address: the next bin collection, beside a public holiday."""
+    set_locale("nb", "Europe/Oslo")
+    try:
+        panel = CombinedArrivalPanel([EnturArrivalPanel(MAJORSTUEN, BUSY_METRO_DEPARTURES)])
+        notices = NoticeBoardPanel(
+            [
+                Notice("Avfall", Severity.REMINDER, "I morgen: Papir, Restavfall"),
+                Notice("Helligdag", Severity.REMINDER, "fre. 25. des.: 1. juledag"),
+            ]
+        )
+        img = _draw(_panels(panel, notices=notices))
+    finally:
+        set_locale("en", "Europe/London")
+    snapshot.assert_matches("screen_oslo_bins", img)
+
+
 def _rotating_arrivals() -> CombinedArrivalPanel:
     """Show the first of three pages of stops: one square filled, two empty."""
     return CombinedArrivalPanel(

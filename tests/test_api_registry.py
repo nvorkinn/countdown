@@ -158,6 +158,14 @@ def test_each_client_is_configured_with_its_section_of_the_config():
     assert section_for("notice_board", config) == NoticeBoardSettings(postcode="SE17 3LL")
 
 
+def test_a_norwegian_boards_address_is_its_subscription_member_and_a_uk_boards_is_ignored():
+    address = {"street": "Thorvald Meyers gate", "house_number": "10", "city": "Oslo"}
+    norwegian = make_config(notice_board={"postcode": "0555", "country": "NO", "address": address})
+    assert section_for("notice_board", norwegian).address == "Thorvald Meyers gate|10|0555|Oslo"
+    british = make_config(notice_board={"postcode": "SE17 3LL", "country": "GB", "address": address})
+    assert section_for("notice_board", british).address is None
+
+
 def test_every_panel_is_drawn_in_the_configs_one_style():
     config = make_config(style={"drawing": "card"}, spotify={"enabled": True}, notice_board={"postcode": "SE17 3LL"})
 

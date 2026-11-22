@@ -69,7 +69,7 @@ Set up once in the repo's settings (see also the [README](../../../README.md#one
 ## Providers
 
 One service per provider: `tfl`, `tfl-notices`, `entur`, `entur-situations`, `weather`, `met-office`,
-`bank-holidays`, `floods`, `metalerts`, `locations` and `background`. The pool reads what they write, so a panel has nothing to draw until its provider has written.
+`bank-holidays`, `floods`, `metalerts`, `bins`, `locations` and `background`. The pool reads what they write, so a panel has nothing to draw until its provider has written.
 Providers fetch as they start, so that takes seconds. See [the providers](../../providers/README.md) for what each
 writes and how to check.
 
