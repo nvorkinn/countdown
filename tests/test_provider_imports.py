@@ -8,6 +8,7 @@ import pytest
 PROVIDERS = [
     "background",
     "bank_holidays",
+    "bins",
     "entur",
     "entur_situations",
     "floods",

@@ -17,6 +17,7 @@ from countdown_renderer.spotify.spotify_client import MusicSettings, SpotifyClie
 from countdown_renderer.style import panel_style
 from countdown_renderer.weather.weather_client import WeatherClient, WeatherSettings
 from countdown_shared.i18n import N_
+from countdown_shared.store.bins import address_member
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -57,11 +58,15 @@ def section_for(name: str, config: EpaperConfig) -> object:
     if name == ClientClasses.TFL.api_name:
         return DeparturesSettings.from_config(config)
     if name == ClientClasses.NOTICE_BOARD.api_name:
+        board = config.notice_board
+        # Only a Norwegian board's: Binable's calendars are asked for in Norway.
+        norwegian_address = board.address if board.country == "NO" else None
         return NoticeBoardSettings(
-            postcode=config.notice_board.postcode,
-            country=config.notice_board.country,
+            postcode=board.postcode,
+            country=board.country,
             style=panel_style(config),
             parcels=config.parcels.enabled,
+            address=address_member(norwegian_address, board.postcode) if norwegian_address and board.postcode else None,
         )
     if name == ClientClasses.SPOTIFY.api_name:
         return MusicSettings.from_config(config)

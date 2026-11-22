@@ -1,0 +1,49 @@
+{
+  "about": "Binable's /api/fetch answer for Thorvald Meyers gate 10, 0555 Oslo (Oslo kommune), on 22 Nov 2026, kept to the kinds of waste it had days for and a few without; the shape with each kind at the top level.",
+  "empty": false,
+  "address": {
+    "street": "Thorvald Meyers gate",
+    "houseNumber": "10",
+    "zip": "0555",
+    "city": "Oslo",
+    "country": "NO",
+    "created": null
+  },
+  "provider": {
+    "name": "Oslo kommune – Renovasjons- og gjenvinningsetaten",
+    "uri": "https://www.oslo.kommune.no/avfall-og-gjenvinning/"
+  },
+  "paper": {
+    "dates": [
+      "2026-11-26",
+      "2026-11-27",
+      "2026-12-03",
+      "2026-12-04"
+    ],
+    "next": "2026-11-26",
+    "nextDays": "4",
+    "last": null
+  },
+  "bio": {
+    "dates": [],
+    "next": null,
+    "nextDays": null,
+    "last": null
+  },
+  "residualWaste": {
+    "dates": [
+      "2026-11-23",
+      "2026-11-30",
+      "2026-12-07"
+    ],
+    "next": "2026-11-23",
+    "nextDays": "1",
+    "last": null
+  },
+  "glassContainer": {
+    "dates": [],
+    "next": null,
+    "nextDays": null,
+    "last": null
+  }
+}

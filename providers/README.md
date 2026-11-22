@@ -36,6 +36,7 @@ Each has a console script `countdown-provider-<name>` and a compose service `<na
 | `met-office` | `v1:sub:postcode`, `v1:location:*` | `v1:notices:met-office:<place>` (30 min) | 5 min |
 | `floods` | `v1:sub:postcode`, `v1:location:*` | `v1:notices:floods:<place>` (30 min) | 5 min |
 | `metalerts` | `v1:sub:postcode` | `v1:notices:metalerts` (30 min) | 5 min |
+| `bins` | `v1:sub:address` | `v1:bins:<sha1 of the address>` (36 h) | 12 h |
 | `bank-holidays` | nothing (`fixed_ids`) | `v1:notices:bank-holidays` (7 days) | 6 h |
 | `locations` | `v1:sub:postcode`, `v1:sub:weather` | `v1:location:<place>` (7 days) | 5 min |
 | `background` | `v1:sub:background`, `v1:background-place:<key>`, `v1:weather:<key>` | `v1:background:<key>` and `v1:background-image:<sha256>` (2 days) | 5 min |
@@ -66,6 +67,9 @@ makes the notices when it draws, in the screen's language:
   UK postcode in it. Floods fetches the Environment Agency's list once and gives each UK postcode the warnings for flood
   areas within 5 km. MetAlerts is one key for all of Norway, fetched only while a Norwegian (four-digit) postcode is
   subscribed, with `If-Modified-Since` and MET's required `User-Agent`.
+- **Bins.** Each Norwegian household's collection days, from Binable (`BINABLE_API_KEY`; its anonymous limit is a
+  handful of requests), asked one address at a time twice a day. 400/404 is stored as not found; after a 429 the rest
+  of the batch keeps what was stored. Addresses are hashed in their keys and never logged.
 - **Bank holidays.** gov.uk's one file for every division, kept a week; an answer missing a division isn't written
   over a good one.
 - **Backgrounds.** The weather panel's AI-made photos for the places the paired touchscreens show, one per part of the
