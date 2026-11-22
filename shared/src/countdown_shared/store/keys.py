@@ -23,7 +23,8 @@ countdown_api.keys (its builders say what each holds, its TTL, and who writes an
   gov.uk's bank holidays (BANK_HOLIDAYS), every Tube line's status (TFL_NETWORK) and Entur's situations at a stop
   (`entur_situations`), and, for the notice board of a place, where its postcode is (`location`, by `place`), the
   Environment Agency's flood warnings near a UK one (`floods`, by `place`) and MET Norway's weather warnings for all of
-  Norway (METALERTS, through `metalerts`). Each has its TTL beside it (DEPARTURES_TTL_S, WEATHER_TTL_S, LOCATION_TTL_S,
+  Norway (METALERTS, through `metalerts`), and a Norwegian household's bin collection days (`bins`, by its address
+  in `v1:sub:address`, ADDRESS). Each has its TTL beside it (DEPARTURES_TTL_S, WEATHER_TTL_S, LOCATION_TTL_S,
   FLOODS_TTL_S, METALERTS_TTL_S...).
 - The weather panel's backgrounds (written by the background provider, read by countdown-server): a place's day of
   them by weather key (`background`) and each picture's own bytes by its SHA-256 (`background_image`, not JSON), for
@@ -38,12 +39,14 @@ postcode use, and `metalerts`, METALERTS's key as a call, as its callers name it
 """
 
 from countdown_api.keys import (
+    ADDRESS,
     ALBUM_ART_TTL_S,
     BACKGROUND,
     BACKGROUND_IMAGE_TTL_S,
     BACKGROUND_TTL_S,
     BANK_HOLIDAYS,
     BANK_HOLIDAYS_TTL_S,
+    BINS_TTL_S,
     DEPARTURES_TTL_S,
     DEVELOPER,
     DEVELOPER_TTL_S,
@@ -82,6 +85,7 @@ from countdown_api.keys import (
     background,
     background_image,
     background_place,
+    bins,
     config,
     departures,
     developer,
@@ -108,12 +112,14 @@ from countdown_api.keys import (
 # are re-exported here so everything here names every key one way. Only the keys this repository alone writes and reads
 # are defined below.
 __all__ = [
+    "ADDRESS",
     "ALBUM_ART_TTL_S",
     "BACKGROUND",
     "BACKGROUND_IMAGE_TTL_S",
     "BACKGROUND_TTL_S",
     "BANK_HOLIDAYS",
     "BANK_HOLIDAYS_TTL_S",
+    "BINS_TTL_S",
     "DEPARTURES_TTL_S",
     "DEVELOPER",
     "DEVELOPER_TTL_S",
@@ -156,6 +162,7 @@ __all__ = [
     "background",
     "background_image",
     "background_place",
+    "bins",
     "config",
     "departures",
     "developer",

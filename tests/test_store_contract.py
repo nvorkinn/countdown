@@ -109,7 +109,8 @@ def test_the_render_reads_the_config_the_broker_stores(client):
     stored = config.read(client, CONFIG["device_id"])
 
     assert stored == CONFIGS.validate_python(CONFIG["value"])
-    assert json.loads(stored.model_dump_json()) == CONFIG["value"]
+    # exclude_unset: a field newer than the broker's value (notice_board.address) reads as its default, unwritten.
+    assert json.loads(stored.model_dump_json(exclude_unset=True)) == CONFIG["value"]
 
 
 def test_the_render_reads_the_pairing_code_the_broker_stores(client):
